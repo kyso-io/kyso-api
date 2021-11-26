@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, OnModuleInit, Scope } from '@nestjs/common';
 import { NotFoundError } from 'src/helpers/errorHandling';
 import { QueryParser } from 'src/helpers/queryParser';
 import { GithubReposProvider } from 'src/modules/github-repos/providers/github-repo.provider';
@@ -21,7 +21,7 @@ function parseConfig(format, data) {
   return config
 }
 
-@Injectable()
+@Injectable({ scope: Scope.REQUEST })
 export class GithubReposService {
   constructor(
     private readonly provider: GithubReposProvider,
@@ -74,6 +74,14 @@ export class GithubReposService {
     return repo
   }
   
+  async getUserByAccessToken(access_token: string) {
+    return this.provider.getUserByAccessToken(access_token);
+  }
+  
+  async getEmailByAccessToken(access_token: string) {
+    return this.provider.getEmailByAccessToken(access_token);
+  }
+
   async getUser() {
     const [user, orgs] = await Promise.all([this.provider.getUser(), this.provider.getOrganizations()])
     const result = {

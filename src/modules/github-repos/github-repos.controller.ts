@@ -92,4 +92,26 @@ export class GithubReposController extends GenericController<Repository> {
     
         return user
     }
+
+    @Get("/user/access_token/:accessToken")
+    @ApiOperation({
+        summary: `Get user's info related to the provided access token`
+    })
+    @ApiResponse({ status: 200, description: `The data of the specified repository`, type: GithubAccount})
+    async getUserByAccessToken(@Param('accessToken') accessToken: string) {
+        const user = await this.reposService.getUserByAccessToken(accessToken)
+        
+        return user
+    }
+
+    @Get("/user/email/access_token/:accessToken")
+    @ApiOperation({
+        summary: `Get user's email related to the provided access token`
+    })
+    @ApiResponse({ status: 200, description: `The data of the specified repository`, type: GithubAccount})
+    async getUserEmailByAccessToken(@Param('accessToken') accessToken: string) {
+        const email = await this.reposService.getEmailByAccessToken(accessToken)
+        
+        return email
+    }
 }

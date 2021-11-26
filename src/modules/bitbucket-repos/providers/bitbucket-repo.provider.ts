@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Scope } from '@nestjs/common';
 import { NotFoundError } from 'src/helpers/errorHandling';
 const axios = require('axios').default;
 
@@ -16,7 +16,7 @@ const repoMapFunction = repo => ({
 
 const DEFAULT_PER_PAGE = 20;
 
-@Injectable()
+@Injectable({ scope: Scope.REQUEST })
 export class BitbucketReposProvider {
   authenticationMethod: string
   authorizationHeader: string

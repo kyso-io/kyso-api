@@ -63,6 +63,14 @@ export class LegacyController {
         return feedback.handler(req, res, next)
     }
 
+    @Get('/test-auth')
+    @ApiOperation({
+        summary: ``
+    })
+    getTestAuth(@Req() req, @Res() res, @Next() next) {
+        console.log(req);
+    }
+
     // api.post(`/sales-request`, bodyParser.json(), salesRequest.handler)
     @Post('/sales-request')
     @ApiOperation({

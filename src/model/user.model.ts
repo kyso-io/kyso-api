@@ -1,6 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { BaseModel } from "./base.model";
-import { Hateoas } from "./hateoas.model";
 
 export class User extends BaseModel {
     @ApiProperty()
@@ -18,4 +17,16 @@ export class User extends BaseModel {
     public email_verified: boolean;
     @ApiProperty()
     public session_token: string;
+    
+    static fromGithubUser(userData: any, emailData: any): User {
+        let newUser = new User();
+        newUser.avatar_url = userData.avatar_url;
+        newUser.username = userData.login;
+        newUser.nickname = userData.name;
+        newUser.email_verified = emailData.verified;
+        newUser.email = emailData.email;
+
+        return newUser;
+    }
+    
 }

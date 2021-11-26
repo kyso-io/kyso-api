@@ -1,3 +1,5 @@
+import { resourceLimits } from "worker_threads"
+
 // const mongo = require("../mongo/index")
 const { MongoClient, ObjectId } = require("mongodb")
 
@@ -111,6 +113,9 @@ function parseForeignKeys(obj) {
       if (key === "_id") result.id = value.toString()
       else if (key === "_created_at") result.created_at = value
       else if (key === "_updated_at") result.updated_at = value
+      // Exception to the rule, is not a security issue as the hash is unique and can't be dehashed, and we need it
+      // to compare it in the login process
+      else if (key === "_hashed_password") result.hashed_password = value
       delete result[key]
     } else if (Object.prototype.toString.call(value) === "[object Object]") result[key] = parseForeignKeys(value)
     else if (Array.isArray(value)) result[key] = result[key].map(parseForeignKeys)

@@ -17,7 +17,9 @@ export class UsersService {
           delete query.filter.team
     
           users = await this.provider.getUsersFromTeam(query, team)
-        } else users = await this.provider.read(query)
+        } else {
+          users = await this.provider.read(query)
+        }
     
         return users
       }
