@@ -27,7 +27,8 @@ export class GithubReposController extends GenericController<Repository> {
     
     @Get()
     @ApiOperation({
-        summary: `By passing in the appropriate options, you can search for available repositories in the linked git provider account`
+        summary: `Get and search repositories`,
+        description: `By passing in the appropriate options, you can search for available repositories in the linked git provider account`
     })
     @ApiResponse({ status: 200, description: `Search results matching criteria`, type: Repository})
     async getRepos(@Query("filter") filter, @Query("page") page, @Query("per_page") perPage, @Req() req) {
@@ -47,7 +48,8 @@ export class GithubReposController extends GenericController<Repository> {
     
     @Get("/:repoOwner/:repoName")
     @ApiOperation({
-        summary: `Fetch data for a repository, after specifying the owner and the name of the repository`
+        summary: `Get a single repository`,
+        description: `Fetch data for a repository, after specifying the owner and the name of the repository`
     })
     @ApiParam({name: 'repoOwner', required: true, description: 'Name of the owner of the repository to fetch', schema: { type: "string"} })
     @ApiParam({name: 'repoName', required: true, description: 'Name of the repository to fetch', schema: { type: "string"} })
@@ -66,7 +68,8 @@ export class GithubReposController extends GenericController<Repository> {
     
     @Get("/:repoOwner/:repoName/:branch/tree")
     @ApiOperation({
-        summary: `Get the tree of a specific repository`
+        summary: `Explore a repository tree`,
+        description: `Get the tree of a specific repository`
     })
     @ApiParam({name: 'repoOwner', required: true, description: 'Name of the owner of the repository to fetch', schema: { type: "string"} })
     @ApiParam({name: 'repoName', required: true, description: 'Name of the repository to fetch', schema: { type: "string"} })
@@ -87,7 +90,8 @@ export class GithubReposController extends GenericController<Repository> {
     
     @Get("/user")
     @ApiOperation({
-        summary: `Get data about the git provider account that was linked with the requesting user account.`
+        summary: `Get git logged user info`,
+        description: `Get data about the git provider account that was linked with the requesting user account.`
     })
     @ApiResponse({ status: 200, description: `The data of the specified repository`, type: GithubAccount})
     async getAuthenticatedUser() {
@@ -100,7 +104,8 @@ export class GithubReposController extends GenericController<Repository> {
 
     @Get("/user/access_token/:accessToken")
     @ApiOperation({
-        summary: `Get user's info related to the provided access token`
+        summary: `Get git user info by access token`,
+        description: `Get data about the git provider account that belongs to the provided access token`
     })
     @ApiParam({name: 'accessToken', required: true, description: `Github's access token related to the user you want to fetch data` , schema: { type: "string"} })
     @ApiResponse({ status: 200, description: `The data of the specified repository`, type: GithubAccount})
@@ -112,7 +117,8 @@ export class GithubReposController extends GenericController<Repository> {
 
     @Get("/user/email/access_token/:accessToken")
     @ApiOperation({
-        summary: `Get user's email related to the provided access token`
+        summary: `Get email user info by access token`,
+        description: `Get email data about the git provider account that belongs to the provided access token`
     })
     @ApiParam({name: 'accessToken', required: true, description: `Github's access token related to the user you want to fetch email data` , schema: { type: "string"} })
     @ApiResponse({ status: 200, description: `The data of the specified repository`, type: GithubAccount})

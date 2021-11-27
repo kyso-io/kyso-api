@@ -22,9 +22,9 @@ export class UsersController extends GenericController<User> {
     
     @Get("/")
     @ApiOperation({
-        summary: 
-            `By passing the appropiate parameters you can fetch and filter the users of the platform.
-            *This endpoint supports filtering*. Refer to the User schema to see available options.`,
+        summary: `Search and fetch users`,
+        description: `By passing the appropiate parameters you can fetch and filter the users of the platform.
+            **This endpoint supports filtering**. Refer to the User schema to see available options.`,
     })
     @ApiResponse({ status: 200, description: `Users matching criteria`, type: User})
     async getUsers(@Req() req, @Res() res, @Query() filters: BaseFilterQuery) {    // <-- Lack of documentation due to inconsistent stuff
@@ -43,8 +43,8 @@ export class UsersController extends GenericController<User> {
     
     @Get("/:userName")
     @ApiOperation({
-        summary: 
-            `Allows fetching content of a specific user passing its name`,
+        summary: `Get an user`,
+        description: `Allows fetching content of a specific user passing its name`,
     })
     @ApiParam({name: 'userName', required: true, description: `Name of the user to fetch` , schema: { type: "string"} })
     @ApiResponse({ status: 200, description: `User matching name`, type: User})

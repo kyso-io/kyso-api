@@ -59,9 +59,10 @@ export class ReportsController extends GenericController<Report> {
 
     @Get("")
     @ApiOperation({
-      summary: `By passing the appropiate parameters you can fetch and filter the reports available to the authenticated user.
-      
-      This endpoint supports filtering. Refer to the Report schema to see available options.`,
+      summary: `Search and fetch reports`,
+      description: 
+        `By passing the appropiate parameters you can fetch and filter the reports available to the authenticated user.<br />
+         **This endpoint supports filtering**. Refer to the Report schema to see available options.`
     })
     @ApiResponse({ status: 200, description: `Reports matching criteria`, type: Report})
     async getReports(@Req() req, @Res() res, @Query() paginationQuery: ReportFilterQuery) {
@@ -79,7 +80,8 @@ export class ReportsController extends GenericController<Report> {
 
       @Get("/:reportOwner/:reportName")
       @ApiOperation({
-        summary: `Allows fetching content of a specific report passing its full name`,
+        summary: `Get a report`,
+        description: `Allows fetching content of a specific report passing its full name`,
       })
       @ApiResponse({ status: 200, description: `Report matching id`, type: Report})
       @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
@@ -93,7 +95,8 @@ export class ReportsController extends GenericController<Report> {
     
       @Post("")
       @ApiOperation({
-        summary: `By passing the appropiate parameters you can create a new report referencing a git repository`,
+        summary: `Create a new report`,
+        description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
       })
       @ApiResponse({ status: 201, description: `Created report object if passed a single Report, or an array of report creation status if passed an array of reports to create (see schemas)`, schema: {
         oneOf: [
@@ -136,7 +139,8 @@ export class ReportsController extends GenericController<Report> {
     
       @Patch("/:reportOwner/:reportName")
       @ApiOperation({
-        summary: `Allows updating content from the specified report`,
+        summary: `Update the specific report`,
+        description: `Allows updating content from the specified report`
       })
       @ApiResponse({ status: 200, description: `Specified report data`, type: Report }) 
       @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
@@ -156,7 +160,8 @@ export class ReportsController extends GenericController<Report> {
     
       @Delete("/:reportOwner/:reportName")
       @ApiOperation({
-        summary: `Allows updating content from the specified report`,
+        summary: `Delete a report`,
+        description: `Allows deleting a specific report`,
       })
       @ApiResponse({ status: 204, description: `Report deleted` }) 
       @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
@@ -169,7 +174,8 @@ export class ReportsController extends GenericController<Report> {
     
       @Post("/:reportOwner/:reportName/pin")
       @ApiOperation({
-        summary: `Allows pinning of the specified report, unpins any other pinned report for owner`,
+        summary: `Toggles the pin of the specified report`,
+        description: `Allows pinning of the specified report, unpins any other pinned report for owner`
       })
       @ApiResponse({ status: 200, description: `Specified report data`, type: Report }) 
       @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
@@ -182,7 +188,8 @@ export class ReportsController extends GenericController<Report> {
     
       @Get("/:reportOwner/:reportName/comments")
       @ApiOperation({
-        summary: `By passing in the appropriate options you can see all the comments of a report`,
+        summary: `Get comments of a report`,
+        description: `By passing in the appropriate options you can see all the comments of a report`
       })
       @ApiResponse({ status: 200, description: `Comments of the specified report`, type: Comment, isArray: true }) 
       @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
@@ -203,7 +210,8 @@ export class ReportsController extends GenericController<Report> {
     
       @Get("/:reportOwner/:reportName/branches")
       @ApiOperation({
-        summary: `By passing in the appropriate options you can see all the branches of a report`,
+        summary: `Get branches of a report`,
+        description: `By passing in the appropriate options you can see all the branches of a report`
       })
       @ApiResponse({ status: 200, description: `Branches of the specified report`, type: Branch, isArray: true }) 
       @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
@@ -222,7 +230,8 @@ export class ReportsController extends GenericController<Report> {
     
       @Get("/:reportOwner/:reportName/:branch/commits")
       @ApiOperation({
-        summary: `By passing in the appropriate options you can see the commits of a branch for the repository the specified report is linked to`
+        summary: `Get commits of a report imported from a git provider`, 
+        description: `By passing in the appropriate options you can see the commits of a branch for the repository the specified report is linked to`
       })
       @ApiResponse({ status: 200, description: `Commits of the specified report branch`, type: Branch, isArray: true }) 
       @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
@@ -243,7 +252,8 @@ export class ReportsController extends GenericController<Report> {
       // todo: this function name is confusing?
       @Get("/:reportOwner/:reportName/:branch/tree/:filePath")
       @ApiOperation({
-        summary: `By passing the hash of a file, get its raw content directly from the source.`
+        summary: `Explore a report tree`, 
+        description: `Get hash of a file for a given report. If the file is a folder, will get information about the files in it too (non-recursively). Path is currently ignored for local reports.`
       })
       @ApiResponse({ status: 200, description: `Content of the requested file`, type: String }) 
       @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
@@ -267,7 +277,8 @@ export class ReportsController extends GenericController<Report> {
     
       @Get("/:reportOwner/:reportName/file/:hash")
       @ApiOperation({
-        summary: `By passing the hash of a file, get its raw content directly from the source.`
+        summary: `Get content of a file`,
+        description: `By passing the hash of a file, get its raw content directly from the source.`
       })
       @ApiResponse({ status: 200, description: `Content of the requested file`, type: String }) 
       @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })

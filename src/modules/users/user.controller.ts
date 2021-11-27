@@ -23,8 +23,8 @@ export class UserController extends GenericController<User> {
     // the frontend
     @Get('')
     @ApiOperation({
-        summary: 
-            `Allows fetching content of the authenticated user`,
+        summary: `Get the authenticated user`,
+        description: `Allows fetching content of the authenticated user`
     })
     @ApiResponse({ status: 200, description: `Authenticated user data`, type: User})
     async getAuthenticatedUser(@Req() req, @Res() res) {    // <-- Lack of documentation due to inconsistent stuff
@@ -40,8 +40,8 @@ export class UserController extends GenericController<User> {
     // TODO: Same here, originally this is in /user not in /users... bad naming as well
     @Patch("/")
     @ApiOperation({
-        summary: 
-            `Allows updating content from the authenticated user`,
+        summary: `Update the authenticated user`,
+        description: `Allows updating content from the authenticated user`
     })
     @ApiResponse({ status: 200, description: `Updated used data`, type: User})
     async updateAuthenticatedUser(@Req() req, @Res() res, @Body() userToUpdate: UpdateUserRequest) {     // <-- Lack of documentation due to inconsistent stuff

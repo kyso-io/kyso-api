@@ -19,6 +19,7 @@ export class AuthController extends GenericController<String> {
     @Post("/login")
     @ApiOperation({
         summary: `Logs an user into Kyso`,
+        description: `Allows existing users to log-in into Kyso`
     })
     @ApiResponse({ status: 200, description: `JWT token related to user`, type: String})
     async login(@Body() login: Login) {

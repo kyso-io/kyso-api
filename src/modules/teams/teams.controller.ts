@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Req } from '@nestjs/common';
-import { ApiBody, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { GenericController } from 'src/generic/controller.generic';
 import { ForbiddenError } from 'src/helpers/errorHandling';
 import { HateoasLinker } from 'src/helpers/hateoasLinker';
@@ -21,6 +21,10 @@ export class TeamsController extends GenericController<Team> {
     }
 
     @Get('/:teamName')
+    @ApiOperation({
+        summary: `Get a team`, 
+        description: `Allows fetching content of a specific team passing its name`
+    })
     @ApiParam({name: 'teamName', required: true, description: `Name of the team to fetch` , schema: { type: "string"} })
     @ApiResponse({ status: 200, description: `Team matching name`, type: Team})
     async getTeam(@Param('teamName') teamName: string, @Req() req) {
@@ -37,6 +41,10 @@ export class TeamsController extends GenericController<Team> {
     }
     
     @Patch("/:teamName")
+    @ApiOperation({
+        summary: `Update the specified team`, 
+        description: `Allows updating content from the specified team`
+    })
     @ApiParam({name: 'teamName', required: true, description: `Name of the team to fetch` , schema: { type: "string"} })
     @ApiResponse({ status: 200, description: `Specified team data`, type: Team})
     async updateTeam(

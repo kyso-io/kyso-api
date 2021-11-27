@@ -23,7 +23,8 @@ export class CommentsController extends GenericController<Comment> {
 
     @Get('/:commentId')
     @ApiOperation({
-        summary: `Allows fetching content of a specific comment passing its identificator`
+        summary: `Get a comment`,
+        description: `Allows fetching content of a specific comment passing its identificator`
     })
     @ApiResponse({ status: 200, description: `Comment matching id`, type: Comment})
     @ApiParam({name: 'commentId', required: true, description: 'Id of the comment to fetch', schema: { type: "string"}, example: "K1bOzHjEmN" })
