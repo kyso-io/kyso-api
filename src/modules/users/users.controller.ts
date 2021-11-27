@@ -24,7 +24,7 @@ export class UsersController extends GenericController<User> {
     @ApiOperation({
         summary: 
             `By passing the appropiate parameters you can fetch and filter the users of the platform.
-            <b>This endpoint supports filtering</b>. Refer to the User schema to see available options.`,
+            *This endpoint supports filtering*. Refer to the User schema to see available options.`,
     })
     @ApiResponse({ status: 200, description: `Users matching criteria`, type: User})
     async getUsers(@Req() req, @Res() res, @Query() filters: BaseFilterQuery) {    // <-- Lack of documentation due to inconsistent stuff

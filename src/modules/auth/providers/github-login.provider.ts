@@ -15,7 +15,6 @@ export class GithubLoginProvider {
         private readonly userService: UsersService,
         private readonly githubService: GithubReposService,
         private readonly jwtService: JwtService) { }
-
     // FLOW: 
     //     * After calling login, frontend should call to 
     // https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_url=${REDIRECT}&state=${RANDOM_STRING} 
@@ -26,8 +25,8 @@ export class GithubLoginProvider {
     async login(code: string): Promise<String> {
         const res = await axios.post(`https://github.com/login/oauth/access_token`,
         {
-            client_id: 'fd2104db7933612eb2d8', // process.env.GITHUB_CLIENT_ID,
-            client_secret: '2307b6f9bc6753040137e9ca8800dcaa7f772736', // process.env.GITHUB_CLIENT_SECRET,
+            client_id: process.env.AUTH_GITHUB_CLIENT_ID,
+            client_secret: process.env.AUTH_GITHUB_CLIENT_SECRET,
             code
         },
         {

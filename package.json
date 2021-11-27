@@ -39,6 +39,7 @@
     "js-yaml": "^4.1.0",
     "mailgun-js": "^0.22.0",
     "mongodb": "^4.2.0",
+    "nestjs-redoc": "^2.2.2",
     "octokit": "^1.7.0",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
