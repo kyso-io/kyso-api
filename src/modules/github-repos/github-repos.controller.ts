@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Post, Query, Req, Res } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { GenericController } from 'src/generic/controller.generic';
 import { HateoasLinker } from 'src/helpers/hateoasLinker';
 import { Repository } from 'src/model/repository.model';
@@ -49,13 +49,15 @@ export class GithubReposController extends GenericController<Repository> {
     @ApiOperation({
         summary: `Fetch data for a repository, after specifying the owner and the name of the repository`
     })
+    @ApiParam({name: 'repoOwner', required: true, description: 'Name of the owner of the repository to fetch', schema: { type: "string"} })
+    @ApiParam({name: 'repoName', required: true, description: 'Name of the repository to fetch', schema: { type: "string"} })
     @ApiResponse({ status: 200, description: `The data of the specified repository`, type: Repository})
     async getRepo(
         @Param('repoOwner') repoOwner: string,
         @Param("repoName") repoName: string,
         @Req() req) {
-        // LOGIN??
-        
+        // LOGIN?? That's req.user? We trust in that?
+                
         const repo = await req.reposService.getRepo(req.user, repoOwner, repoName)
         this.assignReferences(repo)
 
@@ -66,6 +68,9 @@ export class GithubReposController extends GenericController<Repository> {
     @ApiOperation({
         summary: `Get the tree of a specific repository`
     })
+    @ApiParam({name: 'repoOwner', required: true, description: 'Name of the owner of the repository to fetch', schema: { type: "string"} })
+    @ApiParam({name: 'repoName', required: true, description: 'Name of the repository to fetch', schema: { type: "string"} })
+    @ApiParam({name: 'branch', required: true, description: 'Branch to fetch content from. Accepts slashes.', schema: { type: "string"} })
     @ApiResponse({ status: 200, description: `The data of the specified repository`, type: Repository})
     async getRepoTree(
         @Param('repoOwner') repoOwner: string,
@@ -97,6 +102,7 @@ export class GithubReposController extends GenericController<Repository> {
     @ApiOperation({
         summary: `Get user's info related to the provided access token`
     })
+    @ApiParam({name: 'accessToken', required: true, description: `Github's access token related to the user you want to fetch data` , schema: { type: "string"} })
     @ApiResponse({ status: 200, description: `The data of the specified repository`, type: GithubAccount})
     async getUserByAccessToken(@Param('accessToken') accessToken: string) {
         const user = await this.reposService.getUserByAccessToken(accessToken)
@@ -108,6 +114,7 @@ export class GithubReposController extends GenericController<Repository> {
     @ApiOperation({
         summary: `Get user's email related to the provided access token`
     })
+    @ApiParam({name: 'accessToken', required: true, description: `Github's access token related to the user you want to fetch email data` , schema: { type: "string"} })
     @ApiResponse({ status: 200, description: `The data of the specified repository`, type: GithubAccount})
     async getUserEmailByAccessToken(@Param('accessToken') accessToken: string) {
         const email = await this.reposService.getEmailByAccessToken(accessToken)
