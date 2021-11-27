@@ -17,9 +17,12 @@ export class GithubLoginProvider {
         private readonly jwtService: JwtService) { }
 
     // FLOW: 
-    //     * After calling login, frontend should call to <> to get a temporary code
-    //     * Then, frontend should call this method throught the API to get the final access token
-    //     * Finally, should use this access_token for the rest of the methods    
+    //     * After calling login, frontend should call to 
+    // https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_url=${REDIRECT}&state=${RANDOM_STRING} 
+    //       to get a temporary code
+    //     * Then, frontend should call this method throught the API to get the final JWT
+    //     * Finally, should use this JWT for the rest of the methods    
+    //     * The access_token will be stored in MongoDB, so the next operations could be managed as well
     async login(code: string): Promise<String> {
         const res = await axios.post(`https://github.com/login/oauth/access_token`,
         {
@@ -48,20 +51,27 @@ export class GithubLoginProvider {
         
         // Get user's detail
         // Check if the user exists in database, and if not, create it
-        let userInDb = this.userService.getUser({ filter: { email: user.email}})
+        let userInDb = null;
+        try {
+            let userInDb = await this.userService.getUser({ filter: { email: user.email}})
+        } catch(ex) {
+            Logger.log(`User ${user.username} does not exist at Kyso, creating it`);
+        }
 
-        console.log(userInDb);
-
-        // If exists, retrieve their information from database, and check if matches
-        // Specially important to update the access_token property with the new token
-
-        // Build JWT Token here
+        if(userInDb) {
+            // User exists, update accessToken
+            userInDb.accessToken = access_token;
+        } else {
+            // User does not exists, create it
+        }
+        
+        // In any case, generate JWT Token here
         // generate token
         const token = this.jwtService.sign({
             username: user.username,
             nickname: user.nickname,
             // plan: user.plan,
-            id: user.id,
+            id: userInDb.id,
             email: user.email,
             // TODO: USE PERMISSION SYSTEM ;)
             teams: [{

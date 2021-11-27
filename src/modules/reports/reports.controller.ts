@@ -1,5 +1,5 @@
-import { Controller } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
+import { ApiBody, ApiOperation, ApiParam, ApiProperty, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger';
 import { GenericController } from 'src/generic/controller.generic';
 import { HateoasLinker } from 'src/helpers/hateoasLinker';
 import { Report } from 'src/model/report.model';
@@ -8,6 +8,12 @@ import { Validators } from 'src/helpers/validators';
 import { InvalidInputError } from 'src/helpers/errorHandling';
 import { CommentsService } from 'src/modules/comments/comments.service';
 import { ReportsService } from './reports.service';
+import { ReportFilterQuery } from './model/dto/report-filter-query.dto';
+import { CreateReportRequest } from './model/dto/create-report-request.dto';
+import { BatchReportCreation } from './model/dto/batch-report-creation-response.dto';
+import { UpdateReportRequest } from './model/dto/update-report-request.dto';
+import { Comment } from 'src/model/comment.model';
+import { Branch } from 'src/model/branch.model';
 
 const UPDATABLE_FIELDS = [
     "stars",
@@ -35,7 +41,6 @@ export class ReportsController extends GenericController<Report> {
 
     // assigned to null because does not match between documentation and real code...
     assignReferences(report: any/*report: Report*/) {
-    
         report.self_url = HateoasLinker.createRef(`/reports/${report.full_name}`)
         report.branches_url = HateoasLinker.createRef(`/reports/${report.full_name}/branches`)
     
@@ -52,7 +57,15 @@ export class ReportsController extends GenericController<Report> {
         }
     }
 
-    async getReports(req, res) {
+    @Get("")
+    @ApiOperation({
+      summary: `By passing the appropiate parameters you can fetch and filter the reports available to the authenticated user.
+      
+      This endpoint supports filtering. Refer to the Report schema to see available options.`,
+    })
+    @ApiResponse({ status: 200, description: `Reports matching criteria`, type: Report})
+    async getReports(@Req() req, @Res() res, @Query() paginationQuery: ReportFilterQuery) {
+        // Object paginationQuery is there for documentation purposes. A refactor of this method should be done in the future
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) query.sort = { _created_at: -1 }
         if (!query.filter) query.filter = {}
@@ -63,15 +76,34 @@ export class ReportsController extends GenericController<Report> {
         reports.forEach( x => this.assignReferences(x))
         return res.status(200).send(reports)
       }
-    
-      async getReport(req, res) {
+
+      @Get("/:reportOwner/:reportName")
+      @ApiOperation({
+        summary: `Allows fetching content of a specific report passing its full name`,
+      })
+      @ApiResponse({ status: 200, description: `Report matching id`, type: Report})
+      @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
+      @ApiParam({name: 'reportName', required: true, description: 'Name of the report to fetch', schema: { type: "string"} })
+      async getReport(@Req() req, @Res() res) {
         const report = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
     
         this.assignReferences(report)
         return res.status(200).send(report)
       }
     
-      async createReport(req, res) {
+      @Post("")
+      @ApiOperation({
+        summary: `By passing the appropiate parameters you can create a new report referencing a git repository`,
+      })
+      @ApiResponse({ status: 201, description: `Created report object if passed a single Report, or an array of report creation status if passed an array of reports to create (see schemas)`, schema: {
+        oneOf: [
+          { $ref: getSchemaPath(Report) },
+          { $ref: getSchemaPath(BatchReportCreation) },
+        ]
+      }
+      }) 
+      @ApiBody({type: CreateReportRequest, description: "Pass an array to create multiple objects"})
+      async createReport(@Req()req, @Req()res) {
         const owner = req.body.team || req.user.nickname
         if (Array.isArray(req.body.reports)) {
           const promises = req.body.reports.map(report => this.reportsService.createReport(req.user, report, req.body.team))
@@ -102,7 +134,15 @@ export class ReportsController extends GenericController<Report> {
         return res.status(201).send(report)
       }
     
-      async updateReport(req, res) {
+      @Patch("/:reportOwner/:reportName")
+      @ApiOperation({
+        summary: `Allows updating content from the specified report`,
+      })
+      @ApiResponse({ status: 200, description: `Specified report data`, type: Report }) 
+      @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
+      @ApiParam({name: 'reportName', required: true, description: 'Name of the report to fetch', schema: { type: "string"} })
+      @ApiBody({type: UpdateReportRequest})
+      async updateReport(@Req() req, @Res() res) {
         const fields = Object.fromEntries(Object.entries(req.body).filter(entry => UPDATABLE_FIELDS.includes(entry[0])))
     
         const { stars, ...rest } = fields
@@ -114,19 +154,40 @@ export class ReportsController extends GenericController<Report> {
         return res.status(200).send(report)
       }
     
-      async deleteReport(req, res) {
+      @Delete("/:reportOwner/:reportName")
+      @ApiOperation({
+        summary: `Allows updating content from the specified report`,
+      })
+      @ApiResponse({ status: 204, description: `Report deleted` }) 
+      @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
+      @ApiParam({name: 'reportName', required: true, description: 'Name of the report to fetch', schema: { type: "string"} })
+      async deleteReport(@Req() req, @Res() res) {
         await this.reportsService.deleteReport(req.user.objectId, req.params.reportOwner, req.params.reportName);
     
         return res.status(204).send()
       }
     
-      async pinReport(req, res) {
+      @Post("/:reportOwner/:reportName/pin")
+      @ApiOperation({
+        summary: `Allows pinning of the specified report, unpins any other pinned report for owner`,
+      })
+      @ApiResponse({ status: 200, description: `Specified report data`, type: Report }) 
+      @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
+      @ApiParam({name: 'reportName', required: true, description: 'Name of the report to fetch', schema: { type: "string"} })
+      async pinReport(@Req() req, @Res() res) {
         const report = await this.reportsService.pinReport(req.user.objectId, req.params.reportOwner, req.params.reportName);
     
         return res.status(200).send(report)
       }
     
-      async getComments(req, res) {
+      @Get("/:reportOwner/:reportName/comments")
+      @ApiOperation({
+        summary: `By passing in the appropriate options you can see all the comments of a report`,
+      })
+      @ApiResponse({ status: 200, description: `Comments of the specified report`, type: Comment, isArray: true }) 
+      @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
+      @ApiParam({name: 'reportName', required: true, description: 'Name of the report to fetch', schema: { type: "string"} })
+      async getComments(@Req() req, @Res() res) {
         const { id: reportId } = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
     
         const comments = await this.commentsService.getReportComments(reportId)
@@ -140,7 +201,14 @@ export class ReportsController extends GenericController<Report> {
         return res.status(200).send(comments)
       }
     
-      async getBranches(req, res) {
+      @Get("/:reportOwner/:reportName/branches")
+      @ApiOperation({
+        summary: `By passing in the appropriate options you can see all the branches of a report`,
+      })
+      @ApiResponse({ status: 200, description: `Branches of the specified report`, type: Branch, isArray: true }) 
+      @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
+      @ApiParam({name: 'reportName', required: true, description: 'Name of the report to fetch', schema: { type: "string"} })
+      async getBranches(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branches = await this.reportsService.getBranches(reportOwner, reportName)
     
@@ -152,7 +220,15 @@ export class ReportsController extends GenericController<Report> {
         return res.status(200).send(branches)
       }
     
-      async getCommits(req, res) {
+      @Get("/:reportOwner/:reportName/:branch/commits")
+      @ApiOperation({
+        summary: `By passing in the appropriate options you can see the commits of a branch for the repository the specified report is linked to`
+      })
+      @ApiResponse({ status: 200, description: `Commits of the specified report branch`, type: Branch, isArray: true }) 
+      @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
+      @ApiParam({name: 'reportName', required: true, description: 'Name of the report to fetch', schema: { type: "string"} })
+      @ApiParam({name: 'branch', required: true, description: 'Branch to start listing commits from. Accepts slashes', schema: { type: "string"} })
+      async getCommits(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branch = req.params[0]
         const commits = await this.reportsService.getCommits(reportOwner, reportName, branch)
@@ -164,7 +240,17 @@ export class ReportsController extends GenericController<Report> {
         return res.status(200).send(commits)
       }
     
-      async getReportFileHash(req, res) {
+      // todo: this function name is confusing?
+      @Get("/:reportOwner/:reportName/:branch/tree/:filePath")
+      @ApiOperation({
+        summary: `By passing the hash of a file, get its raw content directly from the source.`
+      })
+      @ApiResponse({ status: 200, description: `Content of the requested file`, type: String }) 
+      @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
+      @ApiParam({name: 'reportName', required: true, description: 'Name of the report to fetch', schema: { type: "string"} })
+      @ApiParam({name: 'branch', required: true, description: 'Branch of the repository to fetch data from. Accepts slashes.', schema: { type: "string"} })
+      @ApiParam({name: 'filePath', required: true, description: 'Path of the file to be consulted', schema: { type: "string"} })
+      async getReportFileHash(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branch = req.params[0]
         const hash = await this.reportsService.getFileHash(reportOwner, reportName, branch, req.params[1])
@@ -179,7 +265,15 @@ export class ReportsController extends GenericController<Report> {
         return res.status(200).send(hash)
       }
     
-      async getReportFileContent(req, res) {
+      @Get("/:reportOwner/:reportName/file/:hash")
+      @ApiOperation({
+        summary: `By passing the hash of a file, get its raw content directly from the source.`
+      })
+      @ApiResponse({ status: 200, description: `Content of the requested file`, type: String }) 
+      @ApiParam({name: 'reportOwner', required: true, description: 'Name of the owner of the report to fetch', schema: { type: "string"} })
+      @ApiParam({name: 'reportName', required: true, description: 'Name of the report to fetch', schema: { type: "string"} })
+      @ApiParam({name: 'hash', required: true, description: 'Hash of the file to access', schema: { type: "string"} })
+      async getReportFileContent(@Res() req, @Req() res) {
         const { hash } = req.params
         if (!Validators.isValidSha(hash)) throw new InvalidInputError({ message: "Hash is not a valid sha. Must have 40 hexadecimal characters." })
     
@@ -188,3 +282,4 @@ export class ReportsController extends GenericController<Report> {
         return res.status(200).send(content)
       }
 }
+

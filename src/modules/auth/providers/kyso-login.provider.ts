@@ -31,8 +31,8 @@ export class KysoLoginProvider {
                 teams: [{
                     name: "Team Name",
                     permissions: [
-                    "READ_REPORTS",
-                    "READ_COMMENTS"
+                        "READ_REPORTS",
+                        "READ_COMMENTS"
                     ]}
                 ]
                 },

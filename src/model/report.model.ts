@@ -1,7 +1,9 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiExtraModels, ApiProperty } from "@nestjs/swagger";
+import { BatchReportCreation } from "src/modules/reports/model/dto/batch-report-creation-response.dto";
 import { BaseModel } from "./base.model";
 import { Hateoas } from "./hateoas.model";
 
+@ApiExtraModels(BatchReportCreation)
 export class Report extends BaseModel {
     @ApiProperty()
     public id: string;
