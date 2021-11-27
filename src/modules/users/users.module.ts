@@ -3,6 +3,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { UsersMongoProvider } from './providers/mongo-users.provider';
 import { TeamsModule } from '../teams/teams.module';
+import { UserController } from './user.controller';
 
 @Module({
   imports: [TeamsModule],
@@ -10,7 +11,7 @@ import { TeamsModule } from '../teams/teams.module';
     UsersService,
     UsersMongoProvider
   ],
-  controllers: [ UsersController ],
+  controllers: [ UsersController, UserController ],
   exports: [ UsersService ]
 })
 export class UsersModule {

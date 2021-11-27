@@ -1,10 +1,11 @@
-import { Controller, Get, Param, Patch, Post, Req, Res } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { GenericController } from 'src/generic/controller.generic';
 import { HateoasLinker } from 'src/helpers/hateoasLinker';
 import { QueryParser } from 'src/helpers/queryParser';
 import { User } from 'src/model/user.model';
+import { BaseFilterQuery } from 'src/model/dto/base-filter.dto';
 
 const UPDATABLE_FIELDS = ["email", "nickname", "bio", "accessToken", "access_token"]
 
@@ -26,7 +27,8 @@ export class UsersController extends GenericController<User> {
             <b>This endpoint supports filtering</b>. Refer to the User schema to see available options.`,
     })
     @ApiResponse({ status: 200, description: `Users matching criteria`, type: User})
-    async getUsers(@Req() req, @Res() res) {    // <-- Lack of documentation due to inconsistent stuff
+    async getUsers(@Req() req, @Res() res, @Query() filters: BaseFilterQuery) {    // <-- Lack of documentation due to inconsistent stuff
+        // filters variable is just for documentation purposes. But a refactoring removing Req and Res would be great.
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) query.sort = { _created_at: -1 }
         if (!query.filter) query.filter = {}                // ??? not documented
@@ -40,6 +42,11 @@ export class UsersController extends GenericController<User> {
       }
     
     @Get("/:userName")
+    @ApiOperation({
+        summary: 
+            `Allows fetching content of a specific user passing its name`,
+    })
+    @ApiParam({name: 'userName', required: true, description: `Name of the user to fetch` , schema: { type: "string"} })
     @ApiResponse({ status: 200, description: `User matching name`, type: User})
     async getUser(@Param('userName') userName: string) {
         const user = await this.usersService.getUser({
@@ -50,32 +57,5 @@ export class UsersController extends GenericController<User> {
         this.assignReferences(user)
     
         return user
-    }
-    
-    // TODO: This is in /user not in /users... bad naming
-    @Get('/loggedIn')
-    @ApiResponse({ status: 200, description: `Authenticated user data`, type: User})
-    async getAuthenticatedUser(@Req() req, @Res() res) {    // <-- Lack of documentation due to inconsistent stuff
-        // TODO: Again, where it comes the req.user.objectId... this is not documented in any place
-        const user = await this.usersService.getUserWithSessionAndTeams(req.user.objectId)
-        
-        this.assignReferences(user)
-    
-        return res.status(200).send(user)
-    }
-    
-    
-    // TODO: Same here, originally this is in /user not in /users... bad naming as well
-    @Patch("/")
-    async updateAuthenticatedUser(@Req() req, @Res() res) {     // <-- Lack of documentation due to inconsistent stuff
-        // TODO: Again, where it comes the req.user.objectId... this is not documented in any place
-        const filterObj = { _id: req.user.objectId }
-
-        const fields = Object.fromEntries(Object.entries(req.body).filter(entry => UPDATABLE_FIELDS.includes(entry[0])))
-    
-        const user = await (Object.keys(fields).length === 0 ? this.usersService.getUser({ filter: filterObj })
-          : this.usersService.updateUser(filterObj, { $set: fields }))
-    
-        return res.status(200).send(user)
     }
 }
