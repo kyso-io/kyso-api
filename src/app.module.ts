@@ -6,7 +6,6 @@ import { TeamsModule } from './modules/teams/teams.module';
 import { UsersModule } from './modules/users/users.module';
 import { GithubReposModule } from './modules/github-repos/github-repos.module';
 import { BitbucketReposModule } from './modules/bitbucket-repos/bitbucket-repos.module';
-import { LegacyModule } from './modules/legacy/legacy.module';
 import { AuthModule } from './modules/auth/auth.module';
 @Module({
   imports: [
@@ -17,7 +16,6 @@ import { AuthModule } from './modules/auth/auth.module';
     ReportsModule,
     TeamsModule,
     UsersModule,
-    LegacyModule,
     AuthModule
   ],
   controllers: []

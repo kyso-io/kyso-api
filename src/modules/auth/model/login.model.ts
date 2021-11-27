@@ -6,7 +6,9 @@ export class Login {
     public username?: string;
     @ApiProperty()
     public password: string;
-    @ApiProperty()
+    @ApiProperty({
+        enum: LoginProvider
+    })
     public provider: LoginProvider;
 
     constructor() {
