@@ -21,7 +21,6 @@ async function bootstrap() {
     .setVersion('v1')
     .setLicense("Apache 2.0", "http://www.apache.org/licenses/LICENSE-2.0.html")
     .build();
-    
   
   const document = SwaggerModule.createDocument(app, config);
   
