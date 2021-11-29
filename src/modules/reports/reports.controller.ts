@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common'
+import { Controller, Delete, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common'
 import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { GenericController } from 'src/generic/controller.generic'
 import { HateoasLinker } from 'src/helpers/hateoasLinker'
@@ -14,19 +14,24 @@ import { BatchReportCreation } from './model/dto/batch-report-creation-response.
 import { UpdateReportRequest } from './model/dto/update-report-request.dto'
 import { Comment } from 'src/model/comment.model'
 import { Branch } from 'src/model/branch.model'
+import { UsersService } from '../users/users.service'
+import { User } from 'src/model/user.model'
 
 const UPDATABLE_FIELDS = ['stars', 'tags', 'title', 'description', 'request_private', 'name']
 
 const DEFAULT_GET_REPORT_FILTERS = {
     state: { $ne: 'DELETED' },
     hidden: { $ne: 'true' },
-    pin: { $ne: 'true' },
 }
 
 @ApiTags('reports')
 @Controller('reports')
 export class ReportsController extends GenericController<Report> {
-    constructor(private readonly reportsService: ReportsService, private readonly commentsService: CommentsService) {
+    constructor(
+        private readonly reportsService: ReportsService,
+        private readonly commentsService: CommentsService,
+        private readonly usersService: UsersService,
+    ) {
         super()
     }
 
@@ -101,6 +106,36 @@ export class ReportsController extends GenericController<Report> {
 
         this.assignReferences(report)
         return res.status(200).send(report)
+    }
+
+    @Get('/:reportOwner/pinned')
+    @ApiOperation({
+        summary: `Get pinned reports for an user`,
+        description: `Allows fetching pinned reports of a specific user passing its full name`,
+    })
+    @ApiResponse({
+        status: 200,
+        description: `All the pinned reports of an user`,
+        type: Report,
+        isArray: true,
+    })
+    @ApiParam({
+        name: 'reportOwner',
+        required: true,
+        description: 'Name of the owner of the report to fetch',
+        schema: { type: 'string' },
+    })
+    async getPinnedReportsForAnUser(@Param('reportOwner') reportOwner: string) {
+        const userData: User = await this.usersService.getUser({ username: reportOwner })
+
+        const pinnedReports = await this.reportsService.getReports({ pin: true, _p_user: userData.id })
+
+        const response = []
+        pinnedReports.forEach((report) => {
+            response.push(this.assignReferences(report))
+        })
+
+        return response
     }
 
     @Post('')

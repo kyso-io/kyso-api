@@ -48,6 +48,13 @@ export class ReportsService {
             }
         }
 
+        if (query.filter && query.filter.hasOwnProperty('pin')) {
+            if (query.filter.pin === false) {
+                // If a report has no pin property, we count it as pin=false
+                query.filter.pin = { $ne: 'true' }
+            }
+        }
+
         const reports = await this.provider.getReportsWithOwner(query)
         return reports
     }

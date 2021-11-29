@@ -9,4 +9,12 @@ export class ReportFilterQuery extends BaseFilterQuery {
         required: false,
     })
     owner: string
+
+    @ApiProperty({
+        title: 'Filter by pinned',
+        description: 'Return only reports that are pinned or not',
+        format: 'boolean',
+        required: false,
+    })
+    pin: string
 }
