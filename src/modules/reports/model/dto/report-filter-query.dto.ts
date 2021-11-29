@@ -16,7 +16,7 @@ export class ReportFilterQuery extends BaseFilterQuery {
         format: 'boolean',
         required: false,
     })
-    pin: string
+    pinned: boolean
 
     @ApiProperty({
         title: 'Filter by comma separated tags',
