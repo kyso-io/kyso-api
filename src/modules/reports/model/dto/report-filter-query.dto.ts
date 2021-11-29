@@ -12,9 +12,17 @@ export class ReportFilterQuery extends BaseFilterQuery {
 
     @ApiProperty({
         title: 'Filter by pinned',
-        description: 'Return only reports that are pinned or not',
+        description: 'Return only reports that are pinned',
         format: 'boolean',
         required: false,
     })
     pin: string
+
+    @ApiProperty({
+        title: 'Filter by comma separated tags',
+        description: 'Return only reports that has at least one the tags provided',
+        format: 'string',
+        required: false,
+    })
+    tags: string
 }
