@@ -8,31 +8,43 @@ import { CommentsService } from 'src/modules/comments/comments.service';
 @ApiTags('comments')
 @Controller('comments')
 export class CommentsController extends GenericController<Comment> {
-    constructor(private readonly commentsService: CommentsService) {
-        super();
-    }
+  constructor(private readonly commentsService: CommentsService) {
+    super();
+  }
 
-    assignReferences(comment: Comment) {
-        comment.self_url = HateoasLinker.createRef(`/comment/${comment.id}`)
-        
-        // Recursive!!
-        comment.child_comments.forEach( x => {
-            this.assignReferences(x);
-        })
-    }
+  assignReferences(comment: Comment) {
+    comment.self_url = HateoasLinker.createRef(`/comment/${comment.id}`);
 
-    @Get('/:commentId')
-    @ApiOperation({
-        summary: `Get a comment`,
-        description: `Allows fetching content of a specific comment passing its identificator`
-    })
-    @ApiResponse({ status: 200, description: `Comment matching id`, type: Comment})
-    @ApiParam({name: 'commentId', required: true, description: 'Id of the comment to fetch', schema: { type: "string"}, example: "K1bOzHjEmN" })
-    async getComment(@Param('commentId') commentId: string) {
-        const comment = await this.commentsService.getCommentWithChildren(commentId)
+    // Recursive!!
+    comment.child_comments.forEach((x) => {
+      this.assignReferences(x);
+    });
+  }
 
-        this.assignReferences(comment)
+  @Get('/:commentId')
+  @ApiOperation({
+    summary: `Get a comment`,
+    description: `Allows fetching content of a specific comment passing its identificator`,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Comment matching id`,
+    type: Comment,
+  })
+  @ApiParam({
+    name: 'commentId',
+    required: true,
+    description: 'Id of the comment to fetch',
+    schema: { type: 'string' },
+    example: 'K1bOzHjEmN',
+  })
+  async getComment(@Param('commentId') commentId: string) {
+    const comment = await this.commentsService.getCommentWithChildren(
+      commentId,
+    );
 
-        return comment;
-    }
+    this.assignReferences(comment);
+
+    return comment;
+  }
 }

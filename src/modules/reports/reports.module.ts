@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CommentsModule } from '../comments/comments.module';
 import { GithubReposModule } from '../github-repos/github-repos.module';
-import { TeamsMongoProvider } from '../teams/providers/mongo-teams.provider';
 import { TeamsModule } from '../teams/teams.module';
 import { UsersModule } from '../users/users.module';
 import { LocalReportsService } from './local-reports.service';
@@ -13,26 +12,16 @@ import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 
 @Module({
-  imports: [
-    UsersModule,
-    TeamsModule,
-    CommentsModule,
-    GithubReposModule
-  ],
+  imports: [UsersModule, TeamsModule, CommentsModule, GithubReposModule],
   providers: [
     FilesMongoProvider,
     ReportsMongoProvider,
     VersionsMongoProvider,
     FilesS3Provider,
     ReportsService,
-    LocalReportsService
+    LocalReportsService,
   ],
   controllers: [ReportsController],
-  exports: [
-    ReportsService,
-    LocalReportsService
-  ]
+  exports: [ReportsService, LocalReportsService],
 })
-export class ReportsModule {
-
-}
+export class ReportsModule {}

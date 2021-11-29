@@ -5,16 +5,9 @@ import { GithubReposService } from './github-repos.service';
 import { GithubReposProvider } from './providers/github-repo.provider';
 
 @Module({
-  imports: [
-    forwardRef(() => ReportsModule)
-  ],
-  providers: [
-    GithubReposService,
-    GithubReposProvider
-  ],
+  imports: [forwardRef(() => ReportsModule)],
+  providers: [GithubReposService, GithubReposProvider],
   controllers: [GithubReposController],
-  exports: [ GithubReposService ]
+  exports: [GithubReposService],
 })
-export class GithubReposModule {
-
-}
+export class GithubReposModule {}

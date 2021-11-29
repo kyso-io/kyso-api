@@ -4,17 +4,17 @@ import { Hateoas } from 'src/model/hateoas.model';
 export class BatchReportCreation {
   @ApiProperty({
     required: true,
-    enum: [ "ERROR", "OK"]
+    enum: ['ERROR', 'OK'],
   })
   status: string;
 
   @ApiProperty({
-    required: false
+    required: false,
   })
   reason: string;
 
   @ApiProperty({
-    required: false
+    required: false,
   })
   self_url: Hateoas;
 }

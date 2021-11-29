@@ -7,13 +7,8 @@ import { UserController } from './user.controller';
 
 @Module({
   imports: [TeamsModule],
-  providers: [
-    UsersService,
-    UsersMongoProvider
-  ],
-  controllers: [ UsersController, UserController ],
-  exports: [ UsersService ]
+  providers: [UsersService, UsersMongoProvider],
+  controllers: [UsersController, UserController],
+  exports: [UsersService],
 })
-export class UsersModule {
-
-}
+export class UsersModule {}

@@ -4,13 +4,8 @@ import { CommentsService } from './comments.service';
 import { CommentsMongoProvider } from './providers/mongo-comments.provider';
 
 @Module({
-  providers: [
-    CommentsService,
-    CommentsMongoProvider
-  ],
+  providers: [CommentsService, CommentsMongoProvider],
   controllers: [CommentsController],
-  exports: [CommentsService]
+  exports: [CommentsService],
 })
-export class CommentsModule {
-
-}
+export class CommentsModule {}

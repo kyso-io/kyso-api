@@ -4,13 +4,8 @@ import { BitbucketReposService } from './bitbucket-repos.service';
 import { BitbucketReposProvider } from './providers/bitbucket-repo.provider';
 
 @Module({
-  providers: [ 
-    BitbucketReposService,
-    BitbucketReposProvider
-  ],
+  providers: [BitbucketReposService, BitbucketReposProvider],
   controllers: [BitbucketReposController],
-  exports: [ BitbucketReposService ]
+  exports: [BitbucketReposService],
 })
-export class BitbucketReposModule {
-
-}
+export class BitbucketReposModule {}

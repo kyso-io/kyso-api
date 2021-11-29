@@ -16,8 +16,8 @@ import { AuthModule } from './modules/auth/auth.module';
     ReportsModule,
     TeamsModule,
     UsersModule,
-    AuthModule
+    AuthModule,
   ],
-  controllers: []
+  controllers: [],
 })
 export class AppModule {}

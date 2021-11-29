@@ -4,13 +4,8 @@ import { TeamsService } from './teams.service';
 import { TeamsMongoProvider } from './providers/mongo-teams.provider';
 
 @Module({
-  providers: [
-    TeamsService,
-    TeamsMongoProvider
-  ],
+  providers: [TeamsService, TeamsMongoProvider],
   controllers: [TeamsController],
-  exports: [ TeamsService ]
+  exports: [TeamsService],
 })
-export class TeamsModule {
-
-}
+export class TeamsModule {}

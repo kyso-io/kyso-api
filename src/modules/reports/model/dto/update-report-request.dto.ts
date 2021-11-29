@@ -2,17 +2,17 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateReportRequest {
   @ApiProperty({
-    required: false
+    required: false,
   })
   location: string;
 
   @ApiProperty({
-    required: false
+    required: false,
   })
   link: string;
 
   @ApiProperty({
-    required: false
+    required: false,
   })
   bio: string;
 }

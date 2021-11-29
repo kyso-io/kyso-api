@@ -1,6 +1,5 @@
 export enum LoginProvider {
-    KYSO = 'kyso',
-    GOOGLE = 'google',
-    GITHUB = 'github'
+  KYSO = 'kyso',
+  GOOGLE = 'google',
+  GITHUB = 'github',
 }
-  
