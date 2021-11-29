@@ -1,10 +1,4 @@
-import {
-    forwardRef,
-    Inject,
-    Injectable,
-    OnModuleInit,
-    Scope,
-} from '@nestjs/common'
+import { forwardRef, Inject, Injectable, OnModuleInit, Scope } from '@nestjs/common'
 import { NotFoundError } from 'src/helpers/errorHandling'
 import { QueryParser } from 'src/helpers/queryParser'
 import { GithubReposProvider } from 'src/modules/github-repos/providers/github-repo.provider'
@@ -46,11 +40,7 @@ export class GithubReposService {
     }
 
     async getCommits(repoOwner, repoName, branch) {
-        const commits = await this.provider.getCommits(
-            repoOwner,
-            repoName,
-            branch,
-        )
+        const commits = await this.provider.getCommits(repoOwner, repoName, branch)
 
         return commits
     }
@@ -61,10 +51,7 @@ export class GithubReposService {
                 filter: {
                     'provider.owner': repo.owner,
                     'provider.name': repo.name.toLowerCase(),
-                    _p_user: QueryParser.createForeignKey(
-                        '_User',
-                        user.objectId,
-                    ),
+                    _p_user: QueryParser.createForeignKey('_User', user.objectId),
                 },
             })
 
@@ -72,15 +59,8 @@ export class GithubReposService {
         }
     }
 
-    async getRepos({
-        user,
-        filter,
-        page = 1,
-        perPage = DEFAULT_REPOS_PER_PAGE,
-    }) {
-        const repos = filter
-            ? await this.provider.searchRepos(filter, page, perPage)
-            : await this.provider.getRepos(page, perPage)
+    async getRepos({ user, filter, page = 1, perPage = DEFAULT_REPOS_PER_PAGE }) {
+        const repos = filter ? await this.provider.searchRepos(filter, page, perPage) : await this.provider.getRepos(page, perPage)
 
         await Promise.all(repos.map(this._assignReports(user)))
 
@@ -107,10 +87,7 @@ export class GithubReposService {
     }
 
     async getUser() {
-        const [user, orgs] = await Promise.all([
-            this.provider.getUser(),
-            this.provider.getOrganizations(),
-        ])
+        const [user, orgs] = await Promise.all([this.provider.getUser(), this.provider.getOrganizations()])
         const result = {
             id: user.id,
             login: user.login,
@@ -129,12 +106,7 @@ export class GithubReposService {
     }
 
     async getFileHash(filePath, owner, repo, branch) {
-        const hash = await this.provider.getFileHash(
-            filePath,
-            owner,
-            repo,
-            branch,
-        )
+        const hash = await this.provider.getFileHash(filePath, owner, repo, branch)
         return hash
     }
 
@@ -144,10 +116,7 @@ export class GithubReposService {
     }
 
     async getConfigFile(path, owner, repo, branch) {
-        let regexPath = path
-            .replace(/^\//, '')
-            .replace(/\/$/, '')
-            .replace(/\//, '\\/')
+        let regexPath = path.replace(/^\//, '').replace(/\/$/, '').replace(/\//, '\\/')
         regexPath = regexPath.length ? `${regexPath}/` : ''
         const regex = new RegExp(`^${regexPath}${KYSO_FILE_REGEX}$`)
 

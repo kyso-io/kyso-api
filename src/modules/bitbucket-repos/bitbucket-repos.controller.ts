@@ -13,12 +13,8 @@ export class BitbucketReposController extends GenericController<Repository> {
     }
 
     assignReferences(repo: Repository) {
-        repo.self_url = HateoasLinker.createRef(
-            `/repos/github/${repo.owner}/${repo.name}`,
-        )
-        repo.tree_url = HateoasLinker.createRef(
-            `/repos/github/${repo.owner}/${repo.name}/${repo.default_branch}/tree`,
-        )
+        repo.self_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}`)
+        repo.tree_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}/${repo.default_branch}/tree`)
 
         /* TODO: Does not appear in the documentation... it's correct?
         if (repo.report) repo.reportUrl = HateoasLinker.createRef(`/${repo.report}`)
@@ -36,12 +32,7 @@ export class BitbucketReposController extends GenericController<Repository> {
         description: `Search results matching criteria`,
         type: Repository,
     })
-    async getRepos(
-        @Query('filter') filter,
-        @Query('page') page,
-        @Query('per_page') perPage,
-        @Req() req,
-    ) {
+    async getRepos(@Query('filter') filter, @Query('page') page, @Query('per_page') perPage, @Req() req) {
         // TODO
     }
 
@@ -54,11 +45,7 @@ export class BitbucketReposController extends GenericController<Repository> {
         description: `The data of the specified repository`,
         type: Repository,
     })
-    async getRepo(
-        @Param('repoOwner') repoOwner: string,
-        @Param('repoName') repoName: string,
-        @Req() req,
-    ) {
+    async getRepo(@Param('repoOwner') repoOwner: string, @Param('repoName') repoName: string, @Req() req) {
         // TODO
     }
 
@@ -71,12 +58,7 @@ export class BitbucketReposController extends GenericController<Repository> {
         description: `The data of the specified repository`,
         type: Repository,
     })
-    async getRepoTree(
-        @Param('repoOwner') repoOwner: string,
-        @Param('repoName') repoName: string,
-        @Param('branch') branch: string,
-        @Req() req,
-    ) {
+    async getRepoTree(@Param('repoOwner') repoOwner: string, @Param('repoName') repoName: string, @Param('branch') branch: string, @Req() req) {
         // TODO
     }
 

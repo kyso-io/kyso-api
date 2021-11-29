@@ -65,10 +65,7 @@ export class MongoProvider {
             {
                 $addFields: {
                     [as]: {
-                        $arrayElemAt: [
-                            { $split: [`$${field}`, `${from}$`] },
-                            1,
-                        ],
+                        $arrayElemAt: [{ $split: [`$${field}`, `${from}$`] }, 1],
                     },
                 },
             },
@@ -109,11 +106,7 @@ export class MongoProvider {
         if (!updateQuery.$currentDate) updateQuery.$currentDate = {}
         updateQuery.$currentDate._updated_at = { $type: 'date' }
 
-        const obj = await this.getCollection().findOneAndUpdate(
-            filterQuery,
-            updateQuery,
-            { returnOriginal: false },
-        )
+        const obj = await this.getCollection().findOneAndUpdate(filterQuery, updateQuery, { returnOriginal: false })
 
         return parseForeignKeys(obj.value)
     }
@@ -142,10 +135,8 @@ function parseForeignKeys(obj) {
             // to compare it in the login process
             else if (key === '_hashed_password') result.hashed_password = value
             delete result[key]
-        } else if (Object.prototype.toString.call(value) === '[object Object]')
-            result[key] = parseForeignKeys(value)
-        else if (Array.isArray(value))
-            result[key] = result[key].map(parseForeignKeys)
+        } else if (Object.prototype.toString.call(value) === '[object Object]') result[key] = parseForeignKeys(value)
+        else if (Array.isArray(value)) result[key] = result[key].map(parseForeignKeys)
     })
 
     return result
@@ -162,9 +153,7 @@ async function initialize() {
             db = client.db(DB_NAME)
             await db.command({ ping: 1 })
         } catch (err) {
-            console.error(
-                `Couldn't connect with mongoDB instance at ${process.env.DATABASE_URI}`,
-            )
+            console.error(`Couldn't connect with mongoDB instance at ${process.env.DATABASE_URI}`)
             console.error(err)
             process.exit()
         }

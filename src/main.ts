@@ -19,10 +19,7 @@ async function bootstrap() {
         .setTitle(`Kyso's API`)
         .setDescription(`Spec for Kyso's API`)
         .setVersion('v1')
-        .setLicense(
-            'Apache 2.0',
-            'http://www.apache.org/licenses/LICENSE-2.0.html',
-        )
+        .setLicense('Apache 2.0', 'http://www.apache.org/licenses/LICENSE-2.0.html')
         .build()
 
     const document = SwaggerModule.createDocument(app, config)

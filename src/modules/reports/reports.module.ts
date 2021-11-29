@@ -13,14 +13,7 @@ import { ReportsService } from './reports.service'
 
 @Module({
     imports: [UsersModule, TeamsModule, CommentsModule, GithubReposModule],
-    providers: [
-        FilesMongoProvider,
-        ReportsMongoProvider,
-        VersionsMongoProvider,
-        FilesS3Provider,
-        ReportsService,
-        LocalReportsService,
-    ],
+    providers: [FilesMongoProvider, ReportsMongoProvider, VersionsMongoProvider, FilesS3Provider, ReportsService, LocalReportsService],
     controllers: [ReportsController],
     exports: [ReportsService, LocalReportsService],
 })

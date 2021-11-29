@@ -1,23 +1,5 @@
-import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    Patch,
-    Post,
-    Query,
-    Req,
-    Res,
-} from '@nestjs/common'
-import {
-    ApiBody,
-    ApiOperation,
-    ApiParam,
-    ApiResponse,
-    ApiTags,
-    getSchemaPath,
-} from '@nestjs/swagger'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common'
+import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { GenericController } from 'src/generic/controller.generic'
 import { HateoasLinker } from 'src/helpers/hateoasLinker'
 import { Report } from 'src/model/report.model'
@@ -33,14 +15,7 @@ import { UpdateReportRequest } from './model/dto/update-report-request.dto'
 import { Comment } from 'src/model/comment.model'
 import { Branch } from 'src/model/branch.model'
 
-const UPDATABLE_FIELDS = [
-    'stars',
-    'tags',
-    'title',
-    'description',
-    'request_private',
-    'name',
-]
+const UPDATABLE_FIELDS = ['stars', 'tags', 'title', 'description', 'request_private', 'name']
 
 const DEFAULT_GET_REPORT_FILTERS = {
     state: { $ne: 'DELETED' },
@@ -51,36 +26,21 @@ const DEFAULT_GET_REPORT_FILTERS = {
 @ApiTags('reports')
 @Controller('reports')
 export class ReportsController extends GenericController<Report> {
-    constructor(
-        private readonly reportsService: ReportsService,
-        private readonly commentsService: CommentsService,
-    ) {
+    constructor(private readonly reportsService: ReportsService, private readonly commentsService: CommentsService) {
         super()
     }
 
     // assigned to null because does not match between documentation and real code...
     assignReferences(report: any /*report: Report*/) {
-        report.self_url = HateoasLinker.createRef(
-            `/reports/${report.full_name}`,
-        )
-        report.branches_url = HateoasLinker.createRef(
-            `/reports/${report.full_name}/branches`,
-        )
+        report.self_url = HateoasLinker.createRef(`/reports/${report.full_name}`)
+        report.branches_url = HateoasLinker.createRef(`/reports/${report.full_name}/branches`)
 
-        report.owner.selfUrl = HateoasLinker.createRef(
-            `/${report.owner.type}s/${
-                report.owner.name || report.owner.nickname
-            }`,
-        )
+        report.owner.selfUrl = HateoasLinker.createRef(`/${report.owner.type}s/${report.owner.name || report.owner.nickname}`)
 
         if (report.source) {
             if (report.source.provider !== 's3') {
-                report.tree_url = HateoasLinker.createRef(
-                    `/reports/${report.full_name}/${report.source.defaultBranch}/tree`,
-                )
-                report.commits_url = HateoasLinker.createRef(
-                    `/reports/${report.full_name}/${report.source.defaultBranch}/commits`,
-                )
+                report.tree_url = HateoasLinker.createRef(`/reports/${report.full_name}/${report.source.defaultBranch}/tree`)
+                report.commits_url = HateoasLinker.createRef(`/reports/${report.full_name}/${report.source.defaultBranch}/commits`)
 
                 // TODO: Does that should be a HateoasLinker as well?
                 report.html_url = `https://${report.source.provider}.com/${report.source.owner}/${report.source.name}`
@@ -99,11 +59,7 @@ export class ReportsController extends GenericController<Report> {
         description: `Reports matching criteria`,
         type: Report,
     })
-    async getReports(
-        @Req() req,
-        @Res() res,
-        @Query() paginationQuery: ReportFilterQuery,
-    ) {
+    async getReports(@Req() req, @Res() res, @Query() paginationQuery: ReportFilterQuery) {
         // Object paginationQuery is there for documentation purposes. A refactor of this method should be done in the future
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) query.sort = { _created_at: -1 }
@@ -141,10 +97,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     async getReport(@Req() req, @Res() res) {
-        const report = await this.reportsService.getReport(
-            req.params.reportOwner,
-            req.params.reportName,
-        )
+        const report = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
 
         this.assignReferences(report)
         return res.status(200).send(report)
@@ -159,10 +112,7 @@ export class ReportsController extends GenericController<Report> {
         status: 201,
         description: `Created report object if passed a single Report, or an array of report creation status if passed an array of reports to create (see schemas)`,
         schema: {
-            oneOf: [
-                { $ref: getSchemaPath(Report) },
-                { $ref: getSchemaPath(BatchReportCreation) },
-            ],
+            oneOf: [{ $ref: getSchemaPath(Report) }, { $ref: getSchemaPath(BatchReportCreation) }],
         },
     })
     @ApiBody({
@@ -172,13 +122,7 @@ export class ReportsController extends GenericController<Report> {
     async createReport(@Req() req, @Req() res) {
         const owner = req.body.team || req.user.nickname
         if (Array.isArray(req.body.reports)) {
-            const promises = req.body.reports.map((report) =>
-                this.reportsService.createReport(
-                    req.user,
-                    report,
-                    req.body.team,
-                ),
-            )
+            const promises = req.body.reports.map((report) => this.reportsService.createReport(req.user, report, req.body.team))
             const results = (await Promise.allSettled(promises)) as any
 
             const response = []
@@ -186,9 +130,7 @@ export class ReportsController extends GenericController<Report> {
                 if (result.status === 'fulfilled') {
                     response.push({
                         status: 'OK',
-                        selfUrl: HateoasLinker.createRef(
-                            `/reports/${owner}/${result.value.name}`,
-                        ),
+                        selfUrl: HateoasLinker.createRef(`/reports/${owner}/${result.value.name}`),
                     })
                 } else {
                     response.push({
@@ -201,11 +143,7 @@ export class ReportsController extends GenericController<Report> {
             return res.status(201).send(response)
         }
 
-        const created = await this.reportsService.createReport(
-            req.user,
-            req.body.reports,
-            req.body.team,
-        )
+        const created = await this.reportsService.createReport(req.user, req.body.reports, req.body.team)
         const report = await this.reportsService.getReport(owner, created.name)
         this.assignReferences(report)
 
@@ -236,11 +174,7 @@ export class ReportsController extends GenericController<Report> {
     })
     @ApiBody({ type: UpdateReportRequest })
     async updateReport(@Req() req, @Res() res) {
-        const fields = Object.fromEntries(
-            Object.entries(req.body).filter((entry) =>
-                UPDATABLE_FIELDS.includes(entry[0]),
-            ),
-        )
+        const fields = Object.fromEntries(Object.entries(req.body).filter((entry) => UPDATABLE_FIELDS.includes(entry[0])))
 
         const { stars, ...rest } = fields
         const updatePayload = {
@@ -249,16 +183,8 @@ export class ReportsController extends GenericController<Report> {
         }
 
         const report = await (Object.keys(fields).length === 0
-            ? this.reportsService.getReport(
-                  req.params.reportOwner,
-                  req.params.reportName,
-              )
-            : await this.reportsService.updateReport(
-                  req.user.objectId,
-                  req.params.reportOwner,
-                  req.params.reportName,
-                  updatePayload,
-              ))
+            ? this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
+            : await this.reportsService.updateReport(req.user.objectId, req.params.reportOwner, req.params.reportName, updatePayload))
 
         return res.status(200).send(report)
     }
@@ -282,11 +208,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     async deleteReport(@Req() req, @Res() res) {
-        await this.reportsService.deleteReport(
-            req.user.objectId,
-            req.params.reportOwner,
-            req.params.reportName,
-        )
+        await this.reportsService.deleteReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
 
         return res.status(204).send()
     }
@@ -314,11 +236,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     async pinReport(@Req() req, @Res() res) {
-        const report = await this.reportsService.pinReport(
-            req.user.objectId,
-            req.params.reportOwner,
-            req.params.reportName,
-        )
+        const report = await this.reportsService.pinReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
 
         return res.status(200).send(report)
     }
@@ -347,10 +265,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     async getComments(@Req() req, @Res() res) {
-        const { id: reportId } = await this.reportsService.getReport(
-            req.params.reportOwner,
-            req.params.reportName,
-        )
+        const { id: reportId } = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
 
         const comments = await this.commentsService.getReportComments(reportId)
 
@@ -390,18 +305,11 @@ export class ReportsController extends GenericController<Report> {
     })
     async getBranches(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
-        const branches = await this.reportsService.getBranches(
-            reportOwner,
-            reportName,
-        )
+        const branches = await this.reportsService.getBranches(reportOwner, reportName)
 
         branches.forEach((branch) => {
-            branch.contentUrl = HateoasLinker.createRef(
-                `/reports/${reportOwner}/${reportName}/${branch.name}/tree`,
-            )
-            branch.commitsUrl = HateoasLinker.createRef(
-                `/reports/${reportOwner}/${reportName}/${branch.name}/commits`,
-            )
+            branch.contentUrl = HateoasLinker.createRef(`/reports/${reportOwner}/${reportName}/${branch.name}/tree`)
+            branch.commitsUrl = HateoasLinker.createRef(`/reports/${reportOwner}/${reportName}/${branch.name}/commits`)
         })
 
         return res.status(200).send(branches)
@@ -439,16 +347,10 @@ export class ReportsController extends GenericController<Report> {
     async getCommits(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branch = req.params[0]
-        const commits = await this.reportsService.getCommits(
-            reportOwner,
-            reportName,
-            branch,
-        )
+        const commits = await this.reportsService.getCommits(reportOwner, reportName, branch)
 
         commits.forEach((commit) => {
-            commit.selfUrl = HateoasLinker.createRef(
-                `/reports/${reportOwner}/${reportName}/${commit.sha}/tree`,
-            )
+            commit.selfUrl = HateoasLinker.createRef(`/reports/${reportOwner}/${reportName}/${commit.sha}/tree`)
         })
 
         return res.status(200).send(commits)
@@ -480,8 +382,7 @@ export class ReportsController extends GenericController<Report> {
     @ApiParam({
         name: 'branch',
         required: true,
-        description:
-            'Branch of the repository to fetch data from. Accepts slashes.',
+        description: 'Branch of the repository to fetch data from. Accepts slashes.',
         schema: { type: 'string' },
     })
     @ApiParam({
@@ -493,21 +394,11 @@ export class ReportsController extends GenericController<Report> {
     async getReportFileHash(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branch = req.params[0]
-        const hash = await this.reportsService.getFileHash(
-            reportOwner,
-            reportName,
-            branch,
-            req.params[1],
-        )
+        const hash = await this.reportsService.getFileHash(reportOwner, reportName, branch, req.params[1])
 
         const assignUrl = (item) => {
-            const route =
-                item.type === 'dir'
-                    ? `${branch}/tree/${item.path}`
-                    : `file/${item.hash}`
-            item.selfUrl = HateoasLinker.createRef(
-                `/reports/${reportOwner}/${reportName}/${route}`,
-            )
+            const route = item.type === 'dir' ? `${branch}/tree/${item.path}` : `file/${item.hash}`
+            item.selfUrl = HateoasLinker.createRef(`/reports/${reportOwner}/${reportName}/${route}`)
         }
         if (Array.isArray(hash)) hash.forEach(assignUrl)
         else assignUrl(hash)
@@ -547,15 +438,10 @@ export class ReportsController extends GenericController<Report> {
         const { hash } = req.params
         if (!Validators.isValidSha(hash))
             throw new InvalidInputError({
-                message:
-                    'Hash is not a valid sha. Must have 40 hexadecimal characters.',
+                message: 'Hash is not a valid sha. Must have 40 hexadecimal characters.',
             })
 
-        const content = await this.reportsService.getReportFileContent(
-            req.params.reportOwner,
-            req.params.reportName,
-            hash,
-        )
+        const content = await this.reportsService.getReportFileContent(req.params.reportOwner, req.params.reportName, hash)
 
         return res.status(200).send(content)
     }

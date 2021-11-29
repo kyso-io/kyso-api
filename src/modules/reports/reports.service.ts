@@ -1,10 +1,5 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common'
-import {
-    AlreadyExistsError,
-    ForbiddenError,
-    InvalidInputError,
-    NotFoundError,
-} from 'src/helpers/errorHandling'
+import { AlreadyExistsError, ForbiddenError, InvalidInputError, NotFoundError } from 'src/helpers/errorHandling'
 import { QueryParser } from 'src/helpers/queryParser'
 import { Validators } from 'src/helpers/validators'
 import { ReportsMongoProvider } from 'src/modules/reports/providers/mongo-reports.provider'
@@ -13,14 +8,7 @@ import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { LocalReportsService } from './local-reports.service'
 
-const CREATE_REPORT_FIELDS = [
-    'main',
-    'title',
-    'description',
-    'preview',
-    'tags',
-    'authors',
-]
+const CREATE_REPORT_FIELDS = ['main', 'title', 'description', 'preview', 'tags', 'authors']
 const LOCAL_REPORT_HOST = 's3'
 
 function generateReportName(repoName, path) {
@@ -52,15 +40,9 @@ export class ReportsService {
 
             delete query.filter.owner
             if (results[0].status === 'fulfilled') {
-                query.filter._p_user = QueryParser.createForeignKey(
-                    '_User',
-                    results[0].value.id,
-                )
+                query.filter._p_user = QueryParser.createForeignKey('_User', results[0].value.id)
             } else if (results[1].status === 'fulfilled') {
-                query.filter._p_team = QueryParser.createForeignKey(
-                    'Team',
-                    results[1].value.id,
-                )
+                query.filter._p_team = QueryParser.createForeignKey('Team', results[1].value.id)
             } else {
                 return []
             }
@@ -103,11 +85,7 @@ export class ReportsService {
             case 'github':
             default:
                 this.githubReposService.login(user.accessToken)
-                await this.githubReposService.getRepo(
-                    user,
-                    data.src.owner,
-                    data.src.name,
-                )
+                await this.githubReposService.getRepo(user, data.src.owner, data.src.name)
                 break
         }
         // END NEW
@@ -126,16 +104,9 @@ export class ReportsService {
             const { id: teamId } = await this.teamsService.getTeam({
                 filter: { name: teamName },
             })
-            if (
-                !(await this.teamsService.hasPermissionLevel(
-                    user.objectId,
-                    teamName,
-                    'editor',
-                ))
-            ) {
+            if (!(await this.teamsService.hasPermissionLevel(user.objectId, teamName, 'editor'))) {
                 throw new ForbiddenError({
-                    message:
-                        'You are not allowed to create a report for this team',
+                    message: 'You are not allowed to create a report for this team',
                 })
             }
             report._p_team = QueryParser.createForeignKey('Team', teamId)
@@ -156,12 +127,7 @@ export class ReportsService {
                 case 'github':
                 default:
                     this.githubReposService.login(user.accessToken)
-                    metadata = this.githubReposService.getConfigFile(
-                        basePath,
-                        data.src.owner,
-                        data.src.name,
-                        data.src.default_branch,
-                    )
+                    metadata = this.githubReposService.getConfigFile(basePath, data.src.owner, data.src.name, data.src.default_branch)
                     break
             }
         } catch (err) {}
@@ -192,12 +158,7 @@ export class ReportsService {
 
         if (
             (report.owner.type === 'user' && report.owner.id !== userId) ||
-            (report.owner.type === 'team' &&
-                !(await this.teamsService.hasPermissionLevel(
-                    userId,
-                    reportOwner,
-                    'editor',
-                )))
+            (report.owner.type === 'team' && !(await this.teamsService.hasPermissionLevel(userId, reportOwner, 'editor')))
         ) {
             throw new ForbiddenError({
                 message: 'You are not allowed to delete this report',
@@ -212,12 +173,7 @@ export class ReportsService {
 
         if (
             (report.owner.type === 'user' && report.owner.id !== userId) ||
-            (report.owner.type === 'team' &&
-                !(await this.teamsService.hasPermissionLevel(
-                    userId,
-                    reportOwner,
-                    'editor',
-                )))
+            (report.owner.type === 'team' && !(await this.teamsService.hasPermissionLevel(userId, reportOwner, 'editor')))
         ) {
             throw new ForbiddenError({
                 message: 'You are not allowed to delete this report',
@@ -232,12 +188,7 @@ export class ReportsService {
 
         if (
             (report.owner.type === 'user' && report.owner.id !== userId) ||
-            (report.owner.type === 'team' &&
-                !(await this.teamsService.hasPermissionLevel(
-                    userId,
-                    reportOwner,
-                    'editor',
-                )))
+            (report.owner.type === 'team' && !(await this.teamsService.hasPermissionLevel(userId, reportOwner, 'editor')))
         ) {
             throw new ForbiddenError({
                 message: 'You are not allowed to edit this report',
@@ -256,24 +207,15 @@ export class ReportsService {
             const existingReport = existingReports[0]
 
             if (existingReport.id !== report.id) {
-                await this.provider.update(
-                    { _id: existingReport.id },
-                    { $set: { pin: false } },
-                )
+                await this.provider.update({ _id: existingReport.id }, { $set: { pin: false } })
             }
         }
 
-        return this.provider.update(
-            { _id: report.id },
-            { $set: { pin: !report.pin } },
-        )
+        return this.provider.update({ _id: report.id }, { $set: { pin: !report.pin } })
     }
 
     async getBranches(reportOwner, reportName) {
-        const { id, source, _p_user } = await this.getReport(
-            reportOwner,
-            reportName,
-        )
+        const { id, source, _p_user } = await this.getReport(reportOwner, reportName)
         let branches
 
         if (source.provider === LOCAL_REPORT_HOST) {
@@ -289,10 +231,7 @@ export class ReportsService {
                 case 'github':
                 default:
                     this.githubReposService.login(accessToken)
-                    branches = await this.githubReposService.getBranches(
-                        source.owner,
-                        source.name,
-                    )
+                    branches = await this.githubReposService.getBranches(source.owner, source.name)
                     break
             }
 
@@ -305,10 +244,7 @@ export class ReportsService {
     }
 
     async getCommits(reportOwner, reportName, branch) {
-        const { source, _p_user } = await this.getReport(
-            reportOwner,
-            reportName,
-        )
+        const { source, _p_user } = await this.getReport(reportOwner, reportName)
         if (source.provider === LOCAL_REPORT_HOST)
             throw new InvalidInputError({
                 message: 'This functionality is not available in S3',
@@ -324,21 +260,14 @@ export class ReportsService {
             case 'github':
             default:
                 this.githubReposService.login(accessToken)
-                commits = await this.githubReposService.getCommits(
-                    source.owner,
-                    source.name,
-                    branch,
-                )
+                commits = await this.githubReposService.getCommits(source.owner, source.name, branch)
                 break
         }
         return commits
     }
 
     async getFileHash(reportOwner, reportName, branch, path) {
-        const { id, source, _p_user } = await this.getReport(
-            reportOwner,
-            reportName,
-        )
+        const { id, source, _p_user } = await this.getReport(reportOwner, reportName)
         let data = {}
 
         if (source.provider === LOCAL_REPORT_HOST) {
@@ -354,12 +283,7 @@ export class ReportsService {
                 case 'github':
                 default:
                     this.githubReposService.login(accessToken)
-                    data = await this.githubReposService.getFileHash(
-                        fullPath,
-                        source.owner,
-                        source.name,
-                        branch,
-                    )
+                    data = await this.githubReposService.getFileHash(fullPath, source.owner, source.name, branch)
                     break
             }
         }
@@ -368,10 +292,7 @@ export class ReportsService {
     }
 
     async getReportFileContent(reportOwner, reportName, hash) {
-        const { id, source, _p_user } = await this.getReport(
-            reportOwner,
-            reportName,
-        )
+        const { id, source, _p_user } = await this.getReport(reportOwner, reportName)
         let content
 
         if (source.provider === LOCAL_REPORT_HOST) {
@@ -387,11 +308,7 @@ export class ReportsService {
                 case 'github':
                 default:
                     this.githubReposService.login(accessToken)
-                    content = await this.githubReposService.getFileContent(
-                        hash,
-                        source.owner,
-                        source.name,
-                    )
+                    content = await this.githubReposService.getFileContent(hash, source.owner, source.name)
                     break
             }
         }

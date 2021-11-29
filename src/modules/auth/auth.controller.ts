@@ -26,10 +26,6 @@ export class AuthController extends GenericController<String> {
         type: String,
     })
     async login(@Body() login: Login) {
-        return this.authService.login(
-            login.password,
-            login.provider,
-            login.username,
-        )
+        return this.authService.login(login.password, login.provider, login.username)
     }
 }

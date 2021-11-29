@@ -31,12 +31,9 @@ export class BitbucketReposProvider {
     }
 
     async getRepos(workspace, page, perPage) {
-        let res = await axios.get(
-            `${process.env.BITBUCKET_API}/repositories/${workspace}?page=${page}&pagelen=${perPage}`,
-            {
-                headers: { Authorization: this.authorizationHeader },
-            },
-        )
+        let res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${workspace}?page=${page}&pagelen=${perPage}`, {
+            headers: { Authorization: this.authorizationHeader },
+        })
 
         return res.data.values.map(repoMapFunction)
     }
@@ -54,11 +51,7 @@ export class BitbucketReposProvider {
             for (let workspace of workspaces.values) {
                 let repositoryPage = 1
                 do {
-                    paginatedResponse = await this.getRepos(
-                        workspace.slug,
-                        repositoryPage,
-                        DEFAULT_PER_PAGE,
-                    )
+                    paginatedResponse = await this.getRepos(workspace.slug, repositoryPage, DEFAULT_PER_PAGE)
 
                     repositoryPage++
                     result = [...result, ...paginatedResponse]
@@ -72,45 +65,33 @@ export class BitbucketReposProvider {
     }
 
     async getWorkspaces(page, perPage) {
-        const res = await axios.get(
-            `${process.env.BITBUCKET_API}/workspaces?page=${page}&pagelen=${perPage}`,
-            {
-                headers: { Authorization: this.authorizationHeader },
-            },
-        )
+        const res = await axios.get(`${process.env.BITBUCKET_API}/workspaces?page=${page}&pagelen=${perPage}`, {
+            headers: { Authorization: this.authorizationHeader },
+        })
 
         return res.data
     }
 
     async getRepo(workspace, name) {
-        const res = await axios.get(
-            `${process.env.BITBUCKET_API}/repositories/${workspace}/${name}`,
-            {
-                headers: { Authorization: this.authorizationHeader },
-            },
-        )
+        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${workspace}/${name}`, {
+            headers: { Authorization: this.authorizationHeader },
+        })
 
         return repoMapFunction(res.data)
     }
 
     async searchRepos(filter, workspace, page, perPage) {
-        const res = await axios.get(
-            `${process.env.BITBUCKET_API}/repositories/${workspace}?q=${filter}&page=${page}&pagelen=${perPage}`,
-            {
-                headers: { Authorization: this.authorizationHeader },
-            },
-        )
+        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${workspace}?q=${filter}&page=${page}&pagelen=${perPage}`, {
+            headers: { Authorization: this.authorizationHeader },
+        })
 
         return res.data.values.map(repoMapFunction)
     }
 
     async getBranches(workspace, repo, page, perPage) {
-        const res = await axios.get(
-            `${process.env.BITBUCKET_API}/repositories/${workspace}/${repo}/refs/branches?page=${page}&pagelen=${perPage}`,
-            {
-                headers: { Authorization: this.authorizationHeader },
-            },
-        )
+        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${workspace}/${repo}/refs/branches?page=${page}&pagelen=${perPage}`, {
+            headers: { Authorization: this.authorizationHeader },
+        })
 
         return res.data.values.map((branch) => ({
             name: branch.name,
@@ -119,20 +100,15 @@ export class BitbucketReposProvider {
     }
 
     async getCommits(workspace, repo, branch, page, perPage) {
-        const res = await axios.get(
-            `${process.env.BITBUCKET_API}/repositories/${workspace}/${repo}/commits/${branch}?page=${page}&pagelen=${perPage}`,
-            {
-                headers: { Authorization: this.authorizationHeader },
-            },
-        )
+        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${workspace}/${repo}/commits/${branch}?page=${page}&pagelen=${perPage}`, {
+            headers: { Authorization: this.authorizationHeader },
+        })
 
         return res.data.values.map((elem) => ({
             sha: elem.hash,
             author: {
                 name: elem.author.user.display_name,
-                email: this.extractEmailFromText(elem.author.raw)[0]
-                    ? this.extractEmailFromText(elem.author.raw)[0]
-                    : '',
+                email: this.extractEmailFromText(elem.author.raw)[0] ? this.extractEmailFromText(elem.author.raw)[0] : '',
             },
             date: elem.date,
             message: elem.message,
@@ -145,12 +121,7 @@ export class BitbucketReposProvider {
     }
 
     async getRootFilesAndFolders(workspace, repo, pageCode) {
-        return this.getRootFilesAndFoldersByCommit(
-            workspace,
-            repo,
-            null,
-            pageCode,
-        )
+        return this.getRootFilesAndFoldersByCommit(workspace, repo, null, pageCode)
     }
 
     /**
@@ -199,19 +170,15 @@ export class BitbucketReposProvider {
 
     async getFileContent(workspace, repo, commit, filePath) {
         try {
-            const res = await axios.get(
-                `${process.env.BITBUCKET_API}/repositories/${workspace}/${repo}/src/${commit}/${filePath}`,
-                {
-                    headers: { Authorization: this.authorizationHeader },
-                },
-            )
+            const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${workspace}/${repo}/src/${commit}/${filePath}`, {
+                headers: { Authorization: this.authorizationHeader },
+            })
 
             return Buffer.from(res.data).toString('base64')
         } catch (err) {
             if (err.status === 404) {
                 throw new NotFoundError({
-                    message:
-                        "The resource you are trying to access can't be found or isn't a file.",
+                    message: "The resource you are trying to access can't be found or isn't a file.",
                 })
             }
             throw err

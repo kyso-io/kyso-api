@@ -2,20 +2,14 @@ import { Injectable, Logger } from '@nestjs/common'
 import { UsersService } from 'src/modules/users/users.service'
 import { JwtService } from '@nestjs/jwt'
 import { UnauthorizedError } from 'src/helpers/errorHandling'
-import { GithubReposProvider } from 'src/modules/github-repos/providers/github-repo.provider'
 import { User } from 'src/model/user.model'
 import { GithubReposService } from 'src/modules/github-repos/github-repos.service'
-import { access } from 'fs'
 
 const axios = require('axios').default
 
 @Injectable()
 export class GithubLoginProvider {
-    constructor(
-        private readonly userService: UsersService,
-        private readonly githubService: GithubReposService,
-        private readonly jwtService: JwtService,
-    ) {}
+    constructor(private readonly userService: UsersService, private readonly githubService: GithubReposService, private readonly jwtService: JwtService) {}
     // FLOW:
     //     * After calling login, frontend should call to
     // https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_url=${REDIRECT}&state=${RANDOM_STRING}
@@ -45,12 +39,8 @@ export class GithubLoginProvider {
         // Retrieve the token...
         const access_token = res.data.split('&')[0].split('=')[1]
 
-        const githubUser = await this.githubService.getUserByAccessToken(
-            access_token,
-        )
-        const emails = await this.githubService.getEmailByAccessToken(
-            access_token,
-        )
+        const githubUser = await this.githubService.getUserByAccessToken(access_token)
+        const emails = await this.githubService.getEmailByAccessToken(access_token)
         const onlyPrimaryMail = emails.filter((x) => x.primary === true)[0]
 
         const user = User.fromGithubUser(githubUser, onlyPrimaryMail)
@@ -63,9 +53,7 @@ export class GithubLoginProvider {
                 filter: { email: user.email },
             })
         } catch (ex) {
-            Logger.log(
-                `User ${user.username} does not exist at Kyso, creating it`,
-            )
+            Logger.log(`User ${user.username} does not exist at Kyso, creating it`)
         }
 
         if (userInDb) {

@@ -25,13 +25,9 @@ export class TeamsService {
 
     async hasPermissionLevel(userId, teamName, level) {
         const permissionRequired = PERMISSION_LEVELS.indexOf(level)
-        const permissionLevel = PERMISSION_LEVELS.indexOf(
-            await this.provider.getPermissionLevel(userId, teamName),
-        )
+        const permissionLevel = PERMISSION_LEVELS.indexOf(await this.provider.getPermissionLevel(userId, teamName))
         if (permissionRequired === -1) {
-            console.log(
-                `teamsService.hasPermission has received an invalid permission level: ${level}! Action not allowed.`,
-            )
+            console.log(`teamsService.hasPermission has received an invalid permission level: ${level}! Action not allowed.`)
             return false
         }
 

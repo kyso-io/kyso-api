@@ -5,10 +5,7 @@ import { TeamsService } from '../teams/teams.service'
 
 @Injectable()
 export class UsersService {
-    constructor(
-        private readonly provider: UsersMongoProvider,
-        private readonly teamsService: TeamsService,
-    ) {}
+    constructor(private readonly provider: UsersMongoProvider, private readonly teamsService: TeamsService) {}
 
     async getUsers(query) {
         let users = []

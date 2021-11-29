@@ -49,10 +49,7 @@ export class GithubReposProvider {
     }
 
     async searchRepos(filter, page, perPage) {
-        const [user, orgs] = await Promise.all([
-            this.getUser(),
-            this.getOrganizations(),
-        ])
+        const [user, orgs] = await Promise.all([this.getUser(), this.getOrganizations()])
         let q = `${filter} in:name+fork:true+user:${user.login}`
 
         if (orgs) {
@@ -108,9 +105,7 @@ export class GithubReposProvider {
         request, we check the second one. */
         let res
 
-        const sanitizedPath = filePath.length
-            ? filePath.replace(/\/$/, '')
-            : '.'
+        const sanitizedPath = filePath.length ? filePath.replace(/\/$/, '') : '.'
         const first = this.octokit.repos.getContent({
             owner,
             repo,
@@ -156,8 +151,7 @@ export class GithubReposProvider {
         } catch (err) {
             if (err.status === 404) {
                 throw new NotFoundError({
-                    message:
-                        "The resource you are trying to access can't be found or isn't a file.",
+                    message: "The resource you are trying to access can't be found or isn't a file.",
                 })
             }
             throw err

@@ -27,8 +27,7 @@ export class CommentsService {
         })
 
         childs.forEach((child) => {
-            if (commentMap[child._p_parent])
-                commentMap[child._p_parent].childComments.push(child)
+            if (commentMap[child._p_parent]) commentMap[child._p_parent].childComments.push(child)
         })
 
         return parents
@@ -44,9 +43,7 @@ export class CommentsService {
             throw new NotFoundError({
                 message: "The specified comment couldn't be found",
             })
-        const reportComments = await this.getReportComments(
-            comments[0]._p_study,
-        )
+        const reportComments = await this.getReportComments(comments[0]._p_study)
 
         return reportComments.find((comment) => comment.id === commentId)
     }

@@ -1,11 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Req } from '@nestjs/common'
-import {
-    ApiBody,
-    ApiOperation,
-    ApiParam,
-    ApiResponse,
-    ApiTags,
-} from '@nestjs/swagger'
+import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { GenericController } from 'src/generic/controller.generic'
 import { ForbiddenError } from 'src/helpers/errorHandling'
 import { HateoasLinker } from 'src/helpers/hateoasLinker'
@@ -13,13 +7,7 @@ import { Team } from 'src/model/team.model'
 import { TeamsService } from 'src/modules/teams/teams.service'
 import { UpdateTeamRequest } from './model/update-team-request.model'
 
-const UPDATABLE_FIELDS = [
-    'email',
-    'nickname',
-    'bio',
-    'accessToken',
-    'access_token',
-]
+const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 
 @ApiTags('teams')
 @Controller('teams')
@@ -46,13 +34,7 @@ export class TeamsController extends GenericController<Team> {
     @ApiResponse({ status: 200, description: `Team matching name`, type: Team })
     async getTeam(@Param('teamName') teamName: string, @Req() req) {
         // TODO: From where comes that req.user.objectId? Is a header? Is not in the documentation...
-        if (
-            !(await this.teamsService.hasPermissionLevel(
-                req.user.objectId,
-                teamName,
-                'viewer',
-            ))
-        ) {
+        if (!(await this.teamsService.hasPermissionLevel(req.user.objectId, teamName, 'viewer'))) {
             throw new ForbiddenError({
                 message: "You don't have permissions to view this team.",
             })
@@ -83,30 +65,16 @@ export class TeamsController extends GenericController<Team> {
         description: `Specified team data`,
         type: Team,
     })
-    async updateTeam(
-        @Body() data: UpdateTeamRequest,
-        @Req() req,
-        @Param('teamName') teamName: string,
-    ) {
+    async updateTeam(@Body() data: UpdateTeamRequest, @Req() req, @Param('teamName') teamName: string) {
         // TODO: From where comes that req.user.objectId? Is a header? Is not in the documentation...
-        if (
-            !(await this.teamsService.hasPermissionLevel(
-                req.user.objectId,
-                teamName,
-                'editor',
-            ))
-        ) {
+        if (!(await this.teamsService.hasPermissionLevel(req.user.objectId, teamName, 'editor'))) {
             throw new ForbiddenError({
                 message: "You don't have permissions to edit this team.",
             })
         }
 
         const filterObj = { name: teamName }
-        const fields = Object.fromEntries(
-            Object.entries(data).filter((entry) =>
-                UPDATABLE_FIELDS.includes(entry[0]),
-            ),
-        )
+        const fields = Object.fromEntries(Object.entries(data).filter((entry) => UPDATABLE_FIELDS.includes(entry[0])))
 
         const team = await (Object.keys(fields).length === 0
             ? this.teamsService.getTeam({ filter: filterObj })

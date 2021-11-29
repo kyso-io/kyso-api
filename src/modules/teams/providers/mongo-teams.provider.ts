@@ -23,10 +23,7 @@ export class TeamsMongoProvider extends MongoProvider {
                         {
                             $match: {
                                 $expr: {
-                                    $and: [
-                                        { $eq: ['$owningId', '$$roleId'] },
-                                        { $eq: ['$relatedId', userId] },
-                                    ],
+                                    $and: [{ $eq: ['$owningId', '$$roleId'] }, { $eq: ['$relatedId', userId] }],
                                 },
                             },
                         },
@@ -37,8 +34,6 @@ export class TeamsMongoProvider extends MongoProvider {
         ]
 
         const permissions = await this.rolesProvider.aggregate(pipeline)
-        return permissions.length === 0
-            ? 'none'
-            : permissions[0].name.match(`^${teamName}-(.*)s$`)[1]
+        return permissions.length === 0 ? 'none' : permissions[0].name.match(`^${teamName}-(.*)s$`)[1]
     }
 }

@@ -9,9 +9,7 @@ const AQP_OPTIONS = {
 
 export class QueryParser {
     static toQueryObject(queryString) {
-        queryString = queryString
-            .replace('created_at', '_created_at')
-            .replace('updated_at', '_updated_at')
+        queryString = queryString.replace('created_at', '_created_at').replace('updated_at', '_updated_at')
 
         const query = parse(queryString).query
         const result = query ? aqp(query, AQP_OPTIONS) : {}

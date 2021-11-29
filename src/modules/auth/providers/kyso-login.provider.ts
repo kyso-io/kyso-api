@@ -5,10 +5,7 @@ import * as bcrypt from 'bcryptjs'
 
 @Injectable()
 export class KysoLoginProvider {
-    constructor(
-        private readonly userService: UsersService,
-        private readonly jwtService: JwtService,
-    ) {}
+    constructor(private readonly userService: UsersService, private readonly jwtService: JwtService) {}
 
     async login(password: string, username?: string): Promise<String> {
         // Get user from database
@@ -16,10 +13,7 @@ export class KysoLoginProvider {
             filter: { username: username },
         })
 
-        const isRightPassword = await bcrypt.compare(
-            password,
-            user.hashed_password,
-        )
+        const isRightPassword = await bcrypt.compare(password, user.hashed_password)
 
         if (isRightPassword) {
             // Get all the teams of the user

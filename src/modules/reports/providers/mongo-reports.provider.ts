@@ -10,9 +10,7 @@ export class ReportsMongoProvider extends MongoProvider {
     async getReportsWithOwner(query) {
         const pipeline = []
 
-        const { projection, ...rest } = MongoProvider.aggregationRename(
-            query,
-        ) as any
+        const { projection, ...rest } = MongoProvider.aggregationRename(query) as any
 
         if (projection) {
             projection.$project._p_user = 1
@@ -35,16 +33,10 @@ export class ReportsMongoProvider extends MongoProvider {
                         $cond: {
                             if: { $gt: ['$_p_team', null] },
                             then: {
-                                $mergeObjects: [
-                                    { $arrayElemAt: ['$team', 0] },
-                                    { type: 'team' },
-                                ],
+                                $mergeObjects: [{ $arrayElemAt: ['$team', 0] }, { type: 'team' }],
                             },
                             else: {
-                                $mergeObjects: [
-                                    { $arrayElemAt: ['$user', 0] },
-                                    { type: 'user' },
-                                ],
+                                $mergeObjects: [{ $arrayElemAt: ['$user', 0] }, { type: 'user' }],
                             },
                         },
                     },
@@ -61,11 +53,7 @@ export class ReportsMongoProvider extends MongoProvider {
             {
                 $addFields: {
                     full_name: {
-                        $concat: [
-                            { $ifNull: ['$owner.nickname', '$owner.name'] },
-                            '/',
-                            '$name',
-                        ],
+                        $concat: [{ $ifNull: ['$owner.nickname', '$owner.name'] }, '/', '$name'],
                     },
                 },
             },

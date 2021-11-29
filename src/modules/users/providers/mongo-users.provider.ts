@@ -12,21 +12,13 @@ export class UsersMongoProvider extends MongoProvider {
     async getUsersFromTeam(query, team) {
         const pipeline = []
         const renamed = MongoProvider.aggregationRename(query)
-        const {
-            _p_viewers: viewers,
-            _p_editors: editors,
-            _p_admins: admins,
-        } = team
+        const { _p_viewers: viewers, _p_editors: editors, _p_admins: admins } = team
 
         pipeline.push(
             {
                 $match: {
                     $expr: {
-                        $or: [
-                            { $eq: ['$owningId', viewers] },
-                            { $eq: ['$owningId', editors] },
-                            { $eq: ['$owningId', admins] },
-                        ],
+                        $or: [{ $eq: ['$owningId', viewers] }, { $eq: ['$owningId', editors] }, { $eq: ['$owningId', admins] }],
                     },
                 },
             },
@@ -122,11 +114,7 @@ export class UsersMongoProvider extends MongoProvider {
                         {
                             $match: {
                                 $expr: {
-                                    $or: [
-                                        { $in: ['$_p_admins', '$$roleId'] },
-                                        { $in: ['$_p_editors', '$$roleId'] },
-                                        { $in: ['$_p_viewers', '$$roleId'] },
-                                    ],
+                                    $or: [{ $in: ['$_p_admins', '$$roleId'] }, { $in: ['$_p_editors', '$$roleId'] }, { $in: ['$_p_viewers', '$$roleId'] }],
                                 },
                             },
                         },

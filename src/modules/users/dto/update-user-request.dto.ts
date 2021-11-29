@@ -8,8 +8,7 @@ export class UpdateUserRequest {
     @ApiProperty()
     public bio: string
     @ApiProperty({
-        description:
-            'Github access token, if the user uses github as authentication provider',
+        description: 'Github access token, if the user uses github as authentication provider',
         required: false,
     })
     public access_token?: string

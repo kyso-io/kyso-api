@@ -10,9 +10,7 @@ export class ErrorHandling {
     }
 
     static getHttpErrorCode(err) {
-        return (
-            err.status || this.ERROR_TO_HTTP_CODE[err.constructor.name] || 500
-        )
+        return err.status || this.ERROR_TO_HTTP_CODE[err.constructor.name] || 500
     }
 
     static errorHandler(err, req, res, next) {
@@ -31,9 +29,7 @@ export class ErrorHandling {
 
         let str = stack ? `${stack}` : `${name}: ${message}`
         if (cause) {
-            const causeStr = ErrorHandling.stringify(cause)
-                .split('\n')
-                .join('\n\t')
+            const causeStr = ErrorHandling.stringify(cause).split('\n').join('\n\t')
             str = `${str}\n\n\t${causeStr}`
         }
 
@@ -59,20 +55,13 @@ export class KysoError extends Error {
 
 export class AlreadyExistsError extends KysoError {
     constructor(args) {
-        super(
-            args.message ||
-                'A resource with the same identification already exists',
-            args.cause,
-        )
+        super(args.message || 'A resource with the same identification already exists', args.cause)
     }
 }
 
 export class ForbiddenError extends KysoError {
     constructor(args) {
-        super(
-            args.message || 'You are not allowed to perform this action',
-            args.cause,
-        )
+        super(args.message || 'You are not allowed to perform this action', args.cause)
     }
 }
 
@@ -90,20 +79,12 @@ export class InvalidInputError extends KysoError {
 
 export class NotFoundError extends KysoError {
     constructor(args) {
-        super(
-            args.message ||
-                "The resource you are trying to access can't be found",
-            args.cause,
-        )
+        super(args.message || "The resource you are trying to access can't be found", args.cause)
     }
 }
 
 export class UnauthorizedError extends KysoError {
     constructor(args) {
-        super(
-            args.message ||
-                'You need to be authenticated to execute this action',
-            args.cause,
-        )
+        super(args.message || 'You need to be authenticated to execute this action', args.cause)
     }
 }

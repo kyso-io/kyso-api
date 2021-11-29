@@ -13,10 +13,7 @@ export class LocalReportsService {
 
     async getReportVersions(reportId) {
         const versions = await this.versionsProvider.getReportVersions(reportId)
-        const latest = versions.reduce(
-            (prev, curr) => (prev.created_at > curr ? prev : curr),
-            0,
-        )
+        const latest = versions.reduce((prev, curr) => (prev.created_at > curr ? prev : curr), 0)
 
         return versions.map((version) => ({
             name: version.id,
@@ -26,10 +23,7 @@ export class LocalReportsService {
     }
 
     async getFileHash(reportId, version) {
-        const { filesArray } = await this.versionsProvider.getReportVersion(
-            reportId,
-            version,
-        )
+        const { filesArray } = await this.versionsProvider.getReportVersion(reportId, version)
         const filesId = filesArray.map((file) => file.objectId)
 
         const files = await this.fileDataProvider.read({

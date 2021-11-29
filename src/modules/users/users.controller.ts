@@ -1,20 +1,5 @@
-import {
-    Controller,
-    Get,
-    Param,
-    Patch,
-    Post,
-    Query,
-    Req,
-    Res,
-} from '@nestjs/common'
-import {
-    ApiOperation,
-    ApiParam,
-    ApiQuery,
-    ApiResponse,
-    ApiTags,
-} from '@nestjs/swagger'
+import { Controller, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common'
+import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { UsersService } from './users.service'
 import { GenericController } from 'src/generic/controller.generic'
 import { HateoasLinker } from 'src/helpers/hateoasLinker'
@@ -22,13 +7,7 @@ import { QueryParser } from 'src/helpers/queryParser'
 import { User } from 'src/model/user.model'
 import { BaseFilterQuery } from 'src/model/dto/base-filter.dto'
 
-const UPDATABLE_FIELDS = [
-    'email',
-    'nickname',
-    'bio',
-    'accessToken',
-    'access_token',
-]
+const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 
 @ApiTags('users')
 @Controller('users')

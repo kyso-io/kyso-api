@@ -39,9 +39,7 @@ export class CommentsController extends GenericController<Comment> {
         example: 'K1bOzHjEmN',
     })
     async getComment(@Param('commentId') commentId: string) {
-        const comment = await this.commentsService.getCommentWithChildren(
-            commentId,
-        )
+        const comment = await this.commentsService.getCommentWithChildren(commentId)
 
         this.assignReferences(comment)
 

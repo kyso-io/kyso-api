@@ -8,16 +8,9 @@ import { GithubLoginProvider } from './providers/github-login.provider'
 
 @Injectable()
 export class AuthService {
-    constructor(
-        private readonly kysoLoginProvider: KysoLoginProvider,
-        private readonly githubLoginProvider: GithubLoginProvider,
-    ) {}
+    constructor(private readonly kysoLoginProvider: KysoLoginProvider, private readonly githubLoginProvider: GithubLoginProvider) {}
 
-    async login(
-        password: string,
-        provider: LoginProvider,
-        username?: string,
-    ): Promise<String> {
+    async login(password: string, provider: LoginProvider, username?: string): Promise<String> {
         switch (provider) {
             case LoginProvider.KYSO:
             default:
