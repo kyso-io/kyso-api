@@ -24,7 +24,7 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config)
 
-    // TODO: Only publish in development / staging mode, remove for production - or discuss it
+    // TODO: Only publish in development / staging mode, remove for production - or discuss it...
     SwaggerModule.setup(globalPrefix, app, document)
 
     const redocOptions: RedocOptions = {
@@ -65,7 +65,7 @@ async function bootstrap() {
     // Instead of using SwaggerModule.setup() you call this module
     await RedocModule.setup('/redoc', app, redocDocument, redocOptions)
 
-    await app.listen(3000)
+    await app.listen(process.env.PORT || 3000)
 }
 
 const bindSwaggerDocument = (globalPrefix: string, app: INestApplication) => {}
