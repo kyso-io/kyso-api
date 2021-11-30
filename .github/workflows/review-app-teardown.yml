@@ -1,0 +1,56 @@
+name: Teardown review app
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - staging # only deploy review apps on pull requests to staging
+
+jobs:
+  teardown_review_app_custom_domain:
+    name: Remove custom domain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install HTTPIE
+        run: sudo apt-get install httpie
+
+      - name: Set Review app name from PR
+        run: |
+          echo "APP_NAME=$(echo $BRANCH | cut -d '/' -f2- | tr 'A-Z' 'a-z')" >> $GITHUB_ENV
+
+      - name: Set App url variable
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          echo "URL=$(echo $(echo $BRANCH | cut -d '/' -f2- | tr 'A-Z' 'a-z').pr.kyso.io)" >> $GITHUB_ENV
+
+      - name: Teardown Cloudflare dns [get existing dns]
+        if: always()
+        env:
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_ZONE: ${{ secrets.CLOUDFLARE_ZONE }}
+        run: |
+          echo "DNS_ID=$(http get "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE/dns_records?name=ci.pr.kyso.io" Authorization:"Bearer $CLOUDFLARE_API_KEY" --ignore-stdin | jq '. .result[0].id' -j)" >> $GITHUB_ENV
+
+      - name: Teardown Cloudflare dns [delete dns]
+        if: always()
+        env:
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_ZONE: ${{ secrets.CLOUDFLARE_ZONE }}
+        run: |
+          echo $DNS_ID
+          http delete "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE/dns_records/$DNS_ID" Authorization:"Bearer $CLOUDFLARE_API_KEY" --ignore-stdin --verbose
+
+      - name: Comment on PR with url
+        uses: actions/github-script@v3
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'Review app teardown finished'
+            })
