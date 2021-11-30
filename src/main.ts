@@ -24,7 +24,7 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config)
 
-    // TODO: Only publish in development / staging mode, remove for production
+    // TODO: Only publish in development / staging mode, remove for production - or discuss it
     SwaggerModule.setup(globalPrefix, app, document)
 
     const redocOptions: RedocOptions = {
