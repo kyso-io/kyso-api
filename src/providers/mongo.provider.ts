@@ -82,9 +82,9 @@ export class MongoProvider {
 
     async create(obj) {
         obj._created_at = new Date()
-        const result = await this.getCollection().insertOne(obj)
-        result.ops[0]._id = result.ops[0]._id.toString()
-        return result.ops[0]
+        await this.getCollection().insertOne(obj)
+        
+        return obj
     }
 
     async aggregate(pipeline, collection = '') {

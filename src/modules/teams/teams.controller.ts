@@ -49,6 +49,22 @@ export class TeamsController extends GenericController<Team> {
         return team
     }
 
+    @Get('/:teamName/members')
+    @ApiOperation({
+        summary: `Get the member's team`,
+        description: `Allows fetching content of a specific team passing its name`,
+    })
+    @ApiParam({
+        name: 'teamName',
+        required: true,
+        description: `Name of the team to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiResponse({ status: 200, description: `Team matching name`, type: Team })
+    async getTeamMembers(@Param('teamName') teamName: string) {
+        return await this.teamsService.getMembers(teamName)
+    }
+
     @Patch('/:teamName')
     @ApiOperation({
         summary: `Update the specified team`,

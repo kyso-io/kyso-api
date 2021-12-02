@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common'
 import { UsersService } from 'src/modules/users/users.service'
 import { JwtService } from '@nestjs/jwt'
 import { UnauthorizedError } from 'src/helpers/errorHandling'
@@ -9,7 +9,9 @@ const axios = require('axios').default
 
 @Injectable()
 export class GithubLoginProvider {
-    constructor(private readonly userService: UsersService, private readonly githubService: GithubReposService, private readonly jwtService: JwtService) {}
+    constructor(
+        @Inject(forwardRef(() => UsersService))
+        private readonly userService: UsersService, private readonly githubService: GithubReposService, private readonly jwtService: JwtService) {}
     // FLOW:
     //     * After calling login, frontend should call to
     // https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_url=${REDIRECT}&state=${RANDOM_STRING}

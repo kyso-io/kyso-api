@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
+import { Permissions } from 'src/security/general-permissions.enum'
 import { BaseModel } from './base.model'
 
 export class User extends BaseModel {
@@ -12,15 +13,28 @@ export class User extends BaseModel {
     @ApiProperty()
     public nickname: string
     @ApiProperty()
-    public avatar_url: string
+    public avatarUrl: string
     @ApiProperty()
     public email_verified: boolean
     @ApiProperty()
     public session_token: string
 
+    @ApiProperty({
+        description: `List of permissions related to this user. See permission reference for more details`,
+        required: false,
+        isArray: true
+    })
+    public direct_permissions?: Permissions[]
+
+    @ApiProperty()
+    public bio?: string
+
+    @ApiProperty()
+    public profilePicture?: string
+
     static fromGithubUser(userData: any, emailData: any): User {
         let newUser = new User()
-        newUser.avatar_url = userData.avatar_url
+        newUser.avatarUrl = userData.avatar_url
         newUser.username = userData.login
         newUser.nickname = userData.name
         newUser.email_verified = emailData.verified

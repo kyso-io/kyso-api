@@ -2,20 +2,12 @@ import { ApiProperty } from '@nestjs/swagger'
 import { KysoRole } from 'src/modules/auth/model/kyso-role.model'
 import { BaseModel } from './base.model'
 
-export class Team extends BaseModel {
+export class Organization extends BaseModel {
     @ApiProperty()
-    public id: string
+    public id?: string
 
     @ApiProperty()
     public name: string
-    @ApiProperty()
-    public avatar_url: string
-    @ApiProperty()
-    public bio: string
-    @ApiProperty()
-    public link: string
-    @ApiProperty()
-    public location: string
 
     @ApiProperty({
         required: true,
