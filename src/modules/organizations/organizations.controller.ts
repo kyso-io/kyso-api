@@ -1,12 +1,16 @@
-import { Body, Controller, Get, Param, Patch, Post, Req } from '@nestjs/common'
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common'
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { GenericController } from 'src/generic/controller.generic'
 import { Organization } from 'src/model/organization.model'
+import { Permission } from '../auth/annotations/permission.decorator'
+import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CreateOrganizationRequest } from './model/create-organization-request.model'
 import { OrganizationsService } from './organizations.service'
-
+import { OrganizationPermissionsEnum } from './security/organization-permissions.enum'
 
 @ApiTags('organizations')
+@UseGuards(PermissionsGuard)
+@ApiBearerAuth()
 @Controller('organizations')
 export class OrganizationsController extends GenericController<Organization> {
     constructor(private readonly organizationService: OrganizationsService) {
@@ -29,8 +33,9 @@ export class OrganizationsController extends GenericController<Organization> {
         schema: { type: 'string' },
     })
     @ApiResponse({ status: 200, description: `Organization matching name`, type: Organization })
+    @Permission([OrganizationPermissionsEnum.READ])
     async getOrganization(@Param('organizationName') teamName: string) {
-        let organization: Organization = new Organization();
+        let organization: Organization = new Organization()
 
         this.assignReferences(organization)
 
@@ -49,6 +54,7 @@ export class OrganizationsController extends GenericController<Organization> {
         schema: { type: 'string' },
     })
     @ApiResponse({ status: 200, description: `Organization matching name`, type: Organization })
+    @Permission([OrganizationPermissionsEnum.READ])
     async getOrganizationMembers(@Param('organizationName') name: string) {
         return this.organizationService.getOrganizationMembers(name)
     }
@@ -59,6 +65,7 @@ export class OrganizationsController extends GenericController<Organization> {
         description: `By passing the appropiate parameters you can create a new organization`,
     })
     @ApiResponse({ status: 200, description: `Created organization`, type: Organization })
+    @Permission([OrganizationPermissionsEnum.CREATE])
     async createOrganization(@Body() organization: CreateOrganizationRequest): Promise<Organization> {
         return this.organizationService.createOrganization(organization)
     }

@@ -1,17 +1,23 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common'
-import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { Body, Controller, Get, Headers, Logger, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { UsersService } from './users.service'
 import { GenericController } from 'src/generic/controller.generic'
 import { HateoasLinker } from 'src/helpers/hateoasLinker'
 import { User } from 'src/model/user.model'
 import { UpdateUserRequest } from './dto/update-user-request.dto'
+import { Permission } from '../auth/annotations/permission.decorator'
+import { UserPermissionsEnum } from './security/user-permissions.enum'
+import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { AuthService } from '../auth/auth.service'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 
 @ApiTags('user')
+@UseGuards(PermissionsGuard)
+@ApiBearerAuth()
 @Controller('user')
 export class UserController extends GenericController<User> {
-    constructor(private readonly usersService: UsersService) {
+    constructor(private readonly usersService: UsersService, private readonly authService: AuthService) {
         super()
     }
 
@@ -31,14 +37,16 @@ export class UserController extends GenericController<User> {
         description: `Authenticated user data`,
         type: User,
     })
-    async getAuthenticatedUser(@Req() req, @Res() res) {
-        // <-- Lack of documentation due to inconsistent stuff
-        // TODO: Again, where it comes the req.user.objectId... this is not documented in any place
-        const user = await this.usersService.getUserWithSessionAndTeams(req.user.objectId)
+    async getAuthenticatedUser(@Headers('authorization') authorizationHeader: string) {
+        const token = authorizationHeader.split('Bearer ')[1]
+
+        const payload = this.authService.evaluateAndDecodeToken(token)
+
+        const user = (await this.usersService.getUser({ filter: { username: payload.username } })) as User
 
         this.assignReferences(user)
 
-        return res.status(200).send(user)
+        return user
     }
 
     // TODO: Same here, originally this is in /user not in /users... bad naming as well
@@ -48,6 +56,7 @@ export class UserController extends GenericController<User> {
         description: `Allows updating content from the authenticated user`,
     })
     @ApiResponse({ status: 200, description: `Updated used data`, type: User })
+    @Permission([UserPermissionsEnum.EDIT])
     async updateAuthenticatedUser(@Req() req, @Res() res, @Body() userToUpdate: UpdateUserRequest) {
         // <-- Lack of documentation due to inconsistent stuff
         // TODO: Again, where it comes the req.user.objectId... this is not documented in any place

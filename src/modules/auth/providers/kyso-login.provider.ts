@@ -4,15 +4,19 @@ import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcryptjs'
 import { TeamsService } from 'src/modules/teams/teams.service'
 import { AuthService } from '../auth.service'
+import { OrganizationsService } from 'src/modules/organizations/organizations.service'
+import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
 
 @Injectable()
 export class KysoLoginProvider {
     constructor(
         @Inject(forwardRef(() => UsersService))
-        private readonly userService: UsersService, 
-        @Inject(forwardRef(() => AuthService))
-        private readonly authService: AuthService,
-        private readonly jwtService: JwtService) {}
+        private readonly userService: UsersService,
+        private readonly teamService: TeamsService,
+        private readonly organizationService: OrganizationsService,
+        private readonly platformRoleProvider: PlatformRoleMongoProvider,
+        private readonly jwtService: JwtService,
+    ) {}
 
     async login(password: string, username?: string): Promise<String> {
         // Get user from database
@@ -24,7 +28,13 @@ export class KysoLoginProvider {
 
         if (isRightPassword) {
             // Build all the permissions for this user
-            const permissions = await this.authService.buildFinalPermissionsForUser(username)
+            const permissions = await AuthService.buildFinalPermissionsForUser(
+                username,
+                this.userService,
+                this.teamService,
+                this.organizationService,
+                this.platformRoleProvider,
+            )
 
             // generate token
             const token = this.jwtService.sign(

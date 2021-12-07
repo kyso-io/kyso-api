@@ -8,8 +8,7 @@ export class CreateOrganizationRequest {
     @ApiProperty({
         required: true,
         type: KysoRole,
-        isArray: true
+        isArray: true,
     })
     public roles: KysoRole[]
-
 }

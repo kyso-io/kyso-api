@@ -16,7 +16,8 @@ export class TeamsService {
         private readonly provider: TeamsMongoProvider,
         private readonly teamMemberProvider: TeamMemberMongoProvider,
         @Inject(forwardRef(() => UsersService))
-        private readonly usersService: UsersService) {}
+        private readonly usersService: UsersService,
+    ) {}
 
     async getTeam(query) {
         const teams = await this.provider.read(query)
@@ -27,47 +28,53 @@ export class TeamsService {
         return teams[0]
     }
 
+    async getTeams(query) {
+        const teams = await this.provider.read(query)
+
+        return teams
+    }
+
     async searchMembersJoin(query: any): Promise<TeamMemberJoin[]> {
         return this.teamMemberProvider.read(query) as Promise<TeamMemberJoin[]>
     }
 
     async getMembers(teamName: string) {
         const team: Team = await this.provider.read({ filter: { name: teamName } })
-                
-        if(team) {
+
+        if (team) {
             // Get all the members of this team
-            const members: TeamMemberJoin[] = await this.teamMemberProvider.getMembers(team[0].id);
-            
+            const members: TeamMemberJoin[] = await this.teamMemberProvider.getMembers(team[0].id)
+
             // Build query object to retrieve all the users
-            const user_ids = members.map( (x: TeamMemberJoin) => {
+            const user_ids = members.map((x: TeamMemberJoin) => {
                 return x.member_id
             })
-            
+
             // Build the query to retrieve all the users
-            let filterArray = [];
+            let filterArray = []
             user_ids.forEach((id: string) => {
-                filterArray.push({ "_id": id })
+                filterArray.push({ _id: id })
             })
 
-            let filter = { filter: { "$or": filterArray }}
+            let filter = { filter: { $or: filterArray } }
 
-            let users = await this.usersService.getUsers(filter);
+            let users = await this.usersService.getUsers(filter)
 
-            let usersAndRoles = users.map( (u: User) => {
+            let usersAndRoles = users.map((u: User) => {
                 // Find role for this user in members
-                const thisMember: TeamMemberJoin = members.find((tm: TeamMemberJoin) => u.id === tm.member_id);
+                const thisMember: TeamMemberJoin = members.find((tm: TeamMemberJoin) => u.id === tm.member_id)
 
                 return { ...u, roles: thisMember.role_names }
             })
 
             const toFinalObject = usersAndRoles.map((x) => {
-                let obj: TeamMember = new TeamMember();
-                
+                let obj: TeamMember = new TeamMember()
+
                 obj.avatar_url = x.avatarUrl
                 obj.bio = x.bio
                 obj.id = x.id
                 obj.nickname = x.nickname
-                obj.team_roles = x.roles 
+                obj.team_roles = x.roles
                 obj.username = x.username
                 obj.email = x.email
 
@@ -77,7 +84,7 @@ export class TeamsService {
             return toFinalObject
         } else {
             return []
-        }     
+        }
     }
 
     async updateTeam(filterQuery, updateQuery) {

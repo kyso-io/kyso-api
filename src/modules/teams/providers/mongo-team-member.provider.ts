@@ -10,7 +10,7 @@ export class TeamMemberMongoProvider extends MongoProvider {
 
     async getMembers(teamId: string): Promise<TeamMemberJoin[]> {
         const allMembers = await this.read({ filter: { team_id: teamId } })
-        
+
         return allMembers
     }
 }

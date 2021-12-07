@@ -6,5 +6,4 @@ export class OrganizationsMongoProvider extends MongoProvider {
     constructor() {
         super('Organization')
     }
-
 }

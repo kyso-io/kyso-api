@@ -83,7 +83,7 @@ export class MongoProvider {
     async create(obj) {
         obj._created_at = new Date()
         await this.getCollection().insertOne(obj)
-        
+
         return obj
     }
 

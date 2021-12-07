@@ -20,7 +20,7 @@ export class Team extends BaseModel {
     @ApiProperty({
         required: true,
         type: KysoRole,
-        isArray: true
+        isArray: true,
     })
     public roles: KysoRole[]
 }

@@ -4,9 +4,9 @@ export class OrganizationMember {
     @ApiProperty()
     public id: string
     @ApiProperty()
-    public nickname : string
+    public nickname: string
     @ApiProperty()
-    public username : string
+    public username: string
     @ApiProperty()
     public organization_roles: string[]
     @ApiProperty()

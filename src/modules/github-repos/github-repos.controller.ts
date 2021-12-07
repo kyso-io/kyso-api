@@ -1,12 +1,17 @@
-import { Controller, Get, Param, Post, Query, Req, Res } from '@nestjs/common'
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { Controller, Get, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { GenericController } from 'src/generic/controller.generic'
 import { HateoasLinker } from 'src/helpers/hateoasLinker'
 import { Repository } from 'src/model/repository.model'
 import { GithubReposService } from 'src/modules/github-repos/github-repos.service'
+import { Permission } from '../auth/annotations/permission.decorator'
+import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { GithubAccount } from './model/github-account.model'
+import { GithubRepoPermissionsEnum } from './security/github-repos-permissions.enum'
 
 @ApiTags('repos/github')
+@UseGuards(PermissionsGuard)
+@ApiBearerAuth()
 @Controller('repos/github')
 export class GithubReposController extends GenericController<Repository> {
     constructor(private readonly reposService: GithubReposService) {
@@ -34,6 +39,7 @@ export class GithubReposController extends GenericController<Repository> {
         description: `Search results matching criteria`,
         type: Repository,
     })
+    @Permission([GithubRepoPermissionsEnum.READ])
     async getRepos(@Query('filter') filter, @Query('page') page, @Query('per_page') perPage, @Req() req) {
         // LOGIN??
 
@@ -71,6 +77,7 @@ export class GithubReposController extends GenericController<Repository> {
         description: `The data of the specified repository`,
         type: Repository,
     })
+    @Permission([GithubRepoPermissionsEnum.READ])
     async getRepo(@Param('repoOwner') repoOwner: string, @Param('repoName') repoName: string, @Req() req) {
         // LOGIN?? That's req.user? We trust in that?
 
@@ -108,6 +115,7 @@ export class GithubReposController extends GenericController<Repository> {
         description: `The data of the specified repository`,
         type: Repository,
     })
+    @Permission([GithubRepoPermissionsEnum.READ])
     async getRepoTree(@Param('repoOwner') repoOwner: string, @Param('repoName') repoName: string, @Param('branch') branch: string, @Req() req) {
         // LOGIN??
 
@@ -126,6 +134,7 @@ export class GithubReposController extends GenericController<Repository> {
         description: `The data of the specified repository`,
         type: GithubAccount,
     })
+    @Permission([GithubRepoPermissionsEnum.READ])
     async getAuthenticatedUser() {
         // LOGIN??
 
@@ -150,6 +159,7 @@ export class GithubReposController extends GenericController<Repository> {
         description: `The data of the specified repository`,
         type: GithubAccount,
     })
+    @Permission([GithubRepoPermissionsEnum.READ])
     async getUserByAccessToken(@Param('accessToken') accessToken: string) {
         const user = await this.reposService.getUserByAccessToken(accessToken)
 
@@ -172,6 +182,7 @@ export class GithubReposController extends GenericController<Repository> {
         description: `The data of the specified repository`,
         type: GithubAccount,
     })
+    @Permission([GithubRepoPermissionsEnum.READ])
     async getUserEmailByAccessToken(@Param('accessToken') accessToken: string) {
         const email = await this.reposService.getEmailByAccessToken(accessToken)
 

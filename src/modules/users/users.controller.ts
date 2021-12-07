@@ -1,15 +1,20 @@
-import { Controller, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common'
-import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { Controller, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { UsersService } from './users.service'
 import { GenericController } from 'src/generic/controller.generic'
 import { HateoasLinker } from 'src/helpers/hateoasLinker'
 import { QueryParser } from 'src/helpers/queryParser'
 import { User } from 'src/model/user.model'
 import { BaseFilterQuery } from 'src/model/dto/base-filter.dto'
+import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { UserPermissionsEnum } from './security/user-permissions.enum'
+import { Permission } from '../auth/annotations/permission.decorator'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 
 @ApiTags('users')
+@UseGuards(PermissionsGuard)
+@ApiBearerAuth()
 @Controller('users')
 export class UsersController extends GenericController<User> {
     constructor(private readonly usersService: UsersService) {
@@ -31,6 +36,7 @@ export class UsersController extends GenericController<User> {
         description: `Users matching criteria`,
         type: User,
     })
+    @Permission([UserPermissionsEnum.READ])
     async getUsers(@Req() req, @Res() res, @Query() filters: BaseFilterQuery) {
         // <-- Lack of documentation due to inconsistent stuff
         // filters variable is just for documentation purposes. But a refactoring removing Req and Res would be great.
@@ -58,6 +64,7 @@ export class UsersController extends GenericController<User> {
         schema: { type: 'string' },
     })
     @ApiResponse({ status: 200, description: `User matching name`, type: User })
+    @Permission([UserPermissionsEnum.READ])
     async getUser(@Param('userName') userName: string) {
         const user = await this.usersService.getUser({
             filter: { nickname: userName },

@@ -4,9 +4,9 @@ export class TeamMember {
     @ApiProperty()
     public id: string
     @ApiProperty()
-    public nickname : string
+    public nickname: string
     @ApiProperty()
-    public username : string
+    public username: string
     @ApiProperty()
     public team_roles: string[]
     @ApiProperty()

@@ -23,11 +23,7 @@ function parseConfig(format, data) {
 
 @Injectable({ scope: Scope.REQUEST })
 export class GithubReposService {
-    constructor(
-        private readonly provider: GithubReposProvider,
-        @Inject(forwardRef(() => ReportsService))
-        private readonly reportsService: ReportsService,
-    ) {}
+    constructor(private readonly provider: GithubReposProvider) {}
 
     login(access_token) {
         this.provider.login(access_token)
@@ -45,6 +41,7 @@ export class GithubReposService {
         return commits
     }
 
+    /*
     _assignReports(user) {
         return async (repo) => {
             const reports = await this.reportsService.getReports({
@@ -57,12 +54,12 @@ export class GithubReposService {
 
             if (reports.length) repo.report = reports[0].full_name
         }
-    }
+    }*/
 
     async getRepos({ user, filter, page = 1, perPage = DEFAULT_REPOS_PER_PAGE }) {
         const repos = filter ? await this.provider.searchRepos(filter, page, perPage) : await this.provider.getRepos(page, perPage)
 
-        await Promise.all(repos.map(this._assignReports(user)))
+        // await Promise.all(repos.map(this._assignReports(user)))
 
         return repos
     }
@@ -73,7 +70,8 @@ export class GithubReposService {
             throw new NotFoundError({
                 message: "The specified repository couldn't be found",
             })
-        await this._assignReports(user)(repo)
+
+        //    await this._assignReports(user)(repo)
 
         return repo
     }

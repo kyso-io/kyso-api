@@ -22,7 +22,7 @@ export class User extends BaseModel {
     @ApiProperty({
         description: `List of permissions related to this user. See permission reference for more details`,
         required: false,
-        isArray: true
+        isArray: true,
     })
     public direct_permissions?: Permissions[]
 

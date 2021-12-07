@@ -1,5 +1,5 @@
-import { Controller, Delete, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common'
-import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
+import { Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { GenericController } from 'src/generic/controller.generic'
 import { HateoasLinker } from 'src/helpers/hateoasLinker'
 import { Report } from 'src/model/report.model'
@@ -16,6 +16,9 @@ import { Comment } from 'src/model/comment.model'
 import { Branch } from 'src/model/branch.model'
 import { UsersService } from '../users/users.service'
 import { User } from 'src/model/user.model'
+import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { Permission } from '../auth/annotations/permission.decorator'
+import { ReportPermissionsEnum } from './security/report-permissions.enum'
 
 const UPDATABLE_FIELDS = ['stars', 'tags', 'title', 'description', 'request_private', 'name']
 
@@ -25,6 +28,8 @@ const DEFAULT_GET_REPORT_FILTERS = {
 }
 
 @ApiTags('reports')
+@UseGuards(PermissionsGuard)
+@ApiBearerAuth()
 @Controller('reports')
 export class ReportsController extends GenericController<Report> {
     constructor(
@@ -64,6 +69,7 @@ export class ReportsController extends GenericController<Report> {
         description: `Reports matching criteria`,
         type: Report,
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getReports(@Req() req, @Res() res, @Query() paginationQuery: ReportFilterQuery) {
         // Object paginationQuery is there for documentation purposes. A refactor of this method should be done in the future
         const query = QueryParser.toQueryObject(req.url)
@@ -101,6 +107,7 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getReport(@Req() req, @Res() res) {
         const report = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
 
@@ -125,6 +132,7 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the owner of the report to fetch',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getPinnedReportsForAnUser(@Param('reportOwner') reportOwner: string) {
         const userData: User = await this.usersService.getUser({ username: reportOwner })
 
@@ -154,6 +162,7 @@ export class ReportsController extends GenericController<Report> {
         type: CreateReportRequest,
         description: 'Pass an array to create multiple objects',
     })
+    @Permission([ReportPermissionsEnum.CREATE])
     async createReport(@Req() req, @Req() res) {
         const owner = req.body.team || req.user.nickname
         if (Array.isArray(req.body.reports)) {
@@ -208,6 +217,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @ApiBody({ type: UpdateReportRequest })
+    @Permission([ReportPermissionsEnum.EDIT])
     async updateReport(@Req() req, @Res() res) {
         const fields = Object.fromEntries(Object.entries(req.body).filter((entry) => UPDATABLE_FIELDS.includes(entry[0])))
 
@@ -242,6 +252,7 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.DELETE])
     async deleteReport(@Req() req, @Res() res) {
         await this.reportsService.deleteReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
 
@@ -270,6 +281,7 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.EDIT])
     async pinReport(@Req() req, @Res() res) {
         const report = await this.reportsService.pinReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
 
@@ -299,6 +311,7 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getComments(@Req() req, @Res() res) {
         const { id: reportId } = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
 
@@ -338,6 +351,7 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getBranches(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branches = await this.reportsService.getBranches(reportOwner, reportName)
@@ -379,6 +393,7 @@ export class ReportsController extends GenericController<Report> {
         description: 'Branch to start listing commits from. Accepts slashes',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getCommits(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branch = req.params[0]
@@ -426,6 +441,7 @@ export class ReportsController extends GenericController<Report> {
         description: 'Path of the file to be consulted',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getReportFileHash(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branch = req.params[0]
@@ -469,6 +485,7 @@ export class ReportsController extends GenericController<Report> {
         description: 'Hash of the file to access',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getReportFileContent(@Res() req, @Req() res) {
         const { hash } = req.params
         if (!Validators.isValidSha(hash))

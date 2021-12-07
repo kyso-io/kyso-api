@@ -6,7 +6,7 @@ export class ApiError {
 
     @ApiProperty()
     public message: string
-    
+
     @ApiProperty()
     public error: string
 }

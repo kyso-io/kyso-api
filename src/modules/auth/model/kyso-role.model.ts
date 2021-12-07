@@ -7,7 +7,7 @@ export class KysoRole {
         required: true,
     })
     public name: string
-    
+
     @ApiProperty({
         description: `List of permissions related to this role. See permission reference for more details`,
         required: true,
