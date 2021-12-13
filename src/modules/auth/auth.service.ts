@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { KysoLoginProvider } from './providers/kyso-login.provider'
 import { LoginProvider } from './model/login-provider.enum'
 import { GithubLoginProvider } from './providers/github-login.provider'
@@ -14,6 +14,9 @@ import { OrganizationMemberJoin } from '../organizations/model/organization-memb
 import { Team } from 'src/model/team.model'
 import { Organization } from 'src/model/organization.model'
 import * as mongo from 'mongodb'
+import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
+import { Token } from './model/token.model'
+import { TokenPermissions } from './model/token-permissions.model'
 
 @Injectable()
 export class AuthService {
@@ -22,7 +25,7 @@ export class AuthService {
         private readonly githubLoginProvider: GithubLoginProvider,
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
-    ) {}
+    ) { }
 
     async getPlatformRoles(): Promise<KysoRole[]> {
         return this.platformRoleProvider.read({})
@@ -34,8 +37,13 @@ export class AuthService {
         teamService: TeamsService,
         organizationService: OrganizationsService,
         platformRoleProvider: PlatformRoleMongoProvider,
-    ) {
-        let response = []
+        userRoleProvider: UserRoleMongoProvider
+    ): Promise<TokenPermissions> {
+        let response = {
+            global: [],
+            teams: [], 
+            organizations: []
+        } as TokenPermissions
 
         // Retrieve user object
         const user: User = await userService.getUser({ filter: { username: username } })
@@ -57,7 +65,13 @@ export class AuthService {
                 // For every role assigned to this user in this team, retrieve their permissions
                 let computedPermissions = []
                 teamMembership.role_names.map((element) => {
-                    const existsRole: KysoRole[] = teamRoles.filter((y) => y.name === element)
+                    let existsRole: KysoRole[]
+                    if(teamRoles) {
+                        existsRole = teamRoles.filter((y) => y.name === element)
+                    } else {
+                        // No team roles, try to apply platform roles
+                        existsRole = platformRoles.filter((y) => y.name === element)
+                    }
 
                     // If the role exists, add all the permissions to the computedPermissionsArray
                     if (existsRole) {
@@ -65,14 +79,16 @@ export class AuthService {
                     }
                 })
 
-                response.push({
-                    team: team.name,
-                    teamId: team.id,
+                response.teams.push({
+                    name: team.name,
+                    id: team.id,
                     permissions: [...new Set(computedPermissions)], // Remove duplicated permissions
                 })
+                
             })
-        } // else --> The user has no specific role for the teams of the organization. Apply organization roles
-
+        }
+        
+        // Then, search for organization roles
         // Search for organizations in which the user is a member
         const userOrganizationMembership: OrganizationMemberJoin[] = await organizationService.searchMembersJoin({ filter: { member_id: user.id } })
 
@@ -89,20 +105,20 @@ export class AuthService {
                 let computedPermissions = []
 
                 organizationMembership.role_names.map((element) => {
-                    const existsRole: KysoRole[] = organizationRoles.filter((y) => y.name === element)
+                    let existsRole: KysoRole[]
 
+                    if(organizationRoles) {
+                        existsRole = organizationRoles.filter((y) => y.name === element)
+                    } else {
+                        // If there are not specific organization roles, try with platform roles
+                        existsRole = platformRoles.filter((y) => y.name === element)
+                    }
+                    
                     // If the role exists, add all the permissions to the computedPermissionsArray
                     if (existsRole) {
                         computedPermissions = computedPermissions.concat(existsRole[0].permissions)
                     } else {
-                        // If is not an organization role, could be a platform role
-                        const existsPlatformRole: KysoRole[] = platformRoles.filter((y) => y.name === element)
-
-                        if (existsPlatformRole) {
-                            computedPermissions = computedPermissions.concat(existsPlatformRole[0].permissions)
-                        } else {
-                            Logger.warn(`Role ${element} does not exist in organization nor in platform roles`)
-                        }
+                        Logger.warn(`Role ${element} does not exist in organization nor in platform roles`)
                     }
                 })
 
@@ -112,18 +128,55 @@ export class AuthService {
                 // For-each team
                 organizationTeams.forEach((orgTeam) => {
                     // If already exists in the response object, ignore it (team permissions override organization permissions)
-                    const alreadyExistsInResponse = response.filter((x) => x.teamId === orgTeam.id)
+                    const alreadyExistsInResponse = response.teams.filter((x) => x.id === orgTeam.id)
 
                     if (!alreadyExistsInResponse) {
                         // If not, retrieve the roles
-                        response.push({
-                            team: orgTeam.name,
-                            teamId: orgTeam.id,
+                        response.teams.push({
+                            name: orgTeam.name,
+                            id: orgTeam.id,
                             permissions: [...new Set(computedPermissions)], // Remove duplicated permissions
                         })
                     }
                 })
             })
+        }
+
+        // TODO: Global permissions, not related to teams
+        const generalRoles = await userRoleProvider.read({ filter: { userId: user.id }})
+        
+        if (generalRoles) {
+            for(let organizationMembership of userOrganizationMembership) {
+                // For every organization, retrieve the base object
+                let objectId = new mongo.ObjectId(organizationMembership.organization_id)
+                const organization: Organization = await organizationService.getOrganization({ filter: { _id: objectId } })
+
+                // These are the specific roles built for that team
+                const organizationRoles: KysoRole[] = organization.roles
+
+                // For every role assigned to this user in this organization, retrieve their permissions
+                let computedPermissions = []
+
+                organizationMembership.role_names.map((element) => {
+                    let existsRole: KysoRole[]
+
+                    if(organizationRoles) {
+                        existsRole = organizationRoles.filter((y) => y.name === element)
+                    } else {
+                        // If there are not specific organization roles, try with platform roles
+                        existsRole = platformRoles.filter((y) => y.name === element)
+                    }
+                    
+                    // If the role exists, add all the permissions to the computedPermissionsArray
+                    if (existsRole) {
+                        computedPermissions = computedPermissions.concat(existsRole[0].permissions)
+                    } else {
+                        Logger.warn(`Role ${element} does not exist in organization nor in platform roles`)
+                    }
+                })
+
+                response.global = [...new Set(computedPermissions)];
+            }
         }
 
         return response
@@ -146,12 +199,12 @@ export class AuthService {
      * @param token Token to evaluate and decode
      * @returns
      */
-    evaluateAndDecodeToken(token: string): any {
+    evaluateAndDecodeToken(token: string): Token {
         try {
             this.jwtService.verify(token)
             const decodedToken = this.jwtService.decode(token)
 
-            return decodedToken
+            return decodedToken as Token
         } catch (ex) {
             // TOKEN IS NOT VALID
             return undefined

@@ -6,6 +6,9 @@ import { TeamsService } from 'src/modules/teams/teams.service'
 import { AuthService } from '../auth.service'
 import { OrganizationsService } from 'src/modules/organizations/organizations.service'
 import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
+import { UserRoleMongoProvider } from './mongo-user-role.provider'
+import { Token } from '../model/token.model'
+import { TokenPermissions } from '../model/token-permissions.model'
 
 @Injectable()
 export class KysoLoginProvider {
@@ -16,6 +19,7 @@ export class KysoLoginProvider {
         private readonly organizationService: OrganizationsService,
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
+        private readonly userRoleProvider: UserRoleMongoProvider
     ) {}
 
     async login(password: string, username?: string): Promise<String> {
@@ -28,25 +32,27 @@ export class KysoLoginProvider {
 
         if (isRightPassword) {
             // Build all the permissions for this user
-            const permissions = await AuthService.buildFinalPermissionsForUser(
+            const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
                 username,
                 this.userService,
                 this.teamService,
                 this.organizationService,
                 this.platformRoleProvider,
+                this.userRoleProvider
             )
+
+            let payload: Token = new Token();
+
+            payload.username = user.username
+            payload.nickname = user.nickname
+            payload.id = user.id
+            payload.plan = user.plan
+            payload.email = user.email
+            payload.permissions = permissions
 
             // generate token
             const token = this.jwtService.sign(
-                {
-                    username: user.username,
-                    nickname: user.nickname,
-                    plan: user.plan,
-                    id: user.id,
-                    email: user.email,
-                    direct_permissions: user.direct_permissions,
-                    teams: permissions,
-                },
+                {payload},
                 {
                     expiresIn: '2h',
                     issuer: 'kyso',

@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Param, Patch, Headers, Req, UseGuards, UnauthorizedException } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { GenericController } from 'src/generic/controller.generic'
 import { ForbiddenError } from 'src/helpers/errorHandling'
 import { HateoasLinker } from 'src/helpers/hateoasLinker'
+import { HEADER_X_KYSO_TEAM } from 'src/model/constants'
 import { Team } from 'src/model/team.model'
 import { TeamsService } from 'src/modules/teams/teams.service'
 import { Permission } from '../auth/annotations/permission.decorator'
@@ -38,12 +39,16 @@ export class TeamsController extends GenericController<Team> {
     })
     @ApiResponse({ status: 200, description: `Team matching name`, type: Team })
     @ApiHeader({
-        name: 'x-kyso-team',
+        name: HEADER_X_KYSO_TEAM,
         description: 'Name of the team',
         required: true,
     })
     @Permission([TeamPermissionsEnum.READ])
-    async getTeam(@Param('teamName') teamName: string) {
+    async getTeam(@Param('teamName') teamName: string, @Headers(HEADER_X_KYSO_TEAM) xKysoTeamHeader: string) {
+        if(xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
+            throw new UnauthorizedException("Team path param and team header are not equal. This incident will be reported")
+        }
+
         const team = await this.teamsService.getTeam({
             filter: { name: teamName },
         })
@@ -65,8 +70,17 @@ export class TeamsController extends GenericController<Team> {
         schema: { type: 'string' },
     })
     @ApiResponse({ status: 200, description: `Team matching name`, type: Team })
+    @ApiHeader({
+        name: HEADER_X_KYSO_TEAM,
+        description: 'Name of the team',
+        required: true,
+    })
     @Permission([TeamPermissionsEnum.READ])
-    async getTeamMembers(@Param('teamName') teamName: string) {
+    async getTeamMembers(@Param('teamName') teamName: string, @Headers(HEADER_X_KYSO_TEAM) xKysoTeamHeader: string) {
+        if(xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
+            throw new UnauthorizedException("Team path param and team header are not equal. This incident will be reported")
+        }
+
         return await this.teamsService.getMembers(teamName)
     }
 
@@ -86,13 +100,15 @@ export class TeamsController extends GenericController<Team> {
         description: `Specified team data`,
         type: Team,
     })
+    @ApiHeader({
+        name: HEADER_X_KYSO_TEAM,
+        description: 'Name of the team',
+        required: true,
+    })
     @Permission([TeamPermissionsEnum.EDIT])
-    async updateTeam(@Body() data: UpdateTeamRequest, @Req() req, @Param('teamName') teamName: string) {
-        // TODO: From where comes that req.user.objectId? Is a header? Is not in the documentation...
-        if (!(await this.teamsService.hasPermissionLevel(req.user.objectId, teamName, 'editor'))) {
-            throw new ForbiddenError({
-                message: "You don't have permissions to edit this team.",
-            })
+    async updateTeam(@Body() data: UpdateTeamRequest, @Req() req, @Param('teamName') teamName: string, @Headers(HEADER_X_KYSO_TEAM) xKysoTeamHeader: string) {
+        if(xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
+            throw new UnauthorizedException("Team path param and team header are not equal. This incident will be reported")
         }
 
         const filterObj = { name: teamName }

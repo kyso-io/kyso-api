@@ -19,12 +19,12 @@ export class OrganizationsService {
     ) {}
 
     async getOrganization(query: any): Promise<Organization> {
-        const teams = await this.provider.read(query)
-        if (teams.length === 0)
-            throw new NotFoundError({
-                message: "The specified organization couldn't be found",
-            })
-        return teams[0]
+        const organization = await this.provider.read(query)
+        if (organization.length === 0) {
+            return null
+        }
+            
+        return organization[0]
     }
 
     async createOrganization(organization: CreateOrganizationRequest): Promise<Organization> {
@@ -42,6 +42,12 @@ export class OrganizationsService {
         } else {
             return this.provider.create(newOrg)
         }
+    }
+
+    async isUserInOrganization(user: User, organization: Organization) {
+        const res = await this.searchMembersJoin({ filter: { $and: [ {member_id: user.id}, {organization_id: organization.id} ] } })
+
+        return res;
     }
 
     async searchMembersJoin(query: any): Promise<OrganizationMemberJoin[]> {

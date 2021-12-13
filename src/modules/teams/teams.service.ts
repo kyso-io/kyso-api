@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common'
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common'
 import { NotFoundError } from 'src/helpers/errorHandling'
 import { Team } from 'src/model/team.model'
 import { User } from 'src/model/user.model'
@@ -8,16 +8,14 @@ import { TeamMemberJoin } from './model/team-member-join.model'
 import { TeamMember } from './model/team-member.model'
 import { TeamMemberMongoProvider } from './providers/mongo-team-member.provider'
 
-const PERMISSION_LEVELS = ['none', 'viewer', 'editor', 'admin']
-
 @Injectable()
-export class TeamsService {
+export class TeamsService  {
     constructor(
         private readonly provider: TeamsMongoProvider,
         private readonly teamMemberProvider: TeamMemberMongoProvider,
         @Inject(forwardRef(() => UsersService))
         private readonly usersService: UsersService,
-    ) {}
+    ) { }
 
     async getTeam(query) {
         const teams = await this.provider.read(query)
@@ -90,16 +88,5 @@ export class TeamsService {
     async updateTeam(filterQuery, updateQuery) {
         const user = await this.provider.update(filterQuery, updateQuery)
         return user
-    }
-
-    async hasPermissionLevel(userId, teamName, level) {
-        const permissionRequired = PERMISSION_LEVELS.indexOf(level)
-        const permissionLevel = PERMISSION_LEVELS.indexOf(await this.provider.getPermissionLevel(userId, teamName))
-        if (permissionRequired === -1) {
-            console.log(`teamsService.hasPermission has received an invalid permission level: ${level}! Action not allowed.`)
-            return false
-        }
-
-        return permissionLevel >= permissionRequired
     }
 }

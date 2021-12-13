@@ -1,27 +1,6 @@
-const schemas = {
-    Study: {
-        name: 'string',
-        versionsArray: 'array',
-        stargazers: 'array',
-        stars: 'number',
-        state: 'string',
-        preview: 'file',
-        description: 'string',
-        views: 'number',
-        tags: 'array',
-        user: '*_User',
-        requestPrivate: 'boolean',
-        forkedFrom: '*Study',
-        forks: 'array',
-    },
-}
+import { Logger } from "@nestjs/common"
 
-// const mongo = require("../mongo/index")
 const { MongoClient, ObjectId } = require('mongodb')
-
-const DB_NAME = 'kyso-initial'
-let client
-let db
 
 const FK_NAME_REGEX = /^_p_(_?[a-zA-Z]+)$/
 const FK_VALUE_REGEX = RegExp('^_?[a-zA-Z]+\\$(\\w+)$')
@@ -33,17 +12,29 @@ const QUERY_TO_PIPELINE = {
     limit: '$limit',
 }
 
-export class MongoProvider {
+export abstract class MongoProvider {
     baseCollection: any
-
-    constructor(collection) {
-        initialize()
+    private db: any
+    
+    constructor(collection, mongoDB) {
+        this.db = mongoDB
         this.baseCollection = collection
+        
+        const existsCollection = this.existsMongoDBCollection(this.baseCollection)
+
+        if(!existsCollection) {
+            Logger.log(`Collection ${this.baseCollection} does not exists, creating it`)
+            Logger.log(`Populating minimal data for ${this.baseCollection} collection`)
+
+            this.populateMinimalData()
+        }
     }
+
+    abstract populateMinimalData()
 
     getCollection(name?) {
         const collectionName = name || this.baseCollection
-        return db.collection(collectionName)
+        return this.db.collection(collectionName)
     }
 
     parseId(id) {
@@ -79,7 +70,7 @@ export class MongoProvider {
             },
         ]
     }
-
+    
     async create(obj) {
         obj._created_at = new Date()
         await this.getCollection().insertOne(obj)
@@ -114,6 +105,10 @@ export class MongoProvider {
     async delete(filter) {
         await this.getCollection().deleteOne(filter)
     }
+
+    async existsMongoDBCollection(name: string) {
+        return (await (await this.db.listCollections().toArray()).findIndex((item) => item.name === name) !== -1)
+    }
 }
 
 function parseForeignKeys(obj) {
@@ -142,20 +137,4 @@ function parseForeignKeys(obj) {
     return result
 }
 
-async function initialize() {
-    if (!client) {
-        try {
-            client = await MongoClient.connect(process.env.DATABASE_URI, {
-                useUnifiedTopology: true,
-                maxPoolSize: 10,
-                // poolSize: 10 <-- Deprecated
-            })
-            db = client.db(DB_NAME)
-            await db.command({ ping: 1 })
-        } catch (err) {
-            console.error(`Couldn't connect with mongoDB instance at ${process.env.DATABASE_URI}`)
-            console.error(err)
-            process.exit()
-        }
-    }
-}
+

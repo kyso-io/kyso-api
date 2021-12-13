@@ -3,9 +3,9 @@ import { MongoProvider } from 'src/providers/mongo.provider'
 import { db } from 'src/main'
 
 @Injectable()
-export class PlatformRoleMongoProvider extends MongoProvider {
+export class UserRoleMongoProvider extends MongoProvider {
     constructor() {
-        super('PlatformRole', db)
+        super('UserRole', db)
     }
 
     populateMinimalData() {

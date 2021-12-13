@@ -34,12 +34,15 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiResponse({ status: 200, description: `Organization matching name`, type: Organization })
     @Permission([OrganizationPermissionsEnum.READ])
-    async getOrganization(@Param('organizationName') teamName: string) {
-        let organization: Organization = new Organization()
+    async getOrganization(@Param('organizationName') organizationName: string) {
+        let organization = await this.organizationService.getOrganization({ filter: {name: organizationName }})
 
-        this.assignReferences(organization)
-
-        return organization
+        if(organization) {
+            this.assignReferences(organization)
+            return organization
+        } else {
+            return {}
+        }
     }
 
     @Get('/:organizationName/members')
@@ -69,4 +72,5 @@ export class OrganizationsController extends GenericController<Organization> {
     async createOrganization(@Body() organization: CreateOrganizationRequest): Promise<Organization> {
         return this.organizationService.createOrganization(organization)
     }
+
 }

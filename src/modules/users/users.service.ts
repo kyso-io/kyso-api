@@ -1,11 +1,11 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common'
+import { forwardRef, Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
 import { NotFoundError } from 'src/helpers/errorHandling'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 
 @Injectable()
 export class UsersService {
     constructor(private readonly provider: UsersMongoProvider) {}
-
+    
     async getUsers(query) {
         let users = []
 

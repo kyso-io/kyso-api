@@ -2,12 +2,18 @@ import { NestFactory } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { AppModule } from './app.module'
 import * as helmet from 'helmet'
-import { INestApplication } from '@nestjs/common'
 import * as fs from 'fs'
 import { RedocOptions, RedocModule } from 'nestjs-redoc'
+import { Logger } from '@nestjs/common'
+
+const { MongoClient, ObjectId } = require('mongodb')
+export let client
+export let db
 
 async function bootstrap() {
+    await connectToDatabase(process.env.DATABASE_NAME || 'kyso-initial')
     const app = await NestFactory.create(AppModule)
+    
     const globalPrefix = 'v1'
     // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately
     app.use(helmet())
@@ -63,12 +69,29 @@ async function bootstrap() {
         },
     ]
 
-    // Instead of using SwaggerModule.setup() you call this module
     await RedocModule.setup('/redoc', app, redocDocument, redocOptions)
 
     await app.listen(process.env.PORT || 3000)
 }
 
-const bindSwaggerDocument = (globalPrefix: string, app: INestApplication) => {}
+async function connectToDatabase(DB_NAME) {
+    Logger.log(`Connecting to database...`)
+    if (!client) {
+        try {
+            client = await MongoClient.connect(process.env.DATABASE_URI, {
+                useUnifiedTopology: true,
+                maxPoolSize: 10,
+                // poolSize: 10 <-- Deprecated
+            })
+            db = client.db(DB_NAME)
+            await db.command({ ping: 1 })
+        } catch (err) { 
+            Logger.error(`Couldn't connect with mongoDB instance at ${process.env.DATABASE_URI}`)
+            Logger.error(err)
+            process.exit()
+        }
+    }
+}
+
 
 bootstrap()
