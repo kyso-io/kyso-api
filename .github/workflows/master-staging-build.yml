@@ -62,8 +62,8 @@ jobs:
           DOCKER_BUILDKIT: 1
         run: |
           echo $HEROKU_API_KEY | docker login --username=_ --password-stdin registry.heroku.com
-          docker build -f Dockerfile.web --cache-from registry.heroku.com/$APP_NAME/web -t registry.heroku.com/$APP_NAME/web .
-          docker build -f Dockerfile.web --cache-from registry.heroku.com/$APP_NAME/worker -t registry.heroku.com/$APP_NAME/worker .
+          docker build -f Dockerfile --cache-from registry.heroku.com/$APP_NAME/web -t registry.heroku.com/$APP_NAME/web .
+          docker build -f Dockerfile --cache-from registry.heroku.com/$APP_NAME/worker -t registry.heroku.com/$APP_NAME/worker .
           docker push registry.heroku.com/$APP_NAME/web:latest
           docker push registry.heroku.com/$APP_NAME/worker:latest
 
