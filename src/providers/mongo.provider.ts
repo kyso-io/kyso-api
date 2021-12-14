@@ -20,14 +20,17 @@ export abstract class MongoProvider {
         this.db = mongoDB
         this.baseCollection = collection
         
-        const existsCollection = this.existsMongoDBCollection(this.baseCollection)
-
-        if(!existsCollection) {
-            Logger.log(`Collection ${this.baseCollection} does not exists, creating it`)
-            Logger.log(`Populating minimal data for ${this.baseCollection} collection`)
-
-            this.populateMinimalData()
-        }
+        const existsCollectionPromise = this.existsMongoDBCollection(this.baseCollection)
+        
+        existsCollectionPromise.then((existsCollection) => {
+            if(!existsCollection) {
+                Logger.log(`Collection ${this.baseCollection} does not exists, creating it`)
+                Logger.log(`Populating minimal data for ${this.baseCollection} collection`)
+    
+                this.populateMinimalData()
+            }
+        })
+        
     }
 
     abstract populateMinimalData()
