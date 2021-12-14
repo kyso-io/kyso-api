@@ -23,7 +23,7 @@ export class OrganizationsService {
         if (organization.length === 0) {
             return null
         }
-            
+
         return organization[0]
     }
 
@@ -45,9 +45,9 @@ export class OrganizationsService {
     }
 
     async isUserInOrganization(user: User, organization: Organization) {
-        const res = await this.searchMembersJoin({ filter: { $and: [ {member_id: user.id}, {organization_id: organization.id} ] } })
+        const res = await this.searchMembersJoin({ filter: { $and: [{ member_id: user.id }, { organization_id: organization.id }] } })
 
-        return res;
+        return res
     }
 
     async searchMembersJoin(query: any): Promise<OrganizationMemberJoin[]> {

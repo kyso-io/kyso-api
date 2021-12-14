@@ -25,7 +25,7 @@ export class AuthService {
         private readonly githubLoginProvider: GithubLoginProvider,
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
-    ) { }
+    ) {}
 
     async getPlatformRoles(): Promise<KysoRole[]> {
         return this.platformRoleProvider.read({})
@@ -37,12 +37,12 @@ export class AuthService {
         teamService: TeamsService,
         organizationService: OrganizationsService,
         platformRoleProvider: PlatformRoleMongoProvider,
-        userRoleProvider: UserRoleMongoProvider
+        userRoleProvider: UserRoleMongoProvider,
     ): Promise<TokenPermissions> {
         let response = {
             global: [],
-            teams: [], 
-            organizations: []
+            teams: [],
+            organizations: [],
         } as TokenPermissions
 
         // Retrieve user object
@@ -66,7 +66,7 @@ export class AuthService {
                 let computedPermissions = []
                 teamMembership.role_names.map((element) => {
                     let existsRole: KysoRole[]
-                    if(teamRoles) {
+                    if (teamRoles) {
                         existsRole = teamRoles.filter((y) => y.name === element)
                     } else {
                         // No team roles, try to apply platform roles
@@ -84,10 +84,9 @@ export class AuthService {
                     id: team.id,
                     permissions: [...new Set(computedPermissions)], // Remove duplicated permissions
                 })
-                
             })
         }
-        
+
         // Then, search for organization roles
         // Search for organizations in which the user is a member
         const userOrganizationMembership: OrganizationMemberJoin[] = await organizationService.searchMembersJoin({ filter: { member_id: user.id } })
@@ -107,13 +106,13 @@ export class AuthService {
                 organizationMembership.role_names.map((element) => {
                     let existsRole: KysoRole[]
 
-                    if(organizationRoles) {
+                    if (organizationRoles) {
                         existsRole = organizationRoles.filter((y) => y.name === element)
                     } else {
                         // If there are not specific organization roles, try with platform roles
                         existsRole = platformRoles.filter((y) => y.name === element)
                     }
-                    
+
                     // If the role exists, add all the permissions to the computedPermissionsArray
                     if (existsRole) {
                         computedPermissions = computedPermissions.concat(existsRole[0].permissions)
@@ -143,10 +142,10 @@ export class AuthService {
         }
 
         // TODO: Global permissions, not related to teams
-        const generalRoles = await userRoleProvider.read({ filter: { userId: user.id }})
-        
+        const generalRoles = await userRoleProvider.read({ filter: { userId: user.id } })
+
         if (generalRoles) {
-            for(let organizationMembership of userOrganizationMembership) {
+            for (let organizationMembership of userOrganizationMembership) {
                 // For every organization, retrieve the base object
                 let objectId = new mongo.ObjectId(organizationMembership.organization_id)
                 const organization: Organization = await organizationService.getOrganization({ filter: { _id: objectId } })
@@ -160,13 +159,13 @@ export class AuthService {
                 organizationMembership.role_names.map((element) => {
                     let existsRole: KysoRole[]
 
-                    if(organizationRoles) {
+                    if (organizationRoles) {
                         existsRole = organizationRoles.filter((y) => y.name === element)
                     } else {
                         // If there are not specific organization roles, try with platform roles
                         existsRole = platformRoles.filter((y) => y.name === element)
                     }
-                    
+
                     // If the role exists, add all the permissions to the computedPermissionsArray
                     if (existsRole) {
                         computedPermissions = computedPermissions.concat(existsRole[0].permissions)
@@ -175,7 +174,7 @@ export class AuthService {
                     }
                 })
 
-                response.global = [...new Set(computedPermissions)];
+                response.global = [...new Set(computedPermissions)]
             }
         }
 

@@ -20,6 +20,6 @@ import { UsersModule } from './modules/users/users.module'
         OrganizationsModule,
         ReportsModule,
         TeamsModule,
-    ]
+    ],
 })
 export class AppModule {}

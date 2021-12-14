@@ -115,7 +115,7 @@ export class ReportsService {
             const { id: teamId } = await this.teamsService.getTeam({
                 filter: { name: teamName },
             })
-                        
+
             report._p_team = QueryParser.createForeignKey('Team', teamId)
             usedNameQuery.filter._p_team = report._p_team
         } else usedNameQuery.filter._p_user = report._p_user

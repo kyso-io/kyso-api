@@ -10,7 +10,7 @@ import * as mongo from 'mongodb'
 
 export class KysoRole {
     @ApiProperty({
-        description: `Role identificator`
+        description: `Role identificator`,
     })
     public _id?: any
 
@@ -27,15 +27,16 @@ export class KysoRole {
     public permissions: Permissions[]
 
     constructor(name, permissions, _id?) {
-        this.name = name;
-        this.permissions = permissions;
-        
-        if(_id) {
+        this.name = name
+        this.permissions = permissions
+
+        if (_id) {
             this._id = _id
         }
     }
 
-    public static PLATFORM_ADMIN_ROLE = new KysoRole("platform-admin",
+    public static PLATFORM_ADMIN_ROLE = new KysoRole(
+        'platform-admin',
         [
             GlobalPermissionsEnum.GLOBAL_ADMIN,
             CommentPermissionsEnum.ADMIN,
@@ -67,12 +68,13 @@ export class KysoRole {
             UserPermissionsEnum.CREATE,
             UserPermissionsEnum.DELETE,
             UserPermissionsEnum.EDIT,
-            UserPermissionsEnum.READ
+            UserPermissionsEnum.READ,
         ],
-        new mongo.ObjectId("61a8ae8f9c2bc3c5a2144069")
-    );
+        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144069'),
+    )
 
-    public static TEAM_ADMIN_ROLE = new KysoRole("team-admin",
+    public static TEAM_ADMIN_ROLE = new KysoRole(
+        'team-admin',
         [
             CommentPermissionsEnum.ADMIN,
             CommentPermissionsEnum.CREATE,
@@ -94,12 +96,13 @@ export class KysoRole {
             TeamPermissionsEnum.EDIT,
             TeamPermissionsEnum.READ,
             UserPermissionsEnum.EDIT,
-            UserPermissionsEnum.READ
+            UserPermissionsEnum.READ,
         ],
-        new mongo.ObjectId("61a8ae8f9c2bc3c5a2144070")
-    );
+        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144070'),
+    )
 
-    public static TEAM_CONTRIBUTOR_ROLE = new KysoRole("team-contributor",
+    public static TEAM_CONTRIBUTOR_ROLE = new KysoRole(
+        'team-contributor',
         [
             CommentPermissionsEnum.CREATE,
             CommentPermissionsEnum.DELETE,
@@ -115,26 +118,27 @@ export class KysoRole {
             ReportPermissionsEnum.READ,
             TeamPermissionsEnum.READ,
             UserPermissionsEnum.EDIT,
-            UserPermissionsEnum.READ
+            UserPermissionsEnum.READ,
         ],
-        new mongo.ObjectId("61a8ae8f9c2bc3c5a2144071")
-    );
+        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144071'),
+    )
 
     public static TEAM_READER_ROLE = new KysoRole(
-        "team-reader",
+        'team-reader',
         [
             CommentPermissionsEnum.READ,
             GithubRepoPermissionsEnum.READ,
             OrganizationPermissionsEnum.READ,
             ReportPermissionsEnum.READ,
             TeamPermissionsEnum.READ,
-            UserPermissionsEnum.EDIT,   // Always can edit his own profile
-            UserPermissionsEnum.READ
+            UserPermissionsEnum.EDIT, // Always can edit his own profile
+            UserPermissionsEnum.READ,
         ],
-        new mongo.ObjectId("61a8ae8f9c2bc3c5a2144072")
-    );
+        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144072'),
+    )
 
-    public static ORGANIZATION_ADMIN_ROLE = new KysoRole("organization-admin",
+    public static ORGANIZATION_ADMIN_ROLE = new KysoRole(
+        'organization-admin',
         [
             CommentPermissionsEnum.ADMIN,
             CommentPermissionsEnum.CREATE,
@@ -164,9 +168,8 @@ export class KysoRole {
             UserPermissionsEnum.CREATE,
             UserPermissionsEnum.DELETE,
             UserPermissionsEnum.EDIT,
-            UserPermissionsEnum.READ
+            UserPermissionsEnum.READ,
         ],
-        new mongo.ObjectId("61a8ae8f9c2bc3c5a2144073")
-    );
+        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144073'),
+    )
 }
-

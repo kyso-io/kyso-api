@@ -1,4 +1,4 @@
-import { Logger } from "@nestjs/common"
+import { Logger } from '@nestjs/common'
 
 const { MongoClient, ObjectId } = require('mongodb')
 
@@ -15,22 +15,21 @@ const QUERY_TO_PIPELINE = {
 export abstract class MongoProvider {
     baseCollection: any
     private db: any
-    
+
     constructor(collection, mongoDB) {
         this.db = mongoDB
         this.baseCollection = collection
-        
+
         const existsCollectionPromise = this.existsMongoDBCollection(this.baseCollection)
-        
-        existsCollectionPromise.then((existsCollection) => {
-            if(!existsCollection) {
+
+        existsCollectionPromise.then((existsCollection) => {
+            if (!existsCollection) {
                 Logger.log(`Collection ${this.baseCollection} does not exists, creating it`)
                 Logger.log(`Populating minimal data for ${this.baseCollection} collection`)
-    
+
                 this.populateMinimalData()
             }
         })
-        
     }
 
     abstract populateMinimalData()
@@ -73,7 +72,7 @@ export abstract class MongoProvider {
             },
         ]
     }
-    
+
     async create(obj) {
         obj._created_at = new Date()
         await this.getCollection().insertOne(obj)
@@ -110,7 +109,7 @@ export abstract class MongoProvider {
     }
 
     async existsMongoDBCollection(name: string) {
-        return (await (await this.db.listCollections().toArray()).findIndex((item) => item.name === name) !== -1)
+        return (await (await this.db.listCollections().toArray()).findIndex((item) => item.name === name)) !== -1
     }
 }
 
@@ -139,5 +138,3 @@ function parseForeignKeys(obj) {
 
     return result
 }
-
-

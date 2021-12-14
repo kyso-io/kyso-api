@@ -9,13 +9,13 @@ import { TeamMember } from './model/team-member.model'
 import { TeamMemberMongoProvider } from './providers/mongo-team-member.provider'
 
 @Injectable()
-export class TeamsService  {
+export class TeamsService {
     constructor(
         private readonly provider: TeamsMongoProvider,
         private readonly teamMemberProvider: TeamMemberMongoProvider,
         @Inject(forwardRef(() => UsersService))
         private readonly usersService: UsersService,
-    ) { }
+    ) {}
 
     async getTeam(query) {
         const teams = await this.provider.read(query)

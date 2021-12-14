@@ -6,26 +6,16 @@ export enum TeamPermissionsEnum {
     ADMIN = 'KYSO_IO_ADMIN_TEAM',
 }
 
-export const teamReaderRoleContribution = [
-    TeamPermissionsEnum.READ
-]
+export const teamReaderRoleContribution = [TeamPermissionsEnum.READ]
 
-export const teamContributorRoleContribution = [
-    TeamPermissionsEnum.EDIT,
-    TeamPermissionsEnum.READ
-]
+export const teamContributorRoleContribution = [TeamPermissionsEnum.EDIT, TeamPermissionsEnum.READ]
 
-export const teamAdminRoleContribution = [
-    TeamPermissionsEnum.READ,
-    TeamPermissionsEnum.EDIT,
-    TeamPermissionsEnum.DELETE,
-    TeamPermissionsEnum.ADMIN
-]
+export const teamAdminRoleContribution = [TeamPermissionsEnum.READ, TeamPermissionsEnum.EDIT, TeamPermissionsEnum.DELETE, TeamPermissionsEnum.ADMIN]
 
 export const organizationAdminRoleContribution = [
     TeamPermissionsEnum.READ,
     TeamPermissionsEnum.EDIT,
     TeamPermissionsEnum.DELETE,
     TeamPermissionsEnum.ADMIN,
-    TeamPermissionsEnum.CREATE
+    TeamPermissionsEnum.CREATE,
 ]

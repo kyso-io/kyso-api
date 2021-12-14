@@ -5,7 +5,7 @@ import { UsersMongoProvider } from './providers/mongo-users.provider'
 @Injectable()
 export class UsersService {
     constructor(private readonly provider: UsersMongoProvider) {}
-    
+
     async getUsers(query) {
         let users = []
 

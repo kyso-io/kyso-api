@@ -19,7 +19,7 @@ export class KysoLoginProvider {
         private readonly organizationService: OrganizationsService,
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
-        private readonly userRoleProvider: UserRoleMongoProvider
+        private readonly userRoleProvider: UserRoleMongoProvider,
     ) {}
 
     async login(password: string, username?: string): Promise<String> {
@@ -38,10 +38,10 @@ export class KysoLoginProvider {
                 this.teamService,
                 this.organizationService,
                 this.platformRoleProvider,
-                this.userRoleProvider
+                this.userRoleProvider,
             )
 
-            let payload: Token = new Token();
+            let payload: Token = new Token()
 
             payload.username = user.username
             payload.nickname = user.nickname
@@ -52,7 +52,7 @@ export class KysoLoginProvider {
 
             // generate token
             const token = this.jwtService.sign(
-                {payload},
+                { payload },
                 {
                     expiresIn: '2h',
                     issuer: 'kyso',

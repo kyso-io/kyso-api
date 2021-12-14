@@ -13,5 +13,4 @@ export class CommentsMongoProvider extends MongoProvider {
     populateMinimalData() {
         Logger.log(`${this.baseCollection} has no minimal data to populate`)
     }
-
 }

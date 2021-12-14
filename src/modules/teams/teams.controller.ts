@@ -45,8 +45,8 @@ export class TeamsController extends GenericController<Team> {
     })
     @Permission([TeamPermissionsEnum.READ])
     async getTeam(@Param('teamName') teamName: string, @Headers(HEADER_X_KYSO_TEAM) xKysoTeamHeader: string) {
-        if(xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
-            throw new UnauthorizedException("Team path param and team header are not equal. This incident will be reported")
+        if (xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
+            throw new UnauthorizedException('Team path param and team header are not equal. This incident will be reported')
         }
 
         const team = await this.teamsService.getTeam({
@@ -77,8 +77,8 @@ export class TeamsController extends GenericController<Team> {
     })
     @Permission([TeamPermissionsEnum.READ])
     async getTeamMembers(@Param('teamName') teamName: string, @Headers(HEADER_X_KYSO_TEAM) xKysoTeamHeader: string) {
-        if(xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
-            throw new UnauthorizedException("Team path param and team header are not equal. This incident will be reported")
+        if (xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
+            throw new UnauthorizedException('Team path param and team header are not equal. This incident will be reported')
         }
 
         return await this.teamsService.getMembers(teamName)
@@ -107,8 +107,8 @@ export class TeamsController extends GenericController<Team> {
     })
     @Permission([TeamPermissionsEnum.EDIT])
     async updateTeam(@Body() data: UpdateTeamRequest, @Req() req, @Param('teamName') teamName: string, @Headers(HEADER_X_KYSO_TEAM) xKysoTeamHeader: string) {
-        if(xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
-            throw new UnauthorizedException("Team path param and team header are not equal. This incident will be reported")
+        if (xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
+            throw new UnauthorizedException('Team path param and team header are not equal. This incident will be reported')
         }
 
         const filterObj = { name: teamName }

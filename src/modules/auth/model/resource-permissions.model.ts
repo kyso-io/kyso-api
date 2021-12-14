@@ -10,8 +10,8 @@ export class ResourcePermissions {
 
     @ApiProperty({
         isArray: true,
-        description: "List of roles applied to that resource",
-        enum: KysoRole
+        description: 'List of roles applied to that resource',
+        enum: KysoRole,
     })
     public permissions: KysoRole[]
 }

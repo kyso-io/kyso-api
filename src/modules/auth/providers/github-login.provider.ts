@@ -23,7 +23,7 @@ export class GithubLoginProvider {
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly githubService: GithubReposService,
         private readonly jwtService: JwtService,
-        private readonly userRoleProvider: UserRoleMongoProvider
+        private readonly userRoleProvider: UserRoleMongoProvider,
     ) {}
     // FLOW:
     //     * After calling login, frontend should call to
@@ -85,12 +85,12 @@ export class GithubLoginProvider {
             this.teamService,
             this.organizationService,
             this.platformRoleProvider,
-            this.userRoleProvider
+            this.userRoleProvider,
         )
 
         // In any case, generate JWT Token here
         // generate token
-        
+
         const token = this.jwtService.sign(
             {
                 username: user.username,

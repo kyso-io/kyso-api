@@ -4,17 +4,17 @@ import { ResourcePermissions } from './resource-permissions.model'
 
 export class TokenPermissions {
     @ApiProperty({
-        isArray: true
+        isArray: true,
     })
     public global?: KysoRole[]
 
     @ApiProperty({
-        isArray: true
+        isArray: true,
     })
     public teams?: ResourcePermissions[]
 
     @ApiProperty({
-        isArray: true
+        isArray: true,
     })
     public organizations?: ResourcePermissions[]
 }

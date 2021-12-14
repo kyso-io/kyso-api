@@ -31,6 +31,5 @@ export class PlatformRoleMongoProvider extends MongoProvider {
 
         Logger.log(`Creating organization-admin role`)
         await this.create(KysoRole.ORGANIZATION_ADMIN_ROLE)
-
     }
 }

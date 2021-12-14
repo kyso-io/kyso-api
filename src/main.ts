@@ -13,7 +13,7 @@ export let db
 async function bootstrap() {
     await connectToDatabase(process.env.DATABASE_NAME || 'kyso-initial')
     const app = await NestFactory.create(AppModule)
-    
+
     const globalPrefix = 'v1'
     // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately
     app.use(helmet())
@@ -30,6 +30,8 @@ async function bootstrap() {
         .build()
 
     const document = SwaggerModule.createDocument(app, config)
+
+    // ITERATE SEARCHING FOR "faker: " AND MODIFY HERE
 
     // TODO: Only publish in development / staging mode, remove for production - or discuss it...
     SwaggerModule.setup(globalPrefix, app, document)
@@ -85,13 +87,12 @@ async function connectToDatabase(DB_NAME) {
             })
             db = client.db(DB_NAME)
             await db.command({ ping: 1 })
-        } catch (err) { 
+        } catch (err) {
             Logger.error(`Couldn't connect with mongoDB instance at ${process.env.DATABASE_URI}`)
             Logger.error(err)
             process.exit()
         }
     }
 }
-
 
 bootstrap()

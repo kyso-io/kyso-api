@@ -72,16 +72,16 @@ export class PermissionsGuard implements CanActivate {
 
                 let allUserPermissions = []
 
-                if(userPermissionsInThatTeam) {
+                if (userPermissionsInThatTeam) {
                     allUserPermissions = [...userPermissionsInThatTeam.permissions]
                 }
 
-                if(userPermissionsInThatOrganization) {
+                if (userPermissionsInThatOrganization) {
                     allUserPermissions = [...allUserPermissions, ...userPermissionsInThatOrganization.permissions]
                 }
 
-                if(userGlobalPermissions) {
-                    allUserPermissions =  [...allUserPermissions, ...userGlobalPermissions]
+                if (userGlobalPermissions) {
+                    allUserPermissions = [...allUserPermissions, ...userGlobalPermissions]
                 }
 
                 const hasAllThePermissions = allUserPermissions.every((i) => permissionToActivateEndpoint.includes(i))
