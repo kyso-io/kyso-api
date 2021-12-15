@@ -25,8 +25,9 @@ export abstract class MongoProvider {
         existsCollectionPromise.then((existsCollection) => {
             if (!existsCollection) {
                 Logger.log(`Collection ${this.baseCollection} does not exists, creating it`)
-                Logger.log(`Populating minimal data for ${this.baseCollection} collection`)
+                this.db.createCollection(this.baseCollection)
 
+                Logger.log(`Populating minimal data for ${this.baseCollection} collection`)
                 this.populateMinimalData()
             }
         })
