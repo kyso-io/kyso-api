@@ -169,7 +169,7 @@ export class ReportsService {
     async deleteReport(userId, reportOwner, reportName) {
         const report = await this.getReport(reportOwner, reportName)
 
-        await this.provider.delete({ _id: this.provider.parseId(report.id) })
+        await this.provider.delete({ _id: this.provider.toObjectId(report.id) })
     }
 
     async pinReport(userId, reportOwner, reportName) {

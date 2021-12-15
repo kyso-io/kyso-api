@@ -40,7 +40,7 @@ export abstract class MongoProvider {
         return this.db.collection(collectionName)
     }
 
-    parseId(id) {
+    toObjectId(id: string) {
         return new ObjectId(id)
     }
 
