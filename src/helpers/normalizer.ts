@@ -1,10 +1,10 @@
 import { normalize, schema } from 'normalizr'
 
-const comments = new schema.Entity('comments')
+const comment = new schema.Entity('comments')
 
 export class Normalizer {
-    static normalizeResponse(proposedResponse) {
-        const normalizedResponse = normalize(proposedResponse, comments)
-        return normalizedResponse
+    static normalizeComments(proposed) {
+        const normalized = normalize(proposed, { comments: [comment] })
+        return normalized
     }
 }

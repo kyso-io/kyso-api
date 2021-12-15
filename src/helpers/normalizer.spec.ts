@@ -6,18 +6,16 @@ const jsf = require('json-schema-faker') // eslint-disable-line
 jsf.extend('faker', () => require('faker'))
 
 describe('Normalizer test suite', () => {
-    test('Get schemas and normalize', async () => {
-        const faked = await jsf.resolve({
-            type: 'object',
-            properties: {
-                type: 'object',
-                minItems: 1,
-                $ref: 'https://staging.api.kyso.io/v1-json/#/components/schemas/Comment',
+    test('Create fake comments and normalize', async () => {
+        const fakeComments = await jsf.resolve({
+            type: 'array',
+            minItems: 4,
+            items: {
+                $ref: 'http://localhost:3000/v1-json/#/components/schemas/Comment',
             },
         })
 
-        const normalizedResponse = Normalizer.normalizeResponse(faked)
-        console.log(JSON.stringify(faked, null, 2))
-        console.log(JSON.stringify(normalizedResponse, null, 2))
+        const normalizedComments = Normalizer.normalizeComments({ comments: fakeComments })
+        expect(normalizedComments.result.comments).toStrictEqual(fakeComments.map((f) => f.id))
     })
 })

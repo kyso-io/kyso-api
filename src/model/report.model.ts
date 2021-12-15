@@ -5,7 +5,7 @@ import { Hateoas } from './hateoas.model'
 
 @ApiExtraModels(BatchReportCreation)
 export class Report extends BaseModel {
-    @ApiProperty({ format: 'faker: random.uuid' })
+    @ApiProperty({ format: 'faker: datatype.uuid' })
     public id: string
 
     @ApiProperty()

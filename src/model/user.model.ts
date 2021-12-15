@@ -3,7 +3,7 @@ import { Permissions } from 'src/security/general-permissions.enum'
 import { BaseModel } from './base.model'
 
 export class User extends BaseModel {
-    @ApiProperty({ format: 'faker: random.uuid' })
+    @ApiProperty({ format: 'faker: datatype.uuid' })
     public id: string
 
     @ApiProperty()
