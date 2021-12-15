@@ -5,7 +5,7 @@ import { db } from 'src/main'
 @Injectable()
 export class ReportsMongoProvider extends MongoProvider {
     constructor() {
-        super('Study', db)
+        super('Report', db)
     }
 
     populateMinimalData() {
