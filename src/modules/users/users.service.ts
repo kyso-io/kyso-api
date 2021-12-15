@@ -25,15 +25,6 @@ export class UsersService {
         return users[0]
     }
 
-    async getUserWithSessionAndTeams(userId) {
-        const users = await this.provider.getUsersWithSessionAndTeams(userId)
-        if (users.length === 0)
-            throw new NotFoundError({
-                message: "The specified user couldn't be found",
-            })
-        return users[0]
-    }
-
     async updateUser(filterQuery, updateQuery) {
         const user = await this.provider.update(filterQuery, updateQuery)
         return user
