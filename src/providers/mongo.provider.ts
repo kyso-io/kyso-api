@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common'
 
-const { MongoClient, ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb')
 
 const FK_NAME_REGEX = /^_p_(_?[a-zA-Z]+)$/
 const FK_VALUE_REGEX = RegExp('^_?[a-zA-Z]+\\$(\\w+)$')
