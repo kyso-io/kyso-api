@@ -5,6 +5,7 @@ import * as helmet from 'helmet'
 import { INestApplication } from '@nestjs/common'
 import * as fs from 'fs'
 import { RedocOptions, RedocModule } from 'nestjs-redoc'
+import { OpenAPIExtender } from './helpers/openapiExtender'
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule)
@@ -24,9 +25,8 @@ async function bootstrap() {
         .build()
 
     const document = SwaggerModule.createDocument(app, config)
-
     // TODO: Only publish in development / staging mode, remove for production - or discuss it...
-    SwaggerModule.setup(globalPrefix, app, document)
+    SwaggerModule.setup(globalPrefix, app, OpenAPIExtender.reformat(document))
 
     const redocOptions: RedocOptions = {
         title: 'Kyso API',

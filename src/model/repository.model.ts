@@ -3,7 +3,7 @@ import { BaseModel } from './base.model'
 import { Hateoas } from './hateoas.model'
 
 export class Repository {
-    @ApiProperty()
+    @ApiProperty({ format: 'faker: random.uuid' })
     public id: number
 
     @ApiProperty()

@@ -3,7 +3,7 @@ import { KysoRole } from 'src/modules/auth/model/kyso-role.model'
 import { BaseModel } from './base.model'
 
 export class Team extends BaseModel {
-    @ApiProperty()
+    @ApiProperty({ format: 'faker: random.uuid' })
     public id: string
 
     @ApiProperty()

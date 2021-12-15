@@ -3,9 +3,9 @@ import { BaseModel } from './base.model'
 import { Hateoas } from './hateoas.model'
 
 export class Comment extends BaseModel {
-    @ApiProperty()
+    @ApiProperty({ format: 'faker: random.uuid' })
     public id: string
-    @ApiProperty()
+    @ApiProperty({ format: 'faker: lorem.paragraph' })
     public text: string
     @ApiProperty()
     public _p_user: string
