@@ -1,10 +1,16 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { MongoProvider } from 'src/providers/mongo.provider'
+import { db } from 'src/main'
+import { Report } from 'src/model/report.model'
 
 @Injectable()
-export class ReportsMongoProvider extends MongoProvider {
+export class ReportsMongoProvider extends MongoProvider<Report> {
     constructor() {
-        super('Study')
+        super('Report', db)
+    }
+
+    populateMinimalData() {
+        Logger.log(`${this.baseCollection} has no minimal data to populate`)
     }
 
     async getReportsWithOwner(query) {

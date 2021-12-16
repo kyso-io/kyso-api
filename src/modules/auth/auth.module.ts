@@ -10,6 +10,7 @@ import { TeamsModule } from '../teams/teams.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
 import { GithubReposModule } from '../github-repos/github-repos.module'
 import { PermissionsGuard } from './guards/permission.guard'
+import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
 
 @Global()
 @Module({
@@ -21,7 +22,7 @@ import { PermissionsGuard } from './guards/permission.guard'
         OrganizationsModule,
         GithubReposModule,
     ],
-    providers: [AuthService, KysoLoginProvider, GithubLoginProvider, PlatformRoleMongoProvider, PermissionsGuard],
+    providers: [UserRoleMongoProvider, AuthService, KysoLoginProvider, GithubLoginProvider, PlatformRoleMongoProvider, PermissionsGuard],
     controllers: [AuthController],
     exports: [AuthService, PermissionsGuard],
 })

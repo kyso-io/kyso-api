@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger'
 import { BaseModel } from './base.model'
 import { User } from './user.model'
 
+
 export class Comment extends BaseModel {
     @ApiProperty({ format: 'faker: datatype.uuid' })
     public id: string
@@ -14,4 +15,7 @@ export class Comment extends BaseModel {
 
     @ApiProperty({ isArray: true })
     comments: Comment
+    
+    @ApiProperty()
+    public _p_study: any
 }

@@ -1,12 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { MongoProvider } from 'src/providers/mongo.provider'
 import { db } from 'src/main'
-import { Organization } from 'src/model/organization.model'
 
 @Injectable()
-export class OrganizationsMongoProvider extends MongoProvider<Organization> {
+export class UserRoleMongoProvider extends MongoProvider<any> {
     constructor() {
-        super('Organization', db)
+        super('UserRole', db)
     }
 
     populateMinimalData() {

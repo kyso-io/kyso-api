@@ -27,7 +27,6 @@
     "@nestjs/jwt": "^8.0.0",
     "@nestjs/platform-express": "^8.0.0",
     "@nestjs/swagger": "^5.1.5",
-    "@nestjs/typeorm": "^8.0.2",
     "@octokit/rest": "^18.12.0",
     "@parse/s3-files-adapter": "^1.6.2",
     "@parse/simple-mailgun-adapter": "^2.0.0",
@@ -35,6 +34,8 @@
     "aws-sdk": "^2.1032.0",
     "axios": "^0.24.0",
     "bcryptjs": "^2.4.3",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.13.2",
     "helmet": "^4.6.0",
     "js-yaml": "^4.1.0",
     "mailgun-js": "^0.22.0",
@@ -45,7 +46,8 @@
     "rimraf": "^3.0.2",
     "rxjs": "^7.2.0",
     "swagger-ui-express": "^4.1.6",
-    "typedoc": "^0.22.10"
+    "typedoc": "^0.22.10",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
     "@nestjs/cli": "^8.0.0",

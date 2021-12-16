@@ -1,40 +1,45 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common'
-import { NotFoundError } from 'src/helpers/errorHandling'
+import { Injectable, PreconditionFailedException } from '@nestjs/common'
+import { User } from 'src/model/user.model'
+import { CreateUserRequest } from './dto/create-user-request.dto'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 
 @Injectable()
 export class UsersService {
-    constructor(private readonly provider: UsersMongoProvider) {}
+    constructor(private readonly provider: UsersMongoProvider) {
+    }
 
-    async getUsers(query) {
-        let users = []
+    async getUsers(query): Promise<User[]> {
+        let users: User[] = []
 
         users = await this.provider.read(query)
 
         return users
     }
 
-    async getUser(query) {
+    async getUser(query): Promise<User> {
         query.limit = 1
         const users = await this.getUsers(query)
-        if (users.length === 0)
-            throw new NotFoundError({
-                message: "The specified user couldn't be found",
-            })
+        if (users.length === 0) {
+            return null
+        }
         return users[0]
     }
 
-    async getUserWithSessionAndTeams(userId) {
-        const users = await this.provider.getUsersWithSessionAndTeams(userId)
-        if (users.length === 0)
-            throw new NotFoundError({
-                message: "The specified user couldn't be found",
-            })
-        return users[0]
+    async updateUser(filterQuery, updateQuery): Promise<User> {
+        return await this.provider.update(filterQuery, updateQuery) as User
     }
 
-    async updateUser(filterQuery, updateQuery) {
-        const user = await this.provider.update(filterQuery, updateQuery)
-        return user
+    async createUser(userToCreate: CreateUserRequest): Promise<User> {
+        const parsedUser = User.fromCreateUserRequest(userToCreate)
+
+        // exists a prev user with same email?
+        const exists = await this.getUser({ filter: { email: parsedUser.email }})
+
+        if(!exists) {
+            // Create user into database
+            return await this.provider.create(parsedUser) as User
+        } else {
+            throw new PreconditionFailedException(null, 'User already exists')
+        }
     }
 }

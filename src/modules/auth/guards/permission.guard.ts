@@ -1,8 +1,11 @@
 import { Injectable, CanActivate, ExecutionContext, Logger, forwardRef, Inject, UnauthorizedException } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { Observable } from 'rxjs'
+import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM } from 'src/model/constants'
 import { PERMISSION_KEY } from '../annotations/permission.decorator'
 import { AuthService } from '../auth.service'
+import { ResourcePermissions } from '../model/resource-permissions.model'
+import { Token } from '../model/token.model'
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -13,12 +16,12 @@ export class PermissionsGuard implements CanActivate {
             const request = context.switchToHttp().getRequest()
 
             // Get the token
-            const token = request.headers.authorization.split('Bearer ')[1]
-            const team = request.headers['x-kyso-team']
+            const tokenPayload: Token = this.authService.evaluateAndDecodeTokenFromHeader(request.headers.authorization)
+           
+            const team = request.headers[HEADER_X_KYSO_TEAM]
+            const organization = request.headers[HEADER_X_KYSO_ORGANIZATION]
 
-            // Validate that the token is not compromised, checking its signature
-            const tokenPayload = this.authService.evaluateAndDecodeToken(token)
-
+            // Validate that the token is not compromised
             if (!tokenPayload) {
                 return false
             }
@@ -33,10 +36,12 @@ export class PermissionsGuard implements CanActivate {
                 // If there are no permissions means that is open to authenticated users
                 return true
             } else {
-                // Check if user has the required permissions
+                // Check if user has the required permissions in the team
+                let userPermissionsInThatTeam: ResourcePermissions
                 if (team) {
-                    const userPermissionsInThatTeam = tokenPayload.teams.find((x) => x.team === team)
+                    userPermissionsInThatTeam = tokenPayload.permissions.teams.find((x) => x.name === team)
 
+                    /*
                     const hasAllThePermissions = userPermissionsInThatTeam.permissions.every((i) => permissionToActivateEndpoint.includes(i))
 
                     if (hasAllThePermissions) {
@@ -44,11 +49,50 @@ export class PermissionsGuard implements CanActivate {
                     } else {
                         return false
                     }
+                    */
+                }
+
+                // Check if user has the required permissions in the organization
+                let userPermissionsInThatOrganization: ResourcePermissions
+                if (organization) {
+                    userPermissionsInThatOrganization = tokenPayload.permissions.organizations.find((x) => x.name === organization)
+                    /*
+                    const hasAllThePermissions = userPermissionsInThatOrganization.permissions.every((i) => permissionToActivateEndpoint.includes(i))
+
+                    if (hasAllThePermissions) {
+                        return true
+                    } else {
+                        return false
+                    }*/
+                }
+
+                // Finally, check the global permissions
+                const userGlobalPermissions = tokenPayload.permissions.global
+
+                let allUserPermissions = []
+
+                if (userPermissionsInThatTeam) {
+                    allUserPermissions = [...userPermissionsInThatTeam.permissions]
+                }
+
+                if (userPermissionsInThatOrganization) {
+                    allUserPermissions = [...allUserPermissions, ...userPermissionsInThatOrganization.permissions]
+                }
+
+                if (userGlobalPermissions) {
+                    allUserPermissions = [...allUserPermissions, ...userGlobalPermissions]
+                }
+
+                const hasAllThePermissions = allUserPermissions.every((i) => permissionToActivateEndpoint.includes(i))
+
+                if (hasAllThePermissions) {
+                    return true
+                } else {
+                    return false
                 }
             }
-
-            return true
         } catch (ex) {
+            Logger.error(`Error checking permissions`, ex)
             return false
         }
     }

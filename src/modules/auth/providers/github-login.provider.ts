@@ -8,6 +8,8 @@ import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
 import { OrganizationsService } from 'src/modules/organizations/organizations.service'
 import { TeamsService } from 'src/modules/teams/teams.service'
 import { AuthService } from '../auth.service'
+import { UserRoleMongoProvider } from './mongo-user-role.provider'
+import { Token } from '../model/token.model'
 
 const axios = require('axios').default
 
@@ -21,6 +23,7 @@ export class GithubLoginProvider {
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly githubService: GithubReposService,
         private readonly jwtService: JwtService,
+        private readonly userRoleProvider: UserRoleMongoProvider,
     ) {}
     // FLOW:
     //     * After calling login, frontend should call to
@@ -82,10 +85,12 @@ export class GithubLoginProvider {
             this.teamService,
             this.organizationService,
             this.platformRoleProvider,
+            this.userRoleProvider,
         )
 
         // In any case, generate JWT Token here
         // generate token
+
         const token = this.jwtService.sign(
             {
                 username: user.username,
@@ -93,7 +98,7 @@ export class GithubLoginProvider {
                 // plan: user.plan,
                 id: userInDb.id,
                 email: user.email,
-                teams: permissions,
+                permissions,
             },
             {
                 expiresIn: '2h',

@@ -115,11 +115,7 @@ export class ReportsService {
             const { id: teamId } = await this.teamsService.getTeam({
                 filter: { name: teamName },
             })
-            if (!(await this.teamsService.hasPermissionLevel(user.objectId, teamName, 'editor'))) {
-                throw new ForbiddenError({
-                    message: 'You are not allowed to create a report for this team',
-                })
-            }
+
             report._p_team = QueryParser.createForeignKey('Team', teamId)
             usedNameQuery.filter._p_team = report._p_team
         } else usedNameQuery.filter._p_user = report._p_user
@@ -167,44 +163,17 @@ export class ReportsService {
     async updateReport(userId, reportOwner, reportName, data) {
         const report = await this.getReport(reportOwner, reportName)
 
-        if (
-            (report.owner.type === 'user' && report.owner.id !== userId) ||
-            (report.owner.type === 'team' && !(await this.teamsService.hasPermissionLevel(userId, reportOwner, 'editor')))
-        ) {
-            throw new ForbiddenError({
-                message: 'You are not allowed to delete this report',
-            })
-        }
-
         return this.provider.update({ _id: report.id }, data)
     }
 
     async deleteReport(userId, reportOwner, reportName) {
         const report = await this.getReport(reportOwner, reportName)
 
-        if (
-            (report.owner.type === 'user' && report.owner.id !== userId) ||
-            (report.owner.type === 'team' && !(await this.teamsService.hasPermissionLevel(userId, reportOwner, 'editor')))
-        ) {
-            throw new ForbiddenError({
-                message: 'You are not allowed to delete this report',
-            })
-        }
-
-        await this.provider.delete({ _id: this.provider.parseId(report.id) })
+        await this.provider.delete({ _id: this.provider.toObjectId(report.id) })
     }
 
     async pinReport(userId, reportOwner, reportName) {
         const report = await this.getReport(reportOwner, reportName)
-
-        if (
-            (report.owner.type === 'user' && report.owner.id !== userId) ||
-            (report.owner.type === 'team' && !(await this.teamsService.hasPermissionLevel(userId, reportOwner, 'editor')))
-        ) {
-            throw new ForbiddenError({
-                message: 'You are not allowed to edit this report',
-            })
-        }
 
         const existingReports = await this.getReports({
             filter: {

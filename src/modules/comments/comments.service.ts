@@ -22,8 +22,16 @@ export class CommentsService {
         comments.forEach((comment) => {
             comment.comments = []
             commentMap[comment.id] = comment
-            if (comment.parent !== null) childs.push(comment)
-            else parents.push(comment)
+            
+            // WAITING FOR EOIN
+            /*
+            if (comment.parent !== null) {
+                childs.push(comment)
+            }
+            else {
+                parents.push(comment)
+            }
+            */
         })
 
         childs.forEach((child) => {
