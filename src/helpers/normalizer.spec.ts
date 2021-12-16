@@ -16,6 +16,13 @@ describe('Normalizer test suite', () => {
         })
 
         const normalizedComments = Normalizer.normalizeComments({ comments: fakeComments })
+
         expect(normalizedComments.result.comments).toStrictEqual(fakeComments.map((f) => f.id))
+
+        normalizedComments.result.comments.forEach((commentId) => {
+            expect(normalizedComments.entities.comments[commentId]).toBeDefined()
+            const userId = normalizedComments.entities.comments[commentId].user
+            expect(normalizedComments.entities.users[userId]).toBeDefined()
+        })
     })
 })

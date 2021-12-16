@@ -1,6 +1,8 @@
 import { normalize, schema } from 'normalizr'
 
-const comment = new schema.Entity('comments')
+const user = new schema.Entity('users')
+
+const comment = new schema.Entity('comments', { user: user })
 
 export class Normalizer {
     static normalizeComments(proposed) {

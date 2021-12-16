@@ -1,14 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { BaseModel } from './base.model'
-import { Hateoas } from './hateoas.model'
+import { User } from './user.model'
 
 export class Comment extends BaseModel {
     @ApiProperty({ format: 'faker: datatype.uuid' })
     public id: string
+
     @ApiProperty({ format: 'faker: lorem.paragraph' })
     public text: string
+
     @ApiProperty()
-    public _p_user: string
+    public user: User
+
     @ApiProperty()
-    public child_comments: Comment[]
+    public comments: Comment[]
 }
