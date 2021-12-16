@@ -1,14 +1,12 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
 import { db } from 'src/main'
 import { MongoProvider } from 'src/providers/mongo.provider'
-import * as bcrypt from 'bcryptjs'
 import {v4 as uuidv4} from 'uuid';
-import * as mongo from 'mongodb'
-import { User } from 'src/model/user.model';
-import { DEFAULT_GLOBAL_ADMIN_USER } from '../dto/create-user-request.dto';
+import { AuthService } from 'src/modules/auth/auth.service';
+import { DEFAULT_GLOBAL_ADMIN_USER, User } from 'src/model/user.model';
 
 @Injectable()
-export class UsersMongoProvider extends MongoProvider {
+export class UsersMongoProvider extends MongoProvider<User> {
     provider: any
 
     constructor() {
@@ -31,10 +29,9 @@ export class UsersMongoProvider extends MongoProvider {
                 Yb,         ,ad8"       PASSWORD FOR default-admin@kyso.io USER IS: ${randomPassword}
                 "Y8888888888P"
         `)
-        const hashedPassword = bcrypt.hashSync(randomPassword)
         
-        let copycat = DEFAULT_GLOBAL_ADMIN_USER
-        copycat._hashed_password = hashedPassword
+        let copycat: User = DEFAULT_GLOBAL_ADMIN_USER
+        copycat.hashed_password = AuthService.hashPassword(randomPassword)
      
         await this.create(copycat)
     }

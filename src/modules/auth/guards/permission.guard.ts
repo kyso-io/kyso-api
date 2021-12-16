@@ -16,13 +16,12 @@ export class PermissionsGuard implements CanActivate {
             const request = context.switchToHttp().getRequest()
 
             // Get the token
-            const token = request.headers.authorization.split('Bearer ')[1]
+            const tokenPayload: Token = this.authService.evaluateAndDecodeTokenFromHeader(request.headers.authorization)
+           
             const team = request.headers[HEADER_X_KYSO_TEAM]
             const organization = request.headers[HEADER_X_KYSO_ORGANIZATION]
 
-            // Validate that the token is not compromised, checking its signature
-            const tokenPayload: Token = this.authService.evaluateAndDecodeToken(token)
-
+            // Validate that the token is not compromised
             if (!tokenPayload) {
                 return false
             }

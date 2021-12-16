@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common'
+import * as mongo from 'mongodb'
 
 const { ObjectId } = require('mongodb')
 
@@ -12,7 +13,7 @@ const QUERY_TO_PIPELINE = {
     limit: '$limit',
 }
 
-export abstract class MongoProvider {
+export abstract class MongoProvider<T> {
     baseCollection: any
     private db: any
 
@@ -40,7 +41,7 @@ export abstract class MongoProvider {
         return this.db.collection(collectionName)
     }
 
-    toObjectId(id: string) {
+    toObjectId(id: string): mongo.ObjectId {
         return new ObjectId(id)
     }
 
@@ -74,7 +75,7 @@ export abstract class MongoProvider {
         ]
     }
 
-    async create(obj) {
+    async create(obj): Promise<T> {
         obj._created_at = new Date()
         await this.getCollection().insertOne(obj)
 
@@ -88,7 +89,7 @@ export abstract class MongoProvider {
         return cursor.toArray()
     }
 
-    async read(query) {
+    async read(query): Promise<T[]> {
         const { filter, ...options } = query
         const cursor = await this.getCollection()
             .find(filter, options)
@@ -96,7 +97,7 @@ export abstract class MongoProvider {
         return cursor.toArray()
     }
 
-    async update(filterQuery, updateQuery) {
+    async update(filterQuery, updateQuery): Promise<T> {
         if (!updateQuery.$currentDate) updateQuery.$currentDate = {}
         updateQuery.$currentDate._updated_at = { $type: 'date' }
 

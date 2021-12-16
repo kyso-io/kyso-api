@@ -4,7 +4,7 @@ import { db } from 'src/main'
 import { KysoRole } from '../model/kyso-role.model'
 
 @Injectable()
-export class PlatformRoleMongoProvider extends MongoProvider {
+export class PlatformRoleMongoProvider extends MongoProvider<any> {
     constructor() {
         super('PlatformRole', db)
     }

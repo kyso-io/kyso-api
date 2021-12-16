@@ -4,7 +4,7 @@ import { AppModule } from './app.module'
 import * as helmet from 'helmet'
 import * as fs from 'fs'
 import { RedocOptions, RedocModule } from 'nestjs-redoc'
-import { Logger } from '@nestjs/common'
+import { Logger, ValidationPipe } from '@nestjs/common'
 
 const { MongoClient, ObjectId } = require('mongodb')
 export let client
@@ -17,6 +17,14 @@ async function bootstrap() {
     const globalPrefix = 'v1'
     // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately
     app.use(helmet())
+    
+    app.useGlobalPipes(
+        new ValidationPipe({
+          whitelist: true,
+          transform: true,
+        }),
+      );
+    
     app.setGlobalPrefix(globalPrefix)
 
     // bindSwaggerDocument(globalPrefix, app);

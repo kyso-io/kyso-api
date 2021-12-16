@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { BaseModel } from './base.model'
-import { Hateoas } from './hateoas.model'
 
 export class Comment extends BaseModel {
     @ApiProperty()
@@ -11,4 +10,7 @@ export class Comment extends BaseModel {
     public _p_user: string
     @ApiProperty()
     public child_comments: Comment[]
+    
+    @ApiProperty()
+    public _p_study: any
 }

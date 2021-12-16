@@ -14,6 +14,7 @@ import { OrganizationMemberJoin } from '../organizations/model/organization-memb
 import { Team } from 'src/model/team.model'
 import { Organization } from 'src/model/organization.model'
 import * as mongo from 'mongodb'
+import * as bcrypt from 'bcryptjs'
 import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
 import { Token } from './model/token.model'
 import { TokenPermissions } from './model/token-permissions.model'
@@ -26,6 +27,20 @@ export class AuthService {
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
     ) {}
+
+    static hashPassword(plainPassword: string): string {
+        return bcrypt.hashSync(plainPassword)
+    }
+
+    /**
+     * Checks if provided plain text password matches with provided hashed password 
+     * @param passwordToCheck Password to check in plain text
+     * @param hashedPassword Password hashed
+     * @returns true if both are equals, false in otger case
+     */
+    static async isPasswordCorrect(passwordToCheck, hashedPassword): Promise<boolean> {
+        return await bcrypt.compare(passwordToCheck, hashedPassword)
+    }
 
     async getPlatformRoles(): Promise<KysoRole[]> {
         return this.platformRoleProvider.read({})
@@ -52,7 +67,7 @@ export class AuthService {
         const platformRoles: KysoRole[] = await platformRoleProvider.read({})
 
         // Search for teams in which this user is a member
-        const userTeamMembership: TeamMemberJoin[] = await teamService.searchMembersJoin({ filter: { member_id: user.id } })
+        const userTeamMembership: TeamMemberJoin[] = await teamService.searchMembers({ filter: { member_id: user.id } })
 
         if (userTeamMembership) {
             userTeamMembership.forEach(async (teamMembership: TeamMemberJoin) => {
@@ -189,6 +204,17 @@ export class AuthService {
             case LoginProvider.GITHUB:
                 return await this.githubLoginProvider.login(password)
             // case LoginProvider.GOOGLE:
+        }
+    }
+
+    evaluateAndDecodeTokenFromHeader(authorizationHeader: string): Token {
+        try {
+            const token = authorizationHeader.split('Bearer ')[1]
+            
+            return this.evaluateAndDecodeToken(token)
+        } catch (ex) {
+            // TOKEN IS NOT VALID
+            return undefined
         }
     }
 

@@ -1,7 +1,6 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common'
 import { UsersService } from 'src/modules/users/users.service'
 import { JwtService } from '@nestjs/jwt'
-import * as bcrypt from 'bcryptjs'
 import { TeamsService } from 'src/modules/teams/teams.service'
 import { AuthService } from '../auth.service'
 import { OrganizationsService } from 'src/modules/organizations/organizations.service'
@@ -28,7 +27,7 @@ export class KysoLoginProvider {
             filter: { username: username },
         })
 
-        const isRightPassword = await bcrypt.compare(password, user.hashed_password)
+        const isRightPassword = await AuthService.isPasswordCorrect(password, user.hashed_password)
 
         if (isRightPassword) {
             // Build all the permissions for this user
@@ -45,7 +44,7 @@ export class KysoLoginProvider {
 
             payload.username = user.username
             payload.nickname = user.nickname
-            payload.id = user.id
+            payload.id = user.id.toString()
             payload.plan = user.plan
             payload.email = user.email
             payload.permissions = permissions

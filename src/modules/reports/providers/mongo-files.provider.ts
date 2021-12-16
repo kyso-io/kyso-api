@@ -4,7 +4,7 @@ import { MongoProvider } from 'src/providers/mongo.provider'
 import { db } from 'src/main'
 
 @Injectable()
-export class FilesMongoProvider extends MongoProvider {
+export class FilesMongoProvider extends MongoProvider<any> {
     constructor() {
         super('File', db)
     }

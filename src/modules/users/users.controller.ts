@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Headers, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { UsersService } from './users.service'
 import { GenericController } from 'src/generic/controller.generic'
@@ -9,6 +9,11 @@ import { BaseFilterQuery } from 'src/model/dto/base-filter.dto'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { UserPermissionsEnum } from './security/user-permissions.enum'
 import { Permission } from '../auth/annotations/permission.decorator'
+import { CreateUserRequest } from './dto/create-user-request.dto'
+import { ResourcePermissions } from '../auth/model/resource-permissions.model'
+import { OrganizationsService } from '../organizations/organizations.service'
+import { AuthService } from '../auth/auth.service'
+import { Token } from '../auth/model/token.model'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 
@@ -17,7 +22,9 @@ const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_tok
 @ApiBearerAuth()
 @Controller('users')
 export class UsersController extends GenericController<User> {
-    constructor(private readonly usersService: UsersService) {
+    constructor(private readonly usersService: UsersService,
+        private readonly organizationService: OrganizationsService, 
+        private readonly authService: AuthService) {
         super()
     }
 
@@ -74,5 +81,16 @@ export class UsersController extends GenericController<User> {
         this.assignReferences(user)
 
         return user
+    }
+
+    @Post('/')
+    @ApiOperation({
+        summary: `Creates an user`,
+        description: `If requester has UserPermissionsEnum.CREATE permission, creates an user`,
+    })
+    @ApiResponse({ status: 201, description: `User creation gone well`, type: User })
+    @Permission([UserPermissionsEnum.CREATE])
+    async createUser(@Body() user: CreateUserRequest) {
+        return this.usersService.createUser(user)
     }
 }

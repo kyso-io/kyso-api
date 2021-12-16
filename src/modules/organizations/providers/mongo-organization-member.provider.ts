@@ -4,7 +4,7 @@ import { OrganizationMemberJoin } from '../model/organization-member-join.model'
 import { db } from 'src/main'
 
 @Injectable()
-export class OrganizationMemberMongoProvider extends MongoProvider {
+export class OrganizationMemberMongoProvider extends MongoProvider<any> {
     constructor() {
         super('OrganizationMember', db)
     }

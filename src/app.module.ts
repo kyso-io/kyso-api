@@ -7,6 +7,7 @@ import { GithubReposModule } from './modules/github-repos/github-repos.module'
 import { OrganizationsModule } from './modules/organizations/organizations.module'
 import { ReportsModule } from './modules/reports/reports.module'
 import { TeamsModule } from './modules/teams/teams.module'
+import { TestingDataPopulatorModule } from './modules/testing-data-populator/testing-data-populator.module'
 import { UsersModule } from './modules/users/users.module'
 
 @Module({
@@ -20,6 +21,7 @@ import { UsersModule } from './modules/users/users.module'
         OrganizationsModule,
         ReportsModule,
         TeamsModule,
+        TestingDataPopulatorModule
     ],
 })
 export class AppModule {}

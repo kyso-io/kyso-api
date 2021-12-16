@@ -2,10 +2,11 @@ import { forwardRef, Inject, Injectable, PreconditionFailedException } from '@ne
 import { NotFoundError } from 'src/helpers/errorHandling'
 import { Organization } from 'src/model/organization.model'
 import { User } from 'src/model/user.model'
+import { KysoRole } from '../auth/model/kyso-role.model'
 import { UsersService } from '../users/users.service'
 import { CreateOrganizationRequest } from './model/create-organization-request.model'
 import { OrganizationMemberJoin } from './model/organization-member-join.model'
-import { OrganizationMember } from './model/organization-member.model copy'
+import { OrganizationMember } from './model/organization-member.model'
 import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
 import { OrganizationsMongoProvider } from './providers/mongo-organizations.provider'
 
@@ -28,20 +29,37 @@ export class OrganizationsService {
     }
 
     async createOrganization(organization: CreateOrganizationRequest): Promise<Organization> {
-        let newOrg = new Organization()
-
-        newOrg.name = organization.name
-        newOrg.roles = organization.roles
-
         // The name of this organization exists?
-        const exists: any[] = await this.provider.read({ filter: { name: newOrg.name } })
+        const exists: any[] = await this.provider.read({ filter: { name: organization.name } })
 
         if (exists.length > 0) {
             // Exists, throw an exception
             throw new PreconditionFailedException('The name of the organization must be unique')
         } else {
-            return this.provider.create(newOrg)
+            return await this.provider.create(organization)
         }
+    }
+
+    async addMembers(organizationName: string, members: User[], roles: KysoRole[]) {
+        const organization: Organization = await this.getOrganization({ filter: { name: organizationName }})
+        const memberIds = members.map(x => x.id.toString())
+        const rolesToApply = roles.map(y => y.name)
+
+        await this.addMembersById(organization.id, memberIds, rolesToApply)
+    }
+
+    async addMembersById(organizationId: string, memberIds: string[], rolesToApply: string[]) {
+        memberIds.forEach(async (userId: string) => {
+            const member: OrganizationMemberJoin = new OrganizationMemberJoin(
+                organizationId,
+                userId, 
+                rolesToApply,
+                true
+            )
+
+            await this.organizationMemberProvider.create(member)
+        })
+        
     }
 
     async isUserInOrganization(user: User, organization: Organization) {
@@ -58,7 +76,7 @@ export class OrganizationsService {
      * Return an array of user id's that belongs to provided organization
      */
     async getOrganizationMembers(organizationName: string): Promise<OrganizationMember[]> {
-        const organization: Organization = await this.provider.read({ filter: { name: organizationName } })
+        const organization: Organization[] = await this.provider.read({ filter: { name: organizationName } })
 
         if (organization) {
             // Get all the members of this organization
@@ -81,7 +99,7 @@ export class OrganizationsService {
 
             let usersAndRoles = users.map((u: User) => {
                 // Find role for this user in members
-                const thisMember: OrganizationMemberJoin = members.find((tm: OrganizationMemberJoin) => u.id === tm.member_id)
+                const thisMember: OrganizationMemberJoin = members.find((tm: OrganizationMemberJoin) => u.id.toString() === tm.member_id)
 
                 return { ...u, roles: thisMember.role_names }
             })
@@ -91,7 +109,7 @@ export class OrganizationsService {
 
                 obj.avatar_url = x.avatarUrl
                 obj.bio = x.bio
-                obj.id = x.id
+                obj.id = x.id.toString()
                 obj.nickname = x.nickname
                 obj.organization_roles = x.roles
                 obj.username = x.username
