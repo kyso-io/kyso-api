@@ -24,5 +24,7 @@ describe('Normalizer test suite', () => {
             const userId = normalizedComments.entities.comments[commentId].user
             expect(normalizedComments.entities.users[userId]).toBeDefined()
         })
+
+        console.log(normalizedComments)
     })
 })

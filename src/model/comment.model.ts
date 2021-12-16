@@ -12,6 +12,6 @@ export class Comment extends BaseModel {
     @ApiProperty()
     public user: User
 
-    @ApiProperty()
-    public comments: Comment[]
+    @ApiProperty({ isArray: true })
+    comments: Comment
 }
