@@ -21,9 +21,9 @@ export class CommentsController extends GenericController<Comment> {
         comment.self_url = HateoasLinker.createRef(`/comment/${comment.id}`)
 
         // Recursive!!
-        comment.child_comments.forEach((x) => {
-            this.assignReferences(x)
-        })
+        // comment.comments.forEach((x) => {
+        //     this.assignReferences(x)
+        // })
     }
 
     @Get('/:commentId')

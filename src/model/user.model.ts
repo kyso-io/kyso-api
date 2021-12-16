@@ -8,8 +8,10 @@ import { AuthService } from 'src/modules/auth/auth.service';
 import * as mongo from 'mongodb'
 
 export class User extends BaseModel {
-    @ApiProperty()
-    public id?: mongo.ObjectId
+
+    @ApiProperty({ format: 'faker: datatype.uuid' })
+    public id?: string
+
     @ApiProperty()
     public email: string
     @ApiProperty()
@@ -119,66 +121,3 @@ export const DEFAULT_GLOBAL_ADMIN_USER = new User(
     [GlobalPermissionsEnum.GLOBAL_ADMIN],
     new mongo.ObjectId('61a8ae8f9c2bc3c5a2144000')
 )
-
-    /*@ApiProperty()
-    public id?: string
-
-    @ApiProperty()
-    public email: string
-    @ApiProperty()
-    public username: string
-    @ApiProperty()
-    public nickname: string
-    @ApiProperty()
-    public avatarUrl: string
-
-    @ApiProperty()
-    public email_verified: boolean
-    
-    @ApiProperty({
-        description: "OAuth2 token from selected provider"
-    })
-    public session_token?: string
-
-    @ApiProperty({
-        enum: LoginProvider
-    })
-    public provider: LoginProvider
-
-    @ApiProperty()
-    public bio: string
-
-   
-
-    @ApiProperty()
-    public plan: string
-
-    @Exclude()
-    @ApiProperty()
-    public password: string
-
-    @ApiProperty()
-    public global_permissions: GlobalPermissionsEnum[]
-
-    constructor(email, username, nickname, provider, bio, plan, password, global_permissions) {
-        super()
-
-        this.email = email
-        this.username = username
-        this.nickname = nickname
-        this.provider = provider
-        this.bio = bio
-        this.plan = plan
-        this.password = password
-        this.global_permissions = global_permissions
-    }
-
-    static fromGithubUser(userData: any, emailData: any): User {
-        let newUser = new User(emailData.email, userData.login, userData.name, LoginProvider.GITHUB, "", "free", "", "")
-        newUser.avatarUrl = userData.avatar_url
-       
-        return newUser
-    }
-}
-
-*/

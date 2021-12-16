@@ -4,7 +4,7 @@ import { BaseModel } from './base.model'
 import { Exclude } from 'class-transformer';
 
 export class Organization extends BaseModel {
-    @ApiProperty()
+    @ApiProperty({ format: 'faker: datatype.uuid' })
     public id?: string
 
     @ApiProperty()

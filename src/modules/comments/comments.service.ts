@@ -8,7 +8,7 @@ export class CommentsService {
     constructor(private readonly provider: CommentsMongoProvider) {}
 
     async getReportComments(reportId) {
-        const comments = await this.provider.read({
+        const comments = await this.provider.getCommentsWithOwner({
             filter: {
                 _p_study: QueryParser.createForeignKey('Study', reportId),
             },
@@ -20,7 +20,7 @@ export class CommentsService {
         const childs = []
 
         comments.forEach((comment) => {
-            comment.child_comments = []
+            comment.comments = []
             commentMap[comment.id] = comment
             
             // WAITING FOR EOIN
@@ -35,7 +35,7 @@ export class CommentsService {
         })
 
         childs.forEach((child) => {
-            if (commentMap[child._p_parent]) commentMap[child._p_parent].childComments.push(child)
+            if (commentMap[child._p_parent]) commentMap[child._p_parent].comments.push(child)
         })
 
         return parents

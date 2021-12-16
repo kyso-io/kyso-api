@@ -4,11 +4,12 @@ import { AppModule } from './app.module'
 import * as helmet from 'helmet'
 import * as fs from 'fs'
 import { RedocOptions, RedocModule } from 'nestjs-redoc'
+import { OpenAPIExtender } from './helpers/openapiExtender'
 import { Logger, ValidationPipe } from '@nestjs/common'
-
 const { MongoClient, ObjectId } = require('mongodb')
 export let client
 export let db
+
 
 async function bootstrap() {
     await connectToDatabase(process.env.DATABASE_NAME || 'kyso-initial')
@@ -39,10 +40,8 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config)
 
-    // ITERATE SEARCHING FOR "faker: " AND MODIFY HERE
-
     // TODO: Only publish in development / staging mode, remove for production - or discuss it...
-    SwaggerModule.setup(globalPrefix, app, document)
+    SwaggerModule.setup(globalPrefix, app, OpenAPIExtender.reformat(document))
 
     const redocOptions: RedocOptions = {
         title: 'Kyso API',
