@@ -57,7 +57,7 @@ export class User extends BaseModel {
     public global_permissions: GlobalPermissionsEnum[]
 
     constructor(email: string, username: string, nickname: string, provider: LoginProvider, bio: string, plan: string, 
-        _hashed_password: string, emailVerified: boolean, global_permissions: GlobalPermissionsEnum[], _id?: mongo.ObjectId, _email_verify_token?: string) {
+        _hashed_password: string, emailVerified: boolean, global_permissions: GlobalPermissionsEnum[], _id?: string, _email_verify_token?: string) {
         super()
         this.email = email
         this.username = username
@@ -72,7 +72,7 @@ export class User extends BaseModel {
         if(_id) {
             this.id = _id 
         } else {
-            this.id = new mongo.ObjectId()
+            this.id = new mongo.ObjectId().toString()
         }
 
         if(_email_verify_token) {
