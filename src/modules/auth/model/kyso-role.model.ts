@@ -12,7 +12,7 @@ export class KysoRole {
     @ApiProperty({
         description: `Role identificator`,
     })
-    public _id?: any
+    public id?: string
 
     @ApiProperty({
         description: `Role name`,
@@ -26,12 +26,12 @@ export class KysoRole {
     })
     public permissions: Permissions[]
 
-    constructor(name, permissions, _id?) {
+    constructor(name: string, permissions: Permissions[], _id?: string) {
         this.name = name
         this.permissions = permissions
 
         if (_id) {
-            this._id = _id
+            this.id = _id
         }
     }
 
@@ -70,7 +70,7 @@ export class KysoRole {
             UserPermissionsEnum.EDIT,
             UserPermissionsEnum.READ,
         ],
-        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144069'),
+        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144069').toString(),
     )
 
     public static TEAM_ADMIN_ROLE = new KysoRole(
@@ -98,7 +98,7 @@ export class KysoRole {
             UserPermissionsEnum.EDIT,
             UserPermissionsEnum.READ,
         ],
-        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144070'),
+        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144070').toString(),
     )
 
     public static TEAM_CONTRIBUTOR_ROLE = new KysoRole(
@@ -120,7 +120,7 @@ export class KysoRole {
             UserPermissionsEnum.EDIT,
             UserPermissionsEnum.READ,
         ],
-        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144071'),
+        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144071').toString(),
     )
 
     public static TEAM_READER_ROLE = new KysoRole(
@@ -134,7 +134,7 @@ export class KysoRole {
             UserPermissionsEnum.EDIT, // Always can edit his own profile
             UserPermissionsEnum.READ,
         ],
-        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144072'),
+        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144072').toString(),
     )
 
     public static ORGANIZATION_ADMIN_ROLE = new KysoRole(
@@ -170,6 +170,6 @@ export class KysoRole {
             UserPermissionsEnum.EDIT,
             UserPermissionsEnum.READ,
         ],
-        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144073'),
+        new mongo.ObjectId('61a8ae8f9c2bc3c5a2144073').toString(),
     )
 }
