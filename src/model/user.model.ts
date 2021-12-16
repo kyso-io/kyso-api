@@ -119,5 +119,5 @@ export const DEFAULT_GLOBAL_ADMIN_USER = new User(
     'empty.password',
     false, 
     [GlobalPermissionsEnum.GLOBAL_ADMIN],
-    new mongo.ObjectId('61a8ae8f9c2bc3c5a2144000')
+    new mongo.ObjectId('61a8ae8f9c2bc3c5a2144000').toString()
 )
