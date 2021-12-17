@@ -7,7 +7,7 @@ import { UsersService } from './users.service'
 
 @Global()
 @Module({
-    imports: [OrganizationsModule],
+    imports: [OrganizationsModule],
     providers: [UsersService, UsersMongoProvider],
     controllers: [UserController, UsersController],
     exports: [UsersService],

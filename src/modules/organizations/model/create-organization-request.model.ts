@@ -3,7 +3,7 @@ import { KysoRole } from 'src/modules/auth/model/kyso-role.model'
 
 export class CreateOrganizationRequest {
     @ApiProperty({
-        description: "The name of the team"
+        description: 'The name of the team',
     })
     public name: string
 
@@ -15,19 +15,19 @@ export class CreateOrganizationRequest {
     public roles: KysoRole[]
 
     @ApiProperty({
-        description: "Mail where the billing communications will go"
+        description: 'Mail where the billing communications will go',
     })
     public billingEmail: string
 
     @ApiProperty({
-        description: "Stripe identificator for payments"
+        description: 'Stripe identificator for payments',
     })
     public subscriptionId: string
 
     // TODO: What means that?
     @ApiProperty({
-        description: "Flag to allow or deny login into the organization using google accounts. True allows google login, false deny it",
-        default: true
+        description: 'Flag to allow or deny login into the organization using google accounts. True allows google login, false deny it',
+        default: true,
     })
     public allowGoogleLogin: boolean
 

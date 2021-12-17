@@ -17,7 +17,7 @@ export class PermissionsGuard implements CanActivate {
 
             // Get the token
             const tokenPayload: Token = this.authService.evaluateAndDecodeTokenFromHeader(request.headers.authorization)
-           
+
             const team = request.headers[HEADER_X_KYSO_TEAM]
             const organization = request.headers[HEADER_X_KYSO_ORGANIZATION]
 

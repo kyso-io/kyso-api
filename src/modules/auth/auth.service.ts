@@ -33,7 +33,7 @@ export class AuthService {
     }
 
     /**
-     * Checks if provided plain text password matches with provided hashed password 
+     * Checks if provided plain text password matches with provided hashed password
      * @param passwordToCheck Password to check in plain text
      * @param hashedPassword Password hashed
      * @returns true if both are equals, false in otger case
@@ -210,7 +210,7 @@ export class AuthService {
     evaluateAndDecodeTokenFromHeader(authorizationHeader: string): Token {
         try {
             const token = authorizationHeader.split('Bearer ')[1]
-            
+
             return this.evaluateAndDecodeToken(token)
         } catch (ex) {
             // TOKEN IS NOT VALID

@@ -21,7 +21,7 @@ import { UsersModule } from './modules/users/users.module'
         OrganizationsModule,
         ReportsModule,
         TeamsModule,
-        TestingDataPopulatorModule
+        TestingDataPopulatorModule,
     ],
 })
 export class AppModule {}

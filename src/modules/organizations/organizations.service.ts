@@ -41,25 +41,19 @@ export class OrganizationsService {
     }
 
     async addMembers(organizationName: string, members: User[], roles: KysoRole[]) {
-        const organization: Organization = await this.getOrganization({ filter: { name: organizationName }})
-        const memberIds = members.map(x => x.id.toString())
-        const rolesToApply = roles.map(y => y.name)
+        const organization: Organization = await this.getOrganization({ filter: { name: organizationName } })
+        const memberIds = members.map((x) => x.id.toString())
+        const rolesToApply = roles.map((y) => y.name)
 
         await this.addMembersById(organization.id, memberIds, rolesToApply)
     }
 
     async addMembersById(organizationId: string, memberIds: string[], rolesToApply: string[]) {
         memberIds.forEach(async (userId: string) => {
-            const member: OrganizationMemberJoin = new OrganizationMemberJoin(
-                organizationId,
-                userId, 
-                rolesToApply,
-                true
-            )
+            const member: OrganizationMemberJoin = new OrganizationMemberJoin(organizationId, userId, rolesToApply, true)
 
             await this.organizationMemberProvider.create(member)
         })
-        
     }
 
     async isUserInOrganization(user: User, organization: Organization) {

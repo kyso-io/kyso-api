@@ -22,7 +22,7 @@ export class CommentsService {
         comments.forEach((comment) => {
             comment.comments = []
             commentMap[comment.id] = comment
-            
+
             // WAITING FOR EOIN
             /*
             if (comment.parent !== null) {

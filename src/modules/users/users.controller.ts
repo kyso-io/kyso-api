@@ -22,9 +22,11 @@ const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_tok
 @ApiBearerAuth()
 @Controller('users')
 export class UsersController extends GenericController<User> {
-    constructor(private readonly usersService: UsersService,
-        private readonly organizationService: OrganizationsService, 
-        private readonly authService: AuthService) {
+    constructor(
+        private readonly usersService: UsersService,
+        private readonly organizationService: OrganizationsService,
+        private readonly authService: AuthService,
+    ) {
         super()
     }
 

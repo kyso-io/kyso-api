@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { KysoRole } from 'src/modules/auth/model/kyso-role.model'
 import { BaseModel } from './base.model'
-import { Exclude } from 'class-transformer';
+import { Exclude } from 'class-transformer'
 
 export class Organization extends BaseModel {
     @ApiProperty({ format: 'faker: datatype.uuid' })

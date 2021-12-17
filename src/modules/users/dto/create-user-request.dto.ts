@@ -12,7 +12,7 @@ export class CreateUserRequest {
     public nickname: string
 
     @ApiProperty({
-        enum: LoginProvider
+        enum: LoginProvider,
     })
     public provider: LoginProvider
 
