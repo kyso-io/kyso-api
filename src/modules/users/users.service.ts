@@ -1,6 +1,7 @@
 import { Injectable, PreconditionFailedException } from '@nestjs/common'
 import { User } from 'src/model/user.model'
 import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
+import { AuthService } from '../auth/auth.service'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 
 @Injectable()
@@ -28,15 +29,23 @@ export class UsersService {
         return (await this.provider.update(filterQuery, updateQuery)) as User
     }
 
-    async createUser(userToCreate: CreateUserRequest): Promise<User> {
-        const parsedUser = User.fromCreateUserRequest(userToCreate)
-
+    async createUser(userToCreate: User): Promise<User> {
         // exists a prev user with same email?
-        const exists = await this.getUser({ filter: { email: parsedUser.email } })
+        const exists = await this.getUser({ filter: { email: userToCreate.email } })
+
+        if(!userToCreate.password) {
+            throw new PreconditionFailedException(null, 'Password unset')
+        }
 
         if (!exists) {
             // Create user into database
-            return (await this.provider.create(parsedUser)) as User
+            // Hash the password and delete the plain password property
+            const hashedPassword = AuthService.hashPassword(userToCreate.password)
+
+            userToCreate.hashed_password = hashedPassword
+            delete userToCreate.password
+
+            return (await this.provider.create(userToCreate)) as User
         } else {
             throw new PreconditionFailedException(null, 'User already exists')
         }

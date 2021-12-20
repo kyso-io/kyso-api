@@ -90,7 +90,7 @@ export class UsersController extends GenericController<User> {
     })
     @ApiResponse({ status: 201, description: `User creation gone well`, type: User })
     @Permission([UserPermissionsEnum.CREATE])
-    async createUser(@Body() user: CreateUserRequest) {
+    async createUser(@Body() user: User) {
         return this.usersService.createUser(user)
     }
 }
