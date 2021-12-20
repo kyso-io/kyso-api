@@ -9,7 +9,7 @@ import { BaseFilterQuery } from 'src/model/dto/base-filter.dto'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { UserPermissionsEnum } from './security/user-permissions.enum'
 import { Permission } from '../auth/annotations/permission.decorator'
-import { CreateUserRequest } from './dto/create-user-request.dto'
+import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { AuthService } from '../auth/auth.service'
 

@@ -3,7 +3,7 @@ import { BaseModel } from './base.model'
 import { LoginProviderEnum } from 'src/model/enum/login-provider.enum'
 import { GlobalPermissionsEnum, Permissions } from 'src/security/general-permissions.enum'
 import { Exclude } from 'class-transformer'
-import { CreateUserRequest } from 'src/modules/users/dto/create-user-request.dto'
+import { CreateUserRequest } from 'src/model/dto/create-user-request.dto'
 import { AuthService } from 'src/modules/auth/auth.service'
 import * as mongo from 'mongodb'
 

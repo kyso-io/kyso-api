@@ -4,11 +4,11 @@ import { UsersService } from './users.service'
 import { GenericController } from 'src/generic/controller.generic'
 import { HateoasLinker } from 'src/helpers/hateoasLinker'
 import { User } from 'src/model/user.model'
-import { UpdateUserRequest } from './dto/update-user-request.dto'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { UserPermissionsEnum } from './security/user-permissions.enum'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { AuthService } from '../auth/auth.service'
+import { UpdateUserRequest } from 'src/model/dto/update-user-request.dto'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 

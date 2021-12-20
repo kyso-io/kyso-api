@@ -9,7 +9,7 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
-import { CreateUserRequest } from '../users/dto/create-user-request.dto'
+import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { UsersService } from '../users/users.service'
 import { TeamVisibilityEnum } from 'src/model/enum/team-visibility.enum'
 
