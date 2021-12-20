@@ -30,10 +30,10 @@ export class PermissionsGuard implements CanActivate {
             const isGlobalAdmin = tokenPayload.permissions.global.find((x) => x === GlobalPermissionsEnum.GLOBAL_ADMIN)
 
             // triple absurd checking because a GLOBAL ADMIN DESERVES IT
-            if(isGlobalAdmin) {
+            if (isGlobalAdmin) {
                 return true
             }
-            
+
             // Get the permissions from the token (we can trust it, as the signature is right)
 
             // Check that the permissions match
