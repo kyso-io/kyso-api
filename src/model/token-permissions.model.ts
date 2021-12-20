@@ -1,12 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { KysoRole } from './kyso-role.model'
+import { GlobalPermissionsEnum } from 'src/security/general-permissions.enum'
 import { ResourcePermissions } from './resource-permissions.model'
 
 export class TokenPermissions {
     @ApiProperty({
         isArray: true,
     })
-    public global?: KysoRole[]
+    public global?: GlobalPermissionsEnum[]
 
     @ApiProperty({
         isArray: true,

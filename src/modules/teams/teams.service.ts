@@ -21,9 +21,7 @@ export class TeamsService {
     async getTeam(query) {
         const teams = await this.provider.read(query)
         if (teams.length === 0) {
-            throw new NotFoundError({
-                message: "The specified team couldn't be found",
-            })
+            return null
         }
         return teams[0]
     }

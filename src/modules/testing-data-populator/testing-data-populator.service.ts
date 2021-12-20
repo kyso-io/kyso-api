@@ -15,18 +15,21 @@ import { TeamVisibilityEnum } from 'src/model/enum/team-visibility.enum'
 
 @Injectable()
 export class TestingDataPopulatorService implements OnApplicationBootstrap {
-    private TeamAdminUser: User
-    private TeamContributorUser: User
-    private TeamReaderUser: User
-    private OrganizationAdminUser: User
-    private PlatformAdminUser: User
+    private Rey_TeamAdminUser: User
+    private Kylo_TeamContributorUser: User
+    private Chewbacca_TeamReaderUser: User
+    private Gideon_OrganizationAdminUser: User
+    private Palpatine_PlatformAdminUser: User
 
     private RegularOrganization: Organization
     private OrganizationWithCustomRole: Organization
 
-    private PublicTeam: any
-    private ProtectedTeamWithCustomRole: any
-    private PrivateTeam: any
+    private CustomTeamRole: KysoRole
+    private CustomOrganizationRole: KysoRole
+
+    private PublicTeam: Team
+    private ProtectedTeamWithCustomRole: Team
+    private PrivateTeam: Team
 
     constructor(
         private readonly usersService: UsersService,
@@ -48,6 +51,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             await this.createOrganizations()
             await this.createTeams()
             await this.assignUsersToOrganizations()
+            await this.assignUsersToTeams()
         }
     }
 
@@ -117,11 +121,11 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             [GlobalPermissionsEnum.GLOBAL_ADMIN],
         )
 
-        this.TeamAdminUser = await this._createUser(rey_TestTeamAdminUser)
-        this.TeamContributorUser = await this._createUser(kylo_TestTeamContributorUser)
-        this.TeamReaderUser = await this._createUser(chewbacca_TestTeamReaderUser)
-        this.OrganizationAdminUser = await this._createUser(gideon_TestOrganizationAdminUser)
-        this.PlatformAdminUser = await this._createUser(palpatine_TestPlatformAdminUser)
+        this.Rey_TeamAdminUser = await this._createUser(rey_TestTeamAdminUser)
+        this.Kylo_TeamContributorUser = await this._createUser(kylo_TestTeamContributorUser)
+        this.Chewbacca_TeamReaderUser = await this._createUser(chewbacca_TestTeamReaderUser)
+        this.Gideon_OrganizationAdminUser = await this._createUser(gideon_TestOrganizationAdminUser)
+        this.Palpatine_PlatformAdminUser = await this._createUser(palpatine_TestPlatformAdminUser)
     }
 
     private async _createUser(user: User) {
@@ -144,11 +148,11 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
 
         this.RegularOrganization = await this._createOrganization(regularOrganization)
 
-        const customRole: KysoRole = new KysoRole('custom-organization-random-role', [TeamPermissionsEnum.CREATE, TeamPermissionsEnum.DELETE])
+        this.CustomOrganizationRole = new KysoRole('custom-organization-random-role', [TeamPermissionsEnum.CREATE, TeamPermissionsEnum.DELETE])
 
         const organizationWithCustomRoles: Organization = new Organization(
             'Organization with custom roles',
-            [customRole],
+            [this.CustomOrganizationRole],
             'organization-with-custom-roles@kyso.io',
             'another-random-stripe-id-with-no-use',
             false,
@@ -178,14 +182,14 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
                 TeamVisibilityEnum.PUBLIC,
             )
 
-            const customRole: KysoRole = new KysoRole('custom-team-random-role', [ReportPermissionsEnum.READ])
+            this.CustomTeamRole = new KysoRole('custom-team-random-role', [ReportPermissionsEnum.READ])
 
             const teamWithCustomRoles = new Team(
                 'protected-team-with-roles',
                 'https://bit.ly/3e9mDOZ',
                 'A protected team with custom roles',
                 'Sacramento',
-                [customRole],
+                [this.CustomTeamRole],
                 this.OrganizationWithCustomRole.id,
                 TeamVisibilityEnum.PROTECTED,
             )
@@ -195,13 +199,14 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
                 'https://bit.ly/3sr8x45',
                 'A private team',
                 'Milwaukee',
-                [customRole],
+                [this.CustomTeamRole],
                 this.RegularOrganization.id,
                 TeamVisibilityEnum.PRIVATE,
             )
 
-            this.PublicTeam = this._createTeam(regularTeam)
-            this.ProtectedTeamWithCustomRole = this._createTeam(teamWithCustomRoles)
+            this.PublicTeam = await this._createTeam(regularTeam)
+            this.ProtectedTeamWithCustomRole = await this._createTeam(teamWithCustomRoles)
+            this.PrivateTeam = await this._createTeam(privateTeam)
         } catch (ex) {
             // silent exception
         }
@@ -221,24 +226,24 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             // Organization admin
             await this.organizationService.addMembersById(
                 this.RegularOrganization.id,
-                [this.OrganizationAdminUser.id.toString()],
+                [this.Gideon_OrganizationAdminUser.id.toString()],
                 [KysoRole.ORGANIZATION_ADMIN_ROLE.name],
             )
 
             // Team admin for all teams in the organization
-            await this.organizationService.addMembersById(this.RegularOrganization.id, [this.TeamAdminUser.id.toString()], [KysoRole.TEAM_ADMIN_ROLE.name])
+            await this.organizationService.addMembersById(this.RegularOrganization.id, [this.Rey_TeamAdminUser.id.toString()], [KysoRole.TEAM_ADMIN_ROLE.name])
 
             // Team contributor for all teams in the organization
             await this.organizationService.addMembersById(
                 this.RegularOrganization.id,
-                [this.TeamContributorUser.id.toString()],
+                [this.Kylo_TeamContributorUser.id.toString()],
                 [KysoRole.TEAM_CONTRIBUTOR_ROLE.name],
             )
 
             // Team reader for all teams in the organization
             await this.organizationService.addMembersById(
                 this.RegularOrganization.id,
-                [this.TeamContributorUser.id.toString()],
+                [this.Kylo_TeamContributorUser.id.toString()],
                 [KysoRole.TEAM_READER_ROLE.name],
             )
         } catch (ex) {
@@ -246,5 +251,12 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
         }
     }
 
-    private async assignUsersToTeams() {}
+    private async assignUsersToTeams() {
+        try {
+            Logger.log(`Adding ${this.Gideon_OrganizationAdminUser.nickname} to team ${this.PrivateTeam.name} with role ${this.CustomTeamRole.name}`)
+            await this.teamService.addMembersById(this.PrivateTeam.id, [this.Gideon_OrganizationAdminUser.id], [this.CustomTeamRole.name])
+        } catch(ex) {
+            // silent it
+        }
+    }
 }

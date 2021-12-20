@@ -19,4 +19,16 @@ export class Token {
 
     @ApiProperty()
     public permissions: TokenPermissions
+
+    @ApiProperty()
+    public avatar_url: string
+
+    constructor(id: string, username: string, nickname: string, email: string, plan: string, permissions: TokenPermissions, avatar_url: string) {
+        this.id = id
+        this.username = username
+        this.email = email
+        this.plan = plan
+        this.permissions = permissions
+        this.avatar_url = avatar_url        
+    }
 }

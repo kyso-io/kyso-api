@@ -18,12 +18,13 @@ async function bootstrap() {
     // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately
     app.use(helmet())
 
+    /*
     app.useGlobalPipes(
         new ValidationPipe({
             whitelist: true,
             transform: true,
         }),
-    )
+    )*/
 
     app.setGlobalPrefix(globalPrefix)
 

@@ -18,6 +18,7 @@ import * as bcrypt from 'bcryptjs'
 import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
 import { TokenPermissions } from 'src/model/token-permissions.model'
 import { Token } from 'src/model/token.model'
+import { TeamVisibilityEnum } from 'src/model/enum/team-visibility.enum'
 
 @Injectable()
 export class AuthService {
@@ -63,25 +64,29 @@ export class AuthService {
         // Retrieve user object
         const user: User = await userService.getUser({ filter: { username: username } })
 
+        response.global = user.global_permissions
+
         // These are the generic platform roles in Kyso, can't be deleted. Are eternal.
         const platformRoles: KysoRole[] = await platformRoleProvider.read({})
 
         // Search for teams in which this user is a member
         const userTeamMembership: TeamMemberJoin[] = await teamService.searchMembers({ filter: { member_id: user.id } })
 
-        if (userTeamMembership) {
-            userTeamMembership.forEach(async (teamMembership: TeamMemberJoin) => {
+        if (userTeamMembership && userTeamMembership.length > 0) {
+            for(let teamMembership of userTeamMembership) {
                 // For every team, retrieve the base object
-                const team: Team = await teamService.getTeam({ filter: { _id: teamMembership.team_id } })
+                const team: Team = await teamService.getTeam({ filter: { _id: new mongo.ObjectId(teamMembership.team_id) } })
 
                 // These are the specific roles built for that team
                 const teamRoles: KysoRole[] = team.roles
 
                 // For every role assigned to this user in this team, retrieve their permissions
                 let computedPermissions = []
+                
                 teamMembership.role_names.map((element) => {
                     let existsRole: KysoRole[]
-                    if (teamRoles) {
+
+                    if (teamRoles && teamRoles.length > 0) {
                         existsRole = teamRoles.filter((y) => y.name === element)
                     } else {
                         // No team roles, try to apply platform roles
@@ -89,7 +94,7 @@ export class AuthService {
                     }
 
                     // If the role exists, add all the permissions to the computedPermissionsArray
-                    if (existsRole) {
+                    if (existsRole && existsRole.length > 0) {
                         computedPermissions = computedPermissions.concat(existsRole[0].permissions)
                     }
                 })
@@ -99,15 +104,15 @@ export class AuthService {
                     id: team.id,
                     permissions: [...new Set(computedPermissions)], // Remove duplicated permissions
                 })
-            })
+            }
         }
 
         // Then, search for organization roles
         // Search for organizations in which the user is a member
         const userOrganizationMembership: OrganizationMemberJoin[] = await organizationService.searchMembersJoin({ filter: { member_id: user.id } })
 
-        if (userOrganizationMembership) {
-            userOrganizationMembership.forEach(async (organizationMembership: OrganizationMemberJoin) => {
+        if (userOrganizationMembership && userOrganizationMembership.length > 0) {
+            for(let organizationMembership of userOrganizationMembership) {
                 // For every organization, retrieve the base object
                 let objectId = new mongo.ObjectId(organizationMembership.organization_id)
                 const organization: Organization = await organizationService.getOrganization({ filter: { _id: objectId } })
@@ -117,11 +122,11 @@ export class AuthService {
 
                 // For every role assigned to this user in this organization, retrieve their permissions
                 let computedPermissions = []
-
+ 
                 organizationMembership.role_names.map((element) => {
                     let existsRole: KysoRole[]
 
-                    if (organizationRoles) {
+                    if (organizationRoles && organizationRoles.length > 0) {
                         existsRole = organizationRoles.filter((y) => y.name === element)
                     } else {
                         // If there are not specific organization roles, try with platform roles
@@ -129,37 +134,45 @@ export class AuthService {
                     }
 
                     // If the role exists, add all the permissions to the computedPermissionsArray
-                    if (existsRole) {
+                    if (existsRole && existsRole.length > 0) {
                         computedPermissions = computedPermissions.concat(existsRole[0].permissions)
                     } else {
                         Logger.warn(`Role ${element} does not exist in organization nor in platform roles`)
                     }
                 })
 
+                response.organizations.push({
+                    id: organization.id,
+                    name: organization.name,
+                    permissions: computedPermissions
+                })
+
                 // Get all the teams that belong to that organizations (an user can belong to multiple organizations)
-                const organizationTeams: Team[] = await teamService.getTeams({ filter: { _organization_id: organization.id } })
+                const organizationTeams: Team[] = await teamService.getTeams({ filter: { organization_id: organization.id } })
 
                 // For-each team
-                organizationTeams.forEach((orgTeam) => {
+                for(let orgTeam of organizationTeams) {
                     // If already exists in the response object, ignore it (team permissions override organization permissions)
                     const alreadyExistsInResponse = response.teams.filter((x) => x.id === orgTeam.id)
 
-                    if (!alreadyExistsInResponse) {
+                    // If not exists in response, then apply organization roles
+                    if (alreadyExistsInResponse.length === 0) {
                         // If not, retrieve the roles
                         response.teams.push({
                             name: orgTeam.name,
                             id: orgTeam.id,
-                            permissions: [...new Set(computedPermissions)], // Remove duplicated permissions
+                            organization_inherited: true,
+                            organization_id: orgTeam.organization_id // Remove duplicated permissions
                         })
                     }
-                })
-            })
+                }
+            }
         }
 
         // TODO: Global permissions, not related to teams
         const generalRoles = await userRoleProvider.read({ filter: { userId: user.id } })
 
-        if (generalRoles) {
+        if (generalRoles && generalRoles.length > 0) {
             for (let organizationMembership of userOrganizationMembership) {
                 // For every organization, retrieve the base object
                 let objectId = new mongo.ObjectId(organizationMembership.organization_id)
@@ -174,7 +187,7 @@ export class AuthService {
                 organizationMembership.role_names.map((element) => {
                     let existsRole: KysoRole[]
 
-                    if (organizationRoles) {
+                    if (organizationRoles && organizationRoles.length > 0) {
                         existsRole = organizationRoles.filter((y) => y.name === element)
                     } else {
                         // If there are not specific organization roles, try with platform roles
@@ -182,7 +195,7 @@ export class AuthService {
                     }
 
                     // If the role exists, add all the permissions to the computedPermissionsArray
-                    if (existsRole) {
+                    if (existsRole && existsRole.length > 0) {
                         computedPermissions = computedPermissions.concat(existsRole[0].permissions)
                     } else {
                         Logger.warn(`Role ${element} does not exist in organization nor in platform roles`)

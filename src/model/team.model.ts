@@ -30,12 +30,6 @@ export class Team extends BaseModel {
     public visibility: TeamVisibilityEnum
 
     @ApiProperty({
-        required: false,
-        type: Organization,
-    })
-    public organization?: Organization
-
-    @ApiProperty({
         required: true,
     })
     public organization_id: string
@@ -49,7 +43,6 @@ export class Team extends BaseModel {
         organization_id: string,
         visibility: TeamVisibilityEnum,
         id?: string,
-        organization?: Organization,
     ) {
         super()
 
@@ -60,10 +53,6 @@ export class Team extends BaseModel {
         this.roles = roles
         this.organization_id = organization_id
         this.visibility = visibility
-
-        if (organization) {
-            this.organization = organization
-        }
 
         if (id) {
             this.id = id

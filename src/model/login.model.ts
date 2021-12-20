@@ -16,9 +16,9 @@ export class Login {
     })
     public provider: LoginProviderEnum
 
-    constructor() {
-        this.username = ''
-        this.password = ''
-        this.provider = LoginProviderEnum.KYSO
+    constructor(password, provider: LoginProviderEnum, username?) {
+        this.password = password
+        this.provider = provider
+        this.username = username
     }
 }
