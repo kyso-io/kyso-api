@@ -4,7 +4,6 @@ import { GenericController } from 'src/generic/controller.generic'
 import { Organization } from 'src/model/organization.model'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
-import { CreateOrganizationRequest } from './model/create-organization-request.model'
 import { OrganizationsService } from './organizations.service'
 import { OrganizationPermissionsEnum } from './security/organization-permissions.enum'
 
@@ -69,7 +68,7 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiResponse({ status: 200, description: `Created organization`, type: Organization })
     @Permission([OrganizationPermissionsEnum.CREATE])
-    async createOrganization(@Body() organization: CreateOrganizationRequest): Promise<Organization> {
+    async createOrganization(@Body() organization: Organization): Promise<Organization> {
         return this.organizationService.createOrganization(organization)
     }
 }

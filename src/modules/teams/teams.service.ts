@@ -4,13 +4,10 @@ import { Team } from 'src/model/team.model'
 import { User } from 'src/model/user.model'
 import { TeamsMongoProvider } from 'src/modules/teams/providers/mongo-teams.provider'
 import { UsersService } from '../users/users.service'
-import { CreateTeamRequest } from './model/create-team-request.model'
-import { TeamMemberJoin } from './model/team-member-join.model'
-import { TeamMember } from './model/team-member.model'
+import { TeamMemberJoin } from '../../model/team-member-join.model'
 import { TeamMemberMongoProvider } from './providers/mongo-team-member.provider'
-import * as mongo from 'mongodb'
-import { KysoRole } from '../auth/model/kyso-role.model'
-
+import { KysoRole } from '../../model/kyso-role.model'
+import { TeamMember } from 'src/model/team-member.model'
 
 @Injectable()
 export class TeamsService {
@@ -40,25 +37,19 @@ export class TeamsService {
     }
 
     async addMembers(teamName: string, members: User[], roles: KysoRole[]) {
-        const team: Team = await this.getTeam({ filter: { name: teamName }})
-        const memberIds = members.map(x => x.id.toString())
-        const rolesToApply = roles.map(y => y.name)
+        const team: Team = await this.getTeam({ filter: { name: teamName } })
+        const memberIds = members.map((x) => x.id.toString())
+        const rolesToApply = roles.map((y) => y.name)
 
         await this.addMembersById(team.id, memberIds, rolesToApply)
     }
 
     async addMembersById(teamId: string, memberIds: string[], rolesToApply: string[]) {
         memberIds.forEach(async (userId: string) => {
-            const member: TeamMemberJoin = new TeamMemberJoin(
-                teamId,
-                userId, 
-                rolesToApply,
-                true
-            )
+            const member: TeamMemberJoin = new TeamMemberJoin(teamId, userId, rolesToApply, true)
 
             await this.teamMemberProvider.create(member)
         })
-        
     }
 
     async getMembers(teamName: string) {
@@ -115,7 +106,7 @@ export class TeamsService {
         return user
     }
 
-    async createTeam(team: CreateTeamRequest) {
+    async createTeam(team: Team) {
         // The name of this team exists?
         const exists: any[] = await this.provider.read({ filter: { name: team.name } })
 

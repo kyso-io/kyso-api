@@ -1,23 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { KysoLoginProvider } from './providers/kyso-login.provider'
-import { LoginProvider } from './model/login-provider.enum'
+import { LoginProviderEnum } from '../../model/enum/login-provider.enum'
 import { GithubLoginProvider } from './providers/github-login.provider'
 import { JwtService } from '@nestjs/jwt'
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'
-import { KysoRole } from './model/kyso-role.model'
+import { KysoRole } from '../../model/kyso-role.model'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { User } from 'src/model/user.model'
-import { TeamMemberJoin } from '../teams/model/team-member-join.model'
+import { TeamMemberJoin } from '../../model/team-member-join.model'
 import { OrganizationsService } from '../organizations/organizations.service'
-import { OrganizationMemberJoin } from '../organizations/model/organization-member-join.model'
+import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
 import { Team } from 'src/model/team.model'
 import { Organization } from 'src/model/organization.model'
 import * as mongo from 'mongodb'
 import * as bcrypt from 'bcryptjs'
 import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
-import { Token } from './model/token.model'
-import { TokenPermissions } from './model/token-permissions.model'
+import { TokenPermissions } from 'src/model/token-permissions.model'
+import { Token } from 'src/model/token.model'
 
 @Injectable()
 export class AuthService {
@@ -33,7 +33,7 @@ export class AuthService {
     }
 
     /**
-     * Checks if provided plain text password matches with provided hashed password 
+     * Checks if provided plain text password matches with provided hashed password
      * @param passwordToCheck Password to check in plain text
      * @param hashedPassword Password hashed
      * @returns true if both are equals, false in otger case
@@ -196,12 +196,12 @@ export class AuthService {
         return response
     }
 
-    async login(password: string, provider: LoginProvider, username?: string): Promise<String> {
+    async login(password: string, provider: LoginProviderEnum, username?: string): Promise<String> {
         switch (provider) {
-            case LoginProvider.KYSO:
+            case LoginProviderEnum.KYSO:
             default:
                 return await this.kysoLoginProvider.login(password, username)
-            case LoginProvider.GITHUB:
+            case LoginProviderEnum.GITHUB:
                 return await this.githubLoginProvider.login(password)
             // case LoginProvider.GOOGLE:
         }
@@ -210,7 +210,7 @@ export class AuthService {
     evaluateAndDecodeTokenFromHeader(authorizationHeader: string): Token {
         try {
             const token = authorizationHeader.split('Bearer ')[1]
-            
+
             return this.evaluateAndDecodeToken(token)
         } catch (ex) {
             // TOKEN IS NOT VALID

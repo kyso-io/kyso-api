@@ -1,13 +1,10 @@
 import { ApiExtraModels, ApiProperty } from '@nestjs/swagger'
-import { BatchReportCreation } from 'src/modules/reports/model/dto/batch-report-creation-response.dto'
+import { BatchReportCreation } from 'src/model/dto/batch-report-creation-response.dto'
 import { BaseModel } from './base.model'
 import { Hateoas } from './hateoas.model'
 
 @ApiExtraModels(BatchReportCreation)
 export class Report extends BaseModel {
-    @ApiProperty({ format: 'faker: datatype.uuid' })
-    public id: string
-
     @ApiProperty()
     public name: string
     @ApiProperty()

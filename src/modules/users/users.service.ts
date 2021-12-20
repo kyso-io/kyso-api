@@ -1,12 +1,11 @@
 import { Injectable, PreconditionFailedException } from '@nestjs/common'
 import { User } from 'src/model/user.model'
-import { CreateUserRequest } from './dto/create-user-request.dto'
+import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 
 @Injectable()
 export class UsersService {
-    constructor(private readonly provider: UsersMongoProvider) {
-    }
+    constructor(private readonly provider: UsersMongoProvider) {}
 
     async getUsers(query): Promise<User[]> {
         let users: User[] = []
@@ -26,18 +25,18 @@ export class UsersService {
     }
 
     async updateUser(filterQuery, updateQuery): Promise<User> {
-        return await this.provider.update(filterQuery, updateQuery) as User
+        return (await this.provider.update(filterQuery, updateQuery)) as User
     }
 
     async createUser(userToCreate: CreateUserRequest): Promise<User> {
         const parsedUser = User.fromCreateUserRequest(userToCreate)
 
         // exists a prev user with same email?
-        const exists = await this.getUser({ filter: { email: parsedUser.email }})
+        const exists = await this.getUser({ filter: { email: parsedUser.email } })
 
-        if(!exists) {
+        if (!exists) {
             // Create user into database
-            return await this.provider.create(parsedUser) as User
+            return (await this.provider.create(parsedUser)) as User
         } else {
             throw new PreconditionFailedException(null, 'User already exists')
         }

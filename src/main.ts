@@ -10,7 +10,6 @@ const { MongoClient, ObjectId } = require('mongodb')
 export let client
 export let db
 
-
 async function bootstrap() {
     await connectToDatabase(process.env.DATABASE_NAME || 'kyso-initial')
     const app = await NestFactory.create(AppModule)
@@ -18,14 +17,14 @@ async function bootstrap() {
     const globalPrefix = 'v1'
     // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately
     app.use(helmet())
-    
+
     app.useGlobalPipes(
         new ValidationPipe({
-          whitelist: true,
-          transform: true,
+            whitelist: true,
+            transform: true,
         }),
-      );
-    
+    )
+
     app.setGlobalPrefix(globalPrefix)
 
     // bindSwaggerDocument(globalPrefix, app);

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { LoginProvider } from './login-provider.enum'
+import { LoginProviderEnum } from './enum/login-provider.enum'
 
 export class Login {
     @ApiProperty({
@@ -12,13 +12,13 @@ export class Login {
     public password: string
     @ApiProperty({
         description: `Authentication provider in which the user wants to rely. See schema for details`,
-        enum: LoginProvider,
+        enum: LoginProviderEnum,
     })
-    public provider: LoginProvider
+    public provider: LoginProviderEnum
 
     constructor() {
         this.username = ''
         this.password = ''
-        this.provider = LoginProvider.KYSO
+        this.provider = LoginProviderEnum.KYSO
     }
 }

@@ -9,11 +9,9 @@ import { BaseFilterQuery } from 'src/model/dto/base-filter.dto'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { UserPermissionsEnum } from './security/user-permissions.enum'
 import { Permission } from '../auth/annotations/permission.decorator'
-import { CreateUserRequest } from './dto/create-user-request.dto'
-import { ResourcePermissions } from '../auth/model/resource-permissions.model'
+import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { AuthService } from '../auth/auth.service'
-import { Token } from '../auth/model/token.model'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 
@@ -22,9 +20,11 @@ const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_tok
 @ApiBearerAuth()
 @Controller('users')
 export class UsersController extends GenericController<User> {
-    constructor(private readonly usersService: UsersService,
-        private readonly organizationService: OrganizationsService, 
-        private readonly authService: AuthService) {
+    constructor(
+        private readonly usersService: UsersService,
+        private readonly organizationService: OrganizationsService,
+        private readonly authService: AuthService,
+    ) {
         super()
     }
 

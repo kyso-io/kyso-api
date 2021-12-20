@@ -4,9 +4,6 @@ import { User } from './user.model'
 import { Report } from './report.model'
 
 export class Comment extends BaseModel {
-    @ApiProperty({ format: 'faker: datatype.uuid' })
-    public id: string
-
     @ApiProperty({ format: 'faker: lorem.paragraph' })
     public text: string
 

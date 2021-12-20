@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { MongoProvider } from 'src/providers/mongo.provider'
 import { db } from 'src/main'
-import { KysoRole } from '../model/kyso-role.model'
+import { KysoRole } from '../../../model/kyso-role.model'
 
 @Injectable()
 export class PlatformRoleMongoProvider extends MongoProvider<any> {

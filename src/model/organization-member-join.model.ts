@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger'
 
-export class TeamMemberJoin {
+export class OrganizationMemberJoin {
     @ApiProperty()
-    public team_id: string
+    public organization_id: string
     @ApiProperty()
     public member_id: string
     @ApiProperty()
@@ -12,13 +12,13 @@ export class TeamMemberJoin {
     @ApiProperty()
     public id: string
 
-    constructor(team_id: string, member_id: string, role_names: string[], active: boolean, id?: string) {
-        this.team_id = team_id
+    constructor(organization_id: string, member_id: string, role_names: string[], active: boolean, id?: string) {
+        this.organization_id = organization_id
         this.member_id = member_id
         this.role_names = role_names
         this.active = active
-        
-        if(id) {
+
+        if (id) {
             this.id = id
         }
     }

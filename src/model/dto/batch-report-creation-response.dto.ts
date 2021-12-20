@@ -1,4 +1,4 @@
-import { ApiExtraModels, ApiProperty } from '@nestjs/swagger'
+import { ApiProperty } from '@nestjs/swagger'
 import { Hateoas } from 'src/model/hateoas.model'
 
 export class BatchReportCreation {

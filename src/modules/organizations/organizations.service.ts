@@ -2,13 +2,12 @@ import { forwardRef, Inject, Injectable, PreconditionFailedException } from '@ne
 import { NotFoundError } from 'src/helpers/errorHandling'
 import { Organization } from 'src/model/organization.model'
 import { User } from 'src/model/user.model'
-import { KysoRole } from '../auth/model/kyso-role.model'
+import { KysoRole } from '../../model/kyso-role.model'
 import { UsersService } from '../users/users.service'
-import { CreateOrganizationRequest } from './model/create-organization-request.model'
-import { OrganizationMemberJoin } from './model/organization-member-join.model'
-import { OrganizationMember } from './model/organization-member.model'
+import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
 import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
 import { OrganizationsMongoProvider } from './providers/mongo-organizations.provider'
+import { OrganizationMember } from 'src/model/organization-member.model'
 
 @Injectable()
 export class OrganizationsService {
@@ -28,7 +27,7 @@ export class OrganizationsService {
         return organization[0]
     }
 
-    async createOrganization(organization: CreateOrganizationRequest): Promise<Organization> {
+    async createOrganization(organization: Organization): Promise<Organization> {
         // The name of this organization exists?
         const exists: any[] = await this.provider.read({ filter: { name: organization.name } })
 
@@ -41,25 +40,19 @@ export class OrganizationsService {
     }
 
     async addMembers(organizationName: string, members: User[], roles: KysoRole[]) {
-        const organization: Organization = await this.getOrganization({ filter: { name: organizationName }})
-        const memberIds = members.map(x => x.id.toString())
-        const rolesToApply = roles.map(y => y.name)
+        const organization: Organization = await this.getOrganization({ filter: { name: organizationName } })
+        const memberIds = members.map((x) => x.id.toString())
+        const rolesToApply = roles.map((y) => y.name)
 
         await this.addMembersById(organization.id, memberIds, rolesToApply)
     }
 
     async addMembersById(organizationId: string, memberIds: string[], rolesToApply: string[]) {
         memberIds.forEach(async (userId: string) => {
-            const member: OrganizationMemberJoin = new OrganizationMemberJoin(
-                organizationId,
-                userId, 
-                rolesToApply,
-                true
-            )
+            const member: OrganizationMemberJoin = new OrganizationMemberJoin(organizationId, userId, rolesToApply, true)
 
             await this.organizationMemberProvider.create(member)
         })
-        
     }
 
     async isUserInOrganization(user: User, organization: Organization) {

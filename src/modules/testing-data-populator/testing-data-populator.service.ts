@@ -3,16 +3,15 @@ import { Organization } from 'src/model/organization.model'
 import { Team } from 'src/model/team.model'
 import { User } from 'src/model/user.model'
 import { GlobalPermissionsEnum } from 'src/security/general-permissions.enum'
-import { KysoRole } from '../auth/model/kyso-role.model'
-import { LoginProvider } from '../auth/model/login-provider.enum'
-import { CreateOrganizationRequest } from '../organizations/model/create-organization-request.model'
+import { KysoRole } from '../../model/kyso-role.model'
+import { LoginProviderEnum } from '../../model/enum/login-provider.enum'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
-import { CreateTeamRequest } from '../teams/model/create-team-request.model'
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
-import { CreateUserRequest } from '../users/dto/create-user-request.dto'
+import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { UsersService } from '../users/users.service'
+import { TeamVisibilityEnum } from 'src/model/enum/team-visibility.enum'
 
 @Injectable()
 export class TestingDataPopulatorService implements OnApplicationBootstrap {
@@ -28,11 +27,14 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
     private RegularTeam: any
     private TeamWithCustomRole: any
 
-    constructor(private readonly usersService: UsersService, private readonly organizationService: OrganizationsService, private readonly teamService: TeamsService) {
-    }
-    
+    constructor(
+        private readonly usersService: UsersService,
+        private readonly organizationService: OrganizationsService,
+        private readonly teamService: TeamsService,
+    ) {}
+
     async onApplicationBootstrap() {
-        if(process.env.POPULATE_TEST_DATA && process.env.POPULATE_TEST_DATA === 'true') {
+        if (process.env.POPULATE_TEST_DATA && process.env.POPULATE_TEST_DATA === 'true') {
             console.log(`
                   ^     ^
                    ^   ^
@@ -45,65 +47,64 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             await this.createOrganizations()
             await this.createTeams()
             await this.assignUsersToOrganizations()
-
         }
     }
 
     private async createTestingUsers() {
         const testTeamAdminUser: CreateUserRequest = new CreateUserRequest(
-            "team-admin@kyso.io",
-            "team-admin@kyso.io",
-            "team-admin",
-            LoginProvider.KYSO,
-            "",
-            "free",
-            "n0tiene", 
-            []
+            'team-admin@kyso.io',
+            'team-admin@kyso.io',
+            'team-admin',
+            LoginProviderEnum.KYSO,
+            '',
+            'free',
+            'n0tiene',
+            [],
         )
-        
+
         const testTeamContributorUser: CreateUserRequest = new CreateUserRequest(
-            "team-contributor@kyso.io",
-            "team-contributor@kyso.io",
-            "team-contributor",
-            LoginProvider.KYSO,
-            "",
-            "free",
-            "n0tiene", 
-            []
+            'team-contributor@kyso.io',
+            'team-contributor@kyso.io',
+            'team-contributor',
+            LoginProviderEnum.KYSO,
+            '',
+            'free',
+            'n0tiene',
+            [],
         )
         const testTeamReaderUser: CreateUserRequest = new CreateUserRequest(
-            "team-reader@kyso.io",
-            "team-reader@kyso.io",
-            "team-reader",
-            LoginProvider.KYSO,
-            "",
-            "free",
-            "n0tiene", 
-            []
+            'team-reader@kyso.io',
+            'team-reader@kyso.io',
+            'team-reader',
+            LoginProviderEnum.KYSO,
+            '',
+            'free',
+            'n0tiene',
+            [],
         )
 
         const testOrganizationAdminUser: CreateUserRequest = new CreateUserRequest(
-            "organization-admin@kyso.io",
-            "organization-admin@kyso.io",
-            "organization-admin",
-            LoginProvider.KYSO,
-            "",
-            "free",
-            "n0tiene", 
-            []
+            'organization-admin@kyso.io',
+            'organization-admin@kyso.io',
+            'organization-admin',
+            LoginProviderEnum.KYSO,
+            '',
+            'free',
+            'n0tiene',
+            [],
         )
 
         const testPlatformAdminUser: CreateUserRequest = new CreateUserRequest(
-            "platform-admin@kyso.io",
-            "platform-admin@kyso.io",
-            "platform-admin",
-            LoginProvider.KYSO,
-            "",
-            "free",
-            "n0tiene", 
-            [GlobalPermissionsEnum.GLOBAL_ADMIN]
+            'platform-admin@kyso.io',
+            'platform-admin@kyso.io',
+            'platform-admin',
+            LoginProviderEnum.KYSO,
+            '',
+            'free',
+            'n0tiene',
+            [GlobalPermissionsEnum.GLOBAL_ADMIN],
         )
-        
+
         this.TeamAdminUser = await this._createUser(testTeamAdminUser)
         this.TeamContributorUser = await this._createUser(testTeamContributorUser)
         this.TeamReaderUser = await this._createUser(testTeamReaderUser)
@@ -115,78 +116,66 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
         try {
             Logger.log(`Creating ${user.nickname} user...`)
             return await this.usersService.createUser(user)
-        } catch(ex) {
+        } catch (ex) {
             Logger.log(`${user.nickname} user already exists`)
         }
     }
 
     private async createOrganizations() {
-        const regularOrganization: CreateOrganizationRequest = new CreateOrganizationRequest(
-            "Organization without specific roles",
+        const regularOrganization: Organization = new Organization(
+            'Organization without specific roles',
             [],
-            "regular-organization@kyso.io",
-            false,
-            "random-stripe-id-with-no-use"
+            'regular-organization@kyso.io',
+            'random-stripe-id-with-no-use',
+            false
         )
-        
+
         this.RegularOrganization = await this._createOrganization(regularOrganization)
 
-        const customRole: KysoRole = new KysoRole(
-            "custom-organization-random-role", 
-            [
-                TeamPermissionsEnum.CREATE,
-                TeamPermissionsEnum.DELETE
-            ]
-        )
+        const customRole: KysoRole = new KysoRole('custom-organization-random-role', [TeamPermissionsEnum.CREATE, TeamPermissionsEnum.DELETE])
 
-        const organizationWithCustomRoles: CreateOrganizationRequest = new CreateOrganizationRequest(
-            "Organization with custom roles",
+        const organizationWithCustomRoles: Organization = new Organization(
+            'Organization with custom roles',
             [customRole],
-            "organization-with-custom-roles@kyso.io",
+            'organization-with-custom-roles@kyso.io',
+            'another-random-stripe-id-with-no-use',
             false,
-            "another-random-stripe-id-with-no-use"
         )
 
         this.OrganizationWithCustomRole = await this._createOrganization(organizationWithCustomRoles)
     }
 
-    private async _createOrganization(organization: CreateOrganizationRequest) {
+    private async _createOrganization(organization: Organization) {
         try {
             Logger.log(`Creating ${organization.name} organization...`)
             return await this.organizationService.createOrganization(organization)
-        } catch(ex) {
+        } catch (ex) {
             Logger.log(` ${organization.name} organization already exists`)
         }
     }
 
     private async createTeams() {
-        const regularTeam = new CreateTeamRequest(
-            "regular-team",
-            []
-        )
+        try {
+            const regularTeam = new Team("public-team", "https://bit.ly/3J49GUO", "A public team", "Valencia", 
+                [], this.RegularOrganization.id, TeamVisibilityEnum.PUBLIC)
 
+            const customRole: KysoRole = new KysoRole('custom-team-random-role', [ReportPermissionsEnum.READ])
 
-        const customRole: KysoRole = new KysoRole(
-            "custom-team-random-role", 
-            [
-                ReportPermissionsEnum.READ
-            ]
-        )
-
-        const teamWithCustomRoles = new CreateTeamRequest(
-            "regular-team",
-            [customRole]
-        )
-
-        this.RegularTeam = this._createTeam(regularTeam)
-        this.TeamWithCustomRole = this._createTeam(teamWithCustomRoles)
+            const teamWithCustomRoles = new Team("protected-team-with-roles", "https://bit.ly/3e9mDOZ", "A protected team with custom roles", "Texas", 
+                [customRole], this.OrganizationWithCustomRole.id, TeamVisibilityEnum.PROTECTED)
+            
+            this.RegularTeam = this._createTeam(regularTeam)
+            this.TeamWithCustomRole = this._createTeam(teamWithCustomRoles)
+        } catch(ex) {
+            // silent exception
+        }
     }
 
-    private async _createTeam(team: CreateTeamRequest) {
+    private async _createTeam(team: Team) {
         try {
             Logger.log(`Creating ${team.name} team...`)
             return await this.teamService.createTeam(team)
-        } catch(ex) {
+        } catch (ex) {
             Logger.log(` ${team.name} team already exists`)
         }
     }
@@ -197,32 +186,28 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             await this.organizationService.addMembersById(
                 this.RegularOrganization.id,
                 [this.OrganizationAdminUser.id.toString()],
-                [KysoRole.ORGANIZATION_ADMIN_ROLE.name])
+                [KysoRole.ORGANIZATION_ADMIN_ROLE.name],
+            )
 
             // Team admin for all teams in the organization
-            await this.organizationService.addMembersById(
-                this.RegularOrganization.id,
-                [this.TeamAdminUser.id.toString()],
-                [KysoRole.TEAM_ADMIN_ROLE.name])
+            await this.organizationService.addMembersById(this.RegularOrganization.id, [this.TeamAdminUser.id.toString()], [KysoRole.TEAM_ADMIN_ROLE.name])
 
             // Team contributor for all teams in the organization
             await this.organizationService.addMembersById(
                 this.RegularOrganization.id,
                 [this.TeamContributorUser.id.toString()],
-                [KysoRole.TEAM_CONTRIBUTOR_ROLE.name])
-            
+                [KysoRole.TEAM_CONTRIBUTOR_ROLE.name],
+            )
+
             // Team reader for all teams in the organization
             await this.organizationService.addMembersById(
                 this.RegularOrganization.id,
                 [this.TeamContributorUser.id.toString()],
-                [KysoRole.TEAM_READER_ROLE.name])
-        } catch(ex) {
+                [KysoRole.TEAM_READER_ROLE.name],
+            )
+        } catch (ex) {
             // silent exception for now ;)
         }
-    }
-
-    private async assignTeamsToOrganizations() {
-
     }
 
     private async assignUsersToTeams() {

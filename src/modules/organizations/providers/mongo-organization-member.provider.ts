@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { MongoProvider } from 'src/providers/mongo.provider'
-import { OrganizationMemberJoin } from '../model/organization-member-join.model'
+import { OrganizationMemberJoin } from '../../../model/organization-member-join.model'
 import { db } from 'src/main'
 
 @Injectable()

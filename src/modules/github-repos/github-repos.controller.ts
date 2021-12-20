@@ -6,7 +6,7 @@ import { Repository } from 'src/model/repository.model'
 import { GithubReposService } from 'src/modules/github-repos/github-repos.service'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
-import { GithubAccount } from './model/github-account.model'
+import { GithubAccount } from '../../model/github-account.model'
 import { GithubRepoPermissionsEnum } from './security/github-repos-permissions.enum'
 
 @ApiTags('repos/github')

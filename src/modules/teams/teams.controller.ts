@@ -5,10 +5,10 @@ import { ForbiddenError } from 'src/helpers/errorHandling'
 import { HateoasLinker } from 'src/helpers/hateoasLinker'
 import { HEADER_X_KYSO_TEAM } from 'src/model/constants'
 import { Team } from 'src/model/team.model'
+import { UpdateTeamRequest } from 'src/model/update-team-request.model'
 import { TeamsService } from 'src/modules/teams/teams.service'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
-import { UpdateTeamRequest } from './model/update-team-request.model'
 import { TeamPermissionsEnum } from './security/team-permissions.enum'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']

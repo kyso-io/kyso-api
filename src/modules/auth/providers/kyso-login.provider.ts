@@ -6,8 +6,8 @@ import { AuthService } from '../auth.service'
 import { OrganizationsService } from 'src/modules/organizations/organizations.service'
 import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './mongo-user-role.provider'
-import { Token } from '../model/token.model'
-import { TokenPermissions } from '../model/token-permissions.model'
+import { TokenPermissions } from 'src/model/token-permissions.model'
+import { Token } from 'src/model/token.model'
 
 @Injectable()
 export class KysoLoginProvider {

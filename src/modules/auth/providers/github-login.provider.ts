@@ -9,7 +9,6 @@ import { OrganizationsService } from 'src/modules/organizations/organizations.se
 import { TeamsService } from 'src/modules/teams/teams.service'
 import { AuthService } from '../auth.service'
 import { UserRoleMongoProvider } from './mongo-user-role.provider'
-import { Token } from '../model/token.model'
 
 const axios = require('axios').default
 
