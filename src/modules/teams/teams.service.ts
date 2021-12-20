@@ -4,7 +4,6 @@ import { Team } from 'src/model/team.model'
 import { User } from 'src/model/user.model'
 import { TeamsMongoProvider } from 'src/modules/teams/providers/mongo-teams.provider'
 import { UsersService } from '../users/users.service'
-import { CreateTeamRequest } from './model/create-team-request.model'
 import { TeamMemberJoin } from './model/team-member-join.model'
 import { TeamMember } from './model/team-member.model'
 import { TeamMemberMongoProvider } from './providers/mongo-team-member.provider'
@@ -108,7 +107,7 @@ export class TeamsService {
         return user
     }
 
-    async createTeam(team: CreateTeamRequest) {
+    async createTeam(team: Team) {
         // The name of this team exists?
         const exists: any[] = await this.provider.read({ filter: { name: team.name } })
 

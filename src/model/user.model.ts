@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { BaseModel } from './base.model'
-import { LoginProvider } from 'src/modules/auth/model/login-provider.enum'
+import { LoginProvider } from 'src/model/enum/login-provider.enum'
 import { GlobalPermissionsEnum, Permissions } from 'src/security/general-permissions.enum'
 import { Exclude } from 'class-transformer'
 import { CreateUserRequest } from 'src/modules/users/dto/create-user-request.dto'

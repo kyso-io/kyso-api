@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { KysoLoginProvider } from './providers/kyso-login.provider'
-import { LoginProvider } from './model/login-provider.enum'
+import { LoginProvider } from '../../model/enum/login-provider.enum'
 import { GithubLoginProvider } from './providers/github-login.provider'
 import { JwtService } from '@nestjs/jwt'
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'

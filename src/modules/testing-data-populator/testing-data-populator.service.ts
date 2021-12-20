@@ -4,14 +4,14 @@ import { Team } from 'src/model/team.model'
 import { User } from 'src/model/user.model'
 import { GlobalPermissionsEnum } from 'src/security/general-permissions.enum'
 import { KysoRole } from '../auth/model/kyso-role.model'
-import { LoginProvider } from '../auth/model/login-provider.enum'
+import { LoginProvider } from '../../model/enum/login-provider.enum'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
-import { CreateTeamRequest } from '../teams/model/create-team-request.model'
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
 import { CreateUserRequest } from '../users/dto/create-user-request.dto'
 import { UsersService } from '../users/users.service'
+import { TeamVisibilityEnum } from 'src/model/enum/team-visibility.enum'
 
 @Injectable()
 export class TestingDataPopulatorService implements OnApplicationBootstrap {
@@ -155,19 +155,23 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
     }
 
     private async createTeams() {
-        const regularTeam = new Team("regular-team", "https://bit.ly/3J49GUO", "A regular team", "Valencia", 
-            [], this.RegularOrganization.id)
+        try {
+            const regularTeam = new Team("public-team", "https://bit.ly/3J49GUO", "A public team", "Valencia", 
+                [], this.RegularOrganization.id, TeamVisibilityEnum.PUBLIC)
 
-        const customRole: KysoRole = new KysoRole('custom-team-random-role', [ReportPermissionsEnum.READ])
+            const customRole: KysoRole = new KysoRole('custom-team-random-role', [ReportPermissionsEnum.READ])
 
-        const teamWithCustomRoles = new Team("custom-roles-team", "https://bit.ly/3e9mDOZ", "A team with custom roles", "Texas", 
-            [customRole], this.OrganizationWithCustomRole.id)
-        
-        this.RegularTeam = this._createTeam(regularTeam)
-        this.TeamWithCustomRole = this._createTeam(teamWithCustomRoles)
+            const teamWithCustomRoles = new Team("protected-team-with-roles", "https://bit.ly/3e9mDOZ", "A protected team with custom roles", "Texas", 
+                [customRole], this.OrganizationWithCustomRole.id, TeamVisibilityEnum.PROTECTED)
+            
+            this.RegularTeam = this._createTeam(regularTeam)
+            this.TeamWithCustomRole = this._createTeam(teamWithCustomRoles)
+        } catch(ex) {
+            // silent exception
+        }
     }
 
-    private async _createTeam(team: CreateTeamRequest) {
+    private async _createTeam(team: Team) {
         try {
             Logger.log(`Creating ${team.name} team...`)
             return await this.teamService.createTeam(team)
@@ -206,9 +210,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
         }
     }
 
-    private async assignTeamsToOrganizations() {
+    private async assignUsersToTeams() {
 
     }
-
-    private async assignUsersToTeams() {}
 }
