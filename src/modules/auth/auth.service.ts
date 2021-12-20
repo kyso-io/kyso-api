@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { KysoLoginProvider } from './providers/kyso-login.provider'
-import { LoginProvider } from '../../model/enum/login-provider.enum'
+import { LoginProviderEnum } from '../../model/enum/login-provider.enum'
 import { GithubLoginProvider } from './providers/github-login.provider'
 import { JwtService } from '@nestjs/jwt'
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'
@@ -196,12 +196,12 @@ export class AuthService {
         return response
     }
 
-    async login(password: string, provider: LoginProvider, username?: string): Promise<String> {
+    async login(password: string, provider: LoginProviderEnum, username?: string): Promise<String> {
         switch (provider) {
-            case LoginProvider.KYSO:
+            case LoginProviderEnum.KYSO:
             default:
                 return await this.kysoLoginProvider.login(password, username)
-            case LoginProvider.GITHUB:
+            case LoginProviderEnum.GITHUB:
                 return await this.githubLoginProvider.login(password)
             // case LoginProvider.GOOGLE:
         }

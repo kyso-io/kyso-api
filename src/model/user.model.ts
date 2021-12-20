@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { BaseModel } from './base.model'
-import { LoginProvider } from 'src/model/enum/login-provider.enum'
+import { LoginProviderEnum } from 'src/model/enum/login-provider.enum'
 import { GlobalPermissionsEnum, Permissions } from 'src/security/general-permissions.enum'
 import { Exclude } from 'class-transformer'
 import { CreateUserRequest } from 'src/modules/users/dto/create-user-request.dto'
@@ -15,9 +15,9 @@ export class User extends BaseModel {
     @ApiProperty()
     public nickname: string
     @ApiProperty({
-        enum: LoginProvider,
+        enum: LoginProviderEnum,
     })
-    public provider: LoginProvider
+    public provider: LoginProviderEnum
     @ApiProperty()
     public bio: string
     @ApiProperty()
@@ -56,7 +56,7 @@ export class User extends BaseModel {
         email: string,
         username: string,
         nickname: string,
-        provider: LoginProvider,
+        provider: LoginProviderEnum,
         bio: string,
         plan: string,
         _hashed_password: string,
@@ -88,7 +88,7 @@ export class User extends BaseModel {
     }
 
     static fromGithubUser(userData: any, emailData: any): User {
-        let newUser = new User(emailData.email, userData.login, userData.name, LoginProvider.GITHUB, '', 'free', '', true, [])
+        let newUser = new User(emailData.email, userData.login, userData.name, LoginProviderEnum.GITHUB, '', 'free', '', true, [])
 
         newUser.avatarUrl = userData.avatar_url
 
@@ -108,7 +108,7 @@ export const DEFAULT_GLOBAL_ADMIN_USER = new User(
     'default-admin@kyso.io',
     'default-admin@kyso.io',
     'default-admin',
-    LoginProvider.KYSO,
+    LoginProviderEnum.KYSO,
     '',
     'free',
     'empty.password',

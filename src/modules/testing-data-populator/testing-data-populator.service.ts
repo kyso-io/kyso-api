@@ -4,7 +4,7 @@ import { Team } from 'src/model/team.model'
 import { User } from 'src/model/user.model'
 import { GlobalPermissionsEnum } from 'src/security/general-permissions.enum'
 import { KysoRole } from '../auth/model/kyso-role.model'
-import { LoginProvider } from '../../model/enum/login-provider.enum'
+import { LoginProviderEnum } from '../../model/enum/login-provider.enum'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
@@ -55,7 +55,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             'team-admin@kyso.io',
             'team-admin@kyso.io',
             'team-admin',
-            LoginProvider.KYSO,
+            LoginProviderEnum.KYSO,
             '',
             'free',
             'n0tiene',
@@ -66,7 +66,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             'team-contributor@kyso.io',
             'team-contributor@kyso.io',
             'team-contributor',
-            LoginProvider.KYSO,
+            LoginProviderEnum.KYSO,
             '',
             'free',
             'n0tiene',
@@ -76,7 +76,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             'team-reader@kyso.io',
             'team-reader@kyso.io',
             'team-reader',
-            LoginProvider.KYSO,
+            LoginProviderEnum.KYSO,
             '',
             'free',
             'n0tiene',
@@ -87,7 +87,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             'organization-admin@kyso.io',
             'organization-admin@kyso.io',
             'organization-admin',
-            LoginProvider.KYSO,
+            LoginProviderEnum.KYSO,
             '',
             'free',
             'n0tiene',
@@ -98,7 +98,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             'platform-admin@kyso.io',
             'platform-admin@kyso.io',
             'platform-admin',
-            LoginProvider.KYSO,
+            LoginProviderEnum.KYSO,
             '',
             'free',
             'n0tiene',
