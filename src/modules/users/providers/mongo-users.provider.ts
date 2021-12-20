@@ -32,7 +32,8 @@ export class UsersMongoProvider extends MongoProvider<User> {
 
         let copycat: User = DEFAULT_GLOBAL_ADMIN_USER
         copycat.hashed_password = AuthService.hashPassword(randomPassword)
-
+        delete copycat.password
+        
         await this.create(copycat)
     }
 }
