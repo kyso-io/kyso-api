@@ -8,7 +8,7 @@ import { TeamMemberJoin } from './model/team-member-join.model'
 import { TeamMember } from './model/team-member.model'
 import { TeamMemberMongoProvider } from './providers/mongo-team-member.provider'
 import * as mongo from 'mongodb'
-import { KysoRole } from '../auth/model/kyso-role.model'
+import { KysoRole } from '../../model/kyso-role.model'
 
 @Injectable()
 export class TeamsService {

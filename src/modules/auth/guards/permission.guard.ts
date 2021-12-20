@@ -2,10 +2,10 @@ import { Injectable, CanActivate, ExecutionContext, Logger, forwardRef, Inject, 
 import { Reflector } from '@nestjs/core'
 import { Observable } from 'rxjs'
 import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM } from 'src/model/constants'
+import { ResourcePermissions } from 'src/model/resource-permissions.model'
+import { Token } from 'src/model/token.model'
 import { PERMISSION_KEY } from '../annotations/permission.decorator'
 import { AuthService } from '../auth.service'
-import { ResourcePermissions } from '../model/resource-permissions.model'
-import { Token } from '../model/token.model'
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {

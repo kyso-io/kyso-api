@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { LoginProviderEnum } from '../../../model/enum/login-provider.enum'
+import { LoginProviderEnum } from './enum/login-provider.enum'
 
 export class Login {
     @ApiProperty({

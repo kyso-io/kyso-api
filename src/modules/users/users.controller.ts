@@ -10,10 +10,8 @@ import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { UserPermissionsEnum } from './security/user-permissions.enum'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { CreateUserRequest } from './dto/create-user-request.dto'
-import { ResourcePermissions } from '../auth/model/resource-permissions.model'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { AuthService } from '../auth/auth.service'
-import { Token } from '../auth/model/token.model'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 

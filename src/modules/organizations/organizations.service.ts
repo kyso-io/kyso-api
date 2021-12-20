@@ -2,7 +2,7 @@ import { forwardRef, Inject, Injectable, PreconditionFailedException } from '@ne
 import { NotFoundError } from 'src/helpers/errorHandling'
 import { Organization } from 'src/model/organization.model'
 import { User } from 'src/model/user.model'
-import { KysoRole } from '../auth/model/kyso-role.model'
+import { KysoRole } from '../../model/kyso-role.model'
 import { UsersService } from '../users/users.service'
 import { OrganizationMemberJoin } from './model/organization-member-join.model'
 import { OrganizationMember } from './model/organization-member.model'

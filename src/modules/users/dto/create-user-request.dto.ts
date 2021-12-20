@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { LoginProviderEnum } from 'src/model/enum/login-provider.enum'
-import { ResourcePermissions } from 'src/modules/auth/model/resource-permissions.model'
-import { GlobalPermissionsEnum, Permissions } from 'src/security/general-permissions.enum'
+import { GlobalPermissionsEnum } from 'src/security/general-permissions.enum'
 
 export class CreateUserRequest {
     @ApiProperty()
