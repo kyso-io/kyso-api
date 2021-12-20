@@ -8,7 +8,6 @@ import { AuthService } from 'src/modules/auth/auth.service';
 import * as mongo from 'mongodb'
 
 export class User extends BaseModel {
-
     @ApiProperty({ format: 'faker: datatype.uuid' })
     public id?: string
 
