@@ -4,13 +4,9 @@ import { BaseModel } from './base.model'
 import { Exclude } from 'class-transformer'
 
 export class Organization extends BaseModel {
-    @ApiProperty({ format: 'faker: datatype.uuid' })
-    public id?: string
-
     @ApiProperty()
     public name: string
 
-    // TODO: test
     @Exclude()
     @ApiProperty({
         required: true,
@@ -18,4 +14,35 @@ export class Organization extends BaseModel {
         isArray: true,
     })
     public roles: KysoRole[]
+
+    @ApiProperty({
+        description: 'Mail where the billing communications will go',
+    })
+    public billingEmail: string
+
+    @ApiProperty({
+        description: 'Stripe identificator for payments',
+    })
+    public subscriptionId: string
+
+    @ApiProperty({
+        description: 'Flag to allow or deny login into the organization using google accounts. True allows google login, false deny it',
+        default: true,
+    })
+    public allowGoogleLogin: boolean
+
+    constructor(name: string, roles: KysoRole[], billingEmail: string, subscriptionId: string, allowGoogleLogin: boolean, id?: string) {
+        super()
+
+        this.name = name
+        this.roles = roles
+        this.billingEmail = billingEmail
+        this.subscriptionId = subscriptionId
+        this.allowGoogleLogin = allowGoogleLogin
+
+        if(id) {
+            this.id = id
+        }
+        
+    }
 }

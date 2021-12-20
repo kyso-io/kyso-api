@@ -4,7 +4,6 @@ import { Organization } from 'src/model/organization.model'
 import { User } from 'src/model/user.model'
 import { KysoRole } from '../auth/model/kyso-role.model'
 import { UsersService } from '../users/users.service'
-import { CreateOrganizationRequest } from './model/create-organization-request.model'
 import { OrganizationMemberJoin } from './model/organization-member-join.model'
 import { OrganizationMember } from './model/organization-member.model'
 import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
@@ -28,7 +27,7 @@ export class OrganizationsService {
         return organization[0]
     }
 
-    async createOrganization(organization: CreateOrganizationRequest): Promise<Organization> {
+    async createOrganization(organization: Organization): Promise<Organization> {
         // The name of this organization exists?
         const exists: any[] = await this.provider.read({ filter: { name: organization.name } })
 
@@ -116,5 +115,10 @@ export class OrganizationsService {
         } else {
             return []
         }
+    }
+
+    async assignTeamToOrganization(organizationName: string, teamName: string): Promise<any> {
+        
+        return ""
     }
 }

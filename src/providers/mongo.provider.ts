@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common'
 import * as mongo from 'mongodb'
+import { BaseModel } from 'src/model/base.model'
 
 const { ObjectId } = require('mongodb')
 
@@ -75,10 +76,11 @@ export abstract class MongoProvider<T> {
         ]
     }
 
-    async create(obj): Promise<T> {
-        obj._created_at = new Date()
+    async create(obj: any): Promise<T> {
+        obj.created_at = new Date()
         await this.getCollection().insertOne(obj)
-
+        obj.id = obj._id.toString()
+        
         return obj
     }
 
