@@ -242,7 +242,7 @@ export class AuthService {
             this.jwtService.verify(token)
             const decodedToken = this.jwtService.decode(token)
 
-            return decodedToken as Token
+            return (decodedToken as any).payload as Token
         } catch (ex) {
             // TOKEN IS NOT VALID
             return undefined

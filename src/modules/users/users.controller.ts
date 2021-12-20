@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
+import { Body, ClassSerializerInterceptor, Controller, Get, Headers, Param, Patch, Post, Query, Req, Res, UseGuards, UseInterceptors } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { UsersService } from './users.service'
 import { GenericController } from 'src/generic/controller.generic'
@@ -9,7 +9,6 @@ import { BaseFilterQuery } from 'src/model/dto/base-filter.dto'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { UserPermissionsEnum } from './security/user-permissions.enum'
 import { Permission } from '../auth/annotations/permission.decorator'
-import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { AuthService } from '../auth/auth.service'
 
