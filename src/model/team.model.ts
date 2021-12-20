@@ -25,25 +25,34 @@ export class Team extends BaseModel {
 
     @ApiProperty({
         required: true,
-        enum: TeamVisibilityEnum
+        enum: TeamVisibilityEnum,
     })
     public visibility: TeamVisibilityEnum
 
     @ApiProperty({
         required: false,
-        type: Organization
+        type: Organization,
     })
     public organization?: Organization
 
     @ApiProperty({
-        required: true
+        required: true,
     })
     public organization_id: string
 
-    constructor(name: string, avatar_url: string, bio: string, location: string, roles: KysoRole[], 
-        organization_id: string, visibility: TeamVisibilityEnum, id?: string, organization?: Organization) {
+    constructor(
+        name: string,
+        avatar_url: string,
+        bio: string,
+        location: string,
+        roles: KysoRole[],
+        organization_id: string,
+        visibility: TeamVisibilityEnum,
+        id?: string,
+        organization?: Organization,
+    ) {
         super()
-        
+
         this.name = name
         this.avatar_url = avatar_url
         this.bio = bio
@@ -52,11 +61,11 @@ export class Team extends BaseModel {
         this.organization_id = organization_id
         this.visibility = visibility
 
-        if(organization) {
+        if (organization) {
             this.organization = organization
         }
 
-        if(id) {
+        if (id) {
             this.id = id
         }
     }

@@ -33,7 +33,7 @@ export class UsersService {
         // exists a prev user with same email?
         const exists = await this.getUser({ filter: { email: userToCreate.email } })
 
-        if(!userToCreate.password) {
+        if (!userToCreate.password) {
             throw new PreconditionFailedException(null, 'Password unset')
         }
 

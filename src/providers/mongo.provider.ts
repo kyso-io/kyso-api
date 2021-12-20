@@ -80,7 +80,7 @@ export abstract class MongoProvider<T> {
         obj.created_at = new Date()
         await this.getCollection().insertOne(obj)
         obj.id = obj._id.toString()
-        
+
         return obj
     }
 

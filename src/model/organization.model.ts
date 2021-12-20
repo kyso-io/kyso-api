@@ -40,9 +40,8 @@ export class Organization extends BaseModel {
         this.subscriptionId = subscriptionId
         this.allowGoogleLogin = allowGoogleLogin
 
-        if(id) {
+        if (id) {
             this.id = id
         }
-        
     }
 }

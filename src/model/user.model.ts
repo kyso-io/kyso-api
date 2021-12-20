@@ -90,8 +90,7 @@ export class User extends BaseModel {
     }
 
     static fromGithubUser(userData: any, emailData: any): User {
-        let newUser = new User(emailData.email, userData.login, 
-            userData.name, LoginProviderEnum.GITHUB, '', 'free', '', userData.avatar_url, true, [])
+        let newUser = new User(emailData.email, userData.login, userData.name, LoginProviderEnum.GITHUB, '', 'free', '', userData.avatar_url, true, [])
 
         return newUser
     }
@@ -105,7 +104,7 @@ export const DEFAULT_GLOBAL_ADMIN_USER = new User(
     '',
     'free',
     'empty.password',
-    "https://bit.ly/32hyGaj",
+    'https://bit.ly/32hyGaj',
     false,
     [GlobalPermissionsEnum.GLOBAL_ADMIN],
     new mongo.ObjectId('61a8ae8f9c2bc3c5a2144000').toString(),

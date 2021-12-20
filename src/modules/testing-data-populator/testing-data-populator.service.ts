@@ -99,7 +99,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             '[Organization Admin] Moff Gideon is an Organization Admin',
             'free',
             'n0tiene',
-            'https://bit.ly/3E8x5AN', 
+            'https://bit.ly/3E8x5AN',
             true,
             [],
         )
@@ -139,7 +139,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             [],
             'regular-organization@kyso.io',
             'random-stripe-id-with-no-use',
-            false
+            false,
         )
 
         this.RegularOrganization = await this._createOrganization(regularOrganization)
@@ -168,20 +168,41 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
 
     private async createTeams() {
         try {
-            const regularTeam = new Team("public-team", "https://bit.ly/3J49GUO", "A public team", "Cleveland", 
-                [], this.RegularOrganization.id, TeamVisibilityEnum.PUBLIC)
+            const regularTeam = new Team(
+                'public-team',
+                'https://bit.ly/3J49GUO',
+                'A public team',
+                'Cleveland',
+                [],
+                this.RegularOrganization.id,
+                TeamVisibilityEnum.PUBLIC,
+            )
 
             const customRole: KysoRole = new KysoRole('custom-team-random-role', [ReportPermissionsEnum.READ])
 
-            const teamWithCustomRoles = new Team("protected-team-with-roles", "https://bit.ly/3e9mDOZ", "A protected team with custom roles", "Sacramento", 
-                [customRole], this.OrganizationWithCustomRole.id, TeamVisibilityEnum.PROTECTED)
-            
-            const privateTeam = new Team("private-team", "https://bit.ly/3sr8x45", "A private team", "Milwaukee", 
-                [customRole], this.RegularOrganization.id, TeamVisibilityEnum.PRIVATE)
-            
+            const teamWithCustomRoles = new Team(
+                'protected-team-with-roles',
+                'https://bit.ly/3e9mDOZ',
+                'A protected team with custom roles',
+                'Sacramento',
+                [customRole],
+                this.OrganizationWithCustomRole.id,
+                TeamVisibilityEnum.PROTECTED,
+            )
+
+            const privateTeam = new Team(
+                'private-team',
+                'https://bit.ly/3sr8x45',
+                'A private team',
+                'Milwaukee',
+                [customRole],
+                this.RegularOrganization.id,
+                TeamVisibilityEnum.PRIVATE,
+            )
+
             this.PublicTeam = this._createTeam(regularTeam)
             this.ProtectedTeamWithCustomRole = this._createTeam(teamWithCustomRoles)
-        } catch(ex) {
+        } catch (ex) {
             // silent exception
         }
     }
@@ -225,7 +246,5 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
         }
     }
 
-    private async assignUsersToTeams() {
-
-    }
+    private async assignUsersToTeams() {}
 }
