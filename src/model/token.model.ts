@@ -29,6 +29,6 @@ export class Token {
         this.email = email
         this.plan = plan
         this.permissions = permissions
-        this.avatar_url = avatar_url        
+        this.avatar_url = avatar_url
     }
 }

@@ -255,7 +255,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
         try {
             Logger.log(`Adding ${this.Gideon_OrganizationAdminUser.nickname} to team ${this.PrivateTeam.name} with role ${this.CustomTeamRole.name}`)
             await this.teamService.addMembersById(this.PrivateTeam.id, [this.Gideon_OrganizationAdminUser.id], [this.CustomTeamRole.name])
-        } catch(ex) {
+        } catch (ex) {
             // silent it
         }
     }

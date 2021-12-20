@@ -16,13 +16,13 @@ export class ResourcePermissions {
     public permissions?: KysoRole[]
 
     @ApiProperty({
-        required: false, 
-        description: 'Permissions inherited from organization'
+        required: false,
+        description: 'Permissions inherited from organization',
     })
     public organization_inherited?: boolean
 
     @ApiProperty({
-        required: false, 
+        required: false,
         description: 'Organization Id which belongs to',
     })
     public organization_id?: string

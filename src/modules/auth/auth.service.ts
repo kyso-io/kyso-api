@@ -73,7 +73,7 @@ export class AuthService {
         const userTeamMembership: TeamMemberJoin[] = await teamService.searchMembers({ filter: { member_id: user.id } })
 
         if (userTeamMembership && userTeamMembership.length > 0) {
-            for(let teamMembership of userTeamMembership) {
+            for (let teamMembership of userTeamMembership) {
                 // For every team, retrieve the base object
                 const team: Team = await teamService.getTeam({ filter: { _id: new mongo.ObjectId(teamMembership.team_id) } })
 
@@ -82,7 +82,7 @@ export class AuthService {
 
                 // For every role assigned to this user in this team, retrieve their permissions
                 let computedPermissions = []
-                
+
                 teamMembership.role_names.map((element) => {
                     let existsRole: KysoRole[]
 
@@ -112,7 +112,7 @@ export class AuthService {
         const userOrganizationMembership: OrganizationMemberJoin[] = await organizationService.searchMembersJoin({ filter: { member_id: user.id } })
 
         if (userOrganizationMembership && userOrganizationMembership.length > 0) {
-            for(let organizationMembership of userOrganizationMembership) {
+            for (let organizationMembership of userOrganizationMembership) {
                 // For every organization, retrieve the base object
                 let objectId = new mongo.ObjectId(organizationMembership.organization_id)
                 const organization: Organization = await organizationService.getOrganization({ filter: { _id: objectId } })
@@ -122,7 +122,7 @@ export class AuthService {
 
                 // For every role assigned to this user in this organization, retrieve their permissions
                 let computedPermissions = []
- 
+
                 organizationMembership.role_names.map((element) => {
                     let existsRole: KysoRole[]
 
@@ -144,14 +144,14 @@ export class AuthService {
                 response.organizations.push({
                     id: organization.id,
                     name: organization.name,
-                    permissions: computedPermissions
+                    permissions: computedPermissions,
                 })
 
                 // Get all the teams that belong to that organizations (an user can belong to multiple organizations)
                 const organizationTeams: Team[] = await teamService.getTeams({ filter: { organization_id: organization.id } })
 
                 // For-each team
-                for(let orgTeam of organizationTeams) {
+                for (let orgTeam of organizationTeams) {
                     // If already exists in the response object, ignore it (team permissions override organization permissions)
                     const alreadyExistsInResponse = response.teams.filter((x) => x.id === orgTeam.id)
 
@@ -162,7 +162,7 @@ export class AuthService {
                             name: orgTeam.name,
                             id: orgTeam.id,
                             organization_inherited: true,
-                            organization_id: orgTeam.organization_id // Remove duplicated permissions
+                            organization_id: orgTeam.organization_id, // Remove duplicated permissions
                         })
                     }
                 }
