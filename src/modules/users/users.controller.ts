@@ -43,6 +43,7 @@ export class UsersController extends GenericController<User> {
         type: User,
     })
     @Permission([UserPermissionsEnum.READ])
+    @UseInterceptors(ClassSerializerInterceptor)
     async getUsers(@Req() req, @Res() res, @Query() filters: BaseFilterQuery) {
         // <-- Lack of documentation due to inconsistent stuff
         // filters variable is just for documentation purposes. But a refactoring removing Req and Res would be great.
