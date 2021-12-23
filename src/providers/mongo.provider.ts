@@ -1,6 +1,5 @@
 import { Logger } from '@nestjs/common'
 import * as mongo from 'mongodb'
-import { BaseModel } from 'src/model/base.model'
 
 const { ObjectId } = require('mongodb')
 

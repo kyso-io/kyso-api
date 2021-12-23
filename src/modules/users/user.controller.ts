@@ -14,7 +14,6 @@ const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_tok
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('user')
-@UseInterceptors(ClassSerializerInterceptor)
 export class UserController extends GenericController<User> {
     constructor(private readonly usersService: UsersService, private readonly authService: AuthService) {
         super()

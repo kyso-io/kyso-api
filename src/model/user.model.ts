@@ -4,49 +4,84 @@ import { LoginProviderEnum } from 'src/model/enum/login-provider.enum'
 import { GlobalPermissionsEnum, Permissions } from 'src/security/general-permissions.enum'
 import { Exclude } from 'class-transformer'
 import * as mongo from 'mongodb'
+import { IsAlphanumeric, IsArray, IsBooleanString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsUrl, Length } from 'class-validator'
 
 export class User extends BaseModel {
+    @IsEmail()
+    @IsNotEmpty()
     @ApiProperty()
     public email: string
+
+    @IsAlphanumeric()
+    @IsNotEmpty()
     @ApiProperty()
     public username: string
+
+    @IsAlphanumeric()
+    @IsNotEmpty()
     @ApiProperty()
     public nickname: string
+
+    @IsNotEmpty()
     @ApiProperty({
         enum: LoginProviderEnum,
     })
     public provider: LoginProviderEnum
-    @ApiProperty()
+    
+    @IsAlphanumeric()
+    @Length(0, 500)
+    @IsNotEmpty()
+    @ApiProperty({
+        maxLength: 500
+    })
     public bio: string
+
+    @IsAlphanumeric()
+    @IsNotEmpty()
     @ApiProperty()
     public plan: string
 
-    @Exclude()
+    @IsAlphanumeric()
     @ApiProperty()
+    @Exclude()
     public hashed_password: string
 
-    @Exclude()
+    @IsAlphanumeric()
+    @IsOptional()
+    @Exclude({
+        // toPlainOnly: true
+    })
     @ApiProperty({
         description: 'OAUTH2 token from OAUTH login providers',
     })
     public accessToken: string
 
-    @Exclude()
+    @IsAlphanumeric()
+    @IsOptional()
+    @Exclude({
+        // toPlainOnly: true
+    })
     @ApiProperty({
         description: 'Password in clear text. Used for creation and edition',
     })
     public password?: string
 
+    @IsUrl()
+    @IsNotEmpty()
     @ApiProperty()
     public avatar_url: string
 
+    @IsBooleanString()
     @ApiProperty()
     public email_verified: boolean
 
-    @Exclude()
+    @IsAlphanumeric()
+    @IsOptional()
     @ApiProperty()
     public _email_verify_token?: string
 
+    @IsArray()
+    @IsEnum(GlobalPermissionsEnum, { each: true })
     @ApiProperty()
     public global_permissions: GlobalPermissionsEnum[]
 

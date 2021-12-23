@@ -1,11 +1,12 @@
-import { NestFactory } from '@nestjs/core'
+import { NestFactory, Reflector } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { AppModule } from './app.module'
 import * as helmet from 'helmet'
 import * as fs from 'fs'
 import { RedocOptions, RedocModule } from 'nestjs-redoc'
 import { OpenAPIExtender } from './helpers/openapiExtender'
-import { Logger, ValidationPipe } from '@nestjs/common'
+import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common'
+import { ExcludeInterceptor } from './interceptors/exclude.interceptor'
 const { MongoClient, ObjectId } = require('mongodb')
 export let client
 export let db
@@ -17,9 +18,19 @@ async function bootstrap() {
     const globalPrefix = 'v1'
     // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately
     app.use(helmet())
+   
+    app.useGlobalInterceptors(
+        new ClassSerializerInterceptor(app.get(Reflector))
+    );
+
+    app.useGlobalPipes(
+        new ValidationPipe({
+            whitelist: true,
+            transform: true,
+        }),
+    )
 
     app.setGlobalPrefix(globalPrefix)
-
     // bindSwaggerDocument(globalPrefix, app);
 
     const config = new DocumentBuilder()

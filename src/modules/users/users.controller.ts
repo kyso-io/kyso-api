@@ -1,5 +1,5 @@
-import { Body, ClassSerializerInterceptor, Controller, Get, Headers, Param, Patch, Post, Query, Req, Res, UseGuards, UseInterceptors } from '@nestjs/common'
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { Body, ClassSerializerInterceptor, Controller, Get, Param, Post, Query, Req, UseGuards, UseInterceptors } from '@nestjs/common'
+import { ApiBearerAuth, ApiOperation, ApiParam,  ApiResponse, ApiTags } from '@nestjs/swagger'
 import { UsersService } from './users.service'
 import { GenericController } from 'src/generic/controller.generic'
 import { HateoasLinker } from 'src/helpers/hateoasLinker'
@@ -21,8 +21,6 @@ const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_tok
 export class UsersController extends GenericController<User> {
     constructor(
         private readonly usersService: UsersService,
-        private readonly organizationService: OrganizationsService,
-        private readonly authService: AuthService,
     ) {
         super()
     }
@@ -43,20 +41,26 @@ export class UsersController extends GenericController<User> {
         type: User,
     })
     @Permission([UserPermissionsEnum.READ])
-    @UseInterceptors(ClassSerializerInterceptor)
-    async getUsers(@Req() req, @Res() res, @Query() filters: BaseFilterQuery) {
+    async getUsers(@Req() req, @Query() filters: BaseFilterQuery): Promise<User[]> {
         // <-- Lack of documentation due to inconsistent stuff
         // filters variable is just for documentation purposes. But a refactoring removing Req and Res would be great.
         const query = QueryParser.toQueryObject(req.url)
-        if (!query.sort) query.sort = { _created_at: -1 }
-        if (!query.filter) query.filter = {} // ??? not documented
-        if (!query.projection) query.projection = {} // ??? not documented
+        if (!query.sort) {
+            query.sort = { _created_at: -1 }
+        }
+        if (!query.filter) {
+            query.filter = {} // ??? not documented
+        }
+        
+        if (!query.projection) {
+            query.projection = {} // ??? not documented
+        }
+
         query.projection.accessToken = 0
 
-        const users = await this.usersService.getUsers(query)
-        users.forEach((x) => this.assignReferences(x))
+        const result: User[] = await this.usersService.getUsers(query)
 
-        return res.status(200).send(users)
+        return result
     }
 
     @Get('/:userName')
@@ -72,8 +76,8 @@ export class UsersController extends GenericController<User> {
     })
     @ApiResponse({ status: 200, description: `User matching name`, type: User })
     @Permission([UserPermissionsEnum.READ])
-    async getUser(@Param('userName') userName: string) {
-        const user = await this.usersService.getUser({
+    async getUser(@Param('userName') userName: string): Promise<User> {
+        const user: User = await this.usersService.getUser({
             filter: { nickname: userName },
             projection: { accessToken: 0 },
         })
