@@ -19,10 +19,8 @@ async function bootstrap() {
     const globalPrefix = 'v1'
     // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately
     app.use(helmet())
-   
-    app.useGlobalInterceptors(
-        new ClassSerializerInterceptor(app.get(Reflector))
-    );
+
+    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
 
     app.useGlobalPipes(
         new ValidationPipe({

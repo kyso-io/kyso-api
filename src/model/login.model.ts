@@ -10,12 +10,11 @@ export class Login {
         required: false,
     })
     public username?: string
-    
+
     @IsNotEmpty()
     @ApiProperty()
     public password: string
-    
-    
+
     @IsNotEmpty()
     @ApiProperty({
         description: `Authentication provider in which the user wants to rely. See schema for details`,

@@ -1,5 +1,5 @@
 import { Body, ClassSerializerInterceptor, Controller, Get, Param, Post, Query, Req, UseGuards, UseInterceptors } from '@nestjs/common'
-import { ApiBearerAuth, ApiOperation, ApiParam,  ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { UsersService } from './users.service'
 import { GenericController } from 'src/generic/controller.generic'
 import { HateoasLinker } from 'src/helpers/hateoasLinker'
@@ -19,9 +19,7 @@ const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_tok
 @ApiBearerAuth()
 @Controller('users')
 export class UsersController extends GenericController<User> {
-    constructor(
-        private readonly usersService: UsersService,
-    ) {
+    constructor(private readonly usersService: UsersService) {
         super()
     }
 
@@ -51,7 +49,7 @@ export class UsersController extends GenericController<User> {
         if (!query.filter) {
             query.filter = {} // ??? not documented
         }
-        
+
         if (!query.projection) {
             query.projection = {} // ??? not documented
         }

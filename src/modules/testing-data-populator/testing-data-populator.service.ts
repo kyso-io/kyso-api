@@ -40,9 +40,9 @@ export class TestingDataPopulatorService {
         private readonly teamService: TeamsService,
         @Inject(forwardRef(() => ReportsService))
         private readonly reportsService: ReportsService,
-    ) { }
+    ) {}
 
-    public async populateTestData() {      
+    public async populateTestData() {
         if (process.env.POPULATE_TEST_DATA && process.env.POPULATE_TEST_DATA === 'true') {
             console.log(`
                   ^     ^

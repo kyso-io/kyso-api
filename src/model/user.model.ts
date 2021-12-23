@@ -27,12 +27,12 @@ export class User extends BaseModel {
         enum: LoginProviderEnum,
     })
     public provider: LoginProviderEnum
-    
+
     @IsAlphanumeric()
     @Length(0, 500)
     @IsNotEmpty()
     @ApiProperty({
-        maxLength: 500
+        maxLength: 500,
     })
     public bio: string
 
