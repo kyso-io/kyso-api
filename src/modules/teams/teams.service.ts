@@ -21,9 +21,7 @@ export class TeamsService {
     async getTeam(query) {
         const teams = await this.provider.read(query)
         if (teams.length === 0) {
-            throw new NotFoundError({
-                message: "The specified team couldn't be found",
-            })
+            return null
         }
         return teams[0]
     }
@@ -84,7 +82,7 @@ export class TeamsService {
             const toFinalObject = usersAndRoles.map((x) => {
                 let obj: TeamMember = new TeamMember()
 
-                obj.avatar_url = x.avatarUrl
+                obj.avatar_url = x.avatar_url
                 obj.bio = x.bio
                 obj.id = x.id.toString()
                 obj.nickname = x.nickname

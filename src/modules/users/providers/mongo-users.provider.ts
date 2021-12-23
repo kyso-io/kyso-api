@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { db } from 'src/main'
 import { MongoProvider } from 'src/providers/mongo.provider'
 import { v4 as uuidv4 } from 'uuid'
@@ -32,6 +32,7 @@ export class UsersMongoProvider extends MongoProvider<User> {
 
         let copycat: User = DEFAULT_GLOBAL_ADMIN_USER
         copycat.hashed_password = AuthService.hashPassword(randomPassword)
+        delete copycat.password
 
         await this.create(copycat)
     }

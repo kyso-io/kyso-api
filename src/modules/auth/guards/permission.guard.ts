@@ -4,6 +4,7 @@ import { Observable } from 'rxjs'
 import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM } from 'src/model/constants'
 import { ResourcePermissions } from 'src/model/resource-permissions.model'
 import { Token } from 'src/model/token.model'
+import { GlobalPermissionsEnum } from 'src/security/general-permissions.enum'
 import { PERMISSION_KEY } from '../annotations/permission.decorator'
 import { AuthService } from '../auth.service'
 
@@ -24,6 +25,13 @@ export class PermissionsGuard implements CanActivate {
             // Validate that the token is not compromised
             if (!tokenPayload) {
                 return false
+            }
+
+            const isGlobalAdmin = tokenPayload.permissions.global.find((x) => x === GlobalPermissionsEnum.GLOBAL_ADMIN)
+
+            // triple absurd checking because a GLOBAL ADMIN DESERVES IT
+            if (isGlobalAdmin) {
+                return true
             }
 
             // Get the permissions from the token (we can trust it, as the signature is right)

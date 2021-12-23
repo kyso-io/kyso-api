@@ -4,7 +4,7 @@ import { BaseModel } from './base.model'
 import { Exclude } from 'class-transformer'
 
 export class Organization extends BaseModel {
-    @ApiProperty()
+    @Exclude()
     public name: string
 
     @Exclude()
@@ -40,9 +40,8 @@ export class Organization extends BaseModel {
         this.subscriptionId = subscriptionId
         this.allowGoogleLogin = allowGoogleLogin
 
-        if(id) {
+        if (id) {
             this.id = id
         }
-        
     }
 }

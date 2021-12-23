@@ -100,8 +100,7 @@ export class OrganizationsService {
             const toFinalObject = usersAndRoles.map((x) => {
                 let obj: OrganizationMember = new OrganizationMember()
 
-                obj.avatar_url = x.avatarUrl
-                obj.bio = x.bio
+                obj.avatar_url = x.avatar_url
                 obj.id = x.id.toString()
                 obj.nickname = x.nickname
                 obj.organization_roles = x.roles

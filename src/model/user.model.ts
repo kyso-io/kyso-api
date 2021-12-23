@@ -3,52 +3,85 @@ import { BaseModel } from './base.model'
 import { LoginProviderEnum } from 'src/model/enum/login-provider.enum'
 import { GlobalPermissionsEnum, Permissions } from 'src/security/general-permissions.enum'
 import { Exclude } from 'class-transformer'
-import { CreateUserRequest } from 'src/model/dto/create-user-request.dto'
-import { AuthService } from 'src/modules/auth/auth.service'
 import * as mongo from 'mongodb'
+import { IsAlphanumeric, IsArray, IsBooleanString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsUrl, Length } from 'class-validator'
 
 export class User extends BaseModel {
+    @IsEmail()
+    @IsNotEmpty()
     @ApiProperty()
     public email: string
+
+    @IsAlphanumeric()
+    @IsNotEmpty()
     @ApiProperty()
     public username: string
+
+    @IsAlphanumeric()
+    @IsNotEmpty()
     @ApiProperty()
     public nickname: string
+
+    @IsNotEmpty()
     @ApiProperty({
         enum: LoginProviderEnum,
     })
     public provider: LoginProviderEnum
-    @ApiProperty()
+    
+    @IsAlphanumeric()
+    @Length(0, 500)
+    @IsNotEmpty()
+    @ApiProperty({
+        maxLength: 500
+    })
     public bio: string
+
+    @IsAlphanumeric()
+    @IsNotEmpty()
     @ApiProperty()
     public plan: string
 
-    @Exclude()
+    @IsAlphanumeric()
     @ApiProperty()
+    @Exclude()
     public hashed_password: string
 
-    @Exclude()
+    @IsAlphanumeric()
+    @IsOptional()
+    @Exclude({
+        // toPlainOnly: true
+    })
     @ApiProperty({
         description: 'OAUTH2 token from OAUTH login providers',
     })
     public accessToken: string
 
-    @Exclude()
+    @IsAlphanumeric()
+    @IsOptional()
+    @Exclude({
+        // toPlainOnly: true
+    })
     @ApiProperty({
         description: 'Password in clear text. Used for creation and edition',
     })
     public password?: string
 
+    @IsUrl()
+    @IsNotEmpty()
     @ApiProperty()
-    public avatarUrl: string
+    public avatar_url: string
 
+    @IsBooleanString()
     @ApiProperty()
-    public emailVerified: boolean
+    public email_verified: boolean
 
-    @Exclude()
+    @IsAlphanumeric()
+    @IsOptional()
     @ApiProperty()
     public _email_verify_token?: string
 
+    @IsArray()
+    @IsEnum(GlobalPermissionsEnum, { each: true })
     @ApiProperty()
     public global_permissions: GlobalPermissionsEnum[]
 
@@ -59,7 +92,8 @@ export class User extends BaseModel {
         provider: LoginProviderEnum,
         bio: string,
         plan: string,
-        _hashed_password: string,
+        password: string,
+        avatarUrl: string,
         emailVerified: boolean,
         global_permissions: GlobalPermissionsEnum[],
         _id?: string,
@@ -72,8 +106,9 @@ export class User extends BaseModel {
         this.provider = provider
         this.bio = bio
         this.plan = plan
-        this.hashed_password = _hashed_password
-        this.emailVerified = emailVerified
+        this.avatar_url = avatarUrl
+        this.password = password
+        this.email_verified = emailVerified
         this.global_permissions = global_permissions
 
         if (_id) {
@@ -88,19 +123,9 @@ export class User extends BaseModel {
     }
 
     static fromGithubUser(userData: any, emailData: any): User {
-        let newUser = new User(emailData.email, userData.login, userData.name, LoginProviderEnum.GITHUB, '', 'free', '', true, [])
-
-        newUser.avatarUrl = userData.avatar_url
+        let newUser = new User(emailData.email, userData.login, userData.name, LoginProviderEnum.GITHUB, '', 'free', '', userData.avatar_url, true, [])
 
         return newUser
-    }
-
-    static fromCreateUserRequest(data: CreateUserRequest): User {
-        const hashedPassword = AuthService.hashPassword(data.password)
-
-        const userMongo = new User(data.email, data.username, data.nickname, data.provider, data.bio, data.plan, hashedPassword, false, data.global_permissions)
-
-        return userMongo
     }
 }
 
@@ -112,6 +137,7 @@ export const DEFAULT_GLOBAL_ADMIN_USER = new User(
     '',
     'free',
     'empty.password',
+    'https://bit.ly/32hyGaj',
     false,
     [GlobalPermissionsEnum.GLOBAL_ADMIN],
     new mongo.ObjectId('61a8ae8f9c2bc3c5a2144000').toString(),
