@@ -7,6 +7,7 @@ import { RedocOptions, RedocModule } from 'nestjs-redoc'
 import { OpenAPIExtender } from './helpers/openapiExtender'
 import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common'
 import { ExcludeInterceptor } from './interceptors/exclude.interceptor'
+import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service'
 const { MongoClient, ObjectId } = require('mongodb')
 export let client
 export let db
@@ -84,6 +85,9 @@ async function bootstrap() {
     await RedocModule.setup('/redoc', app, redocDocument, redocOptions)
 
     await app.listen(process.env.PORT || 3000)
+
+    const testingDataPopulatorService: TestingDataPopulatorService = app.get(TestingDataPopulatorService)
+    await testingDataPopulatorService.populateTestData()
 }
 
 async function connectToDatabase(DB_NAME) {

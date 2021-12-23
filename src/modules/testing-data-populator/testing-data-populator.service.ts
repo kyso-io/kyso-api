@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
+import { forwardRef, Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
 import { Organization } from 'src/model/organization.model'
 import { Team } from 'src/model/team.model'
 import { User } from 'src/model/user.model'
@@ -9,14 +9,14 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
-import { CreateReport } from 'src/model/dto/create-report-request.dto'
-import { Report } from 'src/model/report.model'
 import { ReportsService } from '../reports/reports.service'
 import { UsersService } from '../users/users.service'
 import { TeamVisibilityEnum } from 'src/model/enum/team-visibility.enum'
+import { CreateReport } from 'src/model/dto/create-report-request.dto'
+import { ModuleRef } from '@nestjs/core'
 
 @Injectable()
-export class TestingDataPopulatorService implements OnApplicationBootstrap {
+export class TestingDataPopulatorService {
     private Rey_TeamAdminUser: User
     private Kylo_TeamContributorUser: User
     private Chewbacca_TeamReaderUser: User
@@ -38,11 +38,12 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
         private readonly usersService: UsersService,
         private readonly organizationService: OrganizationsService,
         private readonly teamService: TeamsService,
+        @Inject(forwardRef(() => ReportsService))
         private readonly reportsService: ReportsService,
-    ) {}
+    ) { }
 
-    async onApplicationBootstrap() {
-        // if (process.env.POPULATE_TEST_DATA && process.env.POPULATE_TEST_DATA === 'true') {
+    public async populateTestData() {      
+        if (process.env.POPULATE_TEST_DATA && process.env.POPULATE_TEST_DATA === 'true') {
             console.log(`
                   ^     ^
                    ^   ^
@@ -57,7 +58,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             await this.createTeams()
             await this.assignUsersToOrganizations()
             await this.assignUsersToTeams()
-        // }
+        }
     }
 
     private async createTestingUsers() {
@@ -145,6 +146,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
     private async createTestingReports() {
         const testReport = new CreateReport('test-report', 'team-contributor', 'github', 'main', '.')
         // this.TestReport = await this.reportsService.createReport(this.Kylo_TeamContributorUser, testReport, null)
+        const t = await this.reportsService.createReport(this.Kylo_TeamContributorUser, testReport, null)
     }
 
     private async createOrganizations() {
