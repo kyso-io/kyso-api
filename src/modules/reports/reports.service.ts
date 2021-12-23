@@ -2,6 +2,7 @@ import { forwardRef, Inject, Injectable } from '@nestjs/common'
 import { AlreadyExistsError, ForbiddenError, InvalidInputError, NotFoundError } from 'src/helpers/errorHandling'
 import { QueryParser } from 'src/helpers/queryParser'
 import { Validators } from 'src/helpers/validators'
+import { CreateReport } from 'src/model/dto/create-report-request.dto'
 import { ReportsMongoProvider } from 'src/modules/reports/providers/mongo-reports.provider'
 import { GithubReposService } from '../github-repos/github-repos.service'
 import { TeamsService } from '../teams/teams.service'
@@ -79,24 +80,24 @@ export class ReportsService {
         return reports[0]
     }
 
-    async createReport(user, data, teamName) {
-        if (!Validators.isValidReportName(data.src.name))
+    async createReport(user, createReportRequest: CreateReport, teamName) {
+        if (!Validators.isValidReportName(createReportRequest.name))
             throw new InvalidInputError({
                 message: `Study name can only consist of letters, numbers, '_' and '-'.`,
             })
 
-        const basePath = (data.src.path || '').replace(/^[.]\//, '')
-        const reportName = generateReportName(data.src.name, basePath)
+        const basePath = (createReportRequest.path || '').replace(/^[.]\//, '')
+        const reportName = generateReportName(createReportRequest.name, basePath)
 
         // OLD line... what is he doing with the result of this???
-        // await this.reposService({ provider: data.src.provider, accessToken: user.accessToken }).getRepo(user, data.src.owner, data.src.name)
+        // await this.reposService({ provider: createReportRequest.src.provider, accessToken: user.accessToken }).getRepo(user, createReportRequest.src.owner, createReportRequest.src.name)
 
         // NEW
-        switch (data.src.provider) {
+        switch (createReportRequest.provider) {
             case 'github':
             default:
                 this.githubReposService.login(user.accessToken)
-                await this.githubReposService.getRepo(user, data.src.owner, data.src.name)
+                await this.githubReposService.getRepo(user, createReportRequest.owner, createReportRequest.name)
                 break
         }
         // END NEW
@@ -130,11 +131,16 @@ export class ReportsService {
         try {
             // OLD LINE
             // metadata = await this.reposService({ provider: data.src.provider, accessToken: user.accessToken }).getConfigFile(basePath, data.src.owner, data.src.name, data.src.default_branch)
-            switch (data.src.provider) {
+            switch (createReportRequest.provider) {
                 case 'github':
                 default:
                     this.githubReposService.login(user.accessToken)
-                    metadata = this.githubReposService.getConfigFile(basePath, data.src.owner, data.src.name, data.src.default_branch)
+                    metadata = this.githubReposService.getConfigFile(
+                        basePath,
+                        createReportRequest.owner,
+                        createReportRequest.name,
+                        createReportRequest.default_branch,
+                    )
                     break
             }
         } catch (err) {}
@@ -146,10 +152,10 @@ export class ReportsService {
             ...report,
             name: reportName,
             provider: {
-                source: data.src.provider,
-                owner: data.src.owner,
-                name: data.src.name,
-                defaultBranch: data.src.default_branch,
+                source: createReportRequest.provider,
+                owner: createReportRequest.owner,
+                name: createReportRequest.name,
+                defaultBranch: createReportRequest.default_branch,
                 basePath,
             },
             numberOfComments: 0,
@@ -163,7 +169,7 @@ export class ReportsService {
     async updateReport(userId, reportOwner, reportName, data) {
         const report = await this.getReport(reportOwner, reportName)
 
-        return this.provider.update({ _id: report.id }, data)
+        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, data)
     }
 
     async deleteReport(userId, reportOwner, reportName) {

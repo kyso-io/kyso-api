@@ -23,7 +23,7 @@ export class TeamsController extends GenericController<Team> {
     }
 
     assignReferences(team: Team) {
-        team.self_url = HateoasLinker.createRef(`/teams/${team.name}`)
+        // team.self_url = HateoasLinker.createRef(`/teams/${team.name}`)
     }
 
     @Get('/:teamName')

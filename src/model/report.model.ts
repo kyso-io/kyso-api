@@ -1,35 +1,28 @@
 import { ApiExtraModels, ApiProperty } from '@nestjs/swagger'
 import { BatchReportCreation } from 'src/model/dto/batch-report-creation-response.dto'
 import { BaseModel } from './base.model'
-import { Hateoas } from './hateoas.model'
+import { Comment } from './comment.model'
 
 @ApiExtraModels(BatchReportCreation)
 export class Report extends BaseModel {
     @ApiProperty()
     public name: string
-    @ApiProperty()
-    public views: number
-    @ApiProperty()
-    public _p_user: string
-
-    @ApiProperty()
-    public stars: number
-    @ApiProperty()
-    public number_of_comments: number
+    // @ApiProperty()
+    // public views: number
+    // @ApiProperty()
+    // public stars: number
+    // @ApiProperty()
+    // public number_of_comments: number
 
     // We can keep some fields without typing if we want as well
-    @ApiProperty()
-    public analytics: any
-    @ApiProperty()
-    public provider: any
+    // @ApiProperty()
+    // public analytics: any
+    // @ApiProperty()
+    // public provider: any
 
-    // Hateoas stuff
-    @ApiProperty()
-    public html_url: Hateoas
-    @ApiProperty()
-    public branches_url: Hateoas
-    @ApiProperty()
-    public tree_url: Hateoas
-    @ApiProperty()
-    public commits_url: Hateoas
+    @ApiProperty({ format: 'faker: datatype.uuid' })
+    public comments_rel: [string]
+
+    @ApiProperty({ format: 'faker: datatype.uuid' })
+    public user_rel: string
 }

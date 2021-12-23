@@ -4,15 +4,13 @@ const jsf = require('json-schema-faker') // eslint-disable-line
 jsf.extend('faker', () => require('faker'))
 
 describe('Model test suite', () => {
-    test('Create fake comments', async () => {
-        const fakeComments = await jsf.resolve({
-            type: 'array',
-            minItems: 4,
-            items: {
-                $ref: 'http://localhost:3000/v1-json/#/components/schemas/Comment',
+    test('Create fake report', async () => {
+        const fakeReport = await jsf.resolve({
+            report: {
+                $ref: 'http://localhost:3000/v1-json/#/components/schemas/Report',
             },
         })
 
-        console.log(fakeComments)
+        console.log(JSON.stringify(fakeReport, null, 2))
     })
 })

@@ -10,6 +10,9 @@ import { ReportPermissionsEnum } from '../reports/security/report-permissions.en
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
 import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
+import { CreateReport, CreateReportRequest } from 'src/model/dto/create-report-request.dto'
+import { Report } from 'src/model/report.model'
+import { ReportsService } from 'src/modules/reports/reports.service'
 import { UsersService } from '../users/users.service'
 import { TeamVisibilityEnum } from 'src/model/enum/team-visibility.enum'
 
@@ -24,6 +27,8 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
     private RegularOrganization: Organization
     private OrganizationWithCustomRole: Organization
 
+    private TestReport: Report
+
     private RegularTeam: any
     private TeamWithCustomRole: any
 
@@ -31,6 +36,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
         private readonly usersService: UsersService,
         private readonly organizationService: OrganizationsService,
         private readonly teamService: TeamsService,
+        private readonly reportsService: ReportsService,
     ) {}
 
     async onApplicationBootstrap() {
@@ -44,6 +50,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             `)
 
             await this.createTestingUsers()
+            await this.createTestingReports()
             await this.createOrganizations()
             await this.createTeams()
             await this.assignUsersToOrganizations()
@@ -72,6 +79,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             'n0tiene',
             [],
         )
+
         const testTeamReaderUser: CreateUserRequest = new CreateUserRequest(
             'team-reader@kyso.io',
             'team-reader@kyso.io',
@@ -121,13 +129,18 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
         }
     }
 
+    private async createTestingReports() {
+        const testReport = new CreateReport('test-report', 'team-contributor', 'github', 'main', '.')
+        this.TestReport = await this.reportsService.createReport(this.TeamContributorUser, testReport, null)
+    }
+
     private async createOrganizations() {
         const regularOrganization: Organization = new Organization(
             'Organization without specific roles',
             [],
             'regular-organization@kyso.io',
             'random-stripe-id-with-no-use',
-            false
+            false,
         )
 
         this.RegularOrganization = await this._createOrganization(regularOrganization)
