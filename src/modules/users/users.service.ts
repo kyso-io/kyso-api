@@ -1,6 +1,5 @@
 import { Injectable, PreconditionFailedException } from '@nestjs/common'
 import { User } from 'src/model/user.model'
-import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { AuthService } from '../auth/auth.service'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 
