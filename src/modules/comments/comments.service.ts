@@ -10,7 +10,7 @@ export class CommentsService {
     async getReportComments(reportId) {
         const comments = await this.provider.getCommentsWithOwner({
             filter: {
-                _p_study: QueryParser.createForeignKey('Study', reportId),
+                report_rel: QueryParser.createForeignKey('Study', reportId),
             },
             sort: { _created_at: -1 },
         })
@@ -47,12 +47,13 @@ export class CommentsService {
             limit: 1,
         })
 
-        if (comments.length === 0)
-            throw new NotFoundError({
-                message: "The specified comment couldn't be found",
-            })
-        const reportComments = await this.getReportComments(comments[0]._p_study)
+        if (comments.length === 0) {
+            throw new NotFoundError({ message: "The specified comment couldn't be found" })
+        }
 
-        return reportComments.find((comment) => comment.id === commentId)
+        return comments
+        // const reportComments = await this.getReportComments(comments[0].report_rel)
+
+        // return reportComments.find((comment) => comment.id === commentId)
     }
 }

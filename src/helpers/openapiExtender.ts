@@ -15,6 +15,16 @@ export class OpenAPIExtender {
                 delete subval['format']
             }
         }
+
+        if (subval['items']) {
+            if (subval['items']['format']) {
+                if (subval['items']['format'].startsWith('faker:')) {
+                    subval['items']['faker'] = subval['items']['format'].split('faker:')[1].trim()
+                    delete subval['items']['format']
+                }
+            }
+        }
+
         return [subkey, subval]
     }
 

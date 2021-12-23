@@ -17,7 +17,7 @@ export class VersionsMongoProvider extends MongoProvider<any> {
     async getReportVersions(reportId) {
         const versions = await this.read({
             filter: {
-                _p_study: QueryParser.createForeignKey('Study', reportId),
+                report_rel: QueryParser.createForeignKey('Study', reportId),
             },
         })
         return versions
@@ -27,7 +27,7 @@ export class VersionsMongoProvider extends MongoProvider<any> {
         const versions = await this.read({
             filter: {
                 _id: version,
-                _p_study: QueryParser.createForeignKey('Study', reportId),
+                report_rel: QueryParser.createForeignKey('Study', reportId),
             },
             limit: 1,
         })

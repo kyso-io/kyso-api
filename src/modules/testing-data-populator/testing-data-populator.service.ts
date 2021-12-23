@@ -9,7 +9,9 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
-import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
+import { CreateReport } from 'src/model/dto/create-report-request.dto'
+import { Report } from 'src/model/report.model'
+import { ReportsService } from '../reports/reports.service'
 import { UsersService } from '../users/users.service'
 import { TeamVisibilityEnum } from 'src/model/enum/team-visibility.enum'
 
@@ -24,6 +26,7 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
     private RegularOrganization: Organization
     private OrganizationWithCustomRole: Organization
 
+    // private TestReport: Report
     private CustomTeamRole: KysoRole
     private CustomOrganizationRole: KysoRole
 
@@ -35,10 +38,11 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
         private readonly usersService: UsersService,
         private readonly organizationService: OrganizationsService,
         private readonly teamService: TeamsService,
+        private readonly reportsService: ReportsService,
     ) {}
 
     async onApplicationBootstrap() {
-        if (process.env.POPULATE_TEST_DATA && process.env.POPULATE_TEST_DATA === 'true') {
+        // if (process.env.POPULATE_TEST_DATA && process.env.POPULATE_TEST_DATA === 'true') {
             console.log(`
                   ^     ^
                    ^   ^
@@ -48,11 +52,12 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
             `)
 
             await this.createTestingUsers()
+            await this.createTestingReports()
             await this.createOrganizations()
             await this.createTeams()
             await this.assignUsersToOrganizations()
             await this.assignUsersToTeams()
-        }
+        // }
     }
 
     private async createTestingUsers() {
@@ -135,6 +140,11 @@ export class TestingDataPopulatorService implements OnApplicationBootstrap {
         } catch (ex) {
             Logger.log(`${user.nickname} user already exists`)
         }
+    }
+
+    private async createTestingReports() {
+        const testReport = new CreateReport('test-report', 'team-contributor', 'github', 'main', '.')
+        // this.TestReport = await this.reportsService.createReport(this.Kylo_TeamContributorUser, testReport, null)
     }
 
     private async createOrganizations() {

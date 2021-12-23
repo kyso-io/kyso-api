@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger'
 
-class CreateReport {
+export class CreateReport {
     @ApiProperty({
         required: true,
         description: 'Git provider to retrieve the code',
@@ -27,6 +27,14 @@ class CreateReport {
         required: false,
     })
     path: string
+
+    constructor(name, owner, provider, default_branch, path) {
+        this.name = name
+        this.owner = owner
+        this.provider = provider
+        this.default_branch = default_branch
+        this.path = path
+    }
 }
 
 export class CreateReportRequest {

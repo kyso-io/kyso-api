@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { db } from 'src/main'
 import { MongoProvider } from 'src/providers/mongo.provider'
 import { v4 as uuidv4 } from 'uuid'
