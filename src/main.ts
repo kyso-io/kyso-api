@@ -1,14 +1,12 @@
+import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common'
 import { NestFactory, Reflector } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
-import { AppModule } from './app.module'
-import * as helmet from 'helmet'
 import * as fs from 'fs'
-import { RedocOptions, RedocModule } from 'nestjs-redoc'
+import * as helmet from 'helmet'
+import { MongoClient } from 'mongodb'
+import { RedocModule, RedocOptions } from 'nestjs-redoc'
+import { AppModule } from './app.module'
 import { OpenAPIExtender } from './helpers/openapiExtender'
-import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common'
-import { ExcludeInterceptor } from './interceptors/exclude.interceptor'
-import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service'
-const { MongoClient, ObjectId } = require('mongodb')
 export let client
 export let db
 
@@ -58,7 +56,7 @@ async function bootstrap() {
         hideHostname: false,
     }
 
-    let redocDocument = Object.assign({}, document)
+    const redocDocument = Object.assign({}, document)
 
     // Only for redocs, add general documentation data (tags)
     redocDocument.tags = [
@@ -83,9 +81,6 @@ async function bootstrap() {
     await RedocModule.setup('/redoc', app, redocDocument, redocOptions)
 
     await app.listen(process.env.PORT || 3000)
-
-    const testingDataPopulatorService: TestingDataPopulatorService = app.get(TestingDataPopulatorService)
-    await testingDataPopulatorService.populateTestData()
 }
 
 async function connectToDatabase(DB_NAME) {
@@ -93,7 +88,7 @@ async function connectToDatabase(DB_NAME) {
     if (!client) {
         try {
             client = await MongoClient.connect(process.env.DATABASE_URI, {
-                useUnifiedTopology: true,
+                // useUnifiedTopology: true,
                 maxPoolSize: 10,
                 // poolSize: 10 <-- Deprecated
             })

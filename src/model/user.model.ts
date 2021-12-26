@@ -1,10 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { BaseModel } from './base.model'
-import { LoginProviderEnum } from 'src/model/enum/login-provider.enum'
-import { GlobalPermissionsEnum, Permissions } from 'src/security/general-permissions.enum'
 import { Exclude } from 'class-transformer'
-import * as mongo from 'mongodb'
 import { IsAlphanumeric, IsArray, IsBooleanString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsUrl, Length } from 'class-validator'
+import * as mongo from 'mongodb'
+import { LoginProviderEnum } from 'src/model/enum/login-provider.enum'
+import { GlobalPermissionsEnum } from 'src/security/general-permissions.enum'
+import { BaseModel } from './base.model'
 
 export class User extends BaseModel {
     @IsEmail()
@@ -123,7 +123,7 @@ export class User extends BaseModel {
     }
 
     static fromGithubUser(userData: any, emailData: any): User {
-        let newUser = new User(emailData.email, userData.login, userData.name, LoginProviderEnum.GITHUB, '', 'free', '', userData.avatar_url, true, [])
+        const newUser = new User(emailData.email, userData.login, userData.name, LoginProviderEnum.GITHUB, '', 'free', '', userData.avatar_url, true, [])
 
         return newUser
     }

@@ -1,4 +1,4 @@
-import { Controller, Post, Body } from '@nestjs/common'
+import { Body, Controller, Post } from '@nestjs/common'
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { GenericController } from 'src/generic/controller.generic'
 import { Login } from 'src/model/login.model'
@@ -6,12 +6,12 @@ import { AuthService } from './auth.service'
 
 @ApiTags('auth')
 @Controller('auth')
-export class AuthController extends GenericController<String> {
+export class AuthController extends GenericController<string> {
     constructor(private readonly authService: AuthService) {
         super()
     }
 
-    assignReferences(item: String) {
+    assignReferences(item: string) {
         // Nothing to do here
     }
 

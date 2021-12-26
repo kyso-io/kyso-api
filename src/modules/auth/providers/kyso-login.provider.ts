@@ -21,9 +21,9 @@ export class KysoLoginProvider {
         private readonly userRoleProvider: UserRoleMongoProvider,
     ) {}
 
-    async login(password: string, username?: string): Promise<String> {
+    async login(password: string, username?: string): Promise<string> {
         // Get user from database
-        let user = await this.userService.getUser({
+        const user = await this.userService.getUser({
             filter: { username: username },
         })
 
@@ -40,7 +40,7 @@ export class KysoLoginProvider {
                 this.userRoleProvider,
             )
 
-            let payload: Token = new Token(user.id.toString(), user.username, user.nickname, user.email, user.plan, permissions, user.avatar_url)
+            const payload: Token = new Token(user.id.toString(), user.username, user.nickname, user.email, user.plan, permissions, user.avatar_url)
 
             // generate token
             const token = this.jwtService.sign(
