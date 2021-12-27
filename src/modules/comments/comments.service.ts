@@ -1,11 +1,17 @@
 import { Injectable } from '@nestjs/common'
 import { NotFoundError } from 'src/helpers/errorHandling'
 import { QueryParser } from 'src/helpers/queryParser'
+import { User } from 'src/model/user.model'
+import { Comment } from 'src/model/comment.model'
 import { CommentsMongoProvider } from 'src/modules/comments/providers/mongo-comments.provider'
 
 @Injectable()
 export class CommentsService {
     constructor(private readonly provider: CommentsMongoProvider) {}
+
+    async createComment(comment: Comment) {
+        return this.provider.create(comment)
+    }
 
     async getReportComments(reportId) {
         const comments = await this.provider.getCommentsWithOwner({

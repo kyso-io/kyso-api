@@ -12,5 +12,13 @@ export class Comment extends BaseModel {
     public report_rel: string
 
     @ApiProperty({ format: 'faker: datatype.uuid' })
-    public comments_rel: [string]
+    public parent_comment_rel: string
+
+    constructor(text, user_rel, report_rel, parent_comment_rel) {
+        super()
+        this.text = text
+        this.user_rel = user_rel
+        this.report_rel = report_rel
+        this.parent_comment_rel = parent_comment_rel
+    }
 }

@@ -4,11 +4,14 @@ import { TeamVisibilityEnum } from 'src/model/enum/team-visibility.enum'
 import { Organization } from 'src/model/organization.model'
 import { Team } from 'src/model/team.model'
 import { User } from 'src/model/user.model'
+import { Report } from 'src/model/report.model'
+import { Comment } from 'src/model/comment.model'
 import { GlobalPermissionsEnum } from 'src/security/general-permissions.enum'
 import { LoginProviderEnum } from '../../model/enum/login-provider.enum'
 import { KysoRole } from '../../model/kyso-role.model'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
+import { CommentsService } from '../comments/comments.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
@@ -25,7 +28,10 @@ export class TestingDataPopulatorService {
     private RegularOrganization: Organization
     private OrganizationWithCustomRole: Organization
 
-    // private TestReport: Report
+    private TestReport: Report
+    private TestComment: Comment
+    private TestChildComment1: Comment
+    private TestChildComment2: Comment
     private CustomTeamRole: KysoRole
     private CustomOrganizationRole: KysoRole
 
@@ -39,6 +45,7 @@ export class TestingDataPopulatorService {
         private readonly teamService: TeamsService,
         // @Inject(forwardRef(() => ReportsService))
         private readonly reportsService: ReportsService,
+        private readonly commentsService: CommentsService,
     ) {}
 
     public async populateTestData() {
@@ -51,13 +58,23 @@ export class TestingDataPopulatorService {
                      "
             `)
 
+            if (await this.checkIfAlreadyExists()) {
+                return
+            }
+
             await this.createTestingUsers()
-            await this.createTestingReports()
             await this.createOrganizations()
             await this.createTeams()
             await this.assignUsersToOrganizations()
             await this.assignUsersToTeams()
+
+            await this.createTestingReports()
+            await this.createTestingComments()
         }
+    }
+
+    private async checkIfAlreadyExists() {
+        return false
     }
 
     private async createTestingUsers() {
@@ -144,9 +161,21 @@ export class TestingDataPopulatorService {
     }
 
     private async createTestingReports() {
-        const testReport = new CreateReport('test-report', 'team-contributor', 'github', 'main', '.')
-        // this.TestReport = await this.reportsService.createReport(this.Kylo_TeamContributorUser, testReport, null)
-        await this.reportsService.createReport(this.Kylo_TeamContributorUser, testReport, null)
+        const testReport = new CreateReport('test-report', 'team-contributor', null, 'main', '.')
+        this.TestReport = await this.reportsService.createReport(this.Kylo_TeamContributorUser, testReport, null)
+    }
+
+    private async createTestingComments() {
+        const testComment = new Comment('test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, null)
+        this.TestComment = await this.commentsService.createComment(testComment)
+
+        this.TestChildComment1 = await this.commentsService.createComment(
+            new Comment('child test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, this.TestComment.id),
+        )
+
+        this.TestChildComment2 = await this.commentsService.createComment(
+            new Comment('child 2 test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, this.TestComment.id),
+        )
     }
 
     private async createOrganizations() {

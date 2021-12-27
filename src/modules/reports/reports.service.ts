@@ -3,6 +3,7 @@ import { AlreadyExistsError, InvalidInputError, NotFoundError } from 'src/helper
 import { QueryParser } from 'src/helpers/queryParser'
 import { Validators } from 'src/helpers/validators'
 import { CreateReport } from 'src/model/dto/create-report-request.dto'
+import { User } from 'src/model/user.model'
 import { ReportsMongoProvider } from 'src/modules/reports/providers/mongo-reports.provider'
 import { GithubReposService } from '../github-repos/github-repos.service'
 import { TeamsService } from '../teams/teams.service'
@@ -79,14 +80,14 @@ export class ReportsService {
         return reports[0]
     }
 
-    async createReport(user, createReportRequest: CreateReport, teamName) {
+    async createReport(user: User, createReportRequest: CreateReport, teamName) {
         if (!Validators.isValidReportName(createReportRequest.name))
             throw new InvalidInputError({
                 message: `Study name can only consist of letters, numbers, '_' and '-'.`,
             })
 
         const basePath = (createReportRequest.path || '').replace(/^[.]\//, '')
-        const reportName = generateReportName(createReportRequest.name, basePath)
+        const reportName = createReportRequest.name
 
         // OLD line... what is he doing with the result of this???
         // await this.reposService({ provider: createReportRequest.src.provider, accessToken: user.accessToken }).getRepo(user, createReportRequest.src.owner, createReportRequest.src.name)
@@ -107,7 +108,7 @@ export class ReportsService {
         // END NEW
 
         let report = {
-            _p_user: QueryParser.createForeignKey('_User', user.objectId),
+            user_rel: user.id,
         } as any
         const usedNameQuery = {
             filter: {
@@ -123,7 +124,7 @@ export class ReportsService {
 
             report._p_team = QueryParser.createForeignKey('Team', teamId)
             usedNameQuery.filter._p_team = report._p_team
-        } else usedNameQuery.filter._p_user = report._p_user
+        } else usedNameQuery.filter.user_rel = report.user_rel
 
         const reports = await this.provider.read(usedNameQuery)
         if (reports.length !== 0)

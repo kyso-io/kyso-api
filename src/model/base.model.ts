@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { IsDate, IsOptional, IsUUID } from 'class-validator'
-import { Hateoas } from './hateoas.model'
 
 export class BaseModel {
     @IsUUID()
@@ -17,6 +16,7 @@ export class BaseModel {
     @ApiProperty()
     public updated_at?: Date
 
-    @ApiProperty()
-    public self_url: Hateoas
+    // @IsOptional()
+    // @ApiProperty()
+    // public is_test_data?: boolean
 }
