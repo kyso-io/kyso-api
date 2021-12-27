@@ -1,8 +1,8 @@
-import { Module } from '@nestjs/common'
+import { Module, OnModuleInit } from '@nestjs/common'
 import { OrganizationsModule } from '../organizations/organizations.module'
+import { ReportsModule } from '../reports/reports.module'
 import { TeamsModule } from '../teams/teams.module'
 import { UsersModule } from '../users/users.module'
-import { ReportsModule } from '../reports/reports.module'
 import { TestingDataPopulatorService } from './testing-data-populator.service'
 
 /**
@@ -14,4 +14,12 @@ import { TestingDataPopulatorService } from './testing-data-populator.service'
     controllers: [],
     exports: [],
 })
-export class TestingDataPopulatorModule {}
+export class TestingDataPopulatorModule implements OnModuleInit {
+    constructor(private readonly testingDataPopulatorService: TestingDataPopulatorService) {}
+
+    async onModuleInit() {
+        if (process.env.POPULATE_TEST_DATA === 'true') {
+            await this.testingDataPopulatorService.populateTestData()
+        }
+    }
+}

@@ -1,16 +1,15 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common'
-import { UsersService } from 'src/modules/users/users.service'
 import { JwtService } from '@nestjs/jwt'
+import axios from 'axios'
 import { UnauthorizedError } from 'src/helpers/errorHandling'
 import { User } from 'src/model/user.model'
 import { GithubReposService } from 'src/modules/github-repos/github-repos.service'
-import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
 import { OrganizationsService } from 'src/modules/organizations/organizations.service'
 import { TeamsService } from 'src/modules/teams/teams.service'
+import { UsersService } from 'src/modules/users/users.service'
 import { AuthService } from '../auth.service'
+import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './mongo-user-role.provider'
-
-const axios = require('axios').default
 
 @Injectable()
 export class GithubLoginProvider {
@@ -31,7 +30,7 @@ export class GithubLoginProvider {
     //     * Then, frontend should call this method throught the API to get the final JWT
     //     * Finally, should use this JWT for the rest of the methods
     //     * The access_token will be stored in MongoDB, so the next operations could be managed as well
-    async login(code: string): Promise<String> {
+    async login(code: string): Promise<string> {
         const res = await axios.post(
             `https://github.com/login/oauth/access_token`,
             {

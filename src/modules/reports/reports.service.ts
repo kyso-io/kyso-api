@@ -1,5 +1,5 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common'
-import { AlreadyExistsError, ForbiddenError, InvalidInputError, NotFoundError } from 'src/helpers/errorHandling'
+import { Injectable, Logger } from '@nestjs/common'
+import { AlreadyExistsError, InvalidInputError, NotFoundError } from 'src/helpers/errorHandling'
 import { QueryParser } from 'src/helpers/queryParser'
 import { Validators } from 'src/helpers/validators'
 import { CreateReport } from 'src/model/dto/create-report-request.dto'
@@ -21,7 +21,6 @@ function generateReportName(repoName, path) {
 export class ReportsService {
     constructor(
         private readonly provider: ReportsMongoProvider,
-        @Inject(forwardRef(() => GithubReposService))
         private readonly githubReposService: GithubReposService,
         private readonly teamsService: TeamsService,
         private readonly usersService: UsersService,
@@ -95,9 +94,14 @@ export class ReportsService {
         // NEW
         switch (createReportRequest.provider) {
             case 'github':
-            default:
+                if (!user.accessToken) {
+                    Logger.error(`User ${user.username} does not have a valid accessToken to make login in Github`, ReportsService.name)
+                    break
+                }
                 this.githubReposService.login(user.accessToken)
                 await this.githubReposService.getRepo(user, createReportRequest.owner, createReportRequest.name)
+                break
+            default:
                 break
         }
         // END NEW
@@ -133,7 +137,10 @@ export class ReportsService {
             // metadata = await this.reposService({ provider: data.src.provider, accessToken: user.accessToken }).getConfigFile(basePath, data.src.owner, data.src.name, data.src.default_branch)
             switch (createReportRequest.provider) {
                 case 'github':
-                default:
+                    if (!user.accessToken) {
+                        Logger.error(`User ${user.username} does not have a valid accessToken to make login in Github`, ReportsService.name)
+                        break
+                    }
                     this.githubReposService.login(user.accessToken)
                     metadata = this.githubReposService.getConfigFile(
                         basePath,
@@ -141,6 +148,8 @@ export class ReportsService {
                         createReportRequest.name,
                         createReportRequest.default_branch,
                     )
+                    break
+                default:
                     break
             }
         } catch (err) {}

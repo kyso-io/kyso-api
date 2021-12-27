@@ -1,19 +1,18 @@
-import { forwardRef, Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
+import { CreateReport } from 'src/model/dto/create-report-request.dto'
+import { TeamVisibilityEnum } from 'src/model/enum/team-visibility.enum'
 import { Organization } from 'src/model/organization.model'
 import { Team } from 'src/model/team.model'
 import { User } from 'src/model/user.model'
 import { GlobalPermissionsEnum } from 'src/security/general-permissions.enum'
-import { KysoRole } from '../../model/kyso-role.model'
 import { LoginProviderEnum } from '../../model/enum/login-provider.enum'
+import { KysoRole } from '../../model/kyso-role.model'
 import { OrganizationsService } from '../organizations/organizations.service'
+import { ReportsService } from '../reports/reports.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
-import { ReportsService } from '../reports/reports.service'
 import { UsersService } from '../users/users.service'
-import { TeamVisibilityEnum } from 'src/model/enum/team-visibility.enum'
-import { CreateReport } from 'src/model/dto/create-report-request.dto'
-import { ModuleRef } from '@nestjs/core'
 
 @Injectable()
 export class TestingDataPopulatorService {
@@ -38,7 +37,7 @@ export class TestingDataPopulatorService {
         private readonly usersService: UsersService,
         private readonly organizationService: OrganizationsService,
         private readonly teamService: TeamsService,
-        @Inject(forwardRef(() => ReportsService))
+        // @Inject(forwardRef(() => ReportsService))
         private readonly reportsService: ReportsService,
     ) {}
 
@@ -140,13 +139,14 @@ export class TestingDataPopulatorService {
             return await this.usersService.createUser(user)
         } catch (ex) {
             Logger.log(`${user.nickname} user already exists`)
+            return this.usersService.getUser({ email: user.email })
         }
     }
 
     private async createTestingReports() {
         const testReport = new CreateReport('test-report', 'team-contributor', 'github', 'main', '.')
         // this.TestReport = await this.reportsService.createReport(this.Kylo_TeamContributorUser, testReport, null)
-        const t = await this.reportsService.createReport(this.Kylo_TeamContributorUser, testReport, null)
+        await this.reportsService.createReport(this.Kylo_TeamContributorUser, testReport, null)
     }
 
     private async createOrganizations() {
