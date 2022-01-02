@@ -1,7 +1,6 @@
-import { Controller, Get, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
+import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { GenericController } from 'src/generic/controller.generic'
-import { HateoasLinker } from 'src/helpers/hateoasLinker'
 import { Repository } from 'src/model/repository.model'
 import { GithubReposService } from 'src/modules/github-repos/github-repos.service'
 import { Permission } from '../auth/annotations/permission.decorator'
@@ -19,8 +18,8 @@ export class GithubReposController extends GenericController<Repository> {
     }
 
     assignReferences(repo: Repository) {
-        repo.self_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}`)
-        repo.tree_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}/${repo.default_branch}/tree`)
+        // repo.self_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}`)
+        // repo.tree_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}/${repo.default_branch}/tree`)
 
         /* TODO: Does not appear in the documentation... it's correct?
         if (repo.report) repo.reportUrl = HateoasLinker.createRef(`/${repo.report}`)

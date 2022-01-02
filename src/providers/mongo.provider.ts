@@ -13,7 +13,7 @@ const QUERY_TO_PIPELINE = {
     limit: '$limit',
 }
 
-export abstract class MongoProvider<T> {
+export class MongoProvider<T> {
     baseCollection: any
     private db: any
 
@@ -34,7 +34,7 @@ export abstract class MongoProvider<T> {
         })
     }
 
-    abstract populateMinimalData()
+    populateMinimalData(){}
 
     getCollection(name?) {
         const collectionName = name || this.baseCollection
@@ -56,7 +56,7 @@ export abstract class MongoProvider<T> {
     }
 
     static joinStage(field, from, as) {
-        return [
+        const a = [
             {
                 $addFields: {
                     [as]: {
@@ -73,6 +73,8 @@ export abstract class MongoProvider<T> {
                 },
             },
         ]
+
+        return a
     }
 
     async create(obj: any): Promise<T> {

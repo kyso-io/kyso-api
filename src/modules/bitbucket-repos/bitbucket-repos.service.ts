@@ -4,6 +4,4 @@ import { BitbucketReposProvider } from 'src/modules/bitbucket-repos/providers/bi
 @Injectable()
 export class BitbucketReposService {
     constructor(private readonly provider: BitbucketReposProvider) {}
-
-    // TODO
 }

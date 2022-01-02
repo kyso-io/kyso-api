@@ -6,19 +6,19 @@ export class Comment extends BaseModel {
     public text: string
 
     @ApiProperty({ format: 'faker: datatype.uuid' })
-    public user_rel: string
+    public user_id: string
 
     @ApiProperty({ format: 'faker: datatype.uuid' })
-    public report_rel: string
+    public report_id: string
 
     @ApiProperty({ format: 'faker: datatype.uuid' })
-    public parent_comment_rel: string
+    public comment_id: string
 
-    constructor(text, user_rel, report_rel, parent_comment_rel) {
+    constructor(text, user_id, report_id, comment_id) {
         super()
         this.text = text
-        this.user_rel = user_rel
-        this.report_rel = report_rel
-        this.parent_comment_rel = parent_comment_rel
+        this.user_id = user_id
+        this.report_id = report_id
+        this.comment_id = comment_id
     }
 }

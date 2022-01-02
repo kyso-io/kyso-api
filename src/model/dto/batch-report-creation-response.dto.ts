@@ -1,5 +1,4 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { Hateoas } from 'src/model/hateoas.model'
 
 export class BatchReportCreation {
     @ApiProperty({
@@ -12,9 +11,4 @@ export class BatchReportCreation {
         required: false,
     })
     reason: string
-
-    @ApiProperty({
-        required: false,
-    })
-    self_url: Hateoas
 }

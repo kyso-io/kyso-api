@@ -9,6 +9,7 @@ import { ReportsModule } from './modules/reports/reports.module'
 import { TeamsModule } from './modules/teams/teams.module'
 import { TestingDataPopulatorModule } from './modules/testing-data-populator/testing-data-populator.module'
 import { UsersModule } from './modules/users/users.module'
+import { RelationsModule } from './modules/relations/relations.module'
 
 @Module({
     imports: [
@@ -21,6 +22,7 @@ import { UsersModule } from './modules/users/users.module'
         OrganizationsModule,
         ReportsModule,
         TeamsModule,
+        RelationsModule,
         TestingDataPopulatorModule,
     ],
 })

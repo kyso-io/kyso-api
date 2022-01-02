@@ -21,13 +21,13 @@ export class CommentsMongoProvider extends MongoProvider<Comment> {
         const { projection, ...rest } = MongoProvider.aggregationRename(query) as any
 
         if (projection) {
-            projection.$project._p_user = 1
+            projection.$project.user_id = 1
             pipeline.push(projection)
         }
 
         pipeline.push(
             ...Object.values(rest),
-            ...MongoProvider.joinStage('_p_user', '_User', 'user'),
+            ...MongoProvider.joinStage('user_id', 'User', 'user'),
             {
                 $match: {
                     $or: [{ user: { $ne: [] } }],

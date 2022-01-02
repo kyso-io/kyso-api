@@ -59,6 +59,9 @@ export class TestingDataPopulatorService {
             `)
 
             if (await this.checkIfAlreadyExists()) {
+                console.log(`
+                  THE TEST DATA ALREADY EXISTS. SKIPPING.
+                `)
                 return
             }
 
@@ -74,6 +77,11 @@ export class TestingDataPopulatorService {
     }
 
     private async checkIfAlreadyExists() {
+        // I assume only these two usernames exist if they were created by the test data populator
+        const testUsersByUsername = await this.usersService.getUsers({ filter: { $or: [{ username: 'rey@kyso.io' }, { username: 'kylo@kyso.io' }] } })
+        if (testUsersByUsername.length === 2) {
+            return true
+        }
         return false
     }
 
@@ -81,7 +89,7 @@ export class TestingDataPopulatorService {
         const rey_TestTeamAdminUser: User = new User(
             'rey@kyso.io',
             'rey@kyso.io',
-            'Rey',
+            'rey',
             LoginProviderEnum.KYSO,
             '[Team Admin] Rey is a Team Admin',
             'free',
@@ -94,7 +102,7 @@ export class TestingDataPopulatorService {
         const kylo_TestTeamContributorUser: User = new User(
             'kylo@kyso.io',
             'kylo@kyso.io',
-            'Kylo Ren',
+            'kyloren',
             LoginProviderEnum.KYSO,
             '[Team Contributor] Kylo Ren is a Team Contributor',
             'free',
@@ -120,7 +128,7 @@ export class TestingDataPopulatorService {
         const gideon_TestOrganizationAdminUser: User = new User(
             'gideon@kyso.io',
             'gideon@kyso.io',
-            'Moff Gideon',
+            'moffgideon',
             LoginProviderEnum.KYSO,
             '[Organization Admin] Moff Gideon is an Organization Admin',
             'free',
@@ -133,7 +141,7 @@ export class TestingDataPopulatorService {
         const palpatine_TestPlatformAdminUser: User = new User(
             'palpatine@kyso.io',
             'palpatine@kyso.io',
-            'Palpatine',
+            'palpatine',
             LoginProviderEnum.KYSO,
             '[Platform Admin] Palpatine is a platform admin',
             'free',
@@ -161,21 +169,39 @@ export class TestingDataPopulatorService {
     }
 
     private async createTestingReports() {
-        const testReport = new CreateReport('test-report', 'team-contributor', null, 'main', '.')
-        this.TestReport = await this.reportsService.createReport(this.Kylo_TeamContributorUser, testReport, null)
+        const testReport = new CreateReport('kylos-report', 'team-contributor', null, 'main', '.')
+        this.TestReport = await this._createReport(testReport, this.Kylo_TeamContributorUser)
+    }
+
+    private async _createReport(report: CreateReport, user: User) {
+        try {
+            Logger.log(`Creating ${report.name} report...`)
+            return this.reportsService.createReport(user, report, null)
+        } catch (ex) {
+            Logger.log(`${report.name} report already exists`)
+        }
     }
 
     private async createTestingComments() {
         const testComment = new Comment('test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, null)
-        this.TestComment = await this.commentsService.createComment(testComment)
+        this.TestComment = await this._createComment(testComment)
 
-        this.TestChildComment1 = await this.commentsService.createComment(
+        this.TestChildComment1 = await this._createComment(
             new Comment('child test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, this.TestComment.id),
         )
 
-        this.TestChildComment2 = await this.commentsService.createComment(
+        this.TestChildComment2 = await this._createComment(
             new Comment('child 2 test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, this.TestComment.id),
         )
+    }
+
+    private async _createComment(comment: Comment) {
+        try {
+            Logger.log(`Creating ${comment.text} comment...`)
+            return this.commentsService.createComment(comment)
+        } catch (ex) {
+            Logger.log(`"${comment.text}" comment already exists`)
+        }
     }
 
     private async createOrganizations() {

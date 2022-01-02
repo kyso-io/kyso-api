@@ -15,8 +15,4 @@ export class BaseModel {
     @IsOptional()
     @ApiProperty()
     public updated_at?: Date
-
-    // @IsOptional()
-    // @ApiProperty()
-    // public is_test_data?: boolean
 }
