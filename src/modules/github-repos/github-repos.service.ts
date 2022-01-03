@@ -47,7 +47,7 @@ export class GithubReposService {
                 filter: {
                     'provider.owner': repo.owner,
                     'provider.name': repo.name.toLowerCase(),
-                    _p_user: QueryParser.createForeignKey('_User', user.objectId),
+                    user_id: QueryParser.createForeignKey('_User', user.objectId),
                 },
             })
 

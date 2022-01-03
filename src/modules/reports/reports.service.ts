@@ -40,9 +40,9 @@ export class ReportsService {
 
             delete query.filter.owner
             if (results[0].status === 'fulfilled') {
-                query.filter._p_user = QueryParser.createForeignKey('_User', results[0].value.id)
+                query.filter.user_id = results[0].value.id
             } else if (results[1].status === 'fulfilled') {
-                query.filter._p_team = QueryParser.createForeignKey('Team', results[1].value.id)
+                query.filter._p_team = results[1].value.id
             } else {
                 return []
             }
@@ -79,13 +79,15 @@ export class ReportsService {
         return reports[0]
     }
 
-    async createReport(user, createReportRequest: CreateReport, teamName) {
+    async createReport(user: User, createReportRequest: CreateReport, teamName) {
         if (!Validators.isValidReportName(createReportRequest.name))
             throw new InvalidInputError({
                 message: `Study name can only consist of letters, numbers, '_' and '-'.`,
             })
 
         const basePath = (createReportRequest.path || '').replace(/^[.]\//, '')
+        // const reportName = createReportRequest.name
+
         const reportName = generateReportName(createReportRequest.name, basePath)
 
         // OLD line... what is he doing with the result of this???
@@ -107,7 +109,7 @@ export class ReportsService {
         // END NEW
 
         let report = {
-            _p_user: QueryParser.createForeignKey('_User', user.objectId),
+            user_id: user.id,
         } as any
         const usedNameQuery = {
             filter: {
@@ -123,7 +125,7 @@ export class ReportsService {
 
             report._p_team = QueryParser.createForeignKey('Team', teamId)
             usedNameQuery.filter._p_team = report._p_team
-        } else usedNameQuery.filter._p_user = report._p_user
+        } else usedNameQuery.filter.user_id = report.user_id
 
         const reports = await this.provider.read(usedNameQuery)
         if (reports.length !== 0)
@@ -210,14 +212,14 @@ export class ReportsService {
     }
 
     async getBranches(reportOwner, reportName) {
-        const { id, source, _p_user } = await this.getReport(reportOwner, reportName)
+        const { id, source, user_id } = await this.getReport(reportOwner, reportName)
         let branches
 
         if (source.provider === LOCAL_REPORT_HOST) {
             branches = await this.localReportsService.getReportVersions(id)
         } else {
             const { accessToken } = await this.usersService.getUser({
-                filter: { _id: _p_user },
+                filter: { _id: user_id },
             })
 
             // OLD
@@ -239,14 +241,14 @@ export class ReportsService {
     }
 
     async getCommits(reportOwner, reportName, branch) {
-        const { source, _p_user } = await this.getReport(reportOwner, reportName)
+        const { source, user_id } = await this.getReport(reportOwner, reportName)
         if (source.provider === LOCAL_REPORT_HOST)
             throw new InvalidInputError({
                 message: 'This functionality is not available in S3',
             })
 
         const { accessToken } = await this.usersService.getUser({
-            filter: { _id: _p_user },
+            filter: { _id: user_id },
         })
         // OLD
         // const commits = await this.reposService({ provider: source.provider, accessToken }).getCommits(source.owner, source.name, branch)
@@ -262,14 +264,14 @@ export class ReportsService {
     }
 
     async getFileHash(reportOwner, reportName, branch, path) {
-        const { id, source, _p_user } = await this.getReport(reportOwner, reportName)
+        const { id, source, user_id } = await this.getReport(reportOwner, reportName)
         let data = {}
 
         if (source.provider === LOCAL_REPORT_HOST) {
             data = await this.localReportsService.getFileHash(id, branch)
         } else {
             const { accessToken } = await this.usersService.getUser({
-                filter: { _id: _p_user },
+                filter: { _id: user_id },
             })
             const fullPath = `${source.basePath}${path}`
             // OLD
@@ -287,14 +289,14 @@ export class ReportsService {
     }
 
     async getReportFileContent(reportOwner, reportName, hash) {
-        const { id, source, _p_user } = await this.getReport(reportOwner, reportName)
+        const { id, source, user_id } = await this.getReport(reportOwner, reportName)
         let content
 
         if (source.provider === LOCAL_REPORT_HOST) {
             content = await this.localReportsService.getFileContent(id, hash)
         } else {
             const { accessToken } = await this.usersService.getUser({
-                filter: { _id: _p_user },
+                filter: { _id: user_id },
             })
             // OLD
             // content = await this.reposService({ provider: source.provider, accessToken }).getFileContent(hash, source.owner, source.name)

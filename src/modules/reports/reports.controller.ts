@@ -1,6 +1,7 @@
 import { Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { ReportsService } from './reports.service'
+import { RelationsService } from 'src/modules/relations/relations.service'
 import { BatchReportCreation } from '../../model/dto/batch-report-creation-response.dto'
 import { UsersService } from '../users/users.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
@@ -36,26 +37,13 @@ export class ReportsController extends GenericController<Report> {
         private readonly reportsService: ReportsService,
         private readonly commentsService: CommentsService,
         private readonly usersService: UsersService,
+        private readonly relationsService: RelationsService,
     ) {
         super()
     }
 
-    // assigned to null because does not match between documentation and real code...
     assignReferences(report: any /*report: Report*/) {
-        report.self_url = HateoasLinker.createRef(`/reports/${report.full_name}`)
-        report.branches_url = HateoasLinker.createRef(`/reports/${report.full_name}/branches`)
-
-        report.owner.selfUrl = HateoasLinker.createRef(`/${report.owner.type}s/${report.owner.name || report.owner.nickname}`)
-
-        if (report.source) {
-            if (report.source.provider !== 's3') {
-                report.tree_url = HateoasLinker.createRef(`/reports/${report.full_name}/${report.source.defaultBranch}/tree`)
-                report.commits_url = HateoasLinker.createRef(`/reports/${report.full_name}/${report.source.defaultBranch}/commits`)
-
-                // TODO: Does that should be a HateoasLinker as well?
-                report.html_url = `https://${report.source.provider}.com/${report.source.owner}/${report.source.name}`
-            }
-        }
+        return 1
     }
 
     @Get('')
@@ -67,7 +55,7 @@ export class ReportsController extends GenericController<Report> {
     @ApiResponse({
         status: 200,
         description: `Reports matching criteria`,
-        type: Report,
+        type: [Report],
     })
     @Permission([ReportPermissionsEnum.READ])
     async getReports(@Req() req, @Res() res, @Query() paginationQuery: ReportFilterQuery) {
@@ -80,9 +68,9 @@ export class ReportsController extends GenericController<Report> {
         })
 
         const reports = await this.reportsService.getReports(query)
-
-        reports.forEach((x) => this.assignReferences(x))
-        return res.status(200).send(reports)
+        const relations = await this.relationsService.getRelations(reports)
+        res.status(200).send({ data: reports, relations })
+        return
     }
 
     @Get('/:reportOwner/:reportName')
@@ -110,9 +98,9 @@ export class ReportsController extends GenericController<Report> {
     @Permission([ReportPermissionsEnum.READ])
     async getReport(@Req() req, @Res() res) {
         const report = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
-
-        this.assignReferences(report)
-        return res.status(200).send(report)
+        const relations = await this.relationsService.getRelations(report)
+        res.status(200).send({ data: report, relations })
+        return
     }
 
     @Get('/:reportOwner/pinned')
@@ -135,15 +123,9 @@ export class ReportsController extends GenericController<Report> {
     @Permission([ReportPermissionsEnum.READ])
     async getPinnedReportsForAnUser(@Param('reportOwner') reportOwner: string) {
         const userData: User = await this.usersService.getUser({ username: reportOwner })
-
-        const pinnedReports = await this.reportsService.getReports({ pin: true, _p_user: userData.id })
-
-        const response = []
-        pinnedReports.forEach((report) => {
-            response.push(this.assignReferences(report))
-        })
-
-        return response
+        const reports = await this.reportsService.getReports({ pin: true, user_id: userData.id })
+        const relations = await this.relationsService.getRelations(reports)
+        return { data: reports, relations }
     }
 
     @Post('')
@@ -184,14 +166,17 @@ export class ReportsController extends GenericController<Report> {
                 }
             })
 
-            return res.status(201).send(response)
+            res.status(201).send(response)
+            return
         }
 
         const created = await this.reportsService.createReport(req.user, req.body.reports, req.body.team)
         const report = await this.reportsService.getReport(owner, created.name)
-        this.assignReferences(report)
 
-        return res.status(201).send(report)
+
+        const relations = await this.relationsService.getRelations(report)
+        res.status(201).send({ data: report, relations })
+        return
     }
 
     @Patch('/:reportOwner/:reportName')
@@ -231,7 +216,9 @@ export class ReportsController extends GenericController<Report> {
             ? this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
             : await this.reportsService.updateReport(req.user.objectId, req.params.reportOwner, req.params.reportName, updatePayload))
 
-        return res.status(200).send(report)
+        const relations = await this.relationsService.getRelations(report)
+        res.status(200).send({ data: report, relations })
+        return
     }
 
     @Delete('/:reportOwner/:reportName')
@@ -256,7 +243,8 @@ export class ReportsController extends GenericController<Report> {
     async deleteReport(@Req() req, @Res() res) {
         await this.reportsService.deleteReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
 
-        return res.status(204).send()
+        res.status(204).send()
+        return
     }
 
     @Post('/:reportOwner/:reportName/pin')
@@ -284,8 +272,9 @@ export class ReportsController extends GenericController<Report> {
     @Permission([ReportPermissionsEnum.EDIT])
     async pinReport(@Req() req, @Res() res) {
         const report = await this.reportsService.pinReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
-
-        return res.status(200).send(report)
+        const relations = await this.relationsService.getRelations(report)
+        res.status(200).send({ data: report, relations })
+        return
     }
 
     @Get('/:reportOwner/:reportName/comments')
@@ -313,19 +302,12 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.READ])
     async getComments(@Req() req, @Res() res) {
-        const { id: reportId } = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
+        const { id: report_id } = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
 
-        const comments = await this.commentsService.getReportComments(reportId)
-
-        const assignRefs = (comment) => {
-            comment.selfUrl = HateoasLinker.createRef(`/comments/${comment.id}`)
-            comment.childComments.forEach(assignRefs)
-        }
-        comments.forEach((comment) => {
-            assignRefs(comment)
-        })
-
-        return res.status(200).send(comments)
+        const comments = await this.commentsService.getComments({ report_id })
+        const relations = await this.relationsService.getRelations(comments)
+        res.status(200).send({ data: comments, relations })
+        return
     }
 
     @Get('/:reportOwner/:reportName/branches')
@@ -355,13 +337,8 @@ export class ReportsController extends GenericController<Report> {
     async getBranches(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branches = await this.reportsService.getBranches(reportOwner, reportName)
-
-        branches.forEach((branch) => {
-            branch.contentUrl = HateoasLinker.createRef(`/reports/${reportOwner}/${reportName}/${branch.name}/tree`)
-            branch.commitsUrl = HateoasLinker.createRef(`/reports/${reportOwner}/${reportName}/${branch.name}/commits`)
-        })
-
-        return res.status(200).send(branches)
+        res.status(200).send({ data: branches })
+        return
     }
 
     @Get('/:reportOwner/:reportName/:branch/commits')
@@ -398,12 +375,8 @@ export class ReportsController extends GenericController<Report> {
         const { reportOwner, reportName } = req.params
         const branch = req.params[0]
         const commits = await this.reportsService.getCommits(reportOwner, reportName, branch)
-
-        commits.forEach((commit) => {
-            commit.selfUrl = HateoasLinker.createRef(`/reports/${reportOwner}/${reportName}/${commit.sha}/tree`)
-        })
-
-        return res.status(200).send(commits)
+        res.status(200).send({ data: commits })
+        return
     }
 
     // todo: this function name is confusing?
@@ -446,15 +419,8 @@ export class ReportsController extends GenericController<Report> {
         const { reportOwner, reportName } = req.params
         const branch = req.params[0]
         const hash = await this.reportsService.getFileHash(reportOwner, reportName, branch, req.params[1])
-
-        const assignUrl = (item) => {
-            const route = item.type === 'dir' ? `${branch}/tree/${item.path}` : `file/${item.hash}`
-            item.selfUrl = HateoasLinker.createRef(`/reports/${reportOwner}/${reportName}/${route}`)
-        }
-        if (Array.isArray(hash)) hash.forEach(assignUrl)
-        else assignUrl(hash)
-
-        return res.status(200).send(hash)
+        res.status(200).send({ data: hash })
+        return
     }
 
     @Get('/:reportOwner/:reportName/file/:hash')
@@ -495,6 +461,7 @@ export class ReportsController extends GenericController<Report> {
 
         const content = await this.reportsService.getReportFileContent(req.params.reportOwner, req.params.reportName, hash)
 
-        return res.status(200).send(content)
+        res.status(200).send(content)
+        return
     }
 }

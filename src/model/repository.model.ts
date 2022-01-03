@@ -1,5 +1,4 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { Hateoas } from './hateoas.model'
 
 export class Repository {
     @ApiProperty()
@@ -18,12 +17,4 @@ export class Repository {
     public language: string
     @ApiProperty()
     public pushed_at: Date
-    @ApiProperty()
-    public tree_url: Hateoas
-    @ApiProperty()
-    public report_url: Hateoas
-
-    // Does not appear in the documentation...
-    @ApiProperty()
-    public self_url: Hateoas
 }

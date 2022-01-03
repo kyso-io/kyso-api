@@ -110,11 +110,12 @@ export class User extends BaseModel {
         this.email_verified = emailVerified
         this.global_permissions = global_permissions
 
-        if (_id) {
-            this.id = _id
-        } else {
-            this.id = new mongo.ObjectId().toString()
-        }
+        // i think we should let mongo handle setting the objectid
+        // if (_id) {
+        //     this.id = _id
+        // } else {
+        //     this.id = new mongo.ObjectId().toString()
+        // }
 
         if (_email_verify_token) {
             this._email_verify_token = _email_verify_token

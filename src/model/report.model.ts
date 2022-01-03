@@ -20,8 +20,8 @@ export class Report extends BaseModel {
     // public provider: any
 
     @ApiProperty({ format: 'faker: datatype.uuid' })
-    public comments_rel: [string]
+    public comment_ids: [string]
 
     @ApiProperty({ format: 'faker: datatype.uuid' })
-    public user_rel: string
+    public user_id: string
 }

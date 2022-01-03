@@ -13,8 +13,8 @@ export class BitbucketReposController extends GenericController<Repository> {
     }
 
     assignReferences(repo: Repository) {
-        repo.self_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}`)
-        repo.tree_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}/${repo.default_branch}/tree`)
+        // repo.self_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}`)
+        // repo.tree_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}/${repo.default_branch}/tree`)
 
         /* TODO: Does not appear in the documentation... it's correct?
         if (repo.report) repo.reportUrl = HateoasLinker.createRef(`/${repo.report}`)
