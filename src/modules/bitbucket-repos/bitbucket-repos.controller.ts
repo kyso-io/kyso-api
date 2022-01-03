@@ -1,8 +1,8 @@
 import { Controller, Get, Param, Post, Query, Req } from '@nestjs/common'
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
-import { GenericController } from 'src/generic/controller.generic'
-import { HateoasLinker } from 'src/helpers/hateoasLinker'
-import { Repository } from 'src/model/repository.model'
+import { GenericController } from '../../generic/controller.generic'
+import { HateoasLinker } from '../../helpers/hateoasLinker'
+import { Repository } from '../../model/repository.model'
 import { BitbucketReposProvider } from './providers/bitbucket-repo.provider'
 
 @ApiTags('repos/bitbucket')

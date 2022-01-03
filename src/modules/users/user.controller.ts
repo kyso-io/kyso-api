@@ -1,12 +1,10 @@
-import { Body, ClassSerializerInterceptor, Controller, Get, Headers, Logger, Patch, Post, Query, Req, Res, UseGuards, UseInterceptors } from '@nestjs/common'
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { Controller, Get, Headers, UseGuards } from '@nestjs/common'
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { UsersService } from './users.service'
-import { GenericController } from 'src/generic/controller.generic'
-import { HateoasLinker } from 'src/helpers/hateoasLinker'
-import { User } from 'src/model/user.model'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { AuthService } from '../auth/auth.service'
-import { Token } from 'src/model/token.model'
+import { User } from '../../model/user.model'
+import { GenericController } from '../../generic/controller.generic'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 

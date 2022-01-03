@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
-import { FilesMongoProvider } from 'src/modules/reports/providers/mongo-files.provider'
-import { VersionsMongoProvider } from 'src/modules/reports/providers/mongo-versions.provider'
-import { FilesS3Provider } from 'src/modules/reports/providers/s3-files.provider'
+import { FilesMongoProvider } from './providers/mongo-files.provider'
+import { VersionsMongoProvider } from './providers/mongo-versions.provider'
+import { FilesS3Provider } from './providers/s3-files.provider'
 
 @Injectable()
 export class LocalReportsService {

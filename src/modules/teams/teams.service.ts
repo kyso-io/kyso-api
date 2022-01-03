@@ -1,13 +1,12 @@
 import { forwardRef, Inject, Injectable, Logger, PreconditionFailedException } from '@nestjs/common'
-import { NotFoundError } from 'src/helpers/errorHandling'
-import { Team } from 'src/model/team.model'
-import { User } from 'src/model/user.model'
-import { TeamsMongoProvider } from 'src/modules/teams/providers/mongo-teams.provider'
 import { UsersService } from '../users/users.service'
 import { TeamMemberJoin } from '../../model/team-member-join.model'
 import { TeamMemberMongoProvider } from './providers/mongo-team-member.provider'
 import { KysoRole } from '../../model/kyso-role.model'
-import { TeamMember } from 'src/model/team-member.model'
+import { TeamMember } from '../../model/team-member.model'
+import { Team } from '../../model/team.model'
+import { TeamsMongoProvider } from './providers/mongo-teams.provider'
+import { User } from '../../model/user.model'
 
 @Injectable()
 export class TeamsService {

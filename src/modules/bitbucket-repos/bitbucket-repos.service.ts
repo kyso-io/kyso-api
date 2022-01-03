@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { BitbucketReposProvider } from 'src/modules/bitbucket-repos/providers/bitbucket-repo.provider'
+import { BitbucketReposProvider } from './providers/bitbucket-repo.provider';
 
 @Injectable()
 export class BitbucketReposService {

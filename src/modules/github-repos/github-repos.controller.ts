@@ -1,13 +1,13 @@
 import { Controller, Get, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
-import { GenericController } from 'src/generic/controller.generic'
-import { HateoasLinker } from 'src/helpers/hateoasLinker'
-import { Repository } from 'src/model/repository.model'
-import { GithubReposService } from 'src/modules/github-repos/github-repos.service'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { GithubAccount } from '../../model/github-account.model'
 import { GithubRepoPermissionsEnum } from './security/github-repos-permissions.enum'
+import { Repository } from '../../model/repository.model'
+import { GenericController } from '../../generic/controller.generic'
+import { HateoasLinker } from '../../helpers/hateoasLinker'
+import { GithubReposService } from './github-repos.service'
 
 @ApiTags('repos/github')
 @UseGuards(PermissionsGuard)

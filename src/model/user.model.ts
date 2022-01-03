@@ -2,9 +2,9 @@ import { ApiProperty } from '@nestjs/swagger'
 import { Exclude } from 'class-transformer'
 import { IsAlphanumeric, IsArray, IsBooleanString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsUrl, Length } from 'class-validator'
 import * as mongo from 'mongodb'
-import { LoginProviderEnum } from 'src/model/enum/login-provider.enum'
-import { GlobalPermissionsEnum } from 'src/security/general-permissions.enum'
+import { GlobalPermissionsEnum } from '../security/general-permissions.enum'
 import { BaseModel } from './base.model'
+import { LoginProviderEnum } from './enum/login-provider.enum'
 
 export class User extends BaseModel {
     @IsEmail()

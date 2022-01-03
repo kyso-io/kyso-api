@@ -1,15 +1,13 @@
 import { Body, Controller, Get, Param, Patch, Headers, Req, UseGuards, UnauthorizedException } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
-import { GenericController } from 'src/generic/controller.generic'
-import { ForbiddenError } from 'src/helpers/errorHandling'
-import { HateoasLinker } from 'src/helpers/hateoasLinker'
-import { HEADER_X_KYSO_TEAM } from 'src/model/constants'
-import { Team } from 'src/model/team.model'
-import { UpdateTeamRequest } from 'src/model/update-team-request.model'
-import { TeamsService } from 'src/modules/teams/teams.service'
+import { GenericController } from '../../generic/controller.generic'
+import { HEADER_X_KYSO_TEAM } from '../../model/constants'
+import { Team } from '../../model/team.model'
+import { UpdateTeamRequest } from '../../model/update-team-request.model'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { TeamPermissionsEnum } from './security/team-permissions.enum'
+import { TeamsService } from './teams.service'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 

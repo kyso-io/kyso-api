@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsEnum, IsNotEmpty, IsOptional } from 'class-validator'
+import { IsNotEmpty, IsOptional } from 'class-validator'
 import { LoginProviderEnum } from './enum/login-provider.enum'
 
 export class Login {

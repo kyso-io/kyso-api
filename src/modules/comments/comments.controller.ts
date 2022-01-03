@@ -1,12 +1,10 @@
-import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common'
-import { ApiBearerAuth, ApiHeader, ApiHeaders, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
-import { Comment } from 'src/model/comment.model'
-import { GenericController } from 'src/generic/controller.generic'
-import { HateoasLinker } from 'src/helpers/hateoasLinker'
-import { CommentsService } from 'src/modules/comments/comments.service'
+import { Controller, Get, Param, UseGuards } from '@nestjs/common'
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { CommentPermissionsEnum } from './security/comment-permissions.enum'
+import { GenericController } from '../../generic/controller.generic'
+import { CommentsService } from './comments.service'
 
 @ApiTags('comments')
 @UseGuards(PermissionsGuard)

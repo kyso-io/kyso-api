@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { NotFoundError } from 'src/helpers/errorHandling'
-import { QueryParser } from 'src/helpers/queryParser'
-import { MongoProvider } from 'src/providers/mongo.provider'
-import { db } from 'src/main'
+import { NotFoundError } from '../../../helpers/errorHandling'
+import { QueryParser } from '../../../helpers/queryParser'
+import { db } from '../../../main'
+import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
 export class VersionsMongoProvider extends MongoProvider<any> {

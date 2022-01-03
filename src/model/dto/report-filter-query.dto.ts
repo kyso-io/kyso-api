@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { BaseFilterQuery } from 'src/model/dto/base-filter.dto'
+import { BaseFilterQuery } from './base-filter.dto'
 
 export class ReportFilterQuery extends BaseFilterQuery {
     @ApiProperty({

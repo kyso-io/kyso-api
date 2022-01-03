@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { MongoProvider } from 'src/providers/mongo.provider'
-import { db } from 'src/main'
+import { db } from '../../../main'
+import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
 export class UserRoleMongoProvider extends MongoProvider<any> {

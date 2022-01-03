@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { KysoRole } from 'src/model/kyso-role.model'
 import { BaseModel } from './base.model'
 import { Exclude } from 'class-transformer'
+import { KysoRole } from './kyso-role.model'
 
 export class Organization extends BaseModel {
     @Exclude()

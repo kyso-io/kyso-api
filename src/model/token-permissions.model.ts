@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { GlobalPermissionsEnum } from 'src/security/general-permissions.enum'
+import { GlobalPermissionsEnum } from '../security/general-permissions.enum'
 import { ResourcePermissions } from './resource-permissions.model'
 
 export class TokenPermissions {
