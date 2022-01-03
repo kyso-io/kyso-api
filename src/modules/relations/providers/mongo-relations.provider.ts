@@ -21,5 +21,4 @@ export class RelationsMongoProvider extends MongoProvider<Relation> {
     populateMinimalData() {
         Logger.log(`${this.baseCollection} has no minimal data to populate`)
     }
-
 }

@@ -34,7 +34,7 @@ export class MongoProvider<T> {
         })
     }
 
-    populateMinimalData(){}
+    populateMinimalData() {}
 
     getCollection(name?) {
         const collectionName = name || this.baseCollection

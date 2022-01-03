@@ -23,7 +23,7 @@ export class RelationsService {
     }
 
     scanForRelations(list) {
-        const relations = flatten(list.map(d => this.scanEntityForRelation(d)))
+        const relations = flatten(list.map((d) => this.scanEntityForRelation(d)))
 
         return relations.reduce((grouped, relation) => {
             if (!grouped[relation.collection]) grouped[relation.collection] = []
@@ -33,7 +33,6 @@ export class RelationsService {
     }
 
     async getRelations(entities: object | [object]) {
-
         if (!Array.isArray(entities)) entities = [entities]
 
         const groupedRelations = this.scanForRelations(entities)

@@ -7,23 +7,20 @@ jest.useFakeTimers()
 describe('AppController (e2e)', () => {
     let app: INestApplication
 
-    beforeAll(async() => {
+    beforeAll(async () => {
         jest.useFakeTimers()
         expect(process.env.NODE_ENV).toBeDefined()
-        expect(process.env.NODE_ENV).toBe("testing")
-        
+        expect(process.env.NODE_ENV).toBe('testing')
+
         const moduleFixture: TestingModule = await Test.createTestingModule({
-            imports: [
-                AppModule
-            ],
-        })
-        .compile()
-        
+            imports: [AppModule],
+        }).compile()
+
         app = moduleFixture.createNestApplication()
         await app.init()
     })
 
-    it("test", () => {
-        Logger.log("kakalavaca")
+    it('test', () => {
+        Logger.log('kakalavaca')
     })
 })

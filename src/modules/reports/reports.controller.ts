@@ -173,7 +173,6 @@ export class ReportsController extends GenericController<Report> {
         const created = await this.reportsService.createReport(req.user, req.body.reports, req.body.team)
         const report = await this.reportsService.getReport(owner, created.name)
 
-
         const relations = await this.relationsService.getRelations(report)
         res.status(201).send({ data: report, relations })
         return

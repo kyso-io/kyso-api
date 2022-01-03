@@ -15,6 +15,6 @@ import { TestingDataPopulatorService } from './testing-data-populator.service'
     controllers: [],
     exports: [],
 })
-export class TestingDataPopulatorModule  {
+export class TestingDataPopulatorModule {
     constructor() {}
 }

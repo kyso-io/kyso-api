@@ -9,7 +9,7 @@ import { AppModule } from './app.module'
 import { OpenAPIExtender } from './helpers/openapiExtender'
 export let client
 export let db
-import * as dotenv from "dotenv"
+import * as dotenv from 'dotenv'
 import { TransformInterceptor } from './interceptors/exclude.interceptor'
 import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service'
 
@@ -17,7 +17,7 @@ async function bootstrap() {
     Logger.log(`Loading .env-${process.env.NODE_ENV}`)
 
     await dotenv.config({
-        path: `.env-${process.env.NODE_ENV}`
+        path: `.env-${process.env.NODE_ENV}`,
     })
 
     await connectToDatabase(process.env.DATABASE_NAME || 'kyso-initial')
@@ -33,9 +33,9 @@ async function bootstrap() {
             transform: true,
         }),
     )
-    app.useGlobalInterceptors(new TransformInterceptor());
+    app.useGlobalInterceptors(new TransformInterceptor())
     app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
-    
+
     app.setGlobalPrefix(globalPrefix)
     // bindSwaggerDocument(globalPrefix, app);
 
@@ -49,7 +49,7 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config)
 
-    if(process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development') {
         // Only publish in development / staging mode, remove for production - or discuss it...
         SwaggerModule.setup(globalPrefix, app, OpenAPIExtender.reformat(document))
     }
@@ -96,7 +96,7 @@ async function bootstrap() {
     if (process.env.POPULATE_TEST_DATA === 'true') {
         const testingDataPopulatorService: TestingDataPopulatorService = app.get(TestingDataPopulatorService)
         await testingDataPopulatorService.populateTestData()
-    }   
+    }
 }
 
 async function connectToDatabase(DB_NAME) {
