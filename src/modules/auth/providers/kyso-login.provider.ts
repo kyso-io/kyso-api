@@ -1,6 +1,5 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
-import { Token } from 'typescript'
 import { TokenPermissions } from '../../../model/token-permissions.model'
 import { Token } from '../../../model/token.model'
 import { OrganizationsService } from '../../organizations/organizations.service'

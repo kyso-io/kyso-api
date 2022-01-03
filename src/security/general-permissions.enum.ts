@@ -10,7 +10,7 @@ export enum GlobalPermissionsEnum {
     GLOBAL_ADMIN = 'KYSO_IO_GENERAL_GLOBAL_ADMIN',
 }
 
-export type Permissions =
+export type KysoPermissions =
     | GlobalPermissionsEnum
     | CommentPermissionsEnum
     | OrganizationPermissionsEnum

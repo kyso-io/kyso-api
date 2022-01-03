@@ -5,6 +5,7 @@ import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { AuthService } from '../auth/auth.service'
 import { User } from '../../model/user.model'
 import { GenericController } from '../../generic/controller.generic'
+import { Token } from '../../model/token.model'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 

@@ -5,6 +5,7 @@ import { Permission } from '../auth/annotations/permission.decorator'
 import { CommentPermissionsEnum } from './security/comment-permissions.enum'
 import { GenericController } from '../../generic/controller.generic'
 import { CommentsService } from './comments.service'
+import { Comment } from '../../model/comment.model'
 
 @ApiTags('comments')
 @UseGuards(PermissionsGuard)

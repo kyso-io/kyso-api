@@ -18,6 +18,7 @@ import { UpdateReportRequest } from '../../model/dto/update-report-request.dto'
 import { Report } from '../../model/report.model'
 import { CommentsService } from '../comments/comments.service'
 import { User } from '../../model/user.model'
+import { Comment } from '../../model/comment.model'
 
 const UPDATABLE_FIELDS = ['stars', 'tags', 'title', 'description', 'request_private', 'name']
 
