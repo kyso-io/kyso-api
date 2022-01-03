@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import { Comment } from '../../model/comment.model'
 import { NotFoundError } from '../../helpers/errorHandling'
 import { CommentsMongoProvider } from './providers/mongo-comments.provider'
 
