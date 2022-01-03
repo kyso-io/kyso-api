@@ -1,6 +1,6 @@
 import { Injectable, Scope } from '@nestjs/common'
-import { NotFoundError } from 'src/helpers/errorHandling'
-import { GithubReposProvider } from 'src/modules/github-repos/providers/github-repo.provider'
+import { NotFoundError } from '../../helpers/errorHandling'
+import { GithubReposProvider } from './providers/github-repo.provider'
 const { safeLoad } = require('js-yaml')
 
 const DEFAULT_REPOS_PER_PAGE = 30

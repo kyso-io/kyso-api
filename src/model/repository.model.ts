@@ -1,5 +1,4 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { BaseModel } from './base.model'
 
 export class Repository {
     @ApiProperty()

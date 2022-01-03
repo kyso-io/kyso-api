@@ -1,12 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { CommentPermissionsEnum } from 'src/modules/comments/security/comment-permissions.enum'
-import { GithubRepoPermissionsEnum } from 'src/modules/github-repos/security/github-repos-permissions.enum'
-import { OrganizationPermissionsEnum } from 'src/modules/organizations/security/organization-permissions.enum'
-import { ReportPermissionsEnum } from 'src/modules/reports/security/report-permissions.enum'
-import { TeamPermissionsEnum } from 'src/modules/teams/security/team-permissions.enum'
-import { UserPermissionsEnum } from 'src/modules/users/security/user-permissions.enum'
-import { GlobalPermissionsEnum, Permissions } from 'src/security/general-permissions.enum'
 import * as mongo from 'mongodb'
+import { CommentPermissionsEnum } from '../modules/comments/security/comment-permissions.enum'
+import { GithubRepoPermissionsEnum } from '../modules/github-repos/security/github-repos-permissions.enum'
+import { OrganizationPermissionsEnum } from '../modules/organizations/security/organization-permissions.enum'
+import { ReportPermissionsEnum } from '../modules/reports/security/report-permissions.enum'
+import { TeamPermissionsEnum } from '../modules/teams/security/team-permissions.enum'
+import { UserPermissionsEnum } from '../modules/users/security/user-permissions.enum'
+import { GlobalPermissionsEnum, KysoPermissions } from '../security/general-permissions.enum'
 
 export class KysoRole {
     @ApiProperty({
@@ -24,9 +24,9 @@ export class KysoRole {
         description: `List of permissions related to this role. See permission reference for more details`,
         required: true,
     })
-    public permissions: Permissions[]
+    public permissions: KysoPermissions[]
 
-    constructor(name: string, permissions: Permissions[], _id?: string) {
+    constructor(name: string, permissions: KysoPermissions[], _id?: string) {
         this.name = name
         this.permissions = permissions
 

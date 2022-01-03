@@ -1,13 +1,12 @@
 import { forwardRef, Inject, Injectable, PreconditionFailedException } from '@nestjs/common'
-import { NotFoundError } from 'src/helpers/errorHandling'
-import { Organization } from 'src/model/organization.model'
-import { User } from 'src/model/user.model'
 import { KysoRole } from '../../model/kyso-role.model'
 import { UsersService } from '../users/users.service'
 import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
 import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
 import { OrganizationsMongoProvider } from './providers/mongo-organizations.provider'
-import { OrganizationMember } from 'src/model/organization-member.model'
+import { Organization } from '../../model/organization.model'
+import { User } from '../../model/user.model'
+import { OrganizationMember } from '../../model/organization-member.model'
 
 @Injectable()
 export class OrganizationsService {

@@ -1,16 +1,13 @@
 import { Body, ClassSerializerInterceptor, Controller, Get, Param, Post, Query, Req, UseGuards, UseInterceptors } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { UsersService } from './users.service'
-import { GenericController } from 'src/generic/controller.generic'
-import { HateoasLinker } from 'src/helpers/hateoasLinker'
-import { QueryParser } from 'src/helpers/queryParser'
-import { User } from 'src/model/user.model'
-import { BaseFilterQuery } from 'src/model/dto/base-filter.dto'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { UserPermissionsEnum } from './security/user-permissions.enum'
 import { Permission } from '../auth/annotations/permission.decorator'
-import { OrganizationsService } from '../organizations/organizations.service'
-import { AuthService } from '../auth/auth.service'
+import { User } from '../../model/user.model'
+import { GenericController } from '../../generic/controller.generic'
+import { QueryParser } from '../../helpers/queryParser'
+import { BaseFilterQuery } from '../../model/dto/base-filter.dto'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 

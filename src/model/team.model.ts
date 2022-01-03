@@ -1,8 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { KysoRole } from 'src/model/kyso-role.model'
 import { BaseModel } from './base.model'
 import { TeamVisibilityEnum } from './enum/team-visibility.enum'
-import { Organization } from './organization.model'
+import { KysoRole } from './kyso-role.model'
 
 export class Team extends BaseModel {
     @ApiProperty()

@@ -1,5 +1,5 @@
 import { ApiResponse } from '@nestjs/swagger'
-import { ApiError } from 'src/model/api-error.model'
+import { ApiError } from '../model/api-error.model';
 
 @ApiResponse({ status: 400, description: `Input is not correct`, type: Error })
 @ApiResponse({

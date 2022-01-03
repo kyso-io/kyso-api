@@ -1,5 +1,5 @@
 import { Injectable, Scope } from '@nestjs/common'
-import { NotFoundError } from 'src/helpers/errorHandling'
+import { NotFoundError } from '../../../helpers/errorHandling'
 const axios = require('axios').default
 
 const repoMapFunction = (repo) => ({

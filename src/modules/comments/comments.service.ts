@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common'
-import { NotFoundError } from 'src/helpers/errorHandling'
-import { QueryParser } from 'src/helpers/queryParser'
-import { User } from 'src/model/user.model'
-import { Comment } from 'src/model/comment.model'
-import { CommentsMongoProvider } from 'src/modules/comments/providers/mongo-comments.provider'
+import { NotFoundError } from '../../helpers/errorHandling'
+import { CommentsMongoProvider } from './providers/mongo-comments.provider'
 
 @Injectable()
 export class CommentsService {

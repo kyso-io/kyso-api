@@ -1,5 +1,4 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { Exclude } from 'class-transformer'
 import { IsAlphanumeric, IsEmail, IsNotEmpty, IsObject, IsUrl } from 'class-validator'
 import { TokenPermissions } from './token-permissions.model'
 

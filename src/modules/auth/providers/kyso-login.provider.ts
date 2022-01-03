@@ -1,13 +1,13 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common'
-import { UsersService } from 'src/modules/users/users.service'
 import { JwtService } from '@nestjs/jwt'
-import { TeamsService } from 'src/modules/teams/teams.service'
+import { TokenPermissions } from '../../../model/token-permissions.model'
+import { Token } from '../../../model/token.model'
+import { OrganizationsService } from '../../organizations/organizations.service'
+import { TeamsService } from '../../teams/teams.service'
+import { UsersService } from '../../users/users.service'
 import { AuthService } from '../auth.service'
-import { OrganizationsService } from 'src/modules/organizations/organizations.service'
 import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './mongo-user-role.provider'
-import { TokenPermissions } from 'src/model/token-permissions.model'
-import { Token } from 'src/model/token.model'
 
 @Injectable()
 export class KysoLoginProvider {

@@ -1,12 +1,12 @@
 import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
-import { GenericController } from 'src/generic/controller.generic'
-import { Repository } from 'src/model/repository.model'
-import { GithubReposService } from 'src/modules/github-repos/github-repos.service'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { GithubAccount } from '../../model/github-account.model'
 import { GithubRepoPermissionsEnum } from './security/github-repos-permissions.enum'
+import { Repository } from '../../model/repository.model'
+import { GenericController } from '../../generic/controller.generic'
+import { GithubReposService } from './github-repos.service'
 
 @ApiTags('repos/github')
 @UseGuards(PermissionsGuard)
@@ -18,13 +18,6 @@ export class GithubReposController extends GenericController<Repository> {
     }
 
     assignReferences(repo: Repository) {
-        // repo.self_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}`)
-        // repo.tree_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}/${repo.default_branch}/tree`)
-
-        /* TODO: Does not appear in the documentation... it's correct?
-        if (repo.report) repo.reportUrl = HateoasLinker.createRef(`/${repo.report}`)
-        delete repo.report
-        */
         return repo
     }
 

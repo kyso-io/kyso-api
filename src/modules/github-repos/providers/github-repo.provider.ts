@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { Octokit } from '@octokit/rest'
 import axios from 'axios'
-import { NotFoundError } from 'src/helpers/errorHandling'
+import { NotFoundError } from '../../../helpers/errorHandling'
 
 const MAX_ORGANIZATIONS_PER_USER = 100
 

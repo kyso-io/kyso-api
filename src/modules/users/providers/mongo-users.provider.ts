@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { db } from 'src/main'
-import { MongoProvider } from 'src/providers/mongo.provider'
 import { v4 as uuidv4 } from 'uuid'
-import { AuthService } from 'src/modules/auth/auth.service'
-import { DEFAULT_GLOBAL_ADMIN_USER, User } from 'src/model/user.model'
+import { db } from '../../../main'
+import { DEFAULT_GLOBAL_ADMIN_USER, User } from '../../../model/user.model'
+import { MongoProvider } from '../../../providers/mongo.provider'
+import { AuthService } from '../../auth/auth.service'
 
 @Injectable()
 export class UsersMongoProvider extends MongoProvider<User> {
