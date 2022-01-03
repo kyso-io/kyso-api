@@ -1,24 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { KysoLoginProvider } from './providers/kyso-login.provider'
-import { LoginProviderEnum } from '../../model/enum/login-provider.enum'
-import { GithubLoginProvider } from './providers/github-login.provider'
 import { JwtService } from '@nestjs/jwt'
-import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'
-import { KysoRole } from '../../model/kyso-role.model'
-import { TeamsService } from '../teams/teams.service'
-import { UsersService } from '../users/users.service'
-import { User } from 'src/model/user.model'
-import { TeamMemberJoin } from '../../model/team-member-join.model'
-import { OrganizationsService } from '../organizations/organizations.service'
-import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
-import { Team } from 'src/model/team.model'
-import { Organization } from 'src/model/organization.model'
-import * as mongo from 'mongodb'
 import * as bcrypt from 'bcryptjs'
-import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
+import * as mongo from 'mongodb'
+import { Organization } from 'src/model/organization.model'
+import { Team } from 'src/model/team.model'
 import { TokenPermissions } from 'src/model/token-permissions.model'
 import { Token } from 'src/model/token.model'
-import { TeamVisibilityEnum } from 'src/model/enum/team-visibility.enum'
+import { User } from 'src/model/user.model'
+import { LoginProviderEnum } from '../../model/enum/login-provider.enum'
+import { KysoRole } from '../../model/kyso-role.model'
+import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
+import { TeamMemberJoin } from '../../model/team-member-join.model'
+import { OrganizationsService } from '../organizations/organizations.service'
+import { TeamsService } from '../teams/teams.service'
+import { UsersService } from '../users/users.service'
+import { GithubLoginProvider } from './providers/github-login.provider'
+import { KysoLoginProvider } from './providers/kyso-login.provider'
+import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'
+import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
 
 @Injectable()
 export class AuthService {
@@ -55,7 +54,7 @@ export class AuthService {
         platformRoleProvider: PlatformRoleMongoProvider,
         userRoleProvider: UserRoleMongoProvider,
     ): Promise<TokenPermissions> {
-        let response = {
+        const response = {
             global: [],
             teams: [],
             organizations: [],
@@ -73,7 +72,7 @@ export class AuthService {
         const userTeamMembership: TeamMemberJoin[] = await teamService.searchMembers({ filter: { member_id: user.id } })
 
         if (userTeamMembership && userTeamMembership.length > 0) {
-            for (let teamMembership of userTeamMembership) {
+            for (const teamMembership of userTeamMembership) {
                 // For every team, retrieve the base object
                 const team: Team = await teamService.getTeam({ filter: { _id: new mongo.ObjectId(teamMembership.team_id) } })
 
@@ -112,9 +111,9 @@ export class AuthService {
         const userOrganizationMembership: OrganizationMemberJoin[] = await organizationService.searchMembersJoin({ filter: { member_id: user.id } })
 
         if (userOrganizationMembership && userOrganizationMembership.length > 0) {
-            for (let organizationMembership of userOrganizationMembership) {
+            for (const organizationMembership of userOrganizationMembership) {
                 // For every organization, retrieve the base object
-                let objectId = new mongo.ObjectId(organizationMembership.organization_id)
+                const objectId = new mongo.ObjectId(organizationMembership.organization_id)
                 const organization: Organization = await organizationService.getOrganization({ filter: { _id: objectId } })
 
                 // These are the specific roles built for that team
@@ -151,7 +150,7 @@ export class AuthService {
                 const organizationTeams: Team[] = await teamService.getTeams({ filter: { organization_id: organization.id } })
 
                 // For-each team
-                for (let orgTeam of organizationTeams) {
+                for (const orgTeam of organizationTeams) {
                     // If already exists in the response object, ignore it (team permissions override organization permissions)
                     const alreadyExistsInResponse = response.teams.filter((x) => x.id === orgTeam.id)
 
@@ -173,9 +172,9 @@ export class AuthService {
         const generalRoles = await userRoleProvider.read({ filter: { userId: user.id } })
 
         if (generalRoles && generalRoles.length > 0) {
-            for (let organizationMembership of userOrganizationMembership) {
+            for (const organizationMembership of userOrganizationMembership) {
                 // For every organization, retrieve the base object
-                let objectId = new mongo.ObjectId(organizationMembership.organization_id)
+                const objectId = new mongo.ObjectId(organizationMembership.organization_id)
                 const organization: Organization = await organizationService.getOrganization({ filter: { _id: objectId } })
 
                 // These are the specific roles built for that team
@@ -209,7 +208,7 @@ export class AuthService {
         return response
     }
 
-    async login(password: string, provider: LoginProviderEnum, username?: string): Promise<String> {
+    async login(password: string, provider: LoginProviderEnum, username?: string): Promise<string> {
         switch (provider) {
             case LoginProviderEnum.KYSO:
             default:

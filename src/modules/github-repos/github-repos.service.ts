@@ -1,8 +1,6 @@
-import { forwardRef, Inject, Injectable, OnModuleInit, Scope } from '@nestjs/common'
+import { Injectable, Scope } from '@nestjs/common'
 import { NotFoundError } from 'src/helpers/errorHandling'
-import { QueryParser } from 'src/helpers/queryParser'
 import { GithubReposProvider } from 'src/modules/github-repos/providers/github-repo.provider'
-import { ReportsService } from '../reports/reports.service'
 const { safeLoad } = require('js-yaml')
 
 const DEFAULT_REPOS_PER_PAGE = 30
@@ -21,7 +19,8 @@ function parseConfig(format, data) {
     return config
 }
 
-@Injectable({ scope: Scope.REQUEST })
+// @Injectable({ scope: Scope.REQUEST })
+@Injectable()
 export class GithubReposService {
     constructor(private readonly provider: GithubReposProvider) {}
 
