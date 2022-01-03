@@ -94,8 +94,10 @@ async function bootstrap() {
     await app.listen(process.env.PORT || 3000)
 
     if (process.env.POPULATE_TEST_DATA === 'true') {
-        const testingDataPopulatorService: TestingDataPopulatorService = app.get(TestingDataPopulatorService)
-        await testingDataPopulatorService.populateTestData()
+        setTimeout(async () => {
+            const testingDataPopulatorService: TestingDataPopulatorService = app.get(TestingDataPopulatorService)
+            await testingDataPopulatorService.populateTestData()    
+        }, 10000);
     }
 }
 
