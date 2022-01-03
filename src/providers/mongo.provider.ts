@@ -77,7 +77,7 @@ export class MongoProvider<T> {
         return a
     }
 
-    async create(obj: any): Promise<T> {
+    async create(obj: any): Promise<any> {
         obj.created_at = new Date()
         await this.getCollection().insertOne(obj)
         obj.id = obj._id.toString()

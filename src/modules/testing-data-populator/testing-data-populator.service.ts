@@ -5,7 +5,6 @@ import { TeamVisibilityEnum } from '../../model/enum/team-visibility.enum'
 import { KysoRole } from '../../model/kyso-role.model'
 import { Organization } from '../../model/organization.model'
 import { Team } from '../../model/team.model'
-import { Report } from '../../model/report.model'
 import { Comment } from '../../model/comment.model'
 import { User } from '../../model/user.model'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
@@ -16,6 +15,7 @@ import { ReportPermissionsEnum } from '../reports/security/report-permissions.en
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
+import { Report } from '../../model/report.model'
 
 @Injectable()
 export class TestingDataPopulatorService {
@@ -195,7 +195,7 @@ export class TestingDataPopulatorService {
         )
     }
 
-    private async _createComment(comment) {
+    private async _createComment(comment: Comment): Promise<Comment> {
         try {
             Logger.log(`Creating ${comment.text} comment...`)
             return this.commentsService.createComment(comment)

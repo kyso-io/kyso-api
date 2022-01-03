@@ -7,7 +7,7 @@ import { CommentsMongoProvider } from './providers/mongo-comments.provider'
 export class CommentsService {
     constructor(private readonly provider: CommentsMongoProvider) {}
 
-    async createComment(comment: Comment) {
+    async createComment(comment: Comment): Promise<Comment> {
         return this.provider.create(comment)
     }
 
