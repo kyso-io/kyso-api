@@ -30,7 +30,6 @@ export class User extends BaseModel {
 
     @IsAlphanumeric()
     @Length(0, 500)
-    @IsNotEmpty()
     @ApiProperty({
         maxLength: 500,
     })

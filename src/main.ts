@@ -9,8 +9,16 @@ import { AppModule } from './app.module'
 import { OpenAPIExtender } from './helpers/openapiExtender'
 export let client
 export let db
+import * as dotenv from "dotenv"
+import { TransformInterceptor } from './interceptors/exclude.interceptor'
 
 async function bootstrap() {
+    Logger.log(`Loading .env-${process.env.NODE_ENV}`)
+
+    await dotenv.config({
+        path: `.env-${process.env.NODE_ENV}`
+    })
+
     await connectToDatabase(process.env.DATABASE_NAME || 'kyso-initial')
     const app = await NestFactory.create(AppModule)
 
@@ -18,15 +26,15 @@ async function bootstrap() {
     // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately
     app.use(helmet())
 
-    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
-
     app.useGlobalPipes(
         new ValidationPipe({
             whitelist: true,
             transform: true,
         }),
     )
-
+    app.useGlobalInterceptors(new TransformInterceptor());
+    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
+    
     app.setGlobalPrefix(globalPrefix)
     // bindSwaggerDocument(globalPrefix, app);
 
@@ -40,8 +48,10 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config)
 
-    // TODO: Only publish in development / staging mode, remove for production - or discuss it...
-    SwaggerModule.setup(globalPrefix, app, OpenAPIExtender.reformat(document))
+    if(process.env.NODE_ENV === 'development') {
+        // Only publish in development / staging mode, remove for production - or discuss it...
+        SwaggerModule.setup(globalPrefix, app, OpenAPIExtender.reformat(document))
+    }
 
     const redocOptions: RedocOptions = {
         title: 'Kyso API',
@@ -84,7 +94,7 @@ async function bootstrap() {
 }
 
 async function connectToDatabase(DB_NAME) {
-    Logger.log(`Connecting to database...`)
+    Logger.log(`Connecting to database... ${DB_NAME}`)
     if (!client) {
         try {
             client = await MongoClient.connect(process.env.DATABASE_URI, {
@@ -92,7 +102,7 @@ async function connectToDatabase(DB_NAME) {
                 maxPoolSize: 10,
                 // poolSize: 10 <-- Deprecated
             })
-            db = client.db(DB_NAME)
+            db = await client.db(DB_NAME)
             await db.command({ ping: 1 })
         } catch (err) {
             Logger.error(`Couldn't connect with mongoDB instance at ${process.env.DATABASE_URI}`)

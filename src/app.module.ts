@@ -12,9 +12,6 @@ import { UsersModule } from './modules/users/users.module'
 
 @Module({
     imports: [
-        ConfigModule.forRoot({
-            envFilePath: `.env-${process.env.NODE_ENV}`
-        }), // This loads .env file
         UsersModule,
         AuthModule,
         BitbucketReposModule,
