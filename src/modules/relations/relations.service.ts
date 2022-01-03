@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { RelationsMongoProvider } from 'src/modules/relations/providers/mongo-relations.provider'
+import { RelationsMongoProvider } from './providers/mongo-relations.provider'
 
 const capitalize = (s) => s && s[0].toUpperCase() + s.slice(1)
 

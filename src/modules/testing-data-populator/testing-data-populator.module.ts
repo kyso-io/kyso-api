@@ -15,12 +15,6 @@ import { TestingDataPopulatorService } from './testing-data-populator.service'
     controllers: [],
     exports: [],
 })
-export class TestingDataPopulatorModule implements OnModuleInit {
-    constructor(private readonly testingDataPopulatorService: TestingDataPopulatorService) {}
-
-    async onModuleInit() {
-        if (process.env.POPULATE_TEST_DATA === 'true') {
-            await this.testingDataPopulatorService.populateTestData()
-        }
-    }
+export class TestingDataPopulatorModule  {
+    constructor() {}
 }

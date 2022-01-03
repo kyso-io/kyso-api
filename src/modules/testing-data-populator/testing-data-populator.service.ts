@@ -50,7 +50,7 @@ export class TestingDataPopulatorService {
 
     public async populateTestData() {
         if (process.env.POPULATE_TEST_DATA && process.env.POPULATE_TEST_DATA === 'true') {
-            console.log(`
+            Logger.log(`
                   ^     ^
                    ^   ^
                    (o o)
@@ -59,7 +59,7 @@ export class TestingDataPopulatorService {
             `)
 
             if (await this.checkIfAlreadyExists()) {
-                console.log(`
+                Logger.log(`
                   THE TEST DATA ALREADY EXISTS. SKIPPING.
                 `)
                 return

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '../../../main'
 import { DEFAULT_GLOBAL_ADMIN_USER, User } from '../../../model/user.model'

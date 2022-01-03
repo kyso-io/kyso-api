@@ -11,6 +11,7 @@ export let client
 export let db
 import * as dotenv from "dotenv"
 import { TransformInterceptor } from './interceptors/exclude.interceptor'
+import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service'
 
 async function bootstrap() {
     Logger.log(`Loading .env-${process.env.NODE_ENV}`)
@@ -91,6 +92,11 @@ async function bootstrap() {
     await RedocModule.setup('/docs', app, redocDocument, redocOptions)
 
     await app.listen(process.env.PORT || 3000)
+
+    if (process.env.POPULATE_TEST_DATA === 'true') {
+        const testingDataPopulatorService: TestingDataPopulatorService = app.get(TestingDataPopulatorService)
+        await testingDataPopulatorService.populateTestData()
+    }   
 }
 
 async function connectToDatabase(DB_NAME) {

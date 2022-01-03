@@ -1,7 +1,6 @@
 import { Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { ReportsService } from './reports.service'
-import { RelationsService } from 'src/modules/relations/relations.service'
 import { BatchReportCreation } from '../../model/dto/batch-report-creation-response.dto'
 import { UsersService } from '../users/users.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
@@ -20,6 +19,7 @@ import { Report } from '../../model/report.model'
 import { CommentsService } from '../comments/comments.service'
 import { User } from '../../model/user.model'
 import { Comment } from '../../model/comment.model'
+import { RelationsService } from '../relations/relations.service'
 
 const UPDATABLE_FIELDS = ['stars', 'tags', 'title', 'description', 'request_private', 'name']
 
