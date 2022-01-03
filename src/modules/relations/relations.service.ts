@@ -40,7 +40,10 @@ export class RelationsService {
         return await Object.keys(groupedRelations).reduce(async (previousPromise, collection) => {
             const accumulator = await previousPromise
             const entities = await this.provider.readFromCollectionByIds(collection, groupedRelations[collection])
-            accumulator[collection.toLowerCase()] = entities
+            accumulator[collection.toLowerCase()] = entities.reduce((acc, entity) => {
+                acc[entity._id] = entity
+                return acc
+            }, {})
             return accumulator
         }, Promise.resolve({}))
     }
