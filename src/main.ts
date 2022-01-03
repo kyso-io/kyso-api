@@ -85,7 +85,12 @@ async function bootstrap() {
     await app.listen(process.env.PORT || 3000)
 
     const testingDataPopulatorService: TestingDataPopulatorService = app.get(TestingDataPopulatorService)
-    await testingDataPopulatorService.populateTestData()
+    
+    setTimeout(() => {
+        // This is dirty and I feel bad
+        testingDataPopulatorService.populateTestData()    
+    }, 60000);
+    
 }
 
 async function connectToDatabase(DB_NAME) {

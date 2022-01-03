@@ -38,7 +38,6 @@ export class TestingDataPopulatorService {
         private readonly usersService: UsersService,
         private readonly organizationService: OrganizationsService,
         private readonly teamService: TeamsService,
-        @Inject(forwardRef(() => ReportsService))
         private readonly reportsService: ReportsService,
     ) {}
 
