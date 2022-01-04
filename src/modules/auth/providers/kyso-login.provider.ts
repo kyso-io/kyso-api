@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common'
+import { forwardRef, Inject, Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { TokenPermissions } from '../../../model/token-permissions.model'
 import { Token } from '../../../model/token.model'
@@ -27,6 +27,10 @@ export class KysoLoginProvider {
             filter: { username: username },
         })
 
+        if(!user) {
+            throw new UnauthorizedException("Unauthorized")
+        }
+
         const isRightPassword = await AuthService.isPasswordCorrect(password, user.hashed_password)
 
         if (isRightPassword) {
@@ -53,7 +57,7 @@ export class KysoLoginProvider {
 
             return token
         } else {
-            // throw unauthorized exception
+            throw new UnauthorizedException("Unauthorized")
         }
     }
 }

@@ -16,6 +16,7 @@ import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { Report } from '../../model/report.model'
+import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 
 @Injectable()
 export class TestingDataPopulatorService {
@@ -86,68 +87,68 @@ export class TestingDataPopulatorService {
     }
 
     private async createTestingUsers() {
-        const rey_TestTeamAdminUser: User = new User(
+        const rey_TestTeamAdminUser: CreateUserRequest = new CreateUserRequest(
             'rey@kyso.io',
             'rey@kyso.io',
             'rey',
             LoginProviderEnum.KYSO,
             '[Team Admin] Rey is a Team Admin',
             'free',
-            'n0tiene',
             'https://bit.ly/3Fgdosn',
             true,
+            'n0tiene',
             [],
         )
 
-        const kylo_TestTeamContributorUser: User = new User(
+        const kylo_TestTeamContributorUser: CreateUserRequest = new CreateUserRequest(
             'kylo@kyso.io',
             'kylo@kyso.io',
             'kyloren',
             LoginProviderEnum.KYSO,
             '[Team Contributor] Kylo Ren is a Team Contributor',
             'free',
-            'n0tiene',
             'https://bit.ly/3qfdNVo',
             true,
+            'n0tiene',
             [],
         )
 
-        const chewbacca_TestTeamReaderUser: User = new User(
+        const chewbacca_TestTeamReaderUser: CreateUserRequest = new CreateUserRequest(
             'chewbacca@kyso.io',
             'chewbacca@kyso.io',
             'chewbacca',
             LoginProviderEnum.KYSO,
             '[Team Reader] Chewbacca is a Team Reader',
             'free',
-            'n0tiene',
             'https://bit.ly/3slTUyI',
             true,
+            'n0tiene',
             [],
         )
 
-        const gideon_TestOrganizationAdminUser: User = new User(
+        const gideon_TestOrganizationAdminUser: CreateUserRequest = new CreateUserRequest(
             'gideon@kyso.io',
             'gideon@kyso.io',
             'moffgideon',
             LoginProviderEnum.KYSO,
             '[Organization Admin] Moff Gideon is an Organization Admin',
             'free',
-            'n0tiene',
             'https://bit.ly/3E8x5AN',
             true,
+            'n0tiene',
             [],
         )
 
-        const palpatine_TestPlatformAdminUser: User = new User(
+        const palpatine_TestPlatformAdminUser: CreateUserRequest = new CreateUserRequest(
             'palpatine@kyso.io',
             'palpatine@kyso.io',
             'palpatine',
             LoginProviderEnum.KYSO,
             '[Platform Admin] Palpatine is a platform admin',
             'free',
-            'n0tiene',
             'https://bit.ly/3e9b9ep',
             true,
+            'n0tiene',
             [GlobalPermissionsEnum.GLOBAL_ADMIN],
         )
 
@@ -158,7 +159,7 @@ export class TestingDataPopulatorService {
         this.Palpatine_PlatformAdminUser = await this._createUser(palpatine_TestPlatformAdminUser)
     }
 
-    private async _createUser(user: User) {
+    private async _createUser(user: CreateUserRequest) {
         try {
             Logger.log(`Creating ${user.nickname} user...`)
             return await this.usersService.createUser(user)

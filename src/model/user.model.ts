@@ -2,44 +2,13 @@ import { ApiProperty } from '@nestjs/swagger'
 import { Exclude } from 'class-transformer'
 import { IsAlphanumeric, IsArray, IsBooleanString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsUrl, Length } from 'class-validator'
 import * as mongo from 'mongodb'
+import { AuthService } from '../modules/auth/auth.service'
 import { GlobalPermissionsEnum } from '../security/general-permissions.enum'
-import { BaseModel } from './base.model'
+import { BaseUser } from './base-user.model'
+import { CreateUserRequest } from './dto/create-user-request.dto'
 import { LoginProviderEnum } from './enum/login-provider.enum'
 
-export class User extends BaseModel {
-    @IsEmail()
-    @IsNotEmpty()
-    @ApiProperty()
-    public email: string
-
-    @IsAlphanumeric()
-    @IsNotEmpty()
-    @ApiProperty()
-    public username: string
-
-    @IsAlphanumeric()
-    @IsNotEmpty()
-    @ApiProperty()
-    public nickname: string
-
-    @IsNotEmpty()
-    @ApiProperty({
-        enum: LoginProviderEnum,
-    })
-    public provider: LoginProviderEnum
-
-    @IsAlphanumeric()
-    @Length(0, 500)
-    @ApiProperty({
-        maxLength: 500,
-    })
-    public bio: string
-
-    @IsAlphanumeric()
-    @IsNotEmpty()
-    @ApiProperty()
-    public plan: string
-
+export class User extends BaseUser {
     @IsAlphanumeric()
     @ApiProperty()
     @Exclude()
@@ -47,9 +16,6 @@ export class User extends BaseModel {
 
     @IsAlphanumeric()
     @IsOptional()
-    @Exclude({
-        // toPlainOnly: true
-    })
     @ApiProperty({
         description: 'OAUTH2 token from OAUTH login providers',
     })
@@ -57,32 +23,8 @@ export class User extends BaseModel {
 
     @IsAlphanumeric()
     @IsOptional()
-    @Exclude({
-        // toPlainOnly: true
-    })
-    @ApiProperty({
-        description: 'Password in clear text. Used for creation and edition',
-    })
-    public password?: string
-
-    @IsUrl()
-    @IsNotEmpty()
-    @ApiProperty()
-    public avatar_url: string
-
-    @IsBooleanString()
-    @ApiProperty()
-    public email_verified: boolean
-
-    @IsAlphanumeric()
-    @IsOptional()
     @ApiProperty()
     public _email_verify_token?: string
-
-    @IsArray()
-    @IsEnum(GlobalPermissionsEnum, { each: true })
-    @ApiProperty()
-    public global_permissions: GlobalPermissionsEnum[]
 
     constructor(
         email: string,
@@ -91,31 +33,18 @@ export class User extends BaseModel {
         provider: LoginProviderEnum,
         bio: string,
         plan: string,
-        password: string,
         avatarUrl: string,
         emailVerified: boolean,
         global_permissions: GlobalPermissionsEnum[],
+        hashed_password: string,
+        access_token: string,
         _id?: string,
         _email_verify_token?: string,
     ) {
-        super()
-        this.email = email
-        this.username = username
-        this.nickname = nickname
-        this.provider = provider
-        this.bio = bio
-        this.plan = plan
-        this.avatar_url = avatarUrl
-        this.password = password
-        this.email_verified = emailVerified
-        this.global_permissions = global_permissions
-
-        // i think we should let mongo handle setting the objectid
-        // if (_id) {
-        //     this.id = _id
-        // } else {
-        //     this.id = new mongo.ObjectId().toString()
-        // }
+        super(email, username, nickname, provider, bio, plan, avatarUrl, emailVerified, global_permissions, _id)
+        
+        this.hashed_password = hashed_password
+        this.accessToken = access_token;
 
         if (_email_verify_token) {
             this._email_verify_token = _email_verify_token
@@ -123,7 +52,19 @@ export class User extends BaseModel {
     }
 
     static fromGithubUser(userData: any, emailData: any): User {
-        const newUser = new User(emailData.email, userData.login, userData.name, LoginProviderEnum.GITHUB, '', 'free', '', userData.avatar_url, true, [])
+        const newUser = new User(
+            emailData.email, userData.login, userData.name, LoginProviderEnum.GITHUB, '', 'free', 
+            userData.avatar_url, true, [], '', '')
+
+        return newUser
+    }
+
+    static fromCreateUserRequest(request: CreateUserRequest): User {
+        let newUser = new User(
+            request.email, request.username, request.nickname, request.provider, request.bio, request.plan, 
+            request.avatar_url, request.email_verified, request.global_permissions, '', '')
+
+        newUser.hashed_password = AuthService.hashPassword(request.password)
 
         return newUser
     }
@@ -136,9 +77,10 @@ export const DEFAULT_GLOBAL_ADMIN_USER = new User(
     LoginProviderEnum.KYSO,
     '',
     'free',
-    'empty.password',
     'https://bit.ly/32hyGaj',
     false,
     [GlobalPermissionsEnum.GLOBAL_ADMIN],
+    '',
+    '',
     new mongo.ObjectId('61a8ae8f9c2bc3c5a2144000').toString(),
 )

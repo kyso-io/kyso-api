@@ -1,4 +1,4 @@
-import { Body, ClassSerializerInterceptor, Controller, Get, Param, Post, Query, Req, UseGuards, UseInterceptors } from '@nestjs/common'
+import { Body, ClassSerializerInterceptor, Controller, Delete, Get, Param, Post, Query, Req, UseGuards, UseInterceptors } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { UsersService } from './users.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
@@ -8,6 +8,7 @@ import { User } from '../../model/user.model'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
 import { BaseFilterQuery } from '../../model/dto/base-filter.dto'
+import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 
@@ -89,7 +90,24 @@ export class UsersController extends GenericController<User> {
     })
     @ApiResponse({ status: 201, description: `User creation gone well`, type: User })
     @Permission([UserPermissionsEnum.CREATE])
-    async createUser(@Body() user: User) {
+    async createUser(@Body() user: CreateUserRequest) {
         return this.usersService.createUser(user)
+    }
+
+    @Delete('/:mail')
+    @ApiOperation({
+        summary: `Deletes an user`,
+        description: `Allows deleting a specific user passing its email`,
+    })
+    @ApiParam({
+        name: 'mail',
+        required: true,
+        description: `Name of the user to delete`,
+        schema: { type: 'string' },
+    })
+    @ApiResponse({ status: 200, description: `Deletion done successfully`})
+    @Permission([UserPermissionsEnum.DELETE])
+    async deleteUser(@Param('mail') mail: string) {
+        await this.usersService.deleteUser(mail)
     }
 }

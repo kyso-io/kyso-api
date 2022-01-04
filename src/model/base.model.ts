@@ -8,8 +8,9 @@ export class BaseModel {
     public id?: string
 
     @IsDate()
+    @IsOptional()
     @ApiProperty()
-    public created_at: Date
+    public created_at?: Date
 
     @IsDate()
     @IsOptional()
