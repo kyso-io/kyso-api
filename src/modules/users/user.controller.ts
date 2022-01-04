@@ -1,7 +1,9 @@
 import { Controller, Get, Headers, UseGuards } from '@nestjs/common'
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { UsersService } from './users.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
 import { AuthService } from '../auth/auth.service'
 import { User } from '../../model/user.model'
 import { GenericController } from '../../generic/controller.generic'
@@ -10,6 +12,7 @@ import { Token } from '../../model/token.model'
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 
 @ApiTags('user')
+@ApiExtraModels(User)
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('user')
@@ -29,7 +32,7 @@ export class UserController extends GenericController<User> {
         summary: `Get the authenticated user`,
         description: `Allows fetching content of the authenticated user`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Authenticated user data`,
         type: User,
@@ -40,9 +43,6 @@ export class UserController extends GenericController<User> {
         const token: Token = this.authService.evaluateAndDecodeToken(splittedToken)
 
         const user = await this.usersService.getUser({ filter: { username: token.username } })
-
-        this.assignReferences(user)
-
-        return user
+        return new NormalizedResponse(user)
     }
 }

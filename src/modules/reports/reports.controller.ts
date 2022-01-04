@@ -1,5 +1,5 @@
 import { Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
+import { ApiExtraModels, ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { ReportsService } from './reports.service'
 import { BatchReportCreation } from '../../model/dto/batch-report-creation-response.dto'
 import { UsersService } from '../users/users.service'
@@ -14,6 +14,8 @@ import { Validators } from '../../helpers/validators'
 import { Branch } from '../../model/branch.model'
 import { CreateReportRequest } from '../../model/dto/create-report-request.dto'
 import { ReportFilterQuery } from '../../model/dto/report-filter-query.dto'
+import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
 import { UpdateReportRequest } from '../../model/dto/update-report-request.dto'
 import { Report } from '../../model/report.model'
 import { CommentsService } from '../comments/comments.service'
@@ -28,6 +30,7 @@ const DEFAULT_GET_REPORT_FILTERS = {
     hidden: { $ne: 'true' },
 }
 
+@ApiExtraModels(Report)
 @ApiTags('reports')
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
@@ -52,10 +55,10 @@ export class ReportsController extends GenericController<Report> {
         description: `By passing the appropiate parameters you can fetch and filter the reports available to the authenticated user.<br />
          **This endpoint supports filtering**. Refer to the Report schema to see available options.`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Reports matching criteria`,
-        type: [Report],
+        type: Report,
     })
     @Permission([ReportPermissionsEnum.READ])
     async getReports(@Req() req, @Res() res, @Query() paginationQuery: ReportFilterQuery) {
@@ -69,7 +72,7 @@ export class ReportsController extends GenericController<Report> {
 
         const reports = await this.reportsService.getReports(query)
         const relations = await this.relationsService.getRelations(reports)
-        res.status(200).send({ data: reports, relations })
+        res.status(200).send(new NormalizedResponse(reports, relations))
         return
     }
 
@@ -78,7 +81,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Get a report`,
         description: `Allows fetching content of a specific report passing its full name`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Report matching id`,
         type: Report,
@@ -96,10 +99,10 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getReport(@Req() req, @Res() res) {
+    async getReport(@Req() req, @Res() res): Promise<void> {
         const report = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
         const relations = await this.relationsService.getRelations(report)
-        res.status(200).send({ data: report, relations })
+        res.status(200).send(new NormalizedResponse(report, relations))
         return
     }
 
@@ -108,11 +111,10 @@ export class ReportsController extends GenericController<Report> {
         summary: `Get pinned reports for an user`,
         description: `Allows fetching pinned reports of a specific user passing its full name`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `All the pinned reports of an user`,
         type: Report,
-        isArray: true,
     })
     @ApiParam({
         name: 'reportOwner',
@@ -125,7 +127,7 @@ export class ReportsController extends GenericController<Report> {
         const userData: User = await this.usersService.getUser({ username: reportOwner })
         const reports = await this.reportsService.getReports({ pin: true, user_id: userData.id })
         const relations = await this.relationsService.getRelations(reports)
-        return { data: reports, relations }
+        return new NormalizedResponse(reports, relations)
     }
 
     @Post('')
@@ -174,7 +176,7 @@ export class ReportsController extends GenericController<Report> {
         const report = await this.reportsService.getReport(owner, created.name)
 
         const relations = await this.relationsService.getRelations(report)
-        res.status(201).send({ data: report, relations })
+        res.status(201).send(new NormalizedResponse(report, relations))
         return
     }
 
@@ -183,7 +185,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Update the specific report`,
         description: `Allows updating content from the specified report`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Specified report data`,
         type: Report,
@@ -216,7 +218,7 @@ export class ReportsController extends GenericController<Report> {
             : await this.reportsService.updateReport(req.user.objectId, req.params.reportOwner, req.params.reportName, updatePayload))
 
         const relations = await this.relationsService.getRelations(report)
-        res.status(200).send({ data: report, relations })
+        res.status(200).send(new NormalizedResponse(report, relations))
         return
     }
 
@@ -251,7 +253,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Toggles the pin of the specified report`,
         description: `Allows pinning of the specified report, unpins any other pinned report for owner`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Specified report data`,
         type: Report,
@@ -272,7 +274,7 @@ export class ReportsController extends GenericController<Report> {
     async pinReport(@Req() req, @Res() res) {
         const report = await this.reportsService.pinReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
         const relations = await this.relationsService.getRelations(report)
-        res.status(200).send({ data: report, relations })
+        res.status(200).send(new NormalizedResponse(report, relations))
         return
     }
 
@@ -281,11 +283,10 @@ export class ReportsController extends GenericController<Report> {
         summary: `Get comments of a report`,
         description: `By passing in the appropriate options you can see all the comments of a report`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Comments of the specified report`,
-        type: Comment,
-        isArray: true,
+        type: Comment
     })
     @ApiParam({
         name: 'reportOwner',
@@ -305,7 +306,7 @@ export class ReportsController extends GenericController<Report> {
 
         const comments = await this.commentsService.getComments({ report_id })
         const relations = await this.relationsService.getRelations(comments)
-        res.status(200).send({ data: comments, relations })
+        res.status(200).send(new NormalizedResponse(comments, relations))
         return
     }
 
@@ -336,7 +337,7 @@ export class ReportsController extends GenericController<Report> {
     async getBranches(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branches = await this.reportsService.getBranches(reportOwner, reportName)
-        res.status(200).send({ data: branches })
+        res.status(200).send(new NormalizedResponse(branches))
         return
     }
 
@@ -374,7 +375,7 @@ export class ReportsController extends GenericController<Report> {
         const { reportOwner, reportName } = req.params
         const branch = req.params[0]
         const commits = await this.reportsService.getCommits(reportOwner, reportName, branch)
-        res.status(200).send({ data: commits })
+        res.status(200).send(new NormalizedResponse(commits))
         return
     }
 
@@ -418,7 +419,7 @@ export class ReportsController extends GenericController<Report> {
         const { reportOwner, reportName } = req.params
         const branch = req.params[0]
         const hash = await this.reportsService.getFileHash(reportOwner, reportName, branch, req.params[1])
-        res.status(200).send({ data: hash })
+        res.status(200).send(new NormalizedResponse(hash))
         return
     }
 
