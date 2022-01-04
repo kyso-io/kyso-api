@@ -1,6 +1,7 @@
 import { Injectable, PreconditionFailedException } from '@nestjs/common'
+import { accessSync } from 'fs'
+import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { User } from '../../model/user.model'
-import { AuthService } from '../auth/auth.service'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 
 @Injectable()
@@ -28,7 +29,7 @@ export class UsersService {
         return (await this.provider.update(filterQuery, updateQuery)) as User
     }
 
-    async createUser(userToCreate: User): Promise<User> {
+    async createUser(userToCreate: CreateUserRequest): Promise<User> {
         // exists a prev user with same email?
         const exists = await this.getUser({ filter: { email: userToCreate.email } })
 
@@ -39,14 +40,21 @@ export class UsersService {
         if (!exists) {
             // Create user into database
             // Hash the password and delete the plain password property
-            const hashedPassword = AuthService.hashPassword(userToCreate.password)
-
-            userToCreate.hashed_password = hashedPassword
-            delete userToCreate.password
-
-            return (await this.provider.create(userToCreate)) as User
+            let user: User = User.fromCreateUserRequest(userToCreate);
+            
+            return (await this.provider.create(user)) as User
         } else {
             throw new PreconditionFailedException(null, 'User already exists')
         }
+    }
+
+    async deleteUser(email: string) {
+        const exists = await this.getUser({ filter: { email: email } })
+
+        if (!exists) {
+            throw new PreconditionFailedException(null, `Can't delete user as does not exists`)
+        } else {
+            this.provider.delete({ email: email })
+        }    
     }
 }

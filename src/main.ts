@@ -33,7 +33,7 @@ async function bootstrap() {
             transform: true,
         }),
     )
-    app.useGlobalInterceptors(new TransformInterceptor())
+    // app.useGlobalInterceptors(new TransformInterceptor())
     app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
 
     app.setGlobalPrefix(globalPrefix)

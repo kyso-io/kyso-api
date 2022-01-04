@@ -1,40 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
-import { LoginProviderEnum } from '../enum/login-provider.enum'
+import { IsAlphanumeric } from 'class-validator'
+import { BaseUser } from '../base-user.model'
 
-export class CreateUserRequest {
+export class CreateUserRequest extends BaseUser {
     @ApiProperty()
-    public email: string
-    @ApiProperty()
-    public username: string
-    @ApiProperty()
-    public nickname: string
-
-    @ApiProperty({
-        enum: LoginProviderEnum,
-    })
-    public provider: LoginProviderEnum
-
-    @ApiProperty()
-    public bio: string
-
-    @ApiProperty()
-    public plan: string
-
-    @ApiProperty()
+    @IsAlphanumeric()
     public password: string
 
-    @ApiProperty()
-    public global_permissions: GlobalPermissionsEnum[]
-
-    constructor(email, username, nickname, provider, bio, plan, password, global_permissions) {
-        this.email = email
-        this.username = username
-        this.nickname = nickname
-        this.provider = provider
-        this.bio = bio
-        this.plan = plan
+    constructor(email, username, nickname, provider, bio, plan, avatar_url, email_verified, password, global_permissions) {
+        super(email, username, nickname, provider, bio, plan, avatar_url, email_verified, global_permissions)
+        
         this.password = password
-        this.global_permissions = global_permissions
     }
 }

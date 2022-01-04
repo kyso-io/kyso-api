@@ -48,30 +48,12 @@ export class PermissionsGuard implements CanActivate {
                 let userPermissionsInThatTeam: ResourcePermissions
                 if (team) {
                     userPermissionsInThatTeam = tokenPayload.permissions.teams.find((x) => x.name === team)
-
-                    /*
-                    const hasAllThePermissions = userPermissionsInThatTeam.permissions.every((i) => permissionToActivateEndpoint.includes(i))
-
-                    if (hasAllThePermissions) {
-                        return true
-                    } else {
-                        return false
-                    }
-                    */
                 }
 
                 // Check if user has the required permissions in the organization
                 let userPermissionsInThatOrganization: ResourcePermissions
                 if (organization) {
                     userPermissionsInThatOrganization = tokenPayload.permissions.organizations.find((x) => x.name === organization)
-                    /*
-                    const hasAllThePermissions = userPermissionsInThatOrganization.permissions.every((i) => permissionToActivateEndpoint.includes(i))
-
-                    if (hasAllThePermissions) {
-                        return true
-                    } else {
-                        return false
-                    }*/
                 }
 
                 // Finally, check the global permissions
@@ -80,7 +62,11 @@ export class PermissionsGuard implements CanActivate {
                 let allUserPermissions = []
 
                 if (userPermissionsInThatTeam) {
-                    allUserPermissions = [...userPermissionsInThatTeam.permissions]
+                    if(userPermissionsInThatTeam.organization_inherited === false && userPermissionsInThatTeam.permissions) {
+                        allUserPermissions = [...userPermissionsInThatTeam.permissions]
+                    } else {
+                        // Inherit permissions from organization
+                    }
                 }
 
                 if (userPermissionsInThatOrganization) {
@@ -91,7 +77,7 @@ export class PermissionsGuard implements CanActivate {
                     allUserPermissions = [...allUserPermissions, ...userGlobalPermissions]
                 }
 
-                const hasAllThePermissions = allUserPermissions.every((i) => permissionToActivateEndpoint.includes(i))
+                const hasAllThePermissions = permissionToActivateEndpoint.every((i) => allUserPermissions.includes(i))
 
                 if (hasAllThePermissions) {
                     return true
