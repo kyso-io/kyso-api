@@ -14,9 +14,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Add env vars to app
-        
-
       - name: Start database containers
         run: docker-compose -f "docker-compose.yml" up -d --build
 
