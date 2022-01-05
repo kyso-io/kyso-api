@@ -1,12 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger'
 
 export class NormalizedResponse {
-    data
+    data: any | any[]
 
     @ApiProperty()
     relations: object[]
 
-    constructor(data, relations = null) {
+    constructor(data, relations?) {
         this.data = data
         this.relations = relations
     }
