@@ -1,23 +1,27 @@
 import { ApiProperty } from '@nestjs/swagger'
+import { Type } from 'class-transformer'
+import { IsArray, IsBoolean, IsEmail, IsNotEmpty, ValidateNested } from 'class-validator'
 import { BaseModel } from './base.model'
-import { Exclude } from 'class-transformer'
 import { KysoRole } from './kyso-role.model'
 
 export class Organization extends BaseModel {
-    @Exclude()
+    @IsNotEmpty()
     public name: string
 
-    @Exclude()
     @ApiProperty({
         required: true,
         type: KysoRole,
         isArray: true,
     })
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => KysoRole)
     public roles: KysoRole[]
 
     @ApiProperty({
         description: 'Mail where the billing communications will go',
     })
+    @IsEmail()
     public billingEmail: string
 
     @ApiProperty({
@@ -29,6 +33,7 @@ export class Organization extends BaseModel {
         description: 'Flag to allow or deny login into the organization using google accounts. True allows google login, false deny it',
         default: true,
     })
+    @IsBoolean()
     public allowGoogleLogin: boolean
 
     constructor(name: string, roles: KysoRole[], billingEmail: string, subscriptionId: string, allowGoogleLogin: boolean, id?: string) {

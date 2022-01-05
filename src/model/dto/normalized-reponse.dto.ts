@@ -24,7 +24,7 @@ export class NormalizedResponse {
     })
     relations: object
 
-    constructor(data, relations = null) {
+    constructor(data, relations?) {
         this.data = data
         this.relations = relations
     }

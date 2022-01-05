@@ -1,12 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
 import { GenericController } from '../../generic/controller.generic'
+import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
 import { Organization } from '../../model/organization.model'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { OrganizationsService } from './organizations.service'
-import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
 import { OrganizationPermissionsEnum } from './security/organization-permissions.enum'
 
 @ApiTags('organizations')
@@ -74,5 +74,17 @@ export class OrganizationsController extends GenericController<Organization> {
     async createOrganization(@Body() organization: Organization) {
         const data = await this.organizationService.createOrganization(organization)
         return data
+    }
+
+    @Patch(':organizationName')
+    @ApiOperation({
+        summary: `Update an organization`,
+        description: `By passing the appropiate parameters you can update an organization`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Organization })
+    @Permission([OrganizationPermissionsEnum.EDIT])
+    public async updateOrganization(@Param('organizationName') name: string, @Body() organization: Organization): Promise<NormalizedResponse> {
+        const updatedOrganization: Organization = await this.organizationService.updateOrganization(name, organization)
+        return new NormalizedResponse(updatedOrganization)
     }
 }

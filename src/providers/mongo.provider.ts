@@ -1,6 +1,5 @@
 import { Logger } from '@nestjs/common'
 import * as mongo from 'mongodb'
-
 import { ObjectId } from 'mongodb'
 
 const FK_NAME_REGEX = /^_p_(_?[a-zA-Z]+)$/
@@ -34,6 +33,7 @@ export class MongoProvider<T> {
         })
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     populateMinimalData() {}
 
     getCollection(name?) {
@@ -104,7 +104,7 @@ export class MongoProvider<T> {
         if (!updateQuery.$currentDate) updateQuery.$currentDate = {}
         updateQuery.$currentDate._updated_at = { $type: 'date' }
 
-        const obj = await this.getCollection().findOneAndUpdate(filterQuery, updateQuery, { returnOriginal: false })
+        const obj = await this.getCollection().findOneAndUpdate(filterQuery, updateQuery, { returnDocument: 'after' })
 
         return parseForeignKeys(obj.value)
     }

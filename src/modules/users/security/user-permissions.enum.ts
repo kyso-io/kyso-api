@@ -5,3 +5,11 @@ export enum UserPermissionsEnum {
     DELETE = 'KYSO_IO_DELETE_USER',
     ADMIN = 'KYSO_IO_ADMIN_USER',
 }
+
+export const userPermissionsEnumList: UserPermissionsEnum[] = [
+    UserPermissionsEnum.READ,
+    UserPermissionsEnum.CREATE,
+    UserPermissionsEnum.EDIT,
+    UserPermissionsEnum.DELETE,
+    UserPermissionsEnum.ADMIN,
+]

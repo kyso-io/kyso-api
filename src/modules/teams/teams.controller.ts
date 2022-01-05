@@ -1,16 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Headers, Req, UseGuards, UnauthorizedException } from '@nestjs/common'
+import { Body, Controller, Get, Headers, Param, Patch, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
 import { GenericController } from '../../generic/controller.generic'
-import { HEADER_X_KYSO_TEAM } from '../../model/constants'
+import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM } from '../../model/constants'
+import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
 import { Team } from '../../model/team.model'
 import { Token } from '../../model/token.model'
 import { UpdateTeamRequest } from '../../model/update-team-request.model'
-import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { AuthService } from '../auth/auth.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
-import { UsersService } from '../users/users.service'
 import { TeamPermissionsEnum } from './security/team-permissions.enum'
 import { TeamsService } from './teams.service'
 
@@ -22,8 +21,7 @@ const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_tok
 @ApiBearerAuth()
 @Controller('teams')
 export class TeamsController extends GenericController<Team> {
-    constructor(private readonly teamsService: TeamsService,
-        private readonly authService: AuthService) {
+    constructor(private readonly teamsService: TeamsService, private readonly authService: AuthService) {
         super()
     }
 
@@ -36,14 +34,19 @@ export class TeamsController extends GenericController<Team> {
         summary: `Get all team's in which user has visibility`,
         description: `Allows fetching content of all the teams that the user has visibility`,
     })
-    @ApiResponse({ status: 200, description: `Team`, type: Team, isArray: true })
+    @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Team })
+    @ApiHeader({
+        name: HEADER_X_KYSO_ORGANIZATION,
+        description: 'Organization',
+        required: true,
+    })
     @Permission([TeamPermissionsEnum.READ])
     async getVisibilityTeams(@Req() req) {
         const splittedToken = req.headers['authorization'].split('Bearer ')[1]
 
         const token: Token = this.authService.evaluateAndDecodeToken(splittedToken)
 
-        return await this.teamsService.getTeamsVisibleForUser(token.id)
+        return new NormalizedResponse(await this.teamsService.getTeamsVisibleForUser(token.id))
     }
 
     @Get('/:teamName')
@@ -140,5 +143,21 @@ export class TeamsController extends GenericController<Team> {
             : this.teamsService.updateTeam(filterObj, { $set: fields }))
 
         return new NormalizedResponse(team)
+    }
+
+    @Post()
+    @ApiOperation({
+        summary: `Create a new team`,
+        description: `Allows creating a new team`,
+    })
+    @ApiNormalizedResponse({
+        status: 201,
+        description: `Created team data`,
+        type: Team,
+    })
+    @Permission([TeamPermissionsEnum.CREATE])
+    async createTeam(@Body() team: Team): Promise<NormalizedResponse> {
+        const teamDb: Team = await this.teamsService.createTeam(team)
+        return new NormalizedResponse(teamDb)
     }
 }

@@ -26,8 +26,8 @@ export class TestingDataPopulatorService {
     private Gideon_OrganizationAdminUser: User
     private Palpatine_PlatformAdminUser: User
 
-    private RegularOrganization: Organization
-    private OrganizationWithCustomRole: Organization
+    private DarksideOrganization: Organization
+    private LightsideOrganization: Organization
 
     private TestReport: Report
     private TestComment: Comment
@@ -133,7 +133,7 @@ export class TestingDataPopulatorService {
             LoginProviderEnum.KYSO,
             '[Organization Admin] Moff Gideon is an Organization Admin',
             'free',
-            'https://bit.ly/3E8x5AN',
+            'https://bit.ly/3EWyNG6',
             true,
             'n0tiene',
             [],
@@ -206,27 +206,27 @@ export class TestingDataPopulatorService {
     }
 
     private async createOrganizations() {
-        const regularOrganization: Organization = new Organization(
-            'Organization without specific roles',
+        const darksideOrganization: Organization = new Organization(
+            'darkside',
             [],
-            'regular-organization@kyso.io',
+            'darkside@kyso.io',
             'random-stripe-id-with-no-use',
             false,
         )
 
-        this.RegularOrganization = await this._createOrganization(regularOrganization)
+        this.DarksideOrganization = await this._createOrganization(darksideOrganization)
 
         this.CustomOrganizationRole = new KysoRole('custom-organization-random-role', [TeamPermissionsEnum.CREATE, TeamPermissionsEnum.DELETE])
 
-        const organizationWithCustomRoles: Organization = new Organization(
-            'Organization with custom roles',
+        const lightsideOrganization: Organization = new Organization(
+            'lightside',
             [this.CustomOrganizationRole],
-            'organization-with-custom-roles@kyso.io',
+            'lightside@kyso.io',
             'another-random-stripe-id-with-no-use',
             false,
         )
 
-        this.OrganizationWithCustomRole = await this._createOrganization(organizationWithCustomRoles)
+        this.LightsideOrganization = await this._createOrganization(lightsideOrganization)
     }
 
     private async _createOrganization(organization: Organization) {
@@ -240,25 +240,25 @@ export class TestingDataPopulatorService {
 
     private async createTeams() {
         try {
-            const regularTeam = new Team(
+            const publicTeam = new Team(
                 'public-team',
                 'https://bit.ly/3J49GUO',
                 'A public team',
                 'Cleveland',
                 [],
-                this.RegularOrganization.id,
+                this.DarksideOrganization.id,
                 TeamVisibilityEnum.PUBLIC,
             )
 
             this.CustomTeamRole = new KysoRole('custom-team-random-role', [ReportPermissionsEnum.READ])
 
-            const teamWithCustomRoles = new Team(
-                'protected-team-with-roles',
+            const protectedTeam = new Team(
+                'protected-team',
                 'https://bit.ly/3e9mDOZ',
                 'A protected team with custom roles',
                 'Sacramento',
                 [this.CustomTeamRole],
-                this.OrganizationWithCustomRole.id,
+                this.LightsideOrganization.id,
                 TeamVisibilityEnum.PROTECTED,
             )
 
@@ -268,12 +268,12 @@ export class TestingDataPopulatorService {
                 'A private team',
                 'Milwaukee',
                 [this.CustomTeamRole],
-                this.RegularOrganization.id,
+                this.DarksideOrganization.id,
                 TeamVisibilityEnum.PRIVATE,
             )
 
-            this.PublicTeam = await this._createTeam(regularTeam)
-            this.ProtectedTeamWithCustomRole = await this._createTeam(teamWithCustomRoles)
+            this.PublicTeam = await this._createTeam(publicTeam)
+            this.ProtectedTeamWithCustomRole = await this._createTeam(protectedTeam)
             this.PrivateTeam = await this._createTeam(privateTeam)
         } catch (ex) {
             // silent exception
@@ -291,27 +291,36 @@ export class TestingDataPopulatorService {
 
     private async assignUsersToOrganizations() {
         try {
+            /*** Darkside organization ***/
+
             // Organization admin
             await this.organizationService.addMembersById(
-                this.RegularOrganization.id,
+                this.DarksideOrganization.id,
                 [this.Gideon_OrganizationAdminUser.id.toString()],
                 [KysoRole.ORGANIZATION_ADMIN_ROLE.name],
             )
 
-            // Team admin for all teams in the organization
-            await this.organizationService.addMembersById(this.RegularOrganization.id, [this.Rey_TeamAdminUser.id.toString()], [KysoRole.TEAM_ADMIN_ROLE.name])
-
-            // Team contributor for all teams in the organization
             await this.organizationService.addMembersById(
-                this.RegularOrganization.id,
+                this.DarksideOrganization.id,
                 [this.Kylo_TeamContributorUser.id.toString()],
                 [KysoRole.TEAM_CONTRIBUTOR_ROLE.name],
             )
 
-            // Team reader for all teams in the organization
+            /*** Lightside organization ***/
             await this.organizationService.addMembersById(
-                this.RegularOrganization.id,
-                [this.Kylo_TeamContributorUser.id.toString()],
+                this.LightsideOrganization.id, 
+                [this.Rey_TeamAdminUser.id.toString()], 
+                [KysoRole.TEAM_ADMIN_ROLE.name])
+
+            await this.organizationService.addMembersById(
+                this.LightsideOrganization.id,
+                [this.Kylo_TeamContributorUser.id],
+                [KysoRole.TEAM_READER_ROLE.name]
+            )
+
+            await this.organizationService.addMembersById(
+                this.LightsideOrganization.id,
+                [this.Chewbacca_TeamReaderUser.id.toString()],
                 [KysoRole.TEAM_READER_ROLE.name],
             )
         } catch (ex) {
@@ -323,6 +332,9 @@ export class TestingDataPopulatorService {
         try {
             Logger.log(`Adding ${this.Gideon_OrganizationAdminUser.nickname} to team ${this.PrivateTeam.name} with role ${this.CustomTeamRole.name}`)
             await this.teamService.addMembersById(this.PrivateTeam.id, [this.Gideon_OrganizationAdminUser.id], [this.CustomTeamRole.name])
+
+            Logger.log(`Adding ${this.Rey_TeamAdminUser.nickname} to team ${this.PrivateTeam.name} with role ${KysoRole.TEAM_ADMIN_ROLE.name}`)
+            await this.teamService.addMembersById(this.PrivateTeam.id, [this.Rey_TeamAdminUser.id], [KysoRole.TEAM_ADMIN_ROLE.name])
         } catch (ex) {
             // silent it
         }

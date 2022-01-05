@@ -5,3 +5,11 @@ export enum ReportPermissionsEnum {
     DELETE = 'KYSO_IO_DELETE_REPORT',
     ADMIN = 'KYSO_IO_ADMIN_REPORT',
 }
+
+export const reportPermissionsEnumList: ReportPermissionsEnum[] = [
+    ReportPermissionsEnum.READ,
+    ReportPermissionsEnum.CREATE,
+    ReportPermissionsEnum.EDIT,
+    ReportPermissionsEnum.DELETE,
+    ReportPermissionsEnum.ADMIN,
+]

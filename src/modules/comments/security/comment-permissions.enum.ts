@@ -5,3 +5,11 @@ export enum CommentPermissionsEnum {
     DELETE = 'KYSO_IO_DELETE_COMMENT',
     ADMIN = 'KYSO_IO_ADMIN_COMMENT',
 }
+
+export const commentPermissionsEnumsList: CommentPermissionsEnum[] = [
+    CommentPermissionsEnum.READ,
+    CommentPermissionsEnum.CREATE,
+    CommentPermissionsEnum.EDIT,
+    CommentPermissionsEnum.DELETE,
+    CommentPermissionsEnum.ADMIN,
+]

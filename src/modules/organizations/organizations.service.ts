@@ -1,12 +1,12 @@
 import { forwardRef, Inject, Injectable, PreconditionFailedException } from '@nestjs/common'
 import { KysoRole } from '../../model/kyso-role.model'
-import { UsersService } from '../users/users.service'
 import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
-import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
-import { OrganizationsMongoProvider } from './providers/mongo-organizations.provider'
+import { OrganizationMember } from '../../model/organization-member.model'
 import { Organization } from '../../model/organization.model'
 import { User } from '../../model/user.model'
-import { OrganizationMember } from '../../model/organization-member.model'
+import { UsersService } from '../users/users.service'
+import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
+import { OrganizationsMongoProvider } from './providers/mongo-organizations.provider'
 
 @Injectable()
 export class OrganizationsService {
@@ -68,11 +68,11 @@ export class OrganizationsService {
      * Return an array of user id's that belongs to provided organization
      */
     async getOrganizationMembers(organizationName: string): Promise<OrganizationMember[]> {
-        const organization: Organization[] = await this.provider.read({ filter: { name: organizationName } })
+        const organizations: Organization[] = await this.provider.read({ filter: { name: organizationName } })
 
-        if (organization) {
+        if (organizations.length > 0) {
             // Get all the members of this organization
-            const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization[0].id)
+            const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organizations[0].id)
 
             // Build query object to retrieve all the users
             const user_ids = members.map((x: OrganizationMemberJoin) => {
@@ -80,16 +80,16 @@ export class OrganizationsService {
             })
 
             // Build the query to retrieve all the users
-            let filterArray = []
+            const filterArray = []
             user_ids.forEach((id: string) => {
-                filterArray.push({ _id: id })
+                filterArray.push({ _id: this.provider.toObjectId(id) })
             })
 
-            let filter = { filter: { $or: filterArray } }
+            const filter = { filter: { $or: filterArray } }
 
-            let users = await this.userService.getUsers(filter)
+            const users = await this.userService.getUsers(filter)
 
-            let usersAndRoles = users.map((u: User) => {
+            const usersAndRoles = users.map((u: User) => {
                 // Find role for this user in members
                 const thisMember: OrganizationMemberJoin = members.find((tm: OrganizationMemberJoin) => u.id.toString() === tm.member_id)
 
@@ -97,7 +97,7 @@ export class OrganizationsService {
             })
 
             const toFinalObject = usersAndRoles.map((x) => {
-                let obj: OrganizationMember = new OrganizationMember()
+                const obj: OrganizationMember = new OrganizationMember()
 
                 obj.avatar_url = x.avatar_url
                 obj.id = x.id.toString()
@@ -113,5 +113,27 @@ export class OrganizationsService {
         } else {
             return []
         }
+    }
+
+    public async updateOrganization(name: string, organization: Organization): Promise<Organization> {
+        const organizations: Organization[] = await this.provider.read({ filter: { name } })
+        if (organizations.length === 0) {
+            throw new PreconditionFailedException('Organization does not exist')
+        }
+
+        const organizationDb: Organization = organizations[0]
+        if (organizationDb.name !== organization.name) {
+            const existsAnotherOrganization: Organization[] = await this.provider.read({ filter: { name: organization.name } })
+            if (existsAnotherOrganization.length > 0) {
+                throw new PreconditionFailedException('Already exists an organization with this name')
+            }
+            organizationDb.name = organization.name
+        }
+
+        organizationDb.roles = organization.roles
+        organizationDb.billingEmail = organization.billingEmail
+        organizationDb.allowGoogleLogin = organization.allowGoogleLogin
+
+        return await this.provider.update({ _id: this.provider.toObjectId(organizationDb.id) }, { $set: organizationDb })
     }
 }

@@ -1,16 +1,16 @@
 import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common'
 import { NestFactory, Reflector } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
+import * as dotenv from 'dotenv'
 import * as fs from 'fs'
 import * as helmet from 'helmet'
 import { MongoClient } from 'mongodb'
 import { RedocModule, RedocOptions } from 'nestjs-redoc'
 import { AppModule } from './app.module'
-export let client
-export let db
-import * as dotenv from 'dotenv'
 import { TransformInterceptor } from './interceptors/exclude.interceptor'
 import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service'
+export let client
+export let db
 
 const cspDefaults = helmet.contentSecurityPolicy.getDefaultDirectives()
 delete cspDefaults['upgrade-insecure-requests']
