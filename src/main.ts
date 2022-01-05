@@ -1,16 +1,19 @@
 import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common'
 import { NestFactory, Reflector } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
+import * as dotenv from 'dotenv'
 import * as fs from 'fs'
 import * as helmet from 'helmet'
 import { MongoClient } from 'mongodb'
 import { RedocModule, RedocOptions } from 'nestjs-redoc'
 import { AppModule } from './app.module'
-export let client
-export let db
-import * as dotenv from 'dotenv'
 import { TransformInterceptor } from './interceptors/exclude.interceptor'
 import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service'
+export let client
+export let db
+
+const cspDefaults = helmet.contentSecurityPolicy.getDefaultDirectives()
+delete cspDefaults['upgrade-insecure-requests']
 
 async function bootstrap() {
     Logger.log(`Loading .env-${process.env.NODE_ENV}`)
@@ -24,7 +27,14 @@ async function bootstrap() {
 
     const globalPrefix = 'v1'
     // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately
-    app.use(helmet())
+    let helmetOpts = {}
+    if (process.env.NODE_ENV === 'development') {
+        //https://github.com/scottie1984/swagger-ui-express/issues/237
+        helmetOpts = {
+            contentSecurityPolicy: { directives: cspDefaults },
+        }
+    }
+    app.use(helmet(helmetOpts))
 
     app.useGlobalPipes(
         new ValidationPipe({
@@ -32,18 +42,18 @@ async function bootstrap() {
             transform: true,
         }),
     )
-    // app.useGlobalInterceptors(new TransformInterceptor())
+    app.useGlobalInterceptors(new TransformInterceptor())
     app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
 
     app.setGlobalPrefix(globalPrefix)
     // bindSwaggerDocument(globalPrefix, app);
 
     const config = new DocumentBuilder()
-        .setTitle(`Kyso's API`)
-        .setDescription(`Spec for Kyso's API`)
-        .setVersion('v1')
-        .addBearerAuth()
-        .setLicense('Apache 2.0', 'http://www.apache.org/licenses/LICENSE-2.0.html')
+        // .setTitle(`Kyso's API`)
+        // .setDescription(`Spec for Kyso's API`)
+        // .setVersion('v1')
+        // .addBearerAuth()
+        // .setLicense('Apache 2.0', 'http://www.apache.org/licenses/LICENSE-2.0.html')
         .build()
 
     const document = SwaggerModule.createDocument(app, config)
@@ -95,8 +105,8 @@ async function bootstrap() {
     if (process.env.POPULATE_TEST_DATA === 'true') {
         setTimeout(async () => {
             const testingDataPopulatorService: TestingDataPopulatorService = app.get(TestingDataPopulatorService)
-            await testingDataPopulatorService.populateTestData()    
-        }, 10000);
+            await testingDataPopulatorService.populateTestData()
+        }, 10000)
     }
 }
 

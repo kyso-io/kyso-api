@@ -1,20 +1,41 @@
 import { ApiProperty } from '@nestjs/swagger'
+<<<<<<< HEAD
 import { IsString } from 'class-validator'
+=======
+import { Type } from 'class-transformer'
+import { IsArray, IsEnum, IsMongoId, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator'
+>>>>>>> f74436b815fa703947d5487368808fb1753c545c
 import { BaseModel } from './base.model'
 import { TeamVisibilityEnum } from './enum/team-visibility.enum'
 import { KysoRole } from './kyso-role.model'
 
 export class Team extends BaseModel {
     @ApiProperty()
+<<<<<<< HEAD
     @IsString()
+=======
+    @IsNotEmpty()
+>>>>>>> f74436b815fa703947d5487368808fb1753c545c
     public name: string
+
     @ApiProperty()
+    @IsOptional()
+    @IsString()
     public avatar_url: string
+
     @ApiProperty()
+    @IsOptional()
+    @IsString()
     public bio: string
+
     @ApiProperty()
+    @IsOptional()
+    @IsString()
     public link: string
+
     @ApiProperty()
+    @IsOptional()
+    @IsString()
     public location: string
 
     @ApiProperty({
@@ -22,17 +43,22 @@ export class Team extends BaseModel {
         type: KysoRole,
         isArray: true,
     })
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => KysoRole)
     public roles: KysoRole[]
 
     @ApiProperty({
         required: true,
         enum: TeamVisibilityEnum,
     })
+    @IsEnum(TeamVisibilityEnum)
     public visibility: TeamVisibilityEnum
 
     @ApiProperty({
         required: true,
     })
+    @IsMongoId()
     public organization_id: string
 
     constructor(
