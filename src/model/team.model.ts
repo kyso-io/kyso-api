@@ -1,10 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger'
+import { IsString } from 'class-validator'
 import { BaseModel } from './base.model'
 import { TeamVisibilityEnum } from './enum/team-visibility.enum'
 import { KysoRole } from './kyso-role.model'
 
 export class Team extends BaseModel {
     @ApiProperty()
+    @IsString()
     public name: string
     @ApiProperty()
     public avatar_url: string

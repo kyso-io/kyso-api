@@ -47,24 +47,23 @@ export class TeamsService {
         const allUserOrganizations: OrganizationMemberJoin[] = await this.organizationService.searchMembersJoin({ filter: { member_id: userId }})
         
         for(const organizationMembership of allUserOrganizations) {
-            const result = await this.getTeam({ $and: [
-                { organization_id: organizationMembership.organization_id },
-                { visibility: TeamVisibilityEnum.PROTECTED }
-            ]})
+            const result = await this.getTeams({ filter: { 
+                organization_id: organizationMembership.organization_id ,
+                visibility: TeamVisibilityEnum.PROTECTED }
+            })
 
-            userTeamsResult.push(result)
+            userTeamsResult.push(...result)
         }
 
         // All teams (whenever is public, private or protected) in which user is member
         const members = await this.searchMembers({ filter: { member_id: userId } })
-        const memberTeams = []
         
         for(const m of members) {
             const result = await this.getTeam({ filter: { id: m.team_id }})
             userTeamsResult.push(result)
         }
 
-        return userTeamsResult
+        return [...new Set(userTeamsResult)]
     }
 
     async searchMembers(query: any): Promise<TeamMemberJoin[]> {

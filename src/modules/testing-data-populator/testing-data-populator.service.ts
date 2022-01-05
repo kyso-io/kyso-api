@@ -314,6 +314,12 @@ export class TestingDataPopulatorService {
                 [this.Kylo_TeamContributorUser.id.toString()],
                 [KysoRole.TEAM_READER_ROLE.name],
             )
+
+            await this.organizationService.addMembersById(
+                this.OrganizationWithCustomRole.id,
+                [this.Kylo_TeamContributorUser.id],
+                [KysoRole.TEAM_CONTRIBUTOR_ROLE.name]
+            )
         } catch (ex) {
             // silent exception for now ;)
         }

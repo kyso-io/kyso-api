@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Headers, Req, UseGuards, UnauthorizedException } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { GenericController } from '../../generic/controller.generic'
-import { HEADER_X_KYSO_TEAM } from '../../model/constants'
+import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM } from '../../model/constants'
 import { Team } from '../../model/team.model'
 import { Token } from '../../model/token.model'
 import { UpdateTeamRequest } from '../../model/update-team-request.model'
@@ -36,14 +36,19 @@ export class TeamsController extends GenericController<Team> {
         summary: `Get all team's in which user has visibility`,
         description: `Allows fetching content of all the teams that the user has visibility`,
     })
-    @ApiResponse({ status: 200, description: `Team`, type: Team, isArray: true })
+    @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Team })
+    @ApiHeader({
+        name: HEADER_X_KYSO_ORGANIZATION,
+        description: 'Organization',
+        required: true,
+    })
     @Permission([TeamPermissionsEnum.READ])
     async getVisibilityTeams(@Req() req) {
         const splittedToken = req.headers['authorization'].split('Bearer ')[1]
 
         const token: Token = this.authService.evaluateAndDecodeToken(splittedToken)
 
-        return await this.teamsService.getTeamsVisibleForUser(token.id)
+        return new NormalizedResponse(await this.teamsService.getTeamsVisibleForUser(token.id))
     }
 
     @Get('/:teamName')
