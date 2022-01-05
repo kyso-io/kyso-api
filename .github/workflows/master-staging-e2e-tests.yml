@@ -23,7 +23,10 @@ jobs:
           node-version: 14.x
 
       - name: Install dependencies
-        run: npm install 
+        run: yarn install 
+
+      - name: Install newman
+        run: npm install -g newman 
 
       - name: Run testing server
         env:
@@ -51,10 +54,7 @@ jobs:
           DATABASE_NAME: kyso
           POPULATE_TEST_DATA: true
           BASE_URL: http://localhost:3000
-        run: npm run start 
-
-      - name: Install newman
-        run: npm install -g newman 
+        run: yarn run start 
 
       - name: Run e2e_tests 
         env:
