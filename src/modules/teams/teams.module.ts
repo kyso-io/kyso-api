@@ -6,8 +6,8 @@ import { TeamsController } from './teams.controller'
 import { TeamsService } from './teams.service'
 
 @Module({
-    providers: [TeamsService, TeamsMongoProvider, TeamMemberMongoProvider],
     imports: [OrganizationsModule],
+    providers: [TeamsService, TeamsMongoProvider, TeamMemberMongoProvider],
     controllers: [TeamsController],
     exports: [TeamsService],
 })
