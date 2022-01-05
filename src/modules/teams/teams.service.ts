@@ -7,12 +7,17 @@ import { TeamMember } from '../../model/team-member.model'
 import { Team } from '../../model/team.model'
 import { TeamsMongoProvider } from './providers/mongo-teams.provider'
 import { User } from '../../model/user.model'
+import { TeamVisibilityEnum } from '../../model/enum/team-visibility.enum'
+import { OrganizationMemberMongoProvider } from '../organizations/providers/mongo-organization-member.provider'
+import { OrganizationsService } from '../organizations/organizations.service'
+import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
 
 @Injectable()
 export class TeamsService {
     constructor(
         private readonly provider: TeamsMongoProvider,
         private readonly teamMemberProvider: TeamMemberMongoProvider,
+        private readonly organizationService: OrganizationsService,
         @Inject(forwardRef(() => UsersService))
         private readonly usersService: UsersService,
     ) {}
@@ -27,6 +32,39 @@ export class TeamsService {
 
     async getTeams(query) {
         return await this.provider.read(query)
+    }
+
+    /**
+     * Get all teams that are visible for the specified user
+     * 
+     * @param user
+     */
+    async getTeamsVisibleForUser(userId: string): Promise<Team[]> {
+        // All public teams
+        const userTeamsResult = await this.getTeams({ filter: { visibility: TeamVisibilityEnum.PUBLIC } })
+        
+        // All protected teams from organizations that the user belongs
+        const allUserOrganizations: OrganizationMemberJoin[] = await this.organizationService.searchMembersJoin({ filter: { member_id: userId }})
+        
+        for(const organizationMembership of allUserOrganizations) {
+            const result = await this.getTeam({ $and: [
+                { organization_id: organizationMembership.organization_id },
+                { visibility: TeamVisibilityEnum.PROTECTED }
+            ]})
+
+            userTeamsResult.push(result)
+        }
+
+        // All teams (whenever is public, private or protected) in which user is member
+        const members = await this.searchMembers({ filter: { member_id: userId } })
+        const memberTeams = []
+        
+        for(const m of members) {
+            const result = await this.getTeam({ filter: { id: m.team_id }})
+            userTeamsResult.push(result)
+        }
+
+        return userTeamsResult
     }
 
     async searchMembers(query: any): Promise<TeamMemberJoin[]> {
