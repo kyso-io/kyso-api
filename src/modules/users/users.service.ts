@@ -1,5 +1,4 @@
 import { Injectable, PreconditionFailedException } from '@nestjs/common'
-import { accessSync } from 'fs'
 import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { User } from '../../model/user.model'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
@@ -40,8 +39,8 @@ export class UsersService {
         if (!exists) {
             // Create user into database
             // Hash the password and delete the plain password property
-            let user: User = User.fromCreateUserRequest(userToCreate);
-            
+            const user: User = User.fromCreateUserRequest(userToCreate)
+
             return (await this.provider.create(user)) as User
         } else {
             throw new PreconditionFailedException(null, 'User already exists')
@@ -55,6 +54,6 @@ export class UsersService {
             throw new PreconditionFailedException(null, `Can't delete user as does not exists`)
         } else {
             this.provider.delete({ email: email })
-        }    
+        }
     }
 }

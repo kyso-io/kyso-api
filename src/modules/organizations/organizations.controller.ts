@@ -82,10 +82,9 @@ export class OrganizationsController extends GenericController<Organization> {
         description: `By passing the appropiate parameters you can update an organization`,
     })
     @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Organization })
-    // @Permission([OrganizationPermissionsEnum.UPDATE])
-    public async updateOrganization(@Param('organizationName') name: string, @Body() organization: Organization): Promise<Organization> {
-        // const data = await this.organizationService.updateOrganization(name, organization)
-        // return data
-        return null
+    @Permission([OrganizationPermissionsEnum.EDIT])
+    public async updateOrganization(@Param('organizationName') name: string, @Body() organization: Organization): Promise<NormalizedResponse> {
+        const updatedOrganization: Organization = await this.organizationService.updateOrganization(name, organization)
+        return new NormalizedResponse(updatedOrganization)
     }
 }
