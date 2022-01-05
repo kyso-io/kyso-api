@@ -1,16 +1,19 @@
-import { forwardRef, Inject, Injectable, Logger, PreconditionFailedException } from '@nestjs/common'
-import { UsersService } from '../users/users.service'
-import { TeamMemberJoin } from '../../model/team-member-join.model'
-import { TeamMemberMongoProvider } from './providers/mongo-team-member.provider'
+import { forwardRef, Inject, Injectable, PreconditionFailedException } from '@nestjs/common'
 import { KysoRole } from '../../model/kyso-role.model'
+import { Organization } from '../../model/organization.model'
+import { TeamMemberJoin } from '../../model/team-member-join.model'
 import { TeamMember } from '../../model/team-member.model'
 import { Team } from '../../model/team.model'
-import { TeamsMongoProvider } from './providers/mongo-teams.provider'
 import { User } from '../../model/user.model'
+import { OrganizationsService } from '../organizations/organizations.service'
+import { UsersService } from '../users/users.service'
+import { TeamMemberMongoProvider } from './providers/mongo-team-member.provider'
+import { TeamsMongoProvider } from './providers/mongo-teams.provider'
 
 @Injectable()
 export class TeamsService {
     constructor(
+        private readonly organizationsService: OrganizationsService,
         private readonly provider: TeamsMongoProvider,
         private readonly teamMemberProvider: TeamMemberMongoProvider,
         @Inject(forwardRef(() => UsersService))
@@ -62,16 +65,16 @@ export class TeamsService {
             })
 
             // Build the query to retrieve all the users
-            let filterArray = []
+            const filterArray = []
             user_ids.forEach((id: string) => {
                 filterArray.push({ _id: id })
             })
 
-            let filter = { filter: { $or: filterArray } }
+            const filter = { filter: { $or: filterArray } }
 
-            let users = await this.usersService.getUsers(filter)
+            const users = await this.usersService.getUsers(filter)
 
-            let usersAndRoles = users.map((u: User) => {
+            const usersAndRoles = users.map((u: User) => {
                 // Find role for this user in members
                 const thisMember: TeamMemberJoin = members.find((tm: TeamMemberJoin) => u.id.toString() === tm.member_id)
 
@@ -79,7 +82,7 @@ export class TeamsService {
             })
 
             const toFinalObject = usersAndRoles.map((x) => {
-                let obj: TeamMember = new TeamMember()
+                const obj: TeamMember = new TeamMember()
 
                 obj.avatar_url = x.avatar_url
                 obj.bio = x.bio
@@ -110,8 +113,13 @@ export class TeamsService {
         if (exists.length > 0) {
             // Exists, throw an exception
             throw new PreconditionFailedException('The name of the team must be unique')
-        } else {
-            return this.provider.create(team)
         }
+
+        const organization: Organization = await this.organizationsService.getOrganization({ _id: team.organization_id })
+        if (!organization) {
+            throw new PreconditionFailedException('The organization does not exist')
+        }
+
+        return this.provider.create(team)
     }
 }

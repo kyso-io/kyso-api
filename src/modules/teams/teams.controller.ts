@@ -1,11 +1,11 @@
-import { Body, Controller, Get, Param, Patch, Headers, Req, UseGuards, UnauthorizedException } from '@nestjs/common'
+import { Body, Controller, Get, Headers, Param, Patch, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
 import { GenericController } from '../../generic/controller.generic'
 import { HEADER_X_KYSO_TEAM } from '../../model/constants'
+import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
 import { Team } from '../../model/team.model'
 import { UpdateTeamRequest } from '../../model/update-team-request.model'
-import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { TeamPermissionsEnum } from './security/team-permissions.enum'
@@ -121,5 +121,21 @@ export class TeamsController extends GenericController<Team> {
             : this.teamsService.updateTeam(filterObj, { $set: fields }))
 
         return new NormalizedResponse(team)
+    }
+
+    @Post()
+    @ApiOperation({
+        summary: `Create a new team`,
+        description: `Allows creating a new team`,
+    })
+    @ApiNormalizedResponse({
+        status: 201,
+        description: `Created team data`,
+        type: Team,
+    })
+    @Permission([TeamPermissionsEnum.CREATE])
+    async createTeam(@Body() team: Team): Promise<NormalizedResponse> {
+        const teamDb: Team = await this.teamsService.createTeam(team)
+        return new NormalizedResponse(teamDb)
     }
 }

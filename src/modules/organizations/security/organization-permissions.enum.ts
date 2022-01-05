@@ -5,3 +5,11 @@ export enum OrganizationPermissionsEnum {
     DELETE = 'KYSO_IO_DELETE_ORGANIZATION',
     ADMIN = 'KYSO_IO_ADMIN_ORGANIZATION',
 }
+
+export const organizationPermissionsEnumList: OrganizationPermissionsEnum[] = [
+    OrganizationPermissionsEnum.READ,
+    OrganizationPermissionsEnum.CREATE,
+    OrganizationPermissionsEnum.EDIT,
+    OrganizationPermissionsEnum.DELETE,
+    OrganizationPermissionsEnum.ADMIN,
+]
