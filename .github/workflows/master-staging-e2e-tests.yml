@@ -57,12 +57,12 @@ jobs:
           DATABASE_NAME: kyso
           POPULATE_TEST_DATA: true
           BASE_URL: http://localhost:3000
-        run: yarn run start:test
+        run: yarn run start:test&
 
       - name: Wait 1 minute until the server is started
         run: sleep 60s
         shell: bash
-        
+
       - name: Run e2e_tests 
         env:
           POSTMAN_COLLECTION: 18300179-f1ba0d03-7d80-478a-a978-3a6e8072ad69
