@@ -46,14 +46,13 @@ async function bootstrap() {
     app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
 
     app.setGlobalPrefix(globalPrefix)
-    // bindSwaggerDocument(globalPrefix, app);
 
     const config = new DocumentBuilder()
-        // .setTitle(`Kyso's API`)
-        // .setDescription(`Spec for Kyso's API`)
-        // .setVersion('v1')
-        // .addBearerAuth()
-        // .setLicense('Apache 2.0', 'http://www.apache.org/licenses/LICENSE-2.0.html')
+        .setTitle(`Kyso's API`)
+        .setDescription(`Spec for Kyso's API`)
+        .setVersion('v1')
+        .addBearerAuth()
+        .setLicense('Apache 2.0', 'http://www.apache.org/licenses/LICENSE-2.0.html')
         .build()
 
     const document = SwaggerModule.createDocument(app, config)
