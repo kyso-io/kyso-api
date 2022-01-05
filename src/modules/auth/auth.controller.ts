@@ -26,6 +26,7 @@ export class AuthController extends GenericController<string> {
         type: String,
     })
     async login(@Body() login: Login) {
-        return this.authService.login(login.password, login.provider, login.username)
+        const jwt = await this.authService.login(login.password, login.provider, login.username)
+        return jwt
     }
 }

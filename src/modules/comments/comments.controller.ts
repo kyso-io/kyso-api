@@ -1,13 +1,16 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common'
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { CommentPermissionsEnum } from './security/comment-permissions.enum'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
+import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
 import { GenericController } from '../../generic/controller.generic'
 import { CommentsService } from './comments.service'
 import { Comment } from '../../model/comment.model'
 
 @ApiTags('comments')
+@ApiExtraModels(Comment)
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('comments')
@@ -16,20 +19,14 @@ export class CommentsController extends GenericController<Comment> {
         super()
     }
 
-    assignReferences(comment) {
-        // comment.self_url = HateoasLinker.createRef(`/comment/${comment.id}`)
-        // Recursive!!
-        // comment.comments.forEach((x) => {
-        //     this.assignReferences(x)
-        // })
-    }
+    assignReferences(comment) {}
 
     @Get('/:commentId')
     @ApiOperation({
         summary: `Get a comment`,
         description: `Allows fetching content of a specific comment passing its identificator`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Comment matching id`,
         type: Comment,
@@ -44,9 +41,6 @@ export class CommentsController extends GenericController<Comment> {
     @Permission([CommentPermissionsEnum.READ])
     async getComment(@Param('commentId') commentId: string) {
         const comment = await this.commentsService.getCommentWithChildren(commentId)
-
-        this.assignReferences(comment)
-
-        return comment
+        return new NormalizedResponse(comment)
     }
 }

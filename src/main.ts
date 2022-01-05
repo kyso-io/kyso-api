@@ -6,7 +6,6 @@ import * as helmet from 'helmet'
 import { MongoClient } from 'mongodb'
 import { RedocModule, RedocOptions } from 'nestjs-redoc'
 import { AppModule } from './app.module'
-import { OpenAPIExtender } from './helpers/openapiExtender'
 export let client
 export let db
 import * as dotenv from 'dotenv'
@@ -51,7 +50,7 @@ async function bootstrap() {
 
     if (process.env.NODE_ENV === 'development') {
         // Only publish in development / staging mode, remove for production - or discuss it...
-        SwaggerModule.setup(globalPrefix, app, OpenAPIExtender.reformat(document))
+        SwaggerModule.setup(globalPrefix, app, document)
     }
 
     const redocOptions: RedocOptions = {
@@ -89,7 +88,7 @@ async function bootstrap() {
         },
     ]
 
-    await RedocModule.setup('/docs', app, redocDocument, redocOptions)
+    await RedocModule.setup('/redoc', app, redocDocument, redocOptions)
 
     await app.listen(process.env.PORT || 3000)
 

@@ -1,10 +1,12 @@
 import { Body, Controller, Get, Param, Patch, Headers, Req, UseGuards, UnauthorizedException } from '@nestjs/common'
-import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { GenericController } from '../../generic/controller.generic'
 import { HEADER_X_KYSO_TEAM } from '../../model/constants'
 import { Team } from '../../model/team.model'
 import { Token } from '../../model/token.model'
 import { UpdateTeamRequest } from '../../model/update-team-request.model'
+import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { AuthService } from '../auth/auth.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
@@ -15,6 +17,7 @@ import { TeamsService } from './teams.service'
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 
 @ApiTags('teams')
+@ApiExtraModels(Team)
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('teams')
@@ -54,7 +57,7 @@ export class TeamsController extends GenericController<Team> {
         description: `Name of the team to fetch`,
         schema: { type: 'string' },
     })
-    @ApiResponse({ status: 200, description: `Team matching name`, type: Team })
+    @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Team })
     @ApiHeader({
         name: HEADER_X_KYSO_TEAM,
         description: 'Name of the team',
@@ -72,7 +75,7 @@ export class TeamsController extends GenericController<Team> {
 
         this.assignReferences(team)
 
-        return team
+        return new NormalizedResponse(team)
     }
 
     @Get('/:teamName/members')
@@ -86,7 +89,7 @@ export class TeamsController extends GenericController<Team> {
         description: `Name of the team to fetch`,
         schema: { type: 'string' },
     })
-    @ApiResponse({ status: 200, description: `Team matching name`, type: Team })
+    @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Team })
     @ApiHeader({
         name: HEADER_X_KYSO_TEAM,
         description: 'Name of the team',
@@ -98,7 +101,8 @@ export class TeamsController extends GenericController<Team> {
             throw new UnauthorizedException('Team path param and team header are not equal. This incident will be reported')
         }
 
-        return await this.teamsService.getMembers(teamName)
+        const data = await this.teamsService.getMembers(teamName)
+        return new NormalizedResponse(data)
     }
 
     @Patch('/:teamName')
@@ -112,7 +116,7 @@ export class TeamsController extends GenericController<Team> {
         description: `Name of the team to fetch`,
         schema: { type: 'string' },
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Specified team data`,
         type: Team,
@@ -135,6 +139,6 @@ export class TeamsController extends GenericController<Team> {
             ? this.teamsService.getTeam({ filter: filterObj })
             : this.teamsService.updateTeam(filterObj, { $set: fields }))
 
-        return team
+        return new NormalizedResponse(team)
     }
 }

@@ -1,13 +1,16 @@
 import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common'
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { GenericController } from '../../generic/controller.generic'
 import { Organization } from '../../model/organization.model'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { OrganizationsService } from './organizations.service'
+import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
 import { OrganizationPermissionsEnum } from './security/organization-permissions.enum'
 
 @ApiTags('organizations')
+@ApiExtraModels(Organization)
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('organizations')
@@ -31,16 +34,15 @@ export class OrganizationsController extends GenericController<Organization> {
         description: `Name of the organization to fetch`,
         schema: { type: 'string' },
     })
-    @ApiResponse({ status: 200, description: `Organization matching name`, type: Organization })
+    @ApiNormalizedResponse({ status: 200, description: `Organization matching name`, type: Organization })
     @Permission([OrganizationPermissionsEnum.READ])
     async getOrganization(@Param('organizationName') organizationName: string) {
-        let organization = await this.organizationService.getOrganization({ filter: { name: organizationName } })
+        const organization = await this.organizationService.getOrganization({ filter: { name: organizationName } })
 
         if (organization) {
-            this.assignReferences(organization)
-            return organization
+            return new NormalizedResponse(organization)
         } else {
-            return {}
+            return new NormalizedResponse(null)
         }
     }
 
@@ -55,10 +57,11 @@ export class OrganizationsController extends GenericController<Organization> {
         description: `Name of the organization to fetch`,
         schema: { type: 'string' },
     })
-    @ApiResponse({ status: 200, description: `Organization matching name`, type: Organization })
+    @ApiNormalizedResponse({ status: 200, description: `Organization matching name`, type: Organization })
     @Permission([OrganizationPermissionsEnum.READ])
     async getOrganizationMembers(@Param('organizationName') name: string) {
-        return this.organizationService.getOrganizationMembers(name)
+        const data = await this.organizationService.getOrganizationMembers(name)
+        return new NormalizedResponse(data)
     }
 
     @Post('')
@@ -66,9 +69,10 @@ export class OrganizationsController extends GenericController<Organization> {
         summary: `Create a new organization`,
         description: `By passing the appropiate parameters you can create a new organization`,
     })
-    @ApiResponse({ status: 200, description: `Created organization`, type: Organization })
+    @ApiNormalizedResponse({ status: 200, description: `Created organization`, type: Organization })
     @Permission([OrganizationPermissionsEnum.CREATE])
-    async createOrganization(@Body() organization: Organization): Promise<Organization> {
-        return this.organizationService.createOrganization(organization)
+    async createOrganization(@Body() organization: Organization) {
+        const data = await this.organizationService.createOrganization(organization)
+        return data
     }
 }
