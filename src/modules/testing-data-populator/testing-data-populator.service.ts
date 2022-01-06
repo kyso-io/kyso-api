@@ -171,13 +171,13 @@ export class TestingDataPopulatorService {
 
     private async createTestingReports() {
         const testReport = new CreateReport('kylos-report', 'team-contributor', null, 'main', '.')
-        this.TestReport = await this._createReport(testReport, this.Kylo_TeamContributorUser)
+        this.TestReport = await this._createReport(this.Kylo_TeamContributorUser, testReport)
     }
 
-    private async _createReport(report: CreateReport, user: User) {
+    private async _createReport(user: User, report: CreateReport) {
         try {
             Logger.log(`Creating ${report.name} report...`)
-            return this.reportsService.createReport(user, report, null)
+            return this.reportsService.createReport(user, report, 'private-team')
         } catch (ex) {
             Logger.log(`${report.name} report already exists`)
         }
@@ -308,14 +308,15 @@ export class TestingDataPopulatorService {
 
             /*** Lightside organization ***/
             await this.organizationService.addMembersById(
-                this.LightsideOrganization.id, 
-                [this.Rey_TeamAdminUser.id.toString()], 
-                [KysoRole.TEAM_ADMIN_ROLE.name])
+                this.LightsideOrganization.id,
+                [this.Rey_TeamAdminUser.id.toString()],
+                [KysoRole.TEAM_ADMIN_ROLE.name],
+            )
 
             await this.organizationService.addMembersById(
                 this.LightsideOrganization.id,
                 [this.Kylo_TeamContributorUser.id],
-                [KysoRole.TEAM_READER_ROLE.name]
+                [KysoRole.TEAM_CONTRIBUTOR_ROLE.name],
             )
 
             await this.organizationService.addMembersById(
@@ -335,6 +336,9 @@ export class TestingDataPopulatorService {
 
             Logger.log(`Adding ${this.Rey_TeamAdminUser.nickname} to team ${this.PrivateTeam.name} with role ${KysoRole.TEAM_ADMIN_ROLE.name}`)
             await this.teamService.addMembersById(this.PrivateTeam.id, [this.Rey_TeamAdminUser.id], [KysoRole.TEAM_ADMIN_ROLE.name])
+
+            Logger.log(`Adding ${this.Kylo_TeamContributorUser.nickname} to team ${this.PrivateTeam.name} with role ${KysoRole.TEAM_CONTRIBUTOR_ROLE.name}`)
+            await this.teamService.addMembersById(this.PrivateTeam.id, [this.Kylo_TeamContributorUser.id], [KysoRole.TEAM_CONTRIBUTOR_ROLE.name])
         } catch (ex) {
             // silent it
         }

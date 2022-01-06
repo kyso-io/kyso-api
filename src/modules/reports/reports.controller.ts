@@ -45,10 +45,6 @@ export class ReportsController extends GenericController<Report> {
         super()
     }
 
-    assignReferences(report: any /*report: Report*/) {
-        return 1
-    }
-
     @Get('')
     @ApiOperation({
         summary: `Search and fetch reports`,
@@ -103,6 +99,7 @@ export class ReportsController extends GenericController<Report> {
     async getReport(@Req() req, @Res() res): Promise<void> {
         const report = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
         const relations = await this.relationsService.getRelations(report)
+
         res.status(200).send(new NormalizedResponse(report, relations))
         return
     }
