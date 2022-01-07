@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsAlphanumeric, IsArray, IsBoolean, IsBooleanString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl, Length } from 'class-validator'
+import { IsAlphanumeric, IsArray, IsBoolean, IsEmail, IsEnum, IsNotEmpty, IsUrl, Length } from 'class-validator'
 import { GlobalPermissionsEnum } from '../security/general-permissions.enum'
 import { BaseModel } from './base.model'
 import { LoginProviderEnum } from './enum/login-provider.enum'
@@ -59,7 +59,7 @@ export class BaseUser extends BaseModel {
         avatarUrl: string,
         emailVerified: boolean,
         global_permissions: GlobalPermissionsEnum[],
-        _id?: string
+        _id?: string,
     ) {
         super()
         this.email = email

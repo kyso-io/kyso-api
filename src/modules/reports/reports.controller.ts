@@ -1,27 +1,27 @@
 import { Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
-import { ApiExtraModels, ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
-import { ReportsService } from './reports.service'
-import { BatchReportCreation } from '../../model/dto/batch-report-creation-response.dto'
-import { UsersService } from '../users/users.service'
-import { PermissionsGuard } from '../auth/guards/permission.guard'
-import { Permission } from '../auth/annotations/permission.decorator'
-import { ReportPermissionsEnum } from './security/report-permissions.enum'
+import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
 import { GenericController } from '../../generic/controller.generic'
 import { InvalidInputError } from '../../helpers/errorHandling'
 import { HateoasLinker } from '../../helpers/hateoasLinker'
 import { QueryParser } from '../../helpers/queryParser'
 import { Validators } from '../../helpers/validators'
 import { Branch } from '../../model/branch.model'
+import { Comment } from '../../model/comment.model'
+import { BatchReportCreation } from '../../model/dto/batch-report-creation-response.dto'
 import { CreateReportRequest } from '../../model/dto/create-report-request.dto'
-import { ReportFilterQuery } from '../../model/dto/report-filter-query.dto'
 import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
+import { ReportFilterQuery } from '../../model/dto/report-filter-query.dto'
 import { UpdateReportRequest } from '../../model/dto/update-report-request.dto'
 import { Report } from '../../model/report.model'
-import { CommentsService } from '../comments/comments.service'
 import { User } from '../../model/user.model'
-import { Comment } from '../../model/comment.model'
+import { Permission } from '../auth/annotations/permission.decorator'
+import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { CommentsService } from '../comments/comments.service'
 import { RelationsService } from '../relations/relations.service'
+import { UsersService } from '../users/users.service'
+import { ReportsService } from './reports.service'
+import { ReportPermissionsEnum } from './security/report-permissions.enum'
 
 const UPDATABLE_FIELDS = ['stars', 'tags', 'title', 'description', 'request_private', 'name']
 
@@ -286,7 +286,7 @@ export class ReportsController extends GenericController<Report> {
     @ApiNormalizedResponse({
         status: 200,
         description: `Comments of the specified report`,
-        type: Comment
+        type: Comment,
     })
     @ApiParam({
         name: 'reportOwner',

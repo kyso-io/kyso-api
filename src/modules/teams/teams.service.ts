@@ -45,12 +45,14 @@ export class TeamsService {
         const userTeamsResult = await this.getTeams({ filter: { visibility: TeamVisibilityEnum.PUBLIC } })
 
         // All protected teams from organizations that the user belongs
-        const allUserOrganizations: OrganizationMemberJoin[] = await this.organizationService.searchMembersJoin({ filter: { member_id: userId }})
-        
-        for(const organizationMembership of allUserOrganizations) {
-            const result = await this.getTeams({ filter: { 
-                organization_id: organizationMembership.organization_id ,
-                visibility: TeamVisibilityEnum.PROTECTED }
+        const allUserOrganizations: OrganizationMemberJoin[] = await this.organizationService.searchMembersJoin({ filter: { member_id: userId } })
+
+        for (const organizationMembership of allUserOrganizations) {
+            const result = await this.getTeams({
+                filter: {
+                    organization_id: organizationMembership.organization_id,
+                    visibility: TeamVisibilityEnum.PROTECTED,
+                },
             })
 
             userTeamsResult.push(...result)
@@ -58,9 +60,9 @@ export class TeamsService {
 
         // All teams (whenever is public, private or protected) in which user is member
         const members = await this.searchMembers({ filter: { member_id: userId } })
-        
-        for(const m of members) {
-            const result = await this.getTeam({ filter: { id: m.team_id }})
+
+        for (const m of members) {
+            const result = await this.getTeam({ filter: { id: m.team_id } })
             userTeamsResult.push(result)
         }
 

@@ -1,16 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { NotFoundError, InvalidInputError, AlreadyExistsError } from '../../helpers/errorHandling'
+import { AlreadyExistsError, InvalidInputError, NotFoundError } from '../../helpers/errorHandling'
 import { QueryParser } from '../../helpers/queryParser'
 import { Validators } from '../../helpers/validators'
-import { User } from '../../model/user.model'
 import { CreateReport } from '../../model/dto/create-report-request.dto'
+import { Report } from '../../model/report.model'
+import { User } from '../../model/user.model'
 import { GithubReposService } from '../github-repos/github-repos.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { LocalReportsService } from './local-reports.service'
 import { ReportsMongoProvider } from './providers/mongo-reports.provider'
 
-const CREATE_REPORT_FIELDS = ['main', 'title', 'description', 'preview', 'tags', 'authors']
+const CREATE_REPORT_FIELDS = ['main', 'title', 'description', 'preview', 'tags', 'authors', 'team_id']
 const LOCAL_REPORT_HOST = 's3'
 
 function generateReportName(repoName, path) {
@@ -312,5 +313,10 @@ export class ReportsService {
         }
 
         return content
+    }
+
+    public async getById(id: string): Promise<Report> {
+        const reports: Report[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(id) } })
+        return reports.length === 1 ? reports[0] : null
     }
 }

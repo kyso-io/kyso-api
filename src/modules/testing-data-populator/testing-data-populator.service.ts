@@ -1,22 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common'
+import { Comment } from '../../model/comment.model'
 import { CreateReport } from '../../model/dto/create-report-request.dto'
+import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { LoginProviderEnum } from '../../model/enum/login-provider.enum'
 import { TeamVisibilityEnum } from '../../model/enum/team-visibility.enum'
 import { KysoRole } from '../../model/kyso-role.model'
 import { Organization } from '../../model/organization.model'
+import { Report } from '../../model/report.model'
 import { Team } from '../../model/team.model'
-import { Comment } from '../../model/comment.model'
 import { User } from '../../model/user.model'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
+import { CommentsService } from '../comments/comments.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
-import { CommentsService } from '../comments/comments.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
-import { Report } from '../../model/report.model'
-import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 
 @Injectable()
 export class TestingDataPopulatorService {
@@ -184,15 +184,15 @@ export class TestingDataPopulatorService {
     }
 
     private async createTestingComments() {
-        const testComment = new Comment('test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, null)
+        const testComment = new Comment('test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, null, this.Kylo_TeamContributorUser.username)
         this.TestComment = await this._createComment(testComment)
 
         this.TestChildComment1 = await this._createComment(
-            new Comment('child test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, this.TestComment.id),
+            new Comment('child test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, this.TestComment.id, this.Kylo_TeamContributorUser.username),
         )
 
         this.TestChildComment2 = await this._createComment(
-            new Comment('child 2 test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, this.TestComment.id),
+            new Comment('child 2 test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, this.TestComment.id, this.Kylo_TeamContributorUser.username),
         )
     }
 
@@ -318,7 +318,7 @@ export class TestingDataPopulatorService {
             await this.organizationService.addMembersById(
                 this.OrganizationWithCustomRole.id,
                 [this.Kylo_TeamContributorUser.id],
-                [KysoRole.TEAM_CONTRIBUTOR_ROLE.name]
+                [KysoRole.TEAM_CONTRIBUTOR_ROLE.name],
             )
         } catch (ex) {
             // silent exception for now ;)
