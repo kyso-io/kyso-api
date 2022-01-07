@@ -30,7 +30,7 @@ const DEFAULT_GET_REPORT_FILTERS = {
     hidden: { $ne: 'true' },
 }
 
-@ApiExtraModels(Report)
+@ApiExtraModels(Report, NormalizedResponse)
 @ApiTags('reports')
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
@@ -59,6 +59,7 @@ export class ReportsController extends GenericController<Report> {
         status: 200,
         description: `Reports matching criteria`,
         type: Report,
+        isArray: true,
     })
     @Permission([ReportPermissionsEnum.READ])
     async getReports(@Req() req, @Res() res, @Query() paginationQuery: ReportFilterQuery) {
@@ -243,7 +244,6 @@ export class ReportsController extends GenericController<Report> {
     @Permission([ReportPermissionsEnum.DELETE])
     async deleteReport(@Req() req, @Res() res) {
         await this.reportsService.deleteReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
-
         res.status(204).send()
         return
     }
@@ -287,6 +287,7 @@ export class ReportsController extends GenericController<Report> {
         status: 200,
         description: `Comments of the specified report`,
         type: Comment,
+        isArray: true,
     })
     @ApiParam({
         name: 'reportOwner',
@@ -315,7 +316,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Get branches of a report`,
         description: `By passing in the appropriate options you can see all the branches of a report`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Branches of the specified report`,
         type: Branch,
@@ -346,7 +347,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Get commits of a report imported from a git provider`,
         description: `By passing in the appropriate options you can see the commits of a branch for the repository the specified report is linked to`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Commits of the specified report branch`,
         type: Branch,
@@ -385,7 +386,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Explore a report tree`,
         description: `Get hash of a file for a given report. If the file is a folder, will get information about the files in it too (non-recursively). Path is currently ignored for local reports.`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Content of the requested file`,
         type: String,
@@ -428,7 +429,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Get content of a file`,
         description: `By passing the hash of a file, get its raw content directly from the source.`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Content of the requested file`,
         type: String,

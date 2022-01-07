@@ -1,9 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
 import { BaseFilterQuery } from '../../model/dto/base-filter.dto'
 import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
+import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
 import { User } from '../../model/user.model'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
@@ -31,13 +33,13 @@ export class UsersController extends GenericController<User> {
         description: `By passing the appropiate parameters you can fetch and filter the users of the platform.
             **This endpoint supports filtering**. Refer to the User schema to see available options.`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Users matching criteria`,
         type: User,
     })
     @Permission([UserPermissionsEnum.READ])
-    async getUsers(@Req() req, @Query() filters: BaseFilterQuery): Promise<User[]> {
+    async getUsers(@Req() req, @Query() filters: BaseFilterQuery): Promise<NormalizedResponse> {
         // <-- Lack of documentation due to inconsistent stuff
         // filters variable is just for documentation purposes. But a refactoring removing Req and Res would be great.
         const query = QueryParser.toQueryObject(req.url)
@@ -55,8 +57,7 @@ export class UsersController extends GenericController<User> {
         query.projection.accessToken = 0
 
         const result: User[] = await this.usersService.getUsers(query)
-
-        return result
+        return new NormalizedResponse(result)
     }
 
     @Get('/:userName')
@@ -70,9 +71,9 @@ export class UsersController extends GenericController<User> {
         description: `Name of the user to fetch`,
         schema: { type: 'string' },
     })
-    @ApiResponse({ status: 200, description: `User matching name`, type: User })
+    @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
     @Permission([UserPermissionsEnum.READ])
-    async getUser(@Param('userName') userName: string): Promise<User> {
+    async getUser(@Param('userName') userName: string): Promise<NormalizedResponse> {
         const user: User = await this.usersService.getUser({
             filter: { nickname: userName },
             projection: { accessToken: 0 },
@@ -80,7 +81,7 @@ export class UsersController extends GenericController<User> {
 
         this.assignReferences(user)
 
-        return user
+        return new NormalizedResponse(user)
     }
 
     @Post('/')
@@ -88,10 +89,10 @@ export class UsersController extends GenericController<User> {
         summary: `Creates an user`,
         description: `If requester has UserPermissionsEnum.CREATE permission, creates an user`,
     })
-    @ApiResponse({ status: 201, description: `User creation gone well`, type: User })
+    @ApiNormalizedResponse({ status: 201, description: `User creation gone well`, type: User })
     @Permission([UserPermissionsEnum.CREATE])
     async createUser(@Body() user: CreateUserRequest) {
-        return this.usersService.createUser(user)
+        return new NormalizedResponse(await this.usersService.createUser(user))
     }
 
     @Delete('/:mail')

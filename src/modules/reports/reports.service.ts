@@ -88,9 +88,9 @@ export class ReportsService {
             })
 
         const basePath = (createReportRequest.path || '').replace(/^[.]\//, '')
-        // const reportName = createReportRequest.name
+        const reportName = createReportRequest.name
 
-        const reportName = generateReportName(createReportRequest.name, basePath)
+        // const reportName = generateReportName(createReportRequest.name, basePath)
 
         // OLD line... what is he doing with the result of this???
         // await this.reposService({ provider: createReportRequest.src.provider, accessToken: user.accessToken }).getRepo(user, createReportRequest.src.owner, createReportRequest.src.name)
@@ -109,7 +109,6 @@ export class ReportsService {
                 break
         }
         // END NEW
-
         let report = {
             user_id: user.id,
         } as any
