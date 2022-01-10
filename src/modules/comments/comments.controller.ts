@@ -61,7 +61,6 @@ export class CommentsController extends GenericController<Comment> {
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN, CommentPermissionsEnum.ADMIN, CommentPermissionsEnum.CREATE])
     public async createComment(@CurrentToken() token: Token, @Body() comment: Comment): Promise<NormalizedResponse> {
         comment.user_id = token.id
-        comment.username = token.username
         const newComment: Comment = await this.commentsService.createComment(comment)
         return new NormalizedResponse(newComment)
     }

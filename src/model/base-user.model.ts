@@ -49,6 +49,9 @@ export class BaseUser extends BaseModel {
     @ApiProperty()
     public global_permissions: GlobalPermissionsEnum[]
 
+    @ApiProperty()
+    public type: 'user'
+
     buildHatoes(relations?: any) {}
 
     constructor(

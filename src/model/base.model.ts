@@ -4,7 +4,7 @@ import { Hateoas } from './hateoas.model'
 
 export abstract class BaseModel {
     @ApiProperty()
-    public type?: string
+    abstract type?: string
 
     @IsUUID()
     @IsOptional()

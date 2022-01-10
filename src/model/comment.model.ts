@@ -10,9 +10,6 @@ export class Comment extends BaseModel {
     @ApiProperty({ format: 'faker: datatype.uuid' })
     public user_id: string
 
-    @ApiProperty({ format: 'faker: lorem.sentance' })
-    public username: string
-
     @ApiProperty({ format: 'faker: datatype.uuid' })
     @IsMongoId()
     public report_id: string
@@ -33,6 +30,6 @@ export class Comment extends BaseModel {
         this.user_id = user_id
         this.report_id = report_id
         this.comment_id = comment_id
-        this.username = username
+        this.type = 'comment'
     }
 }

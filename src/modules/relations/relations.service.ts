@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common'
 import { RelationsMongoProvider } from './providers/mongo-relations.provider'
+import { User } from '../../model/user.model'
+import { Report } from '../../model/report.model'
+import { Comment } from '../../model/comment.model'
+import { Team } from '../../model/team.model'
+import { Organization } from '../../model/organization.model'
+import { Relations } from '../../model/relations.model'
+import { Relation } from 'src/model/relation.model'
 
 const capitalize = (s) => s && s[0].toUpperCase() + s.slice(1)
 
@@ -32,20 +39,31 @@ export class RelationsService {
         }, {})
     }
 
-    async getRelations(entities: object | [object]) {
+    async getRelations(entities: object | [object]): Promise<Relations> {
         if (!Array.isArray(entities)) entities = [entities]
 
         const groupedRelations = this.scanForRelations(entities)
 
-        return await Object.keys(groupedRelations).reduce(async (previousPromise, collection) => {
-            const relations = await previousPromise
+        const reducer = async (previousPromise, collection: string) => {
+            const relations: Relations = await previousPromise
             const models = await this.provider.readFromCollectionByIds(collection, groupedRelations[collection])
+
             relations[collection.toLowerCase()] = models.reduce((acc, model) => {
-                console.log(model)
-                acc[model._id] = model
+                if (collection === 'User') acc[model._id] = model as User
+                if (collection === 'Report') acc[model._id] = model as Report
+                if (collection === 'Comment') acc[model._id] = model as Comment
+                if (collection === 'Team') acc[model._id] = model as Team
+                if (collection === 'Organization') acc[model._id] = model as Organization
                 return acc
             }, {})
+
             return relations
-        }, Promise.resolve({}))
+        }
+
+        const relations = await Object.keys(groupedRelations).reduce(reducer, {})
+
+        // console.log(relations)
+
+        return relations
     }
 }
