@@ -1,13 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { AlreadyExistsError, InvalidInputError, NotFoundError } from '../../helpers/errorHandling'
-import { QueryParser } from '../../helpers/queryParser'
 import { Validators } from '../../helpers/validators'
 import { githubReposService, localReportsService, teamsService, usersService } from '../../main'
 import { CreateReport } from '../../model/dto/create-report-request.dto'
 import { Report } from '../../model/report.model'
 import { User } from '../../model/user.model'
 import { ReportsMongoProvider } from './providers/mongo-reports.provider'
-import { Report } from 'src/model/report.model'
 
 const CREATE_REPORT_FIELDS = ['main', 'title', 'description', 'preview', 'tags', 'authors', 'team_id']
 const LOCAL_REPORT_HOST = 's3'
