@@ -1,8 +1,10 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
 import { GenericController } from '../../generic/controller.generic'
 import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
+import { UpdateOrganizationMembers } from '../../model/dto/update-organization-members.dto'
+import { OrganizationMember } from '../../model/organization-member.model'
 import { Organization } from '../../model/organization.model'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
@@ -86,5 +88,36 @@ export class OrganizationsController extends GenericController<Organization> {
     public async updateOrganization(@Param('organizationName') name: string, @Body() organization: Organization): Promise<NormalizedResponse> {
         const updatedOrganization: Organization = await this.organizationService.updateOrganization(name, organization)
         return new NormalizedResponse(updatedOrganization)
+    }
+
+    @Post(':organizationName/members')
+    @ApiOperation({
+        summary: `Update the members of an organization`,
+        description: `By passing the appropiate parameters you can update the members of an organization`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: OrganizationMember })
+    @Permission([OrganizationPermissionsEnum.ADMIN])
+    public async updateOrganizationMembers(
+        @Param('organizationName') organizationName: string,
+        @Body() data: UpdateOrganizationMembers,
+    ): Promise<NormalizedResponse> {
+        const organizationMembers: OrganizationMember[] = await this.organizationService.updateOrganizationMembers(organizationName, data)
+        return new NormalizedResponse(organizationMembers)
+    }
+
+    @Delete(':organizationName/members/:memberId/:role')
+    @ApiOperation({
+        summary: `remove a user's role in an organization`,
+        description: `By passing the appropiate parameters you can remove a user's role in an organization`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: OrganizationMember })
+    @Permission([OrganizationPermissionsEnum.ADMIN])
+    public async removeOrganizationMember(
+        @Param('organizationName') organizationName: string,
+        @Param('memberId') memberId: string,
+        @Param('role') role: string,
+    ): Promise<NormalizedResponse> {
+        const organizationMember: OrganizationMember[] = await this.organizationService.removeOrganizationMember(organizationName, memberId, role)
+        return new NormalizedResponse(organizationMember)
     }
 }

@@ -1,5 +1,6 @@
 import { Injectable, PreconditionFailedException } from '@nestjs/common'
 import { usersService } from '../../main'
+import { UpdateOrganizationMembers } from '../../model/dto/update-organization-members.dto'
 import { KysoRole } from '../../model/kyso-role.model'
 import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
 import { OrganizationMember } from '../../model/organization-member.model'
@@ -134,5 +135,52 @@ export class OrganizationsService {
 
     public async getMembers(organizationId: string): Promise<OrganizationMemberJoin[]> {
         return this.organizationMemberProvider.getMembers(organizationId)
+    }
+
+    public async updateOrganizationMembers(name: string, data: UpdateOrganizationMembers): Promise<OrganizationMember[]> {
+        const organization: Organization = await this.getOrganization({ filter: { name } })
+        if (!organization) {
+            throw new PreconditionFailedException('Organization does not exist')
+        }
+        const validRoles: string[] = [
+            KysoRole.TEAM_ADMIN_ROLE.name,
+            KysoRole.TEAM_CONTRIBUTOR_ROLE.name,
+            KysoRole.TEAM_READER_ROLE.name,
+            KysoRole.ORGANIZATION_ADMIN_ROLE.name,
+            ...organization.roles.map((x: KysoRole) => x.name),
+        ]
+        const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
+        for (const element of data.members) {
+            const member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === element.user_id)
+            if (!member) {
+                throw new PreconditionFailedException('User is not a member of this organization')
+            }
+            const role: string = member.role_names.find((x: string) => x === element.role)
+            if (!role) {
+                if (!validRoles.includes(element.role)) {
+                    throw new PreconditionFailedException(`Role ${element.role} is not valid`)
+                }
+                await this.organizationMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $push: { role_names: element.role } })
+            }
+        }
+        return this.getOrganizationMembers(organization.name)
+    }
+
+    public async removeOrganizationMember(name: string, member_id: string, role: string): Promise<OrganizationMember[]> {
+        const organization: Organization = await this.getOrganization({ filter: { name } })
+        if (!organization) {
+            throw new PreconditionFailedException('Organization does not exist')
+        }
+        const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
+        const data: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === member_id)
+        if (!data) {
+            throw new PreconditionFailedException('User is not a member of this organization')
+        }
+        const index: number = data.role_names.findIndex((x: string) => x === role)
+        if (index === -1) {
+            throw new PreconditionFailedException(`User does not have role ${role}`)
+        }
+        await this.organizationMemberProvider.update({ _id: this.provider.toObjectId(data.id) }, { $pull: { role_names: role } })
+        return this.getOrganizationMembers(organization.name)
     }
 }
