@@ -158,10 +158,10 @@ export class TestingDataPopulatorService {
 
     private async createTestingReports() {
         const testReport = new CreateReport('kylos-report', 'team-contributor', null, 'main', '.')
-        this.TestReport = await this._createReport(testReport, this.Kylo_TeamContributorUser)
+        this.TestReport = await this._createReport(this.Kylo_TeamContributorUser, testReport)
     }
 
-    private async _createReport(report: CreateReport, user: User) {
+    private async _createReport(user: User, report: CreateReport) {
         try {
             Logger.log(`Creating ${report.name} report...`)
             return reportsService.createReport(user, report, null)
@@ -288,7 +288,7 @@ export class TestingDataPopulatorService {
             )
 
             /*** Lightside organization ***/
-            await organizationsService.addMembersById(this.LightsideOrganization.id, [this.Rey_TeamAdminUser.id.toString()], [KysoRole.TEAM_ADMIN_ROLE.name])
+            await organizationsService.addMembersById(this.LightsideOrganization.id, [this.Rey_TeamAdminUser.id], [KysoRole.TEAM_ADMIN_ROLE.name])
 
             await organizationsService.addMembersById(this.LightsideOrganization.id, [this.Kylo_TeamContributorUser.id], [KysoRole.TEAM_READER_ROLE.name])
 

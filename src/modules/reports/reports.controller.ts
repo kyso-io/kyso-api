@@ -37,10 +37,6 @@ export class ReportsController extends GenericController<Report> {
         super()
     }
 
-    assignReferences(report: any /*report: Report*/) {
-        return 1
-    }
-
     @Get('')
     @ApiOperation({
         summary: `Search and fetch reports`,

@@ -7,6 +7,7 @@ import { CreateReport } from '../../model/dto/create-report-request.dto'
 import { Report } from '../../model/report.model'
 import { User } from '../../model/user.model'
 import { ReportsMongoProvider } from './providers/mongo-reports.provider'
+import { Report } from 'src/model/report.model'
 
 const CREATE_REPORT_FIELDS = ['main', 'title', 'description', 'preview', 'tags', 'authors', 'team_id']
 const LOCAL_REPORT_HOST = 's3'
@@ -20,7 +21,7 @@ function generateReportName(repoName, path) {
 export class ReportsService {
     constructor(private readonly provider: ReportsMongoProvider) {}
 
-    async getReports(query) {
+    async getReports(query): Promise<Report[]> {
         if (query.filter && query.filter.owner) {
             const results = await Promise.allSettled([
                 usersService.getUser({
@@ -35,7 +36,7 @@ export class ReportsService {
             if (results[0].status === 'fulfilled') {
                 query.filter.user_id = results[0].value.id
             } else if (results[1].status === 'fulfilled') {
-                query.filter._p_team = results[1].value.id
+                query.filter.team_id = results[1].value.id
             } else {
                 return []
             }
@@ -56,7 +57,7 @@ export class ReportsService {
         return reports
     }
 
-    async getReport(reportOwner, reportName) {
+    async getReport(reportOwner, reportName): Promise<Report> {
         const reports = await this.getReports({
             filter: {
                 owner: reportOwner,
@@ -69,7 +70,8 @@ export class ReportsService {
             throw new NotFoundError({
                 message: "The specified report couldn't be found",
             })
-        return reports[0]
+
+        return Object.assign(new Report(), reports[0])
     }
 
     async createReport(user: User, createReportRequest: CreateReport, teamName) {
@@ -115,8 +117,8 @@ export class ReportsService {
                 filter: { name: teamName },
             })
 
-            report._p_team = QueryParser.createForeignKey('Team', teamId)
-            usedNameQuery.filter._p_team = report._p_team
+            report.team_id = teamId
+            usedNameQuery.filter.team_id = report.team_id
         } else usedNameQuery.filter.user_id = report.user_id
 
         const reports = await this.provider.read(usedNameQuery)
@@ -161,6 +163,7 @@ export class ReportsService {
                 defaultBranch: createReportRequest.default_branch,
                 basePath,
             },
+            links: {},
             numberOfComments: 0,
             stars: 0,
             views: 0,

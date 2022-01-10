@@ -24,5 +24,5 @@ import { ApiError } from '../model/api-error.model'
 })
 @ApiResponse({ status: 500, description: `Internal Error`, type: Error })
 export abstract class GenericController<T> {
-    abstract assignReferences(item: T)
+    // abstract assignReferences(item: T)
 }

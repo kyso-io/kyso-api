@@ -2,7 +2,8 @@ import { ApiProperty } from '@nestjs/swagger'
 
 export class Hateoas {
     @ApiProperty()
-    public api: string
+    public self_api: string
+
     @ApiProperty()
-    public ui: string
+    public self_ui: string
 }
