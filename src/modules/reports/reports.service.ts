@@ -2,13 +2,10 @@ import { Injectable, Logger } from '@nestjs/common'
 import { AlreadyExistsError, InvalidInputError, NotFoundError } from '../../helpers/errorHandling'
 import { QueryParser } from '../../helpers/queryParser'
 import { Validators } from '../../helpers/validators'
+import { githubReposService, localReportsService, teamsService, usersService } from '../../main'
 import { CreateReport } from '../../model/dto/create-report-request.dto'
 import { Report } from '../../model/report.model'
 import { User } from '../../model/user.model'
-import { GithubReposService } from '../github-repos/github-repos.service'
-import { TeamsService } from '../teams/teams.service'
-import { UsersService } from '../users/users.service'
-import { LocalReportsService } from './local-reports.service'
 import { ReportsMongoProvider } from './providers/mongo-reports.provider'
 
 const CREATE_REPORT_FIELDS = ['main', 'title', 'description', 'preview', 'tags', 'authors', 'team_id']
@@ -21,21 +18,15 @@ function generateReportName(repoName, path) {
 
 @Injectable()
 export class ReportsService {
-    constructor(
-        private readonly provider: ReportsMongoProvider,
-        private readonly githubReposService: GithubReposService,
-        private readonly teamsService: TeamsService,
-        private readonly usersService: UsersService,
-        private readonly localReportsService: LocalReportsService,
-    ) {}
+    constructor(private readonly provider: ReportsMongoProvider) {}
 
     async getReports(query) {
         if (query.filter && query.filter.owner) {
             const results = await Promise.allSettled([
-                this.usersService.getUser({
+                usersService.getUser({
                     filter: { nickname: query.filter.owner },
                 }),
-                this.teamsService.getTeam({
+                teamsService.getTeam({
                     filter: { name: query.filter.owner },
                 }),
             ])
@@ -102,8 +93,8 @@ export class ReportsService {
                     Logger.error(`User ${user.username} does not have a valid accessToken to make login in Github`, ReportsService.name)
                     break
                 }
-                this.githubReposService.login(user.accessToken)
-                await this.githubReposService.getRepo(user, createReportRequest.owner, createReportRequest.name)
+                githubReposService.login(user.accessToken)
+                await githubReposService.getRepo(user, createReportRequest.owner, createReportRequest.name)
                 break
             default:
                 break
@@ -120,7 +111,7 @@ export class ReportsService {
         } as any
 
         if (teamName) {
-            const { id: teamId } = await this.teamsService.getTeam({
+            const { id: teamId } = await teamsService.getTeam({
                 filter: { name: teamName },
             })
 
@@ -144,8 +135,8 @@ export class ReportsService {
                         Logger.error(`User ${user.username} does not have a valid accessToken to make login in Github`, ReportsService.name)
                         break
                     }
-                    this.githubReposService.login(user.accessToken)
-                    metadata = this.githubReposService.getConfigFile(
+                    githubReposService.login(user.accessToken)
+                    metadata = githubReposService.getConfigFile(
                         basePath,
                         createReportRequest.owner,
                         createReportRequest.name,
@@ -217,9 +208,9 @@ export class ReportsService {
         let branches
 
         if (source.provider === LOCAL_REPORT_HOST) {
-            branches = await this.localReportsService.getReportVersions(id)
+            branches = await localReportsService.getReportVersions(id)
         } else {
-            const { accessToken } = await this.usersService.getUser({
+            const { accessToken } = await usersService.getUser({
                 filter: { _id: user_id },
             })
 
@@ -228,8 +219,8 @@ export class ReportsService {
             switch (source.provider) {
                 case 'github':
                 default:
-                    this.githubReposService.login(accessToken)
-                    branches = await this.githubReposService.getBranches(source.owner, source.name)
+                    githubReposService.login(accessToken)
+                    branches = await githubReposService.getBranches(source.owner, source.name)
                     break
             }
 
@@ -248,7 +239,7 @@ export class ReportsService {
                 message: 'This functionality is not available in S3',
             })
 
-        const { accessToken } = await this.usersService.getUser({
+        const { accessToken } = await usersService.getUser({
             filter: { _id: user_id },
         })
         // OLD
@@ -257,8 +248,8 @@ export class ReportsService {
         switch (source.provider) {
             case 'github':
             default:
-                this.githubReposService.login(accessToken)
-                commits = await this.githubReposService.getCommits(source.owner, source.name, branch)
+                githubReposService.login(accessToken)
+                commits = await githubReposService.getCommits(source.owner, source.name, branch)
                 break
         }
         return commits
@@ -269,9 +260,9 @@ export class ReportsService {
         let data = {}
 
         if (source.provider === LOCAL_REPORT_HOST) {
-            data = await this.localReportsService.getFileHash(id, branch)
+            data = await localReportsService.getFileHash(id, branch)
         } else {
-            const { accessToken } = await this.usersService.getUser({
+            const { accessToken } = await usersService.getUser({
                 filter: { _id: user_id },
             })
             const fullPath = `${source.basePath}${path}`
@@ -280,8 +271,8 @@ export class ReportsService {
             switch (source.provider) {
                 case 'github':
                 default:
-                    this.githubReposService.login(accessToken)
-                    data = await this.githubReposService.getFileHash(fullPath, source.owner, source.name, branch)
+                    githubReposService.login(accessToken)
+                    data = await githubReposService.getFileHash(fullPath, source.owner, source.name, branch)
                     break
             }
         }
@@ -294,9 +285,9 @@ export class ReportsService {
         let content
 
         if (source.provider === LOCAL_REPORT_HOST) {
-            content = await this.localReportsService.getFileContent(id, hash)
+            content = await localReportsService.getFileContent(id, hash)
         } else {
-            const { accessToken } = await this.usersService.getUser({
+            const { accessToken } = await usersService.getUser({
                 filter: { _id: user_id },
             })
             // OLD
@@ -305,8 +296,8 @@ export class ReportsService {
             switch (source.provider) {
                 case 'github':
                 default:
-                    this.githubReposService.login(accessToken)
-                    content = await this.githubReposService.getFileContent(hash, source.owner, source.name)
+                    githubReposService.login(accessToken)
+                    content = await githubReposService.getFileContent(hash, source.owner, source.name)
                     break
             }
         }

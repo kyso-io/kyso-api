@@ -1,10 +1,8 @@
-import { forwardRef, Inject, Injectable, UnauthorizedException } from '@nestjs/common'
+import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
+import { organizationsService, teamsService, usersService } from '../../../main'
 import { TokenPermissions } from '../../../model/token-permissions.model'
 import { Token } from '../../../model/token.model'
-import { OrganizationsService } from '../../organizations/organizations.service'
-import { TeamsService } from '../../teams/teams.service'
-import { UsersService } from '../../users/users.service'
 import { AuthService } from '../auth.service'
 import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './mongo-user-role.provider'
@@ -12,10 +10,6 @@ import { UserRoleMongoProvider } from './mongo-user-role.provider'
 @Injectable()
 export class KysoLoginProvider {
     constructor(
-        @Inject(forwardRef(() => UsersService))
-        private readonly userService: UsersService,
-        private readonly teamService: TeamsService,
-        private readonly organizationService: OrganizationsService,
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
         private readonly userRoleProvider: UserRoleMongoProvider,
@@ -23,12 +17,12 @@ export class KysoLoginProvider {
 
     async login(password: string, username?: string): Promise<string> {
         // Get user from database
-        const user = await this.userService.getUser({
+        const user = await usersService.getUser({
             filter: { username: username },
         })
 
-        if(!user) {
-            throw new UnauthorizedException("Unauthorized")
+        if (!user) {
+            throw new UnauthorizedException('Unauthorized')
         }
 
         const isRightPassword = await AuthService.isPasswordCorrect(password, user.hashed_password)
@@ -37,9 +31,9 @@ export class KysoLoginProvider {
             // Build all the permissions for this user
             const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
                 username,
-                this.userService,
-                this.teamService,
-                this.organizationService,
+                usersService,
+                teamsService,
+                organizationsService,
                 this.platformRoleProvider,
                 this.userRoleProvider,
             )
@@ -57,7 +51,7 @@ export class KysoLoginProvider {
 
             return token
         } else {
-            throw new UnauthorizedException("Unauthorized")
+            throw new UnauthorizedException('Unauthorized')
         }
     }
 }

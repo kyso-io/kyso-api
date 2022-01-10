@@ -1,19 +1,18 @@
 import { Injectable, PreconditionFailedException } from '@nestjs/common'
 import { NotFoundError } from '../../helpers/errorHandling'
 import { userHasPermission } from '../../helpers/permissions'
+import { reportsService, teamsService } from '../../main'
 import { Comment } from '../../model/comment.model'
 import { Report } from '../../model/report.model'
 import { Team } from '../../model/team.model'
 import { Token } from '../../model/token.model'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
-import { ReportsService } from '../reports/reports.service'
-import { TeamsService } from '../teams/teams.service'
 import { CommentsMongoProvider } from './providers/mongo-comments.provider'
 import { CommentPermissionsEnum } from './security/comment-permissions.enum'
 
 @Injectable()
 export class CommentsService {
-    constructor(private readonly provider: CommentsMongoProvider, private reportsService: ReportsService, private teamsService: TeamsService) {}
+    constructor(private readonly provider: CommentsMongoProvider) {}
 
     async createComment(comment: Comment): Promise<Comment> {
         if (comment?.comment_id) {
@@ -22,18 +21,18 @@ export class CommentsService {
                 throw new PreconditionFailedException('The specified related comment could not be found')
             }
         }
-        const report: Report = await this.reportsService.getById(comment.report_id)
+        const report: Report = await reportsService.getById(comment.report_id)
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
         }
         if (!report.team_id || report.team_id == null || report.team_id === '') {
             throw new PreconditionFailedException('The specified report does not have a team associated')
         }
-        const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
+        const team: Team = await teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
         if (!team) {
             throw new PreconditionFailedException('The specified team could not be found')
         }
-        const userTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(comment.user_id)
+        const userTeams: Team[] = await teamsService.getTeamsVisibleForUser(comment.user_id)
         if (!userTeams.find((t: Team) => t.id === team.id)) {
             throw new PreconditionFailedException('The specified user does not belong to the team of the specified report')
         }
@@ -46,14 +45,14 @@ export class CommentsService {
             throw new PreconditionFailedException('The specified comment could not be found')
         }
         const comment: Comment = comments[0]
-        const report: Report = await this.reportsService.getById(comment.report_id)
+        const report: Report = await reportsService.getById(comment.report_id)
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
         }
         if (!report.team_id || report.team_id == null || report.team_id === '') {
             throw new PreconditionFailedException('The specified report does not have a team associated')
         }
-        const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
+        const team: Team = await teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
         if (!team) {
             throw new PreconditionFailedException('The specified team could not be found')
         }
