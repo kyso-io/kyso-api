@@ -1,6 +1,6 @@
 import { Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
 import { InvalidInputError } from '../../helpers/errorHandling'
 import { HateoasLinker } from '../../helpers/hateoasLinker'
