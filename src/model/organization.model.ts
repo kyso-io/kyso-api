@@ -36,6 +36,8 @@ export class Organization extends BaseModel {
     @IsBoolean()
     public allowGoogleLogin: boolean
 
+    buildHatoes(relations?: any) {}
+
     constructor(name: string, roles: KysoRole[], billingEmail: string, subscriptionId: string, allowGoogleLogin: boolean, id?: string) {
         super()
 

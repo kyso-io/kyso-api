@@ -32,6 +32,9 @@ export class User extends BaseUser {
     @Type(() => UserAccount)
     public accounts: UserAccount[]
 
+    @ApiProperty()
+    public type: 'user'
+
     constructor(
         email: string,
         username: string,

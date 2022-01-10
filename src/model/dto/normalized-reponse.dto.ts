@@ -29,6 +29,8 @@ export class NormalizedResponse {
 
         data.buildHatoes(relations)
 
+        console.log(relations.user['61d72cfe565282538793ebd8'].buildHatoes)
+
         this.relations = relations
     }
 }

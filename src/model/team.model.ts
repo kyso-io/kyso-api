@@ -53,6 +53,8 @@ export class Team extends BaseModel {
     @IsMongoId()
     public organization_id: string
 
+    buildHatoes(relations?: any) {}
+
     constructor(
         name: string,
         avatar_url: string,

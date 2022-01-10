@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/sw
 import { UsersService } from './users.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { AuthService } from '../auth/auth.service'
 import { User } from '../../model/user.model'
 import { GenericController } from '../../generic/controller.generic'
