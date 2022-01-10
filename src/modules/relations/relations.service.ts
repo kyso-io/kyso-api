@@ -38,13 +38,14 @@ export class RelationsService {
         const groupedRelations = this.scanForRelations(entities)
 
         return await Object.keys(groupedRelations).reduce(async (previousPromise, collection) => {
-            const accumulator = await previousPromise
-            const entities = await this.provider.readFromCollectionByIds(collection, groupedRelations[collection])
-            accumulator[collection.toLowerCase()] = entities.reduce((acc, entity) => {
-                acc[entity._id] = entity
+            const relations = await previousPromise
+            const models = await this.provider.readFromCollectionByIds(collection, groupedRelations[collection])
+            relations[collection.toLowerCase()] = models.reduce((acc, model) => {
+                console.log(model)
+                acc[model._id] = model
                 return acc
             }, {})
-            return accumulator
+            return relations
         }, Promise.resolve({}))
     }
 }

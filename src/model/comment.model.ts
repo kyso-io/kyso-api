@@ -14,6 +14,9 @@ export class Comment extends BaseModel {
     @ApiProperty({ format: 'faker: datatype.uuid' })
     public comment_id: string
 
+    @ApiProperty()
+    public type: 'comment'
+
     buildHatoes(relations?: any) {}
 
     constructor(text, user_id, report_id, comment_id) {

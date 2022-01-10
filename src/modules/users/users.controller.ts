@@ -9,7 +9,7 @@ import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
 import { BaseFilterQuery } from '../../model/dto/base-filter.dto'
 import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']

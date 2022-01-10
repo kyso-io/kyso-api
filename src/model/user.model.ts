@@ -26,6 +26,9 @@ export class User extends BaseUser {
     @ApiProperty()
     public _email_verify_token?: string
 
+    @ApiProperty()
+    public type: 'user'
+
     constructor(
         email: string,
         username: string,

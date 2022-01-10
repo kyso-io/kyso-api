@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
 import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
 import { Organization } from '../../model/organization.model'
