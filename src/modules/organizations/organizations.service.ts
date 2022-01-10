@@ -1,21 +1,16 @@
-import { forwardRef, Inject, Injectable, PreconditionFailedException } from '@nestjs/common'
+import { Injectable, PreconditionFailedException } from '@nestjs/common'
+import { usersService } from '../../main'
 import { KysoRole } from '../../model/kyso-role.model'
 import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
 import { OrganizationMember } from '../../model/organization-member.model'
 import { Organization } from '../../model/organization.model'
 import { User } from '../../model/user.model'
-import { UsersService } from '../users/users.service'
 import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
 import { OrganizationsMongoProvider } from './providers/mongo-organizations.provider'
 
 @Injectable()
 export class OrganizationsService {
-    constructor(
-        private readonly provider: OrganizationsMongoProvider,
-        private readonly organizationMemberProvider: OrganizationMemberMongoProvider,
-        @Inject(forwardRef(() => UsersService))
-        private readonly userService: UsersService,
-    ) {}
+    constructor(private readonly provider: OrganizationsMongoProvider, private readonly organizationMemberProvider: OrganizationMemberMongoProvider) {}
 
     async getOrganization(query: any): Promise<Organization> {
         const organization = await this.provider.read(query)
@@ -87,7 +82,7 @@ export class OrganizationsService {
 
             const filter = { filter: { $or: filterArray } }
 
-            const users = await this.userService.getUsers(filter)
+            const users = await usersService.getUsers(filter)
 
             const usersAndRoles = users.map((u: User) => {
                 // Find role for this user in members
@@ -135,5 +130,9 @@ export class OrganizationsService {
         organizationDb.allowGoogleLogin = organization.allowGoogleLogin
 
         return await this.provider.update({ _id: this.provider.toObjectId(organizationDb.id) }, { $set: organizationDb })
+    }
+
+    public async getMembers(organizationId: string): Promise<OrganizationMemberJoin[]> {
+        return this.organizationMemberProvider.getMembers(organizationId)
     }
 }

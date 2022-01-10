@@ -1,7 +1,7 @@
-import { Injectable, CanActivate, ExecutionContext, Logger } from '@nestjs/common'
+import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { Observable } from 'rxjs'
-import { HEADER_X_KYSO_TEAM, HEADER_X_KYSO_ORGANIZATION } from '../../../model/constants'
+import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM } from '../../../model/constants'
 import { ResourcePermissions } from '../../../model/resource-permissions.model'
 import { Token } from '../../../model/token.model'
 import { GlobalPermissionsEnum } from '../../../security/general-permissions.enum'
@@ -18,6 +18,9 @@ export class PermissionsGuard implements CanActivate {
 
             // Get the token
             const tokenPayload: Token = this.authService.evaluateAndDecodeTokenFromHeader(request.headers.authorization)
+
+            // Set token in request to get access in controller
+            request.token = tokenPayload
 
             const team = request.headers[HEADER_X_KYSO_TEAM]
             const organization = request.headers[HEADER_X_KYSO_ORGANIZATION]
