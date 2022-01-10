@@ -1,12 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { Exclude } from 'class-transformer'
-import { IsAlphanumeric, IsOptional } from 'class-validator'
+import { Exclude, Type } from 'class-transformer'
+import { IsAlphanumeric, IsArray, IsOptional, ValidateNested } from 'class-validator'
 import * as mongo from 'mongodb'
 import { AuthService } from '../modules/auth/auth.service'
 import { GlobalPermissionsEnum } from '../security/general-permissions.enum'
 import { BaseUser } from './base-user.model'
 import { CreateUserRequest } from './dto/create-user-request.dto'
 import { LoginProviderEnum } from './enum/login-provider.enum'
+import { UserAccount } from './user-account'
 
 export class User extends BaseUser {
     @IsAlphanumeric()
@@ -25,6 +26,11 @@ export class User extends BaseUser {
     @IsOptional()
     @ApiProperty()
     public _email_verify_token?: string
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => UserAccount)
+    public accounts: UserAccount[]
 
     constructor(
         email: string,
@@ -49,6 +55,7 @@ export class User extends BaseUser {
         if (_email_verify_token) {
             this._email_verify_token = _email_verify_token
         }
+        this.accounts = []
     }
 
     static fromGithubUser(userData: any, emailData: any): User {

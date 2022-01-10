@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-repose'
 import { GenericController } from '../../generic/controller.generic'
@@ -6,6 +6,7 @@ import { QueryParser } from '../../helpers/queryParser'
 import { BaseFilterQuery } from '../../model/dto/base-filter.dto'
 import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
+import { UserAccount } from '../../model/user-account'
 import { User } from '../../model/user.model'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
@@ -110,5 +111,51 @@ export class UsersController extends GenericController<User> {
     @Permission([UserPermissionsEnum.DELETE])
     async deleteUser(@Param('mail') mail: string) {
         await this.usersService.deleteUser(mail)
+    }
+
+    @Patch('/:email/accounts')
+    @ApiOperation({
+        summary: `Add an account to an user`,
+        description: `Allows adding an account to an user passing its username`,
+    })
+    @ApiParam({
+        name: 'email',
+        required: true,
+        description: `Email of the user to add an account`,
+        schema: { type: 'string' },
+    })
+    @ApiResponse({ status: 200, description: `Account added successfully` })
+    @Permission([UserPermissionsEnum.EDIT])
+    async addAccount(@Param('email') email: string, @Body() userAccount: UserAccount): Promise<boolean> {
+        return this.usersService.addAccount(email, userAccount)
+    }
+
+    @Delete('/:email/accounts/:provider/:accountId')
+    @ApiOperation({
+        summary: `Remove an account from an user`,
+        description: `Allows removing an account from an user passing its username`,
+    })
+    @ApiParam({
+        name: 'email',
+        required: true,
+        description: `Email of the user to remove an account`,
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'provider',
+        required: true,
+        description: `Provider of the account to remove`,
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'accountId',
+        required: true,
+        description: `Id of the account to remove`,
+        schema: { type: 'string' },
+    })
+    @ApiResponse({ status: 200, description: `Account removed successfully` })
+    @Permission([UserPermissionsEnum.EDIT])
+    async removeAccount(@Param('email') email: string, @Param('provider') provider: string, @Param('accountId') accountId: string) {
+        return this.usersService.removeAccount(email, provider, accountId)
     }
 }
