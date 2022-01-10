@@ -1,4 +1,4 @@
-import { Injectable, Scope } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { NotFoundError } from '../../helpers/errorHandling'
 import { GithubReposProvider } from './providers/github-repo.provider'
 const { safeLoad } = require('js-yaml')

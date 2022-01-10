@@ -1,5 +1,6 @@
 import { Injectable, PreconditionFailedException } from '@nestjs/common'
 import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
+import { UserAccount } from '../../model/user-account'
 import { User } from '../../model/user.model'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 
@@ -55,5 +56,45 @@ export class UsersService {
         } else {
             this.provider.delete({ email: email })
         }
+    }
+
+    public async addAccount(email: string, userAccount: UserAccount): Promise<boolean> {
+        const user = await this.getUser({ filter: { email: email } })
+
+        if (!user) {
+            throw new PreconditionFailedException(null, `Can't add account to user as does not exists`)
+        }
+        if (!user.hasOwnProperty('accounts')) {
+            user.accounts = []
+        }
+        const index: number = user.accounts.findIndex(
+            (account: UserAccount) => account.accountId === userAccount.accountId && account.type === userAccount.type,
+        )
+        if (index !== -1) {
+            throw new PreconditionFailedException(null, `The user has already registered this account`)
+        } else {
+            const userAccounts: UserAccount[] = [...user.accounts, userAccount]
+            await this.updateUser({ email: email }, { $set: { accounts: userAccounts } })
+        }
+        return true
+    }
+
+    public async removeAccount(email: string, provider: string, accountId: string): Promise<boolean> {
+        const user = await this.getUser({ filter: { email: email } })
+
+        if (!user) {
+            throw new PreconditionFailedException(null, `Can't remove account to user as does not exists`)
+        }
+        if (!user.hasOwnProperty('accounts')) {
+            user.accounts = []
+        }
+        const index: number = user.accounts.findIndex((account: UserAccount) => account.accountId === accountId && account.type === provider)
+        if (index !== -1) {
+            const userAccounts: UserAccount[] = [...user.accounts.slice(0, index), ...user.accounts.slice(index + 1)]
+            await this.updateUser({ email: email }, { $set: { accounts: userAccounts } })
+        } else {
+            throw new PreconditionFailedException(null, `The user has not registered this account`)
+        }
+        return true
     }
 }

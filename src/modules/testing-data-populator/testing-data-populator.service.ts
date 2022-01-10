@@ -1,22 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common'
+import { usersService, organizationsService, teamsService, reportsService, commentsService } from '../../main'
+import { Comment } from '../../model/comment.model'
 import { CreateReport } from '../../model/dto/create-report-request.dto'
+import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { LoginProviderEnum } from '../../model/enum/login-provider.enum'
 import { TeamVisibilityEnum } from '../../model/enum/team-visibility.enum'
 import { KysoRole } from '../../model/kyso-role.model'
 import { Organization } from '../../model/organization.model'
+import { Report } from '../../model/report.model'
 import { Team } from '../../model/team.model'
-import { Comment } from '../../model/comment.model'
 import { User } from '../../model/user.model'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
-import { OrganizationsService } from '../organizations/organizations.service'
-import { ReportsService } from '../reports/reports.service'
-import { CommentsService } from '../comments/comments.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
-import { TeamsService } from '../teams/teams.service'
-import { UsersService } from '../users/users.service'
-import { Report } from '../../model/report.model'
-import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 
 @Injectable()
 export class TestingDataPopulatorService {
@@ -39,15 +35,6 @@ export class TestingDataPopulatorService {
     private PublicTeam: Team
     private ProtectedTeamWithCustomRole: Team
     private PrivateTeam: Team
-
-    constructor(
-        private readonly usersService: UsersService,
-        private readonly organizationService: OrganizationsService,
-        private readonly teamService: TeamsService,
-        // @Inject(forwardRef(() => ReportsService))
-        private readonly reportsService: ReportsService,
-        private readonly commentsService: CommentsService,
-    ) {}
 
     public async populateTestData() {
         if (process.env.POPULATE_TEST_DATA && process.env.POPULATE_TEST_DATA === 'true') {
@@ -79,7 +66,7 @@ export class TestingDataPopulatorService {
 
     private async checkIfAlreadyExists() {
         // I assume only these two usernames exist if they were created by the test data populator
-        const testUsersByUsername = await this.usersService.getUsers({ filter: { $or: [{ username: 'rey@kyso.io' }, { username: 'kylo@kyso.io' }] } })
+        const testUsersByUsername = await usersService.getUsers({ filter: { $or: [{ username: 'rey@kyso.io' }, { username: 'kylo@kyso.io' }] } })
         if (testUsersByUsername.length === 2) {
             return true
         }
@@ -162,10 +149,10 @@ export class TestingDataPopulatorService {
     private async _createUser(user: CreateUserRequest) {
         try {
             Logger.log(`Creating ${user.nickname} user...`)
-            return await this.usersService.createUser(user)
+            return await usersService.createUser(user)
         } catch (ex) {
             Logger.log(`${user.nickname} user already exists`)
-            return this.usersService.getUser({ email: user.email })
+            return usersService.getUser({ email: user.email })
         }
     }
 
@@ -177,42 +164,36 @@ export class TestingDataPopulatorService {
     private async _createReport(report: CreateReport, user: User) {
         try {
             Logger.log(`Creating ${report.name} report...`)
-            return this.reportsService.createReport(user, report, null)
+            return reportsService.createReport(user, report, null)
         } catch (ex) {
             Logger.log(`${report.name} report already exists`)
         }
     }
 
     private async createTestingComments() {
-        const testComment = new Comment('test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, null)
+        const testComment = new Comment('test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, null, this.Kylo_TeamContributorUser.username)
         this.TestComment = await this._createComment(testComment)
 
         this.TestChildComment1 = await this._createComment(
-            new Comment('child test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, this.TestComment.id),
+            new Comment('child test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, this.TestComment.id, this.Kylo_TeamContributorUser.username),
         )
 
         this.TestChildComment2 = await this._createComment(
-            new Comment('child 2 test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, this.TestComment.id),
+            new Comment('child 2 test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, this.TestComment.id, this.Kylo_TeamContributorUser.username),
         )
     }
 
     private async _createComment(comment: Comment): Promise<Comment> {
         try {
             Logger.log(`Creating ${comment.text} comment...`)
-            return this.commentsService.createComment(comment)
+            return commentsService.createComment(comment)
         } catch (ex) {
             Logger.log(`"${comment.text}" comment already exists`)
         }
     }
 
     private async createOrganizations() {
-        const darksideOrganization: Organization = new Organization(
-            'darkside',
-            [],
-            'darkside@kyso.io',
-            'random-stripe-id-with-no-use',
-            false,
-        )
+        const darksideOrganization: Organization = new Organization('darkside', [], 'darkside@kyso.io', 'random-stripe-id-with-no-use', false)
 
         this.DarksideOrganization = await this._createOrganization(darksideOrganization)
 
@@ -232,7 +213,7 @@ export class TestingDataPopulatorService {
     private async _createOrganization(organization: Organization) {
         try {
             Logger.log(`Creating ${organization.name} organization...`)
-            return await this.organizationService.createOrganization(organization)
+            return await organizationsService.createOrganization(organization)
         } catch (ex) {
             Logger.log(` ${organization.name} organization already exists`)
         }
@@ -283,7 +264,7 @@ export class TestingDataPopulatorService {
     private async _createTeam(team: Team) {
         try {
             Logger.log(`Creating ${team.name} team...`)
-            return await this.teamService.createTeam(team)
+            return await teamsService.createTeam(team)
         } catch (ex) {
             Logger.log(` ${team.name} team already exists`)
         }
@@ -294,31 +275,24 @@ export class TestingDataPopulatorService {
             /*** Darkside organization ***/
 
             // Organization admin
-            await this.organizationService.addMembersById(
+            await organizationsService.addMembersById(
                 this.DarksideOrganization.id,
                 [this.Gideon_OrganizationAdminUser.id.toString()],
                 [KysoRole.ORGANIZATION_ADMIN_ROLE.name],
             )
 
-            await this.organizationService.addMembersById(
+            await organizationsService.addMembersById(
                 this.DarksideOrganization.id,
                 [this.Kylo_TeamContributorUser.id.toString()],
                 [KysoRole.TEAM_CONTRIBUTOR_ROLE.name],
             )
 
             /*** Lightside organization ***/
-            await this.organizationService.addMembersById(
-                this.LightsideOrganization.id, 
-                [this.Rey_TeamAdminUser.id.toString()], 
-                [KysoRole.TEAM_ADMIN_ROLE.name])
+            await organizationsService.addMembersById(this.LightsideOrganization.id, [this.Rey_TeamAdminUser.id.toString()], [KysoRole.TEAM_ADMIN_ROLE.name])
 
-            await this.organizationService.addMembersById(
-                this.LightsideOrganization.id,
-                [this.Kylo_TeamContributorUser.id],
-                [KysoRole.TEAM_READER_ROLE.name]
-            )
+            await organizationsService.addMembersById(this.LightsideOrganization.id, [this.Kylo_TeamContributorUser.id], [KysoRole.TEAM_READER_ROLE.name])
 
-            await this.organizationService.addMembersById(
+            await organizationsService.addMembersById(
                 this.LightsideOrganization.id,
                 [this.Chewbacca_TeamReaderUser.id.toString()],
                 [KysoRole.TEAM_READER_ROLE.name],
@@ -331,10 +305,10 @@ export class TestingDataPopulatorService {
     private async assignUsersToTeams() {
         try {
             Logger.log(`Adding ${this.Gideon_OrganizationAdminUser.nickname} to team ${this.PrivateTeam.name} with role ${this.CustomTeamRole.name}`)
-            await this.teamService.addMembersById(this.PrivateTeam.id, [this.Gideon_OrganizationAdminUser.id], [this.CustomTeamRole.name])
+            await teamsService.addMembersById(this.PrivateTeam.id, [this.Gideon_OrganizationAdminUser.id], [this.CustomTeamRole.name])
 
             Logger.log(`Adding ${this.Rey_TeamAdminUser.nickname} to team ${this.PrivateTeam.name} with role ${KysoRole.TEAM_ADMIN_ROLE.name}`)
-            await this.teamService.addMembersById(this.PrivateTeam.id, [this.Rey_TeamAdminUser.id], [KysoRole.TEAM_ADMIN_ROLE.name])
+            await teamsService.addMembersById(this.PrivateTeam.id, [this.Rey_TeamAdminUser.id], [KysoRole.TEAM_ADMIN_ROLE.name])
         } catch (ex) {
             // silent it
         }

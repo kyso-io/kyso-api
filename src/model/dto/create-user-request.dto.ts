@@ -9,7 +9,7 @@ export class CreateUserRequest extends BaseUser {
 
     constructor(email, username, nickname, provider, bio, plan, avatar_url, email_verified, password, global_permissions) {
         super(email, username, nickname, provider, bio, plan, avatar_url, email_verified, global_permissions)
-        
+
         this.password = password
     }
 }

@@ -24,4 +24,7 @@ export class Report extends BaseModel {
 
     @ApiProperty({ format: 'faker: datatype.uuid' })
     public user_id: string
+
+    @ApiProperty({ format: 'faker: datatype.uuid' })
+    public team_id: string
 }

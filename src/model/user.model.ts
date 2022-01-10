@@ -1,12 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { Exclude } from 'class-transformer'
-import { IsAlphanumeric, IsArray, IsBooleanString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsUrl, Length } from 'class-validator'
+import { Exclude, Type } from 'class-transformer'
+import { IsAlphanumeric, IsArray, IsOptional, ValidateNested } from 'class-validator'
 import * as mongo from 'mongodb'
 import { AuthService } from '../modules/auth/auth.service'
 import { GlobalPermissionsEnum } from '../security/general-permissions.enum'
 import { BaseUser } from './base-user.model'
 import { CreateUserRequest } from './dto/create-user-request.dto'
 import { LoginProviderEnum } from './enum/login-provider.enum'
+import { UserAccount } from './user-account'
 
 export class User extends BaseUser {
     @IsAlphanumeric()
@@ -26,6 +27,11 @@ export class User extends BaseUser {
     @ApiProperty()
     public _email_verify_token?: string
 
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => UserAccount)
+    public accounts: UserAccount[]
+
     constructor(
         email: string,
         username: string,
@@ -42,27 +48,36 @@ export class User extends BaseUser {
         _email_verify_token?: string,
     ) {
         super(email, username, nickname, provider, bio, plan, avatarUrl, emailVerified, global_permissions, _id)
-        
+
         this.hashed_password = hashed_password
-        this.accessToken = access_token;
+        this.accessToken = access_token
 
         if (_email_verify_token) {
             this._email_verify_token = _email_verify_token
         }
+        this.accounts = []
     }
 
     static fromGithubUser(userData: any, emailData: any): User {
-        const newUser = new User(
-            emailData.email, userData.login, userData.name, LoginProviderEnum.GITHUB, '', 'free', 
-            userData.avatar_url, true, [], '', '')
+        const newUser = new User(emailData.email, userData.login, userData.name, LoginProviderEnum.GITHUB, '', 'free', userData.avatar_url, true, [], '', '')
 
         return newUser
     }
 
     static fromCreateUserRequest(request: CreateUserRequest): User {
-        let newUser = new User(
-            request.email, request.username, request.nickname, request.provider, request.bio, request.plan, 
-            request.avatar_url, request.email_verified, request.global_permissions, '', '')
+        const newUser = new User(
+            request.email,
+            request.username,
+            request.nickname,
+            request.provider,
+            request.bio,
+            request.plan,
+            request.avatar_url,
+            request.email_verified,
+            request.global_permissions,
+            '',
+            '',
+        )
 
         newUser.hashed_password = AuthService.hashPassword(request.password)
 

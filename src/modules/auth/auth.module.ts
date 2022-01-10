@@ -1,8 +1,5 @@
 import { Global, Module } from '@nestjs/common'
 import { JwtModule } from '@nestjs/jwt'
-import { GithubReposModule } from '../github-repos/github-repos.module'
-import { OrganizationsModule } from '../organizations/organizations.module'
-import { TeamsModule } from '../teams/teams.module'
 import { AuthController } from './auth.controller'
 import { AuthService } from './auth.service'
 import { PermissionsGuard } from './guards/permission.guard'
@@ -17,9 +14,6 @@ import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
         JwtModule.register({
             secret: 'OHMYGODTHISISASECRET',
         }),
-        TeamsModule,
-        OrganizationsModule,
-        GithubReposModule,
     ],
     providers: [UserRoleMongoProvider, AuthService, KysoLoginProvider, GithubLoginProvider, PlatformRoleMongoProvider, PermissionsGuard],
     controllers: [AuthController],
