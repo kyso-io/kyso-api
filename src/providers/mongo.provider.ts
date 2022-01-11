@@ -24,11 +24,15 @@ export class MongoProvider<T> {
 
         existsCollectionPromise.then((existsCollection) => {
             if (!existsCollection) {
-                Logger.log(`Collection ${this.baseCollection} does not exists, creating it`)
-                this.db.createCollection(this.baseCollection)
+                try {
+                    Logger.log(`Collection ${this.baseCollection} does not exists, creating it`)
+                    this.db.createCollection(this.baseCollection)
 
-                Logger.log(`Populating minimal data for ${this.baseCollection} collection`)
-                this.populateMinimalData()
+                    Logger.log(`Populating minimal data for ${this.baseCollection} collection`)
+                    this.populateMinimalData()
+                } catch (ex) {
+                    Logger.log(`Collection ${this.baseCollection} already exists`, ex)
+                }
             }
         })
     }

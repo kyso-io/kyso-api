@@ -1,4 +1,4 @@
-name: Deploy to staging 
+name: e2e tests
 
 on:
   push:
@@ -72,18 +72,3 @@ jobs:
       - name: Stop containers
         if: always()
         run: docker-compose -f "docker-compose.yml" down
-  
-  deploy_to_heroku:
-    name: Deploy to Heroku
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Install Heroku CLI 
-        run: snap install --classic heroku 
-
-      - name: Login into Heroku
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-        run: heroku auth:token
-
-      
