@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { BaseModel } from './base.model'
 
-export class TeamMember extends BaseModel {
+export class TeamMember {
     @ApiProperty()
     public id: string
     @ApiProperty()
