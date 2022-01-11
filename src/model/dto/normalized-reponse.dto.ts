@@ -26,10 +26,9 @@ export class NormalizedResponse {
 
     constructor(data, relations?) {
         this.data = data
-
-        console.log(typeof relations)
-        if (relations) data.buildHatoes(relations)
-
         this.relations = relations
+
+        if (data.buildHatoes && relations) data.buildHatoes(relations)
+        // I want also here to buildHatoes for each object inside relations
     }
 }
