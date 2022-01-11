@@ -1,4 +1,4 @@
-import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common'
+import { ClassSerializerInterceptor, Logger, Provider, ValidationPipe } from '@nestjs/common'
 import { NestFactory, Reflector } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import * as dotenv from 'dotenv'
@@ -7,28 +7,12 @@ import * as helmet from 'helmet'
 import { MongoClient } from 'mongodb'
 import { RedocModule, RedocOptions } from 'nestjs-redoc'
 import { AppModule } from './app.module'
+import { getSingletons, getSingletonValue, registerSingleton } from './decorators/autowired'
 import { TransformInterceptor } from './interceptors/exclude.interceptor'
 import { CommentsService } from './modules/comments/comments.service'
-import { GithubReposService } from './modules/github-repos/github-repos.service'
-import { OrganizationsService } from './modules/organizations/organizations.service'
-import { RelationsService } from './modules/relations/relations.service'
-import { LocalReportsService } from './modules/reports/local-reports.service'
-import { ReportsService } from './modules/reports/reports.service'
-import { TeamsService } from './modules/teams/teams.service'
 import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service'
-import { UsersService } from './modules/users/users.service'
 export let client
 export let db
-
-// SERVICES
-export let commentsService: CommentsService
-export let githubReposService: GithubReposService
-export let localReportsService: LocalReportsService
-export let organizationsService: OrganizationsService
-export let relationsService: RelationsService
-export let reportsService: ReportsService
-export let teamsService: TeamsService
-export let usersService: UsersService
 
 const cspDefaults = helmet.contentSecurityPolicy.getDefaultDirectives()
 delete cspDefaults['upgrade-insecure-requests']
@@ -125,15 +109,14 @@ async function bootstrap() {
             await testingDataPopulatorService.populateTestData()
         }, 10000)
     }
+    
+    // Autowired extension to allow injection outside the constructor and avoid circular dependencies
+    const singletons: string[] = getSingletons()
 
-    commentsService = app.get<CommentsService>(CommentsService)
-    localReportsService = app.get<LocalReportsService>(LocalReportsService)
-    githubReposService = app.get<GithubReposService>(GithubReposService)
-    organizationsService = app.get<OrganizationsService>(OrganizationsService)
-    relationsService = app.get<RelationsService>(RelationsService)
-    reportsService = app.get<ReportsService>(ReportsService)
-    teamsService = app.get<TeamsService>(TeamsService)
-    usersService = app.get<UsersService>(UsersService)
+    singletons.forEach((x: any) => {
+        const instance = app.get(CommentsService.name)
+        registerSingleton(x, instance)
+    })
 }
 
 async function connectToDatabase(DB_NAME) {

@@ -13,9 +13,9 @@ import { UsersModule } from './modules/users/users.module'
 @Module({
     imports: [
         UsersModule,
-        AuthModule,
+        AuthModule.forRoot(),
         BitbucketReposModule,
-        CommentsModule,
+        CommentsModule.forRoot(),
         GithubReposModule,
         OrganizationsModule,
         ReportsModule,

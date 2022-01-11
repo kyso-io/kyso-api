@@ -1,5 +1,6 @@
-import { Injectable, PreconditionFailedException } from '@nestjs/common'
-import { NotFoundError } from '../../helpers/errorHandling'
+import { Inject, Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
+import { Autowired } from '../../decorators/autowired'
+import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
 import { reportsService, teamsService } from '../../main'
 import { Comment } from '../../model/comment.model'
@@ -10,9 +11,24 @@ import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
 import { CommentsMongoProvider } from './providers/mongo-comments.provider'
 import { CommentPermissionsEnum } from './security/comment-permissions.enum'
 
+function factory(service: CommentsService) {
+    return service;
+}
+  
+export function createProvider(): Provider<CommentsService> {
+    return {
+        provide: `${CommentsService.name}`,
+        useFactory: service => factory(service),
+        inject: [CommentsService],
+    };
+}
+
 @Injectable()
-export class CommentsService {
-    constructor(private readonly provider: CommentsMongoProvider) {}
+export class CommentsService extends AutowiredService {
+    
+    constructor(private readonly provider: CommentsMongoProvider) {
+        super()
+    }
 
     async createComment(comment: Comment): Promise<Comment> {
         if (comment?.comment_id) {
@@ -82,7 +98,7 @@ export class CommentsService {
         })
 
         if (comments.length === 0) {
-            throw new NotFoundError({ message: "The specified comment couldn't be found" })
+            return {}
         }
 
         return comments
