@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { db } from '../../../main'
+import { BaseModel } from '../../../model/base.model'
 import { Report } from '../../../model/report.model'
 import { MongoProvider } from '../../../providers/mongo.provider'
 
@@ -13,7 +14,7 @@ export class ReportsMongoProvider extends MongoProvider<Report> {
         Logger.log(`${this.baseCollection} has no minimal data to populate`)
     }
 
-    async getReportsWithOwner(query) {
+    async getReportsWithOwner(query): Promise<Report[]> {
         const pipeline = []
 
         const { projection, ...rest } = MongoProvider.aggregationRename(query) as any
@@ -69,6 +70,6 @@ export class ReportsMongoProvider extends MongoProvider<Report> {
 
         // console.log(JSON.stringify(pipeline, null, 2))
         const reports = await this.aggregate(pipeline)
-        return reports
+        return reports as Report[]
     }
 }

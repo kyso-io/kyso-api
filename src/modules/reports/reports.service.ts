@@ -85,7 +85,7 @@ export class ReportsService extends AutowiredService {
         }
 
         const reports = await this.provider.getReportsWithOwner(query)
-        return reports
+        return reports as Report[]
     }
 
     async getReport(reportOwner, reportName): Promise<Report> {

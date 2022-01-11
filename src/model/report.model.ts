@@ -1,4 +1,5 @@
 import { ApiExtraModels, ApiProperty } from '@nestjs/swagger'
+import { plainToClass } from 'class-transformer'
 import { BaseModel } from './base.model'
 import { BatchReportCreation } from './dto/batch-report-creation-response.dto'
 
@@ -48,5 +49,13 @@ export class Report extends BaseModel {
             self_api: `/${user.nickname}/${this.name}`,
             self_ui: `/${user.nickname}/${this.name}`,
         }
+    }
+
+    public static fromObject(obj: any): Report {
+        return plainToClass(Report, obj)
+    }
+
+    public static fromObjectArray(array: any[]): Report[] {
+        return array.map(x => Report.fromObject(x))
     }
 }

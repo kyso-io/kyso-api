@@ -4,6 +4,7 @@ import { Report } from '../report.model'
 import { Comment } from '../comment.model'
 import { Team } from '../team.model'
 import { Organization } from '../organization.model'
+import { BaseModel } from '../base.model'
 
 const MODELS = [User, Report, Comment, Team, Organization]
 
@@ -24,10 +25,19 @@ export class NormalizedResponse {
     })
     relations: object
 
-    constructor(data, relations?) {
+    constructor(data: BaseModel | BaseModel[] | any, relations?) {
         this.data = data
 
-        data.buildHatoes(relations)
+        if(Array.isArray(data)) {
+            if(data[0]) {
+                // We assume that all the objects in the array are of the same type...
+                if(data[0] instanceof BaseModel) {
+                    data.map(x => x.buildHatoes(relations))
+                }
+            }
+        } else if(data instanceof BaseModel) {
+            data[0].buildHatoes(relations)
+        }
 
         this.relations = relations
     }

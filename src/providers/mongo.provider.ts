@@ -89,7 +89,7 @@ export class MongoProvider<T> {
         return obj
     }
 
-    async aggregate(pipeline, collection = '') {
+    async aggregate(pipeline, collection = ''): Promise<T[]> {
         const cursor = await this.getCollection(collection)
             .aggregate(pipeline)
             .map((elem) => parseForeignKeys(elem))

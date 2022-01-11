@@ -79,7 +79,7 @@ export class ReportsController extends GenericController<Report> {
             if (!query.filter[key]) query.filter[key] = value
         })
 
-        const reports = await this.reportsService.getReports(query)
+        const reports = Report.fromObjectArray(await this.reportsService.getReports(query))
         const relations = await this.relationsService.getRelations(reports)
         res.status(200).send(new NormalizedResponse(reports, relations))
         return
