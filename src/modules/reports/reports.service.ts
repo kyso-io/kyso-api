@@ -161,6 +161,7 @@ export class ReportsService {
                 defaultBranch: createReportRequest.default_branch,
                 basePath,
             },
+            team_id: createReportRequest.team_id,
             links: {},
             numberOfComments: 0,
             stars: 0,
