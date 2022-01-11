@@ -1,14 +1,42 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
-import { organizationsService, teamsService, usersService } from '../../../main'
+import { Autowired } from '../../../decorators/autowired'
 import { TokenPermissions } from '../../../model/token-permissions.model'
 import { Token } from '../../../model/token.model'
+import { CommentsService } from '../../comments/comments.service'
+import { GithubReposService } from '../../github-repos/github-repos.service'
+import { OrganizationsService } from '../../organizations/organizations.service'
+import { LocalReportsService } from '../../reports/local-reports.service'
+import { ReportsService } from '../../reports/reports.service'
+import { TeamsService } from '../../teams/teams.service'
+import { UsersService } from '../../users/users.service'
 import { AuthService } from '../auth.service'
 import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
 @Injectable()
 export class KysoLoginProvider {
+    @Autowired(CommentsService)
+    private commentsService: CommentsService
+
+    @Autowired(UsersService)
+    private usersService: UsersService
+    
+    @Autowired(OrganizationsService)
+    private organizationsService: OrganizationsService
+    
+    @Autowired(TeamsService)
+    private teamsService: TeamsService
+    
+    @Autowired(ReportsService)
+    private reportsService: ReportsService
+
+    @Autowired(GithubReposService)
+    private githubReposService: GithubReposService
+
+    @Autowired(LocalReportsService)
+    private localReportsService: LocalReportsService
+    
     constructor(
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
@@ -17,7 +45,7 @@ export class KysoLoginProvider {
 
     async login(password: string, username?: string): Promise<string> {
         // Get user from database
-        const user = await usersService.getUser({
+        const user = await this.usersService.getUser({
             filter: { username: username },
         })
 
@@ -31,9 +59,9 @@ export class KysoLoginProvider {
             // Build all the permissions for this user
             const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
                 username,
-                usersService,
-                teamsService,
-                organizationsService,
+                this.usersService,
+                this.teamsService,
+                this.organizationsService,
                 this.platformRoleProvider,
                 this.userRoleProvider,
             )

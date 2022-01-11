@@ -1,12 +1,27 @@
-import { Injectable, PreconditionFailedException } from '@nestjs/common'
+import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
+import { AutowiredService } from '../../generic/autowired.generic'
 import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { UserAccount } from '../../model/user-account'
 import { User } from '../../model/user.model'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 
+function factory(service: UsersService) {
+    return service;
+}
+  
+export function createProvider(): Provider<UsersService> {
+    return {
+        provide: `${UsersService.name}`,
+        useFactory: service => factory(service),
+        inject: [UsersService],
+    };
+}
+
 @Injectable()
-export class UsersService {
-    constructor(private readonly provider: UsersMongoProvider) {}
+export class UsersService extends AutowiredService {
+    constructor(private readonly provider: UsersMongoProvider) {
+        super()
+    }
 
     async getUsers(query): Promise<User[]> {
         let users: User[] = []

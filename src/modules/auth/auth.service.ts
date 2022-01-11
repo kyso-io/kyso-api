@@ -2,6 +2,7 @@ import { Injectable, Logger, OnApplicationBootstrap, Provider } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcryptjs'
 import * as mongo from 'mongodb'
+import { AutowiredService } from '../../generic/autowired.generic'
 import { LoginProviderEnum } from '../../model/enum/login-provider.enum'
 import { KysoRole } from '../../model/kyso-role.model'
 import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
@@ -32,13 +33,15 @@ export function createProvider(): Provider<AuthService> {
 }
 
 @Injectable()
-export class AuthService {
+export class AuthService extends AutowiredService {
     constructor(
         private readonly kysoLoginProvider: KysoLoginProvider,
         private readonly githubLoginProvider: GithubLoginProvider,
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
-    ) { }
+    ) { 
+        super()
+    }
     
     static hashPassword(plainPassword: string): string {
         return bcrypt.hashSync(plainPassword)

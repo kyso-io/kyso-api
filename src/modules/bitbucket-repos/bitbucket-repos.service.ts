@@ -1,4 +1,5 @@
 import { Injectable, Provider } from '@nestjs/common'
+import { AutowiredService } from '../../generic/autowired.generic';
 import { BitbucketReposProvider } from './providers/bitbucket-repo.provider'
 
 function factory(service: BitbucketReposService) {
@@ -14,6 +15,8 @@ export function createProvider(): Provider<BitbucketReposService> {
 }
 
 @Injectable()
-export class BitbucketReposService {
-    constructor(private readonly provider: BitbucketReposProvider) {}
+export class BitbucketReposService extends AutowiredService {
+    constructor(private readonly provider: BitbucketReposProvider) {
+        super()
+    }
 }

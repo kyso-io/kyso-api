@@ -1,13 +1,28 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Provider } from '@nestjs/common'
+import { AutowiredService } from '../../generic/autowired.generic';
 import { RelationsMongoProvider } from './providers/mongo-relations.provider'
 
 const capitalize = (s) => s && s[0].toUpperCase() + s.slice(1)
 
 const flatten = (list) => list.reduce((a, b) => a.concat(Array.isArray(b) ? flatten(b) : b), [])
 
+function factory(service: RelationsService) {
+    return service;
+}
+  
+export function createProvider(): Provider<RelationsService> {
+    return {
+        provide: `${RelationsService.name}`,
+        useFactory: service => factory(service),
+        inject: [RelationsService],
+    };
+}
+
 @Injectable()
-export class RelationsService {
-    constructor(private readonly provider: RelationsMongoProvider) {}
+export class RelationsService extends AutowiredService {
+    constructor(private readonly provider: RelationsMongoProvider) {
+        super()
+    }
 
     scanEntityForRelation(data: object) {
         const foreignKeys = Object.keys(data).filter((key) => key.endsWith('_id') || key.endsWith('_ids'))

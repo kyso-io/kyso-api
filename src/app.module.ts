@@ -12,15 +12,15 @@ import { UsersModule } from './modules/users/users.module'
 
 @Module({
     imports: [
-        UsersModule,
+        UsersModule.forRoot(),
         AuthModule.forRoot(),
-        BitbucketReposModule,
+        BitbucketReposModule.forRoot(),
         CommentsModule.forRoot(),
-        GithubReposModule,
-        OrganizationsModule,
-        ReportsModule,
-        TeamsModule,
-        RelationsModule,
+        GithubReposModule.forRoot(),
+        OrganizationsModule.forRoot(),
+        ReportsModule.forRoot(),
+        TeamsModule.forRoot(),
+        RelationsModule.forRoot(),
         TestingDataPopulatorModule,
     ],
 })

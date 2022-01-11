@@ -114,7 +114,7 @@ async function bootstrap() {
     const singletons: string[] = getSingletons()
 
     singletons.forEach((x: any) => {
-        const instance = app.get(CommentsService.name)
+        const instance = app.get(x)
         registerSingleton(x, instance)
     })
 }
