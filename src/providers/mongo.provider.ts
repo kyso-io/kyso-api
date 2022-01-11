@@ -30,7 +30,7 @@ export class MongoProvider<T> {
 
                     Logger.log(`Populating minimal data for ${this.baseCollection} collection`)
                     this.populateMinimalData()
-                } catch(ex) {
+                } catch (ex) {
                     Logger.log(`Collection ${this.baseCollection} already exists`, ex)
                 }
             }

@@ -6,34 +6,40 @@ export class CreateReport {
         description: 'Git provider to retrieve the code',
         enum: ['github', 'gitlab', 'bitbucket'],
     })
-    provider: string
+    public provider: string
 
     @ApiProperty({
         required: true,
     })
-    owner: string
+    public owner: string
 
     @ApiProperty({
         required: true,
     })
-    name: string
+    public name: string
 
     @ApiProperty({
         required: true,
     })
-    default_branch: string
+    public default_branch: string
 
     @ApiProperty({
         required: false,
     })
-    path: string
+    public path: string
 
-    constructor(name, owner, provider, default_branch, path) {
+    @ApiProperty({
+        required: true,
+    })
+    public team_id: string
+
+    constructor(name: string, owner: string, provider: string, default_branch: string, path: string, team_id: string) {
         this.name = name
         this.owner = owner
         this.provider = provider
         this.default_branch = default_branch
         this.path = path
+        this.team_id = team_id
     }
 }
 
@@ -41,11 +47,11 @@ export class CreateReportRequest {
     @ApiProperty({
         required: false,
     })
-    teams: string
+    public teams: string
 
     @ApiProperty({
         required: true,
         type: CreateReport,
     })
-    reports: CreateReport | CreateReport[]
+    public reports: CreateReport | CreateReport[]
 }

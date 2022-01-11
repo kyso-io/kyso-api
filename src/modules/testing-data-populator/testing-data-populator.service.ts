@@ -178,7 +178,7 @@ export class TestingDataPopulatorService {
     }
 
     private async createTestingReports() {
-        const testReport = new CreateReport('kylos-report', 'team-contributor', null, 'main', '.')
+        const testReport = new CreateReport('kylos-report', 'team-contributor', null, 'main', '.', this.PrivateTeam.id)
         this.TestReport = await this._createReport(this.Kylo_TeamContributorUser, testReport)
     }
 
@@ -330,6 +330,9 @@ export class TestingDataPopulatorService {
 
             Logger.log(`Adding ${this.Rey_TeamAdminUser.nickname} to team ${this.PrivateTeam.name} with role ${KysoRole.TEAM_ADMIN_ROLE.name}`)
             await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Rey_TeamAdminUser.id], [KysoRole.TEAM_ADMIN_ROLE.name])
+
+            Logger.log(`Adding ${this.Kylo_TeamContributorUser.nickname} to team ${this.PrivateTeam.name} with role ${KysoRole.TEAM_CONTRIBUTOR_ROLE.name}`)
+            await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Kylo_TeamContributorUser.id], [KysoRole.TEAM_CONTRIBUTOR_ROLE.name])
         } catch (ex) {
             // silent it
         }

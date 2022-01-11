@@ -94,8 +94,10 @@ export class TeamsService extends AutowiredService {
         const members = await this.searchMembers({ filter: { member_id: userId } })
 
         for (const m of members) {
-            const result = await this.getTeam({ filter: { id: m.team_id } })
-            userTeamsResult.push(result)
+            const result = await this.getTeam({ filter: { _id: this.provider.toObjectId(m.team_id) } })
+            if (result) {
+                userTeamsResult.push(result)
+            }
         }
 
         return [...new Set(userTeamsResult)]
