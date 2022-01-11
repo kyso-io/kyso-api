@@ -40,5 +40,10 @@ export class NormalizedResponse {
         }
 
         this.relations = relations
+
+        /*
+        if (data.buildHatoes && relations) data.buildHatoes(relations)
+        // I want also here to buildHatoes for each object inside relations
+        */
     }
 }

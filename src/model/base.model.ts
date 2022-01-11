@@ -2,9 +2,9 @@ import { ApiProperty } from '@nestjs/swagger'
 import { IsDate, IsOptional, IsUUID } from 'class-validator'
 import { Hateoas } from './hateoas.model'
 
-export class BaseModel {
+export abstract class BaseModel {
     @ApiProperty()
-    public type?: string
+    abstract type?: string
 
     @IsUUID()
     @IsOptional()
@@ -26,5 +26,5 @@ export class BaseModel {
     })
     public links: Hateoas
 
-    public buildHatoes(relations?) {}
+    abstract buildHatoes(relations?)
 }

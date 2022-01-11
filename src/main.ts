@@ -101,7 +101,7 @@ async function bootstrap() {
 
     await RedocModule.setup('/redoc', app, redocDocument, redocOptions)
 
-    await app.listen(process.env.PORT || 3000)
+    await app.listen(process.env.PORT || 4000)
 
     if (process.env.POPULATE_TEST_DATA === 'true') {
         setTimeout(async () => {

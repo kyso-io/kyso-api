@@ -100,7 +100,7 @@ export class TeamsService extends AutowiredService {
             }
         }
 
-        return [...new Set(userTeamsResult)]
+        return [...new Set(userTeamsResult.filter((team) => !!team))]
     }
 
     async searchMembers(query: any): Promise<TeamMemberJoin[]> {

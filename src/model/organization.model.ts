@@ -36,6 +36,11 @@ export class Organization extends BaseModel {
     @IsBoolean()
     public allowGoogleLogin: boolean
 
+    @ApiProperty()
+    public type: 'organization'
+
+    buildHatoes(relations?: any) {}
+
     constructor(name: string, roles: KysoRole[], billingEmail: string, subscriptionId: string, allowGoogleLogin: boolean, id?: string) {
         super()
 
@@ -44,7 +49,6 @@ export class Organization extends BaseModel {
         this.billingEmail = billingEmail
         this.subscriptionId = subscriptionId
         this.allowGoogleLogin = allowGoogleLogin
-
         if (id) {
             this.id = id
         }

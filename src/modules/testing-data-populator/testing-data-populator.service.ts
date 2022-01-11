@@ -185,23 +185,17 @@ export class TestingDataPopulatorService {
     private async _createReport(user: User, report: CreateReport) {
         try {
             Logger.log(`Creating ${report.name} report...`)
-            return this.reportsService.createReport(user, report, null)
+            return this.reportsService.createReport(user, report, 'protected-team')
         } catch (ex) {
             Logger.log(`${report.name} report already exists`)
         }
     }
 
     private async createTestingComments() {
-        const testComment = new Comment('test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, null, this.Kylo_TeamContributorUser.username)
+        const testComment = new Comment('test text', this.Rey_TeamAdminUser.id, this.TestReport.id, null)
         this.TestComment = await this._createComment(testComment)
-
-        this.TestChildComment1 = await this._createComment(
-            new Comment('child test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, this.TestComment.id, this.Kylo_TeamContributorUser.username),
-        )
-
-        this.TestChildComment2 = await this._createComment(
-            new Comment('child 2 test text', this.Kylo_TeamContributorUser.id, this.TestReport.id, this.TestComment.id, this.Kylo_TeamContributorUser.username),
-        )
+        this.TestChildComment1 = await this._createComment(new Comment('child test text', this.Rey_TeamAdminUser.id, this.TestReport.id, this.TestComment.id))
+        this.TestChildComment2 = await this._createComment(new Comment('child 2 test text', this.Rey_TeamAdminUser.id, this.TestReport.id, this.TestComment.id))
     }
 
     private async _createComment(comment: Comment): Promise<Comment> {

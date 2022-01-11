@@ -10,6 +10,15 @@
 $ npm install
 ```
 
+## Starting mongodb
+
+Make sure you have docker installed, then run `docker compose up` to start the development database.
+
+## Tools
+
+- https://www.postman.com/ we use for api testing.
+- https://www.nosqlbooster.com/
+
 ## Running the app
 
 ```bash
