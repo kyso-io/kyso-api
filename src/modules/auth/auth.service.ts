@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, OnApplicationBootstrap, Provider } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcryptjs'
 import * as mongo from 'mongodb'
+import { AutowiredService } from '../../generic/autowired.generic'
 import { LoginProviderEnum } from '../../model/enum/login-provider.enum'
 import { KysoRole } from '../../model/kyso-role.model'
 import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
@@ -19,15 +20,29 @@ import { KysoLoginProvider } from './providers/kyso-login.provider'
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
 
+function factory(service: AuthService) {
+    return service;
+}
+  
+export function createProvider(): Provider<AuthService> {
+    return {
+        provide: `${AuthService.name}`,
+        useFactory: service => factory(service),
+        inject: [AuthService],
+    };
+}
+
 @Injectable()
-export class AuthService {
+export class AuthService extends AutowiredService {
     constructor(
         private readonly kysoLoginProvider: KysoLoginProvider,
         private readonly githubLoginProvider: GithubLoginProvider,
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
-    ) {}
-
+    ) { 
+        super()
+    }
+    
     static hashPassword(plainPassword: string): string {
         return bcrypt.hashSync(plainPassword)
     }

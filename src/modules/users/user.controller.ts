@@ -8,6 +8,7 @@ import { AuthService } from '../auth/auth.service'
 import { User } from '../../model/user.model'
 import { GenericController } from '../../generic/controller.generic'
 import { Token } from '../../model/token.model'
+import { Autowired } from '../../decorators/autowired'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 
@@ -17,7 +18,10 @@ const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_tok
 @ApiBearerAuth()
 @Controller('user')
 export class UserController extends GenericController<User> {
-    constructor(private readonly usersService: UsersService, private readonly authService: AuthService) {
+    @Autowired(AuthService)
+    private readonly authService: AuthService
+    
+    constructor(private readonly usersService: UsersService) {
         super()
     }
 

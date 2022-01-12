@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { Observable } from 'rxjs'
+import { Autowired } from '../../../decorators/autowired'
 import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM } from '../../../model/constants'
 import { ResourcePermissions } from '../../../model/resource-permissions.model'
 import { Token } from '../../../model/token.model'
@@ -10,7 +11,10 @@ import { AuthService } from '../auth.service'
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-    constructor(private readonly reflector: Reflector, private readonly authService: AuthService) {}
+    @Autowired(AuthService)
+    private readonly authService: AuthService
+
+    constructor(private readonly reflector: Reflector) {}
 
     canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
         try {

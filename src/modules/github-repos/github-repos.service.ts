@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Provider } from '@nestjs/common'
+import { AutowiredService } from '../../generic/autowired.generic'
 import { NotFoundError } from '../../helpers/errorHandling'
 import { GithubReposProvider } from './providers/github-repo.provider'
 const { safeLoad } = require('js-yaml')
@@ -19,10 +20,24 @@ function parseConfig(format, data) {
     return config
 }
 
+function factory(service: GithubReposService) {
+    return service;
+}
+  
+export function createProvider(): Provider<GithubReposService> {
+    return {
+        provide: `${GithubReposService.name}`,
+        useFactory: service => factory(service),
+        inject: [GithubReposService],
+    };
+}
+
 // @Injectable({ scope: Scope.REQUEST })
 @Injectable()
-export class GithubReposService {
-    constructor(private readonly provider: GithubReposProvider) {}
+export class GithubReposService extends AutowiredService{
+    constructor(private readonly provider: GithubReposProvider) {
+        super()
+    }
 
     login(access_token) {
         this.provider.login(access_token)

@@ -1,12 +1,12 @@
 import { Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
 import { InvalidInputError } from '../../helpers/errorHandling'
 import { HateoasLinker } from '../../helpers/hateoasLinker'
 import { QueryParser } from '../../helpers/queryParser'
 import { Validators } from '../../helpers/validators'
-import { commentsService, relationsService, reportsService, usersService } from '../../main'
 import { Branch } from '../../model/branch.model'
 import { Comment } from '../../model/comment.model'
 import { BatchReportCreation } from '../../model/dto/batch-report-creation-response.dto'
@@ -18,6 +18,14 @@ import { Report } from '../../model/report.model'
 import { User } from '../../model/user.model'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { CommentsService } from '../comments/comments.service'
+import { GithubReposService } from '../github-repos/github-repos.service'
+import { OrganizationsService } from '../organizations/organizations.service'
+import { RelationsService } from '../relations/relations.service'
+import { TeamsService } from '../teams/teams.service'
+import { UsersService } from '../users/users.service'
+import { LocalReportsService } from './local-reports.service'
+import { ReportsService } from './reports.service'
 import { ReportPermissionsEnum } from './security/report-permissions.enum'
 
 const UPDATABLE_FIELDS = ['stars', 'tags', 'title', 'description', 'request_private', 'name']
@@ -33,6 +41,18 @@ const DEFAULT_GET_REPORT_FILTERS = {
 @ApiBearerAuth()
 @Controller('reports')
 export class ReportsController extends GenericController<Report> {
+    @Autowired(CommentsService)
+    private commentsService: CommentsService
+
+    @Autowired(UsersService)
+    private usersService: UsersService
+    
+    @Autowired(ReportsService)
+    private reportsService: ReportsService
+
+    @Autowired(RelationsService)
+    private relationsService: RelationsService
+    
     constructor() {
         super()
     }
@@ -59,8 +79,8 @@ export class ReportsController extends GenericController<Report> {
             if (!query.filter[key]) query.filter[key] = value
         })
 
-        const reports = await reportsService.getReports(query)
-        const relations = await relationsService.getRelations(reports)
+        const reports = await this.reportsService.getReports(query)
+        const relations = await this.relationsService.getRelations(reports)
         res.status(200).send(new NormalizedResponse(reports, relations))
         return
     }
@@ -89,8 +109,8 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.READ])
     async getReport(@Req() req, @Res() res): Promise<void> {
-        const report = await reportsService.getReport(req.params.reportOwner, req.params.reportName)
-        const relations = await relationsService.getRelations(report)
+        const report = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
+        const relations = await this.relationsService.getRelations(report)
         res.status(200).send(new NormalizedResponse(report, relations))
         return
     }
@@ -113,9 +133,9 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.READ])
     async getPinnedReportsForAnUser(@Param('reportOwner') reportOwner: string) {
-        const userData: User = await usersService.getUser({ username: reportOwner })
-        const reports = await reportsService.getReports({ pin: true, user_id: userData.id })
-        const relations = await relationsService.getRelations(reports)
+        const userData: User = await this.usersService.getUser({ username: reportOwner })
+        const reports = await this.reportsService.getReports({ pin: true, user_id: userData.id })
+        const relations = await this.relationsService.getRelations(reports)
         return new NormalizedResponse(reports, relations)
     }
 
@@ -139,7 +159,7 @@ export class ReportsController extends GenericController<Report> {
     async createReport(@Req() req, @Req() res) {
         const owner = req.body.team || req.user.nickname
         if (Array.isArray(req.body.reports)) {
-            const promises = req.body.reports.map((report) => reportsService.createReport(req.user, report, req.body.team))
+            const promises = req.body.reports.map((report) => this.reportsService.createReport(req.user, report, req.body.team))
             const results = (await Promise.allSettled(promises)) as any
 
             const response = []
@@ -161,10 +181,10 @@ export class ReportsController extends GenericController<Report> {
             return
         }
 
-        const created = await reportsService.createReport(req.user, req.body.reports, req.body.team)
-        const report = await reportsService.getReport(owner, created.name)
+        const created = await this.reportsService.createReport(req.user, req.body.reports, req.body.team)
+        const report = await this.reportsService.getReport(owner, created.name)
 
-        const relations = await relationsService.getRelations(report)
+        const relations = await this.relationsService.getRelations(report)
         res.status(201).send(new NormalizedResponse(report, relations))
         return
     }
@@ -203,10 +223,10 @@ export class ReportsController extends GenericController<Report> {
         }
 
         const report = await (Object.keys(fields).length === 0
-            ? reportsService.getReport(req.params.reportOwner, req.params.reportName)
-            : await reportsService.updateReport(req.user.objectId, req.params.reportOwner, req.params.reportName, updatePayload))
+            ? this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
+            : await this.reportsService.updateReport(req.user.objectId, req.params.reportOwner, req.params.reportName, updatePayload))
 
-        const relations = await relationsService.getRelations(report)
+        const relations = await this.relationsService.getRelations(report)
         res.status(200).send(new NormalizedResponse(report, relations))
         return
     }
@@ -231,7 +251,7 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.DELETE])
     async deleteReport(@Req() req, @Res() res) {
-        await reportsService.deleteReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
+        await this.reportsService.deleteReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
         res.status(204).send()
         return
     }
@@ -260,8 +280,8 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.EDIT])
     async pinReport(@Req() req, @Res() res) {
-        const report = await reportsService.pinReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
-        const relations = await relationsService.getRelations(report)
+        const report = await this.reportsService.pinReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
+        const relations = await this.relationsService.getRelations(report)
         res.status(200).send(new NormalizedResponse(report, relations))
         return
     }
@@ -291,10 +311,10 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.READ])
     async getComments(@Req() req, @Res() res) {
-        const { id: report_id } = await reportsService.getReport(req.params.reportOwner, req.params.reportName)
+        const { id: report_id } = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
 
-        const comments = await commentsService.getComments({ report_id })
-        const relations = await relationsService.getRelations(comments)
+        const comments = await this.commentsService.getComments({ report_id })
+        const relations = await this.relationsService.getRelations(comments)
         res.status(200).send(new NormalizedResponse(comments, relations))
         return
     }
@@ -325,7 +345,7 @@ export class ReportsController extends GenericController<Report> {
     @Permission([ReportPermissionsEnum.READ])
     async getBranches(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
-        const branches = await reportsService.getBranches(reportOwner, reportName)
+        const branches = await this.reportsService.getBranches(reportOwner, reportName)
         res.status(200).send(new NormalizedResponse(branches))
         return
     }
@@ -363,7 +383,7 @@ export class ReportsController extends GenericController<Report> {
     async getCommits(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branch = req.params[0]
-        const commits = await reportsService.getCommits(reportOwner, reportName, branch)
+        const commits = await this.reportsService.getCommits(reportOwner, reportName, branch)
         res.status(200).send(new NormalizedResponse(commits))
         return
     }
@@ -407,7 +427,7 @@ export class ReportsController extends GenericController<Report> {
     async getReportFileHash(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branch = req.params[0]
-        const hash = await reportsService.getFileHash(reportOwner, reportName, branch, req.params[1])
+        const hash = await this.reportsService.getFileHash(reportOwner, reportName, branch, req.params[1])
         res.status(200).send(new NormalizedResponse(hash))
         return
     }
@@ -448,7 +468,7 @@ export class ReportsController extends GenericController<Report> {
                 message: 'Hash is not a valid sha. Must have 40 hexadecimal characters.',
             })
 
-        const content = await reportsService.getReportFileContent(req.params.reportOwner, req.params.reportName, hash)
+        const content = await this.reportsService.getReportFileContent(req.params.reportOwner, req.params.reportName, hash)
 
         res.status(200).send(content)
         return

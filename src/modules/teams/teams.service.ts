@@ -1,6 +1,7 @@
-import { Injectable, PreconditionFailedException } from '@nestjs/common'
+import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
+import { Autowired } from '../../decorators/autowired'
+import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
-import { organizationsService, reportsService, usersService } from '../../main'
 import { TeamVisibilityEnum } from '../../model/enum/team-visibility.enum'
 import { KysoRole } from '../../model/kyso-role.model'
 import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
@@ -12,13 +13,47 @@ import { Team } from '../../model/team.model'
 import { Token } from '../../model/token.model'
 import { User } from '../../model/user.model'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
+import { CommentsService } from '../comments/comments.service'
+import { OrganizationsService } from '../organizations/organizations.service'
+import { ReportsService } from '../reports/reports.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
+import { UsersService } from '../users/users.service'
 import { TeamMemberMongoProvider } from './providers/mongo-team-member.provider'
 import { TeamsMongoProvider } from './providers/mongo-teams.provider'
 
+function factory(service: TeamsService) {
+    return service;
+}
+  
+export function createProvider(): Provider<TeamsService> {
+    return {
+        provide: `${TeamsService.name}`,
+        useFactory: service => factory(service),
+        inject: [TeamsService],
+    };
+}
+
 @Injectable()
-export class TeamsService {
-    constructor(private readonly provider: TeamsMongoProvider, private readonly teamMemberProvider: TeamMemberMongoProvider) {}
+export class TeamsService extends AutowiredService {
+    @Autowired(CommentsService)
+    private commentsService: CommentsService
+
+    @Autowired(UsersService)
+    private usersService: UsersService
+    
+    @Autowired(OrganizationsService)
+    private organizationsService: OrganizationsService
+    
+    @Autowired(TeamsService)
+    private teamsService: TeamsService
+    
+    @Autowired(ReportsService)
+    private reportsService: ReportsService
+
+    
+    constructor(private readonly provider: TeamsMongoProvider, private readonly teamMemberProvider: TeamMemberMongoProvider) {
+        super()
+    }
 
     async getTeam(query) {
         const teams = await this.provider.read(query)
@@ -42,7 +77,7 @@ export class TeamsService {
         const userTeamsResult = await this.getTeams({ filter: { visibility: TeamVisibilityEnum.PUBLIC } })
 
         // All protected teams from organizations that the user belongs
-        const allUserOrganizations: OrganizationMemberJoin[] = await organizationsService.searchMembersJoin({ filter: { member_id: userId } })
+        const allUserOrganizations: OrganizationMemberJoin[] = await this.organizationsService.searchMembersJoin({ filter: { member_id: userId } })
 
         for (const organizationMembership of allUserOrganizations) {
             const result = await this.getTeams({
@@ -108,7 +143,7 @@ export class TeamsService {
 
             const filter = { filter: { $or: filterArray } }
 
-            const users = await usersService.getUsers(filter)
+            const users = await this.usersService.getUsers(filter)
 
             const usersAndRoles = users.map((u: User) => {
                 // Find role for this user in members
@@ -151,7 +186,7 @@ export class TeamsService {
             throw new PreconditionFailedException('The name of the team must be unique')
         }
 
-        const organization: Organization = await organizationsService.getOrganization({ _id: team.organization_id })
+        const organization: Organization = await this.organizationsService.getOrganization({ _id: team.organization_id })
         if (!organization) {
             throw new PreconditionFailedException('The organization does not exist')
         }
@@ -165,10 +200,10 @@ export class TeamsService {
             throw new PreconditionFailedException('Team not found')
         }
         const team: Team = teams[0]
-        const reports: Report[] = await reportsService.getReports({ filter: { team_id: team.id } })
+        const reports: Report[] = await this.reportsService.getReports({ filter: { team_id: team.id } })
         const userTeams: Team[] = await this.getTeamsVisibleForUser(token.id)
         const userInTeam: boolean = userTeams.find((x) => x.id === team.id) !== undefined
-        const members: OrganizationMemberJoin[] = await organizationsService.getMembers(team.organization_id)
+        const members: OrganizationMemberJoin[] = await this.organizationsService.getMembers(team.organization_id)
         const userBelongsToOrganization: boolean = members.find((x: OrganizationMemberJoin) => x.member_id === token.id) !== undefined
         if (team.visibility === TeamVisibilityEnum.PUBLIC) {
             if (!userInTeam && !userBelongsToOrganization) {

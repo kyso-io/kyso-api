@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Headers, Param, Patch, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
 import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM } from '../../model/constants'
 import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
@@ -23,7 +24,10 @@ const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_tok
 @ApiBearerAuth()
 @Controller('teams')
 export class TeamsController extends GenericController<Team> {
-    constructor(private readonly teamsService: TeamsService, private readonly authService: AuthService) {
+    @Autowired(AuthService)
+    private readonly authService: AuthService
+    
+    constructor(private readonly teamsService: TeamsService) {
         super()
     }
 

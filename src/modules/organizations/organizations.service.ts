@@ -1,17 +1,36 @@
-import { Injectable, PreconditionFailedException } from '@nestjs/common'
-import { usersService } from '../../main'
+import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
+import { Autowired } from '../../decorators/autowired'
+import { AutowiredService } from '../../generic/autowired.generic'
 import { UpdateOrganizationMembers } from '../../model/dto/update-organization-members.dto'
 import { KysoRole } from '../../model/kyso-role.model'
 import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
 import { OrganizationMember } from '../../model/organization-member.model'
 import { Organization } from '../../model/organization.model'
 import { User } from '../../model/user.model'
+import { UsersService } from '../users/users.service'
 import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
 import { OrganizationsMongoProvider } from './providers/mongo-organizations.provider'
 
+function factory(service: OrganizationsService) {
+    return service;
+}
+  
+export function createProvider(): Provider<OrganizationsService> {
+    return {
+        provide: `${OrganizationsService.name}`,
+        useFactory: service => factory(service),
+        inject: [OrganizationsService],
+    };
+}
+
 @Injectable()
-export class OrganizationsService {
-    constructor(private readonly provider: OrganizationsMongoProvider, private readonly organizationMemberProvider: OrganizationMemberMongoProvider) {}
+export class OrganizationsService extends AutowiredService {
+    @Autowired(UsersService)
+    private usersService: UsersService
+    
+    constructor(private readonly provider: OrganizationsMongoProvider, private readonly organizationMemberProvider: OrganizationMemberMongoProvider) {
+        super()
+    }
 
     async getOrganization(query: any): Promise<Organization> {
         const organization = await this.provider.read(query)
@@ -83,7 +102,7 @@ export class OrganizationsService {
 
             const filter = { filter: { $or: filterArray } }
 
-            const users = await usersService.getUsers(filter)
+            const users = await this.usersService.getUsers(filter)
 
             const usersAndRoles = users.map((u: User) => {
                 // Find role for this user in members

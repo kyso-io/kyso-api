@@ -1,15 +1,31 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
+import { Autowired } from '../../../decorators/autowired'
 import { UnauthorizedError } from '../../../helpers/errorHandling'
-import { githubReposService, organizationsService, teamsService, usersService } from '../../../main'
 import { User } from '../../../model/user.model'
+import { GithubReposService } from '../../github-repos/github-repos.service'
+import { OrganizationsService } from '../../organizations/organizations.service'
+import { TeamsService } from '../../teams/teams.service'
+import { UsersService } from '../../users/users.service'
 import { AuthService } from '../auth.service'
 import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
 @Injectable()
 export class GithubLoginProvider {
+    @Autowired(UsersService)
+    private usersService: UsersService
+    
+    @Autowired(OrganizationsService)
+    private organizationsService: OrganizationsService
+    
+    @Autowired(TeamsService)
+    private teamsService: TeamsService
+   
+    @Autowired(GithubReposService)
+    private githubReposService: GithubReposService
+
     constructor(
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
@@ -44,8 +60,8 @@ export class GithubLoginProvider {
         // Retrieve the token...
         const access_token = res.data.split('&')[0].split('=')[1]
 
-        const githubUser = await githubReposService.getUserByAccessToken(access_token)
-        const emails = await githubReposService.getEmailByAccessToken(access_token)
+        const githubUser = await this.githubReposService.getUserByAccessToken(access_token)
+        const emails = await this.githubReposService.getEmailByAccessToken(access_token)
         const onlyPrimaryMail = emails.filter((x) => x.primary === true)[0]
 
         const user = User.fromGithubUser(githubUser, onlyPrimaryMail)
@@ -54,7 +70,7 @@ export class GithubLoginProvider {
         // Check if the user exists in database, and if not, create it
         let userInDb = null
         try {
-            userInDb = await usersService.getUser({
+            userInDb = await this.usersService.getUser({
                 filter: { email: user.email },
             })
         } catch (ex) {
@@ -71,9 +87,9 @@ export class GithubLoginProvider {
         // Build all the permissions for this user
         const permissions = await AuthService.buildFinalPermissionsForUser(
             user.username,
-            usersService,
-            teamsService,
-            organizationsService,
+            this.usersService,
+            this.teamsService,
+            this.organizationsService,
             this.platformRoleProvider,
             this.userRoleProvider,
         )
