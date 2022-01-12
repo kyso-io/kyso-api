@@ -1,4 +1,5 @@
-import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
+import { MailerService } from '@nestjs-modules/mailer'
+import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { UpdateUserRequest } from '../../model/dto/update-user-request.dto'
@@ -7,20 +8,20 @@ import { User } from '../../model/user.model'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 
 function factory(service: UsersService) {
-    return service;
+    return service
 }
-  
+
 export function createProvider(): Provider<UsersService> {
     return {
         provide: `${UsersService.name}`,
-        useFactory: service => factory(service),
+        useFactory: (service) => factory(service),
         inject: [UsersService],
-    };
+    }
 }
 
 @Injectable()
 export class UsersService extends AutowiredService {
-    constructor(private readonly provider: UsersMongoProvider) {
+    constructor(private mailerService: MailerService, private readonly provider: UsersMongoProvider) {
         super()
     }
 
@@ -57,7 +58,18 @@ export class UsersService extends AutowiredService {
             // Create user into database
             // Hash the password and delete the plain password property
             const user: User = User.fromCreateUserRequest(userToCreate)
-
+            this.mailerService
+                .sendMail({
+                    to: user.email,
+                    subject: 'Welcome to Kyso',
+                    html: `Welcome to Kyso, ${user.username}!`,
+                })
+                .then(() => {
+                    Logger.log(`Mail sent to ${user.email}`, UsersService.name)
+                })
+                .catch((err) => {
+                    Logger.error(`Error sending mail to ${user.email}`, err, UsersService.name)
+                })
             return (await this.provider.create(user)) as User
         } else {
             throw new PreconditionFailedException(null, 'User already exists')
