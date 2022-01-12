@@ -1,5 +1,6 @@
 import { Injectable, PreconditionFailedException } from '@nestjs/common'
 import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
+import { UpdateUserRequest } from '../../model/dto/update-user-request.dto'
 import { UserAccount } from '../../model/user-account'
 import { User } from '../../model/user.model'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
@@ -96,5 +97,13 @@ export class UsersService {
             throw new PreconditionFailedException(null, `The user has not registered this account`)
         }
         return true
+    }
+
+    public async updateUserData(email: string, data: UpdateUserRequest): Promise<User> {
+        const user: User = await this.getUser({ filter: { email } })
+        if (!user) {
+            throw new PreconditionFailedException(null, `Can't update user as does not exists`)
+        }
+        return this.updateUser({ email: email }, { $set: data })
     }
 }

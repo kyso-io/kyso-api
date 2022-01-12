@@ -6,6 +6,7 @@ import { QueryParser } from '../../helpers/queryParser'
 import { BaseFilterQuery } from '../../model/dto/base-filter.dto'
 import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
+import { UpdateUserRequest } from '../../model/dto/update-user-request.dto'
 import { UserAccount } from '../../model/user-account'
 import { User } from '../../model/user.model'
 import { Permission } from '../auth/annotations/permission.decorator'
@@ -94,6 +95,27 @@ export class UsersController extends GenericController<User> {
     @Permission([UserPermissionsEnum.CREATE])
     async createUser(@Body() user: CreateUserRequest) {
         return new NormalizedResponse(await this.usersService.createUser(user))
+    }
+
+    @Patch('/:email')
+    @ApiOperation({
+        summary: `Update an user`,
+        description: `Allows updating an user passing its name`,
+    })
+    @ApiParam({
+        name: 'email',
+        required: true,
+        description: `Email of the user to update`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Authenticated user data`,
+        type: User,
+    })
+    public async updateUserData(@Param('email') email: string, @Body() data: UpdateUserRequest): Promise<NormalizedResponse> {
+        const user: User = await this.usersService.updateUserData(email, data)
+        return new NormalizedResponse(user)
     }
 
     @Delete('/:mail')

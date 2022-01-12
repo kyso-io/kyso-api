@@ -27,7 +27,9 @@ export class NormalizedResponse {
     constructor(data, relations?) {
         this.data = data
 
-        data.buildHatoes(relations)
+        if (data?.buildHatoes) {
+            data.buildHatoes(relations)
+        }
 
         this.relations = relations
     }
