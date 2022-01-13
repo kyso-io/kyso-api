@@ -6,9 +6,7 @@ import { Validators } from '../../helpers/validators'
 import { CreateReport } from '../../model/dto/create-report-request.dto'
 import { Report } from '../../model/report.model'
 import { User } from '../../model/user.model'
-import { CommentsService } from '../comments/comments.service'
 import { GithubReposService } from '../github-repos/github-repos.service'
-import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { LocalReportsService } from './local-reports.service'
@@ -150,7 +148,10 @@ export class ReportsService extends AutowiredService {
 
             report.team_id = teamId
             usedNameQuery.filter.team_id = report.team_id
-        } else usedNameQuery.filter.user_id = report.user_id
+        } else {
+            usedNameQuery.filter.user_id = report.user_id
+            report.team_id = createReportRequest.team_id
+        }
 
         const reports = await this.provider.read(usedNameQuery)
         if (reports.length !== 0)
@@ -194,7 +195,6 @@ export class ReportsService extends AutowiredService {
                 defaultBranch: createReportRequest.default_branch,
                 basePath,
             },
-            team_id: createReportRequest.team_id,
             links: {},
             numberOfComments: 0,
             stars: 0,

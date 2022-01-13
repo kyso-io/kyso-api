@@ -1,10 +1,18 @@
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { v4 as uuidv4 } from 'uuid'
+import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
 import { UpdateUserRequest } from '../../model/dto/update-user-request.dto'
+import { TeamVisibilityEnum } from '../../model/enum/team-visibility.enum'
+import { KysoRole } from '../../model/kyso-role.model'
+import { Organization } from '../../model/organization.model'
+import { Team } from '../../model/team.model'
 import { UserAccount } from '../../model/user-account'
 import { User } from '../../model/user.model'
+import { OrganizationsService } from '../organizations/organizations.service'
+import { TeamsService } from '../teams/teams.service'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 
 function factory(service: UsersService) {
@@ -21,6 +29,12 @@ export function createProvider(): Provider<UsersService> {
 
 @Injectable()
 export class UsersService extends AutowiredService {
+    @Autowired(OrganizationsService)
+    private organizationsService: OrganizationsService
+    
+    @Autowired(TeamsService)
+    private teamsService: TeamsService
+
     constructor(private mailerService: MailerService, private readonly provider: UsersMongoProvider) {
         super()
     }
@@ -48,32 +62,56 @@ export class UsersService extends AutowiredService {
 
     async createUser(userToCreate: CreateUserRequest): Promise<User> {
         // exists a prev user with same email?
-        const exists = await this.getUser({ filter: { email: userToCreate.email } })
+        const user: User = await this.getUser({ filter: { email: userToCreate.email } })
 
         if (!userToCreate.password) {
             throw new PreconditionFailedException(null, 'Password unset')
         }
 
-        if (!exists) {
-            // Create user into database
-            // Hash the password and delete the plain password property
-            const user: User = User.fromCreateUserRequest(userToCreate)
-            this.mailerService
-                .sendMail({
-                    to: user.email,
-                    subject: 'Welcome to Kyso',
-                    html: `Welcome to Kyso, ${user.username}!`,
-                })
-                .then(() => {
-                    Logger.log(`Mail sent to ${user.email}`, UsersService.name)
-                })
-                .catch((err) => {
-                    Logger.error(`Error sending mail to ${user.email}`, err, UsersService.name)
-                })
-            return (await this.provider.create(user)) as User
-        } else {
+        if (user) {
             throw new PreconditionFailedException(null, 'User already exists')
         }
+
+        // Create user into database
+        // Hash the password and delete the plain password property
+        const newUser: User = User.fromCreateUserRequest(userToCreate)
+        Logger.log(`Creating new user ${userToCreate.nickname}...`)
+        const userDb: User = await this.provider.create(newUser)
+
+        // Create user organization
+        const organizationName: string = userDb.username.charAt(0).toUpperCase() + userDb.username.slice(1) + "'s Workspace"
+        const newOrganization: Organization = new Organization(organizationName, [], userDb.email, uuidv4(), false)
+        Logger.log(`Creating new organization ${newOrganization.name}`)
+        const organizationDb: Organization = await this.organizationsService.createOrganization(newOrganization)
+
+        // Add user to organization as admin
+        Logger.log(`Adding ${userDb.nickname} to organization ${organizationDb.name} with role ${KysoRole.ORGANIZATION_ADMIN_ROLE.name}...`)
+        await this.organizationsService.addMembersById(organizationDb.id, [userDb.id], [KysoRole.ORGANIZATION_ADMIN_ROLE.name])
+
+        // Create user team
+        const teamName: string = userDb.username.charAt(0).toUpperCase() + userDb.username.slice(1) + "'s Private"
+        const newUserTeam: Team = new Team(teamName, null, null, null, [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
+        Logger.log(`Creating new team ${newUserTeam.name}...`)
+        const userTeamDb: Team = await this.teamsService.createTeam(newUserTeam)
+
+        // Add user to team as admin
+        Logger.log(`Adding ${userDb.nickname} to team ${userTeamDb.name} with role ${KysoRole.TEAM_ADMIN_ROLE.name}...`)
+        await this.teamsService.addMembersById(userTeamDb.id, [userDb.id], [KysoRole.TEAM_ADMIN_ROLE.name])
+
+        this.mailerService
+            .sendMail({
+                to: userDb.email,
+                subject: 'Welcome to Kyso',
+                html: `Welcome to Kyso, ${userDb.username}!`,
+            })
+            .then(() => {
+                Logger.log(`Welcome mail sent to ${userDb.username}`, UsersService.name)
+            })
+            .catch((err) => {
+                Logger.error(`Error sending welcome mail to ${userDb.username}`, err, UsersService.name)
+            })
+
+        return user
     }
 
     async deleteUser(email: string) {
