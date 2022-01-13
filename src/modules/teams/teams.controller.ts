@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Patch, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, Headers, Param, Patch, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -24,7 +24,7 @@ const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_tok
 @ApiBearerAuth()
 @Controller('teams')
 export class TeamsController extends GenericController<Team> {
-    @Autowired(AuthService)
+    @Autowired({ typeName: "AuthService"})
     private readonly authService: AuthService
     
     constructor(private readonly teamsService: TeamsService) {
@@ -74,6 +74,9 @@ export class TeamsController extends GenericController<Team> {
     })
     @Permission([TeamPermissionsEnum.READ])
     async getTeam(@Param('teamName') teamName: string, @Headers(HEADER_X_KYSO_TEAM) xKysoTeamHeader: string) {
+        if (!xKysoTeamHeader) {
+            throw new BadRequestException('Missing team header')
+        }
         if (xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
             throw new UnauthorizedException('Team path param and team header are not equal. This incident will be reported')
         }

@@ -26,10 +26,10 @@ export function createProvider(): Provider<CommentsService> {
 
 @Injectable()
 export class CommentsService extends AutowiredService {
-    @Autowired(TeamsService)
+    @Autowired({ typeName: "TeamsService" })
     private teamsService: TeamsService
     
-    @Autowired(ReportsService)
+    @Autowired({ typeName: "ReportsService" })
     private reportsService: ReportsService
   
     constructor(private readonly provider: CommentsMongoProvider) {

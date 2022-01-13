@@ -33,6 +33,15 @@ export class Report extends BaseModel {
     @ApiProperty()
     public pin: boolean
 
+    @ApiProperty()
+    public tags: string[]
+
+    @ApiProperty()
+    public description: string
+    
+    @ApiProperty()
+    public request_private: boolean
+
     @ApiProperty({ format: 'faker: datatype.uuid' })
     public user_id: string
 

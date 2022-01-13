@@ -1,4 +1,7 @@
+import { MailerModule } from '@nestjs-modules/mailer'
+import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter'
 import { Module } from '@nestjs/common'
+import { join } from 'path'
 import { AuthModule } from './modules/auth/auth.module'
 import { BitbucketReposModule } from './modules/bitbucket-repos/bitbucket-repos.module'
 import { CommentsModule } from './modules/comments/comments.module'
@@ -22,6 +25,23 @@ import { UsersModule } from './modules/users/users.module'
         TeamsModule.forRoot(),
         RelationsModule.forRoot(),
         TestingDataPopulatorModule,
+        MailerModule.forRootAsync({
+            useFactory: () => {
+                return {
+                    transport: process.env.MAIL_TRANSPORT,
+                    defaults: {
+                        from: process.env.MAIL_FROM,
+                    },
+                    template: {
+                        dir: join(__dirname, '../../templates'),
+                        adapter: new HandlebarsAdapter(),
+                        options: {
+                            strict: true,
+                        },
+                    },
+                }
+            },
+        }),
     ],
 })
 export class AppModule {}

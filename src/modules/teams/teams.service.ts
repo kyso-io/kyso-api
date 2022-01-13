@@ -13,7 +13,6 @@ import { Team } from '../../model/team.model'
 import { Token } from '../../model/token.model'
 import { User } from '../../model/user.model'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
-import { CommentsService } from '../comments/comments.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
@@ -22,35 +21,28 @@ import { TeamMemberMongoProvider } from './providers/mongo-team-member.provider'
 import { TeamsMongoProvider } from './providers/mongo-teams.provider'
 
 function factory(service: TeamsService) {
-    return service;
+    return service
 }
-  
+
 export function createProvider(): Provider<TeamsService> {
     return {
         provide: `${TeamsService.name}`,
-        useFactory: service => factory(service),
+        useFactory: (service) => factory(service),
         inject: [TeamsService],
-    };
+    }
 }
 
 @Injectable()
 export class TeamsService extends AutowiredService {
-    @Autowired(CommentsService)
-    private commentsService: CommentsService
-
-    @Autowired(UsersService)
+    @Autowired({ typeName: "UsersService" })
     private usersService: UsersService
-    
-    @Autowired(OrganizationsService)
+
+    @Autowired({ typeName: "OrganizationsService" })
     private organizationsService: OrganizationsService
-    
-    @Autowired(TeamsService)
-    private teamsService: TeamsService
-    
-    @Autowired(ReportsService)
+
+    @Autowired({ typeName: "ReportsService" })
     private reportsService: ReportsService
 
-    
     constructor(private readonly provider: TeamsMongoProvider, private readonly teamMemberProvider: TeamMemberMongoProvider) {
         super()
     }
@@ -178,20 +170,26 @@ export class TeamsService extends AutowiredService {
     }
 
     async createTeam(team: Team) {
-        // The name of this team exists?
-        const exists: any[] = await this.provider.read({ filter: { name: team.name } })
+        try {
+            // The name of this team exists?
+            const exists: any[] = await this.provider.read({ filter: { name: team.name } })
 
-        if (exists.length > 0) {
-            // Exists, throw an exception
-            throw new PreconditionFailedException('The name of the team must be unique')
+            if (exists.length > 0) {
+                // Exists, throw an exception
+                throw new PreconditionFailedException('The name of the team must be unique')
+            }
+
+            const organization: Organization = await this.organizationsService.getOrganization({
+                filter: { _id: this.provider.toObjectId(team.organization_id) },
+            })
+            if (!organization) {
+                throw new PreconditionFailedException('The organization does not exist')
+            }
+
+            return this.provider.create(team)
+        } catch (e) {
+            console.log(e)
         }
-
-        const organization: Organization = await this.organizationsService.getOrganization({ _id: team.organization_id })
-        if (!organization) {
-            throw new PreconditionFailedException('The organization does not exist')
-        }
-
-        return this.provider.create(team)
     }
 
     public async getReportsOfTeam(token: Token, teamName: string): Promise<Report[]> {

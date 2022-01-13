@@ -1,15 +1,19 @@
 import { ApiProperty } from '@nestjs/swagger'
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator'
 
 export class UpdateUserRequest {
     @ApiProperty()
-    public email: string
-    @ApiProperty()
+    @IsOptional()
+    @IsNotEmpty()
     public nickname: string
+
     @ApiProperty()
+    @IsOptional()
+    @IsString()
     public bio: string
-    @ApiProperty({
-        description: 'Github access token, if the user uses github as authentication provider',
-        required: false,
-    })
-    public access_token?: string
+
+    @ApiProperty()
+    @IsOptional()
+    @IsString()
+    public accessToken: string
 }

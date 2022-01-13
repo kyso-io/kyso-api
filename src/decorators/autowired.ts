@@ -1,4 +1,4 @@
-import { Type } from '@nestjs/common'
+import { Logger, Type } from '@nestjs/common'
 
 const singletonMap = new Map<string, any>()
 
@@ -14,10 +14,32 @@ export const getSingletonValue = (key) => {
     return singletonMap.get(key)
 }
 
-export const Autowired = <TModel extends Type<any>>(type: TModel) => {
+interface TModel extends Type<any> {}
+
+export class AutowiredConfiguration {
+    type?: TModel
+    typeName?: string
+}
+
+export const Autowired = (config: AutowiredConfiguration) => {
     return (target: any, memberName: string) => {
         Object.defineProperty(target, memberName, {
-            get: () => singletonMap.get(type.name)
+            get: () => {
+                if(config && config.type && config.type.name) {
+                    return singletonMap.get(config.type.name)
+                } else if (config && config.typeName) {
+                    if (singletonMap.has(config.typeName)) {
+                        return singletonMap.get(config.typeName)
+                    } else {
+                        Logger.warn(`[AUTOWIRED] typeName ${config.typeName} does not exist in Autowired services`)
+                        return undefined
+                    }
+                }
+                else {
+                    Logger.warn(`[AUTOWIRED] Received type and typeName undefined for target ${target.constructor.name}. Returning undefined`)
+                    return undefined
+                }
+            }
         });
     }
 }
