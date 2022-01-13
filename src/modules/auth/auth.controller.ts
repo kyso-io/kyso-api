@@ -36,7 +36,7 @@ export class AuthController extends GenericController<string> {
     })
     async login(@Body() login: Login) {
         const jwt = await this.authService.login(login.password, login.provider, login.username)
-        return jwt
+        return new NormalizedResponse(jwt)
     }
 
     @Post('/sign-up')
