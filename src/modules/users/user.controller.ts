@@ -18,7 +18,7 @@ const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_tok
 @ApiBearerAuth()
 @Controller('user')
 export class UserController extends GenericController<User> {
-    @Autowired(AuthService)
+    @Autowired({ typeName: "AuthService" })
     private readonly authService: AuthService
     
     constructor(private readonly usersService: UsersService) {

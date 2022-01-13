@@ -16,26 +16,14 @@ import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
 @Injectable()
 export class KysoLoginProvider {
-    @Autowired(CommentsService)
-    private commentsService: CommentsService
-
-    @Autowired(UsersService)
+    @Autowired({ typeName: "UsersService" })
     private usersService: UsersService
     
-    @Autowired(OrganizationsService)
+    @Autowired({ typeName: "OrganizationsService" })
     private organizationsService: OrganizationsService
     
-    @Autowired(TeamsService)
+    @Autowired({ typeName: "TeamsService" })
     private teamsService: TeamsService
-    
-    @Autowired(ReportsService)
-    private reportsService: ReportsService
-
-    @Autowired(GithubReposService)
-    private githubReposService: GithubReposService
-
-    @Autowired(LocalReportsService)
-    private localReportsService: LocalReportsService
     
     constructor(
         private readonly platformRoleProvider: PlatformRoleMongoProvider,

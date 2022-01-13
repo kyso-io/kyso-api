@@ -41,16 +41,16 @@ const DEFAULT_GET_REPORT_FILTERS = {
 @ApiBearerAuth()
 @Controller('reports')
 export class ReportsController extends GenericController<Report> {
-    @Autowired(CommentsService)
+    @Autowired({ typeName: "CommentsService" })
     private commentsService: CommentsService
 
-    @Autowired(UsersService)
+    @Autowired({ typeName: "UsersService" })
     private usersService: UsersService
     
-    @Autowired(ReportsService)
+    @Autowired({ typeName: "ReportsService" })
     private reportsService: ReportsService
 
-    @Autowired(RelationsService)
+    @Autowired({ typeName: "RelationsService" })
     private relationsService: RelationsService
     
     constructor() {

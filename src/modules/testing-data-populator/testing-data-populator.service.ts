@@ -42,19 +42,19 @@ export class TestingDataPopulatorService {
     private PrivateTeam: Team
 
 
-    @Autowired(CommentsService)
+    @Autowired({ typeName: "CommentsService" })
     private commentsService: CommentsService
 
-    @Autowired(UsersService)
+    @Autowired({ typeName: "UsersService" })
     private usersService: UsersService
     
-    @Autowired(OrganizationsService)
+    @Autowired({ typeName: "OrganizationsService" })
     private organizationsService: OrganizationsService
     
-    @Autowired(TeamsService)
+    @Autowired({ typeName: "TeamsService" })
     private teamsService: TeamsService
     
-    @Autowired(ReportsService)
+    @Autowired({ typeName: "ReportsService" })
     private reportsService: ReportsService
 
     public async populateTestData() {

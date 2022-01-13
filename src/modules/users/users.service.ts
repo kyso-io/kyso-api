@@ -29,10 +29,10 @@ export function createProvider(): Provider<UsersService> {
 
 @Injectable()
 export class UsersService extends AutowiredService {
-    @Autowired(OrganizationsService)
+    @Autowired({ typeName: "OrganizationsService" })
     private organizationsService: OrganizationsService
     
-    @Autowired(TeamsService)
+    @Autowired({ typeName: "TeamsService" })
     private teamsService: TeamsService
 
     constructor(private mailerService: MailerService, private readonly provider: UsersMongoProvider) {

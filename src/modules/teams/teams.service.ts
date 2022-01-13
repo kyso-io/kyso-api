@@ -13,7 +13,6 @@ import { Team } from '../../model/team.model'
 import { Token } from '../../model/token.model'
 import { User } from '../../model/user.model'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
-import { CommentsService } from '../comments/comments.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
@@ -35,16 +34,13 @@ export function createProvider(): Provider<TeamsService> {
 
 @Injectable()
 export class TeamsService extends AutowiredService {
-    @Autowired(CommentsService)
-    private commentsService: CommentsService
-
-    @Autowired(UsersService)
+    @Autowired({ typeName: "UsersService" })
     private usersService: UsersService
 
-    @Autowired(OrganizationsService)
+    @Autowired({ typeName: "OrganizationsService" })
     private organizationsService: OrganizationsService
 
-    @Autowired(ReportsService)
+    @Autowired({ typeName: "ReportsService" })
     private reportsService: ReportsService
 
     constructor(private readonly provider: TeamsMongoProvider, private readonly teamMemberProvider: TeamMemberMongoProvider) {

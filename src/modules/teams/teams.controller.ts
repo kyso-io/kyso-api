@@ -24,7 +24,7 @@ const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_tok
 @ApiBearerAuth()
 @Controller('teams')
 export class TeamsController extends GenericController<Team> {
-    @Autowired(AuthService)
+    @Autowired({ typeName: "AuthService"})
     private readonly authService: AuthService
     
     constructor(private readonly teamsService: TeamsService) {

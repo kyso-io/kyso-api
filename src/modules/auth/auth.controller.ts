@@ -13,7 +13,7 @@ import { AuthService } from './auth.service'
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController extends GenericController<string> {
-    @Autowired(UsersService)
+    @Autowired({ typeName: "UsersService "})
     private readonly usersService: UsersService
 
     constructor(private readonly authService: AuthService) {

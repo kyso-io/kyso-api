@@ -14,16 +14,16 @@ import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
 @Injectable()
 export class GithubLoginProvider {
-    @Autowired(UsersService)
+    @Autowired({ typeName: "UsersService" })
     private usersService: UsersService
     
-    @Autowired(OrganizationsService)
+    @Autowired({ typeName: "OrganizationsService" })
     private organizationsService: OrganizationsService
     
-    @Autowired(TeamsService)
+    @Autowired({ typeName: "TeamsService" })
     private teamsService: TeamsService
    
-    @Autowired(GithubReposService)
+    @Autowired({ typeName: "GithubReposService" })
     private githubReposService: GithubReposService
 
     constructor(

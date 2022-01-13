@@ -25,7 +25,7 @@ export function createProvider(): Provider<OrganizationsService> {
 
 @Injectable()
 export class OrganizationsService extends AutowiredService {
-    @Autowired(UsersService)
+    @Autowired({ typeName: "UsersService" })
     private usersService: UsersService
     
     constructor(private readonly provider: OrganizationsMongoProvider, private readonly organizationMemberProvider: OrganizationMemberMongoProvider) {

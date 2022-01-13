@@ -34,16 +34,16 @@ export function createProvider(): Provider<ReportsService> {
 
 @Injectable()
 export class ReportsService extends AutowiredService {
-    @Autowired(UsersService)
+    @Autowired({ typeName: "UsersService" })
     private usersService: UsersService
     
-    @Autowired(TeamsService)
+    @Autowired({ typeName: "TeamsService" })
     private teamsService: TeamsService
     
-    @Autowired(GithubReposService)
+    @Autowired({ typeName: "GithubReposService" })
     private githubReposService: GithubReposService
 
-    @Autowired(LocalReportsService)
+    @Autowired({ typeName: "LocalReportsService" })
     private localReportsService: LocalReportsService
 
     constructor(private readonly provider: ReportsMongoProvider) {
