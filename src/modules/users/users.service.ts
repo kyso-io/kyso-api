@@ -111,7 +111,7 @@ export class UsersService extends AutowiredService {
                 Logger.error(`Error sending welcome mail to ${userDb.username}`, err, UsersService.name)
             })
 
-        return user
+        return userDb
     }
 
     async deleteUser(email: string) {
