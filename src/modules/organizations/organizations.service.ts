@@ -7,27 +7,31 @@ import { OrganizationMemberJoin } from '../../model/organization-member-join.mod
 import { OrganizationMember } from '../../model/organization-member.model'
 import { Organization } from '../../model/organization.model'
 import { User } from '../../model/user.model'
+import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
 import { OrganizationsMongoProvider } from './providers/mongo-organizations.provider'
 
 function factory(service: OrganizationsService) {
-    return service;
+    return service
 }
-  
+
 export function createProvider(): Provider<OrganizationsService> {
     return {
         provide: `${OrganizationsService.name}`,
-        useFactory: service => factory(service),
+        useFactory: (service) => factory(service),
         inject: [OrganizationsService],
-    };
+    }
 }
 
 @Injectable()
 export class OrganizationsService extends AutowiredService {
-    @Autowired({ typeName: "UsersService" })
+    @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
-    
+
+    @Autowired({ typeName: 'TeamsService' })
+    private teamsService: TeamsService
+
     constructor(private readonly provider: OrganizationsMongoProvider, private readonly organizationMemberProvider: OrganizationMemberMongoProvider) {
         super()
     }
@@ -51,6 +55,24 @@ export class OrganizationsService extends AutowiredService {
         } else {
             return await this.provider.create(organization)
         }
+    }
+
+    async deleteOrganization(organizationName: string): Promise<boolean> {
+        const organization: Organization = await this.getOrganization({ filter: { name: organizationName } })
+        if (!organization) {
+            throw new PreconditionFailedException('Organization does not exist')
+        }
+
+        // Delete all teams of this organization
+        await this.teamsService.deleteGivenOrganization(organization.id)
+
+        // Delete all members of this organization
+        await this.organizationMemberProvider.delete({ filter: { organization_id: organization.id } })
+
+        // Delete the organization
+        await this.provider.delete({ _id: this.provider.toObjectId(organization.id) })
+
+        return true
     }
 
     async addMembers(organizationName: string, members: User[], roles: KysoRole[]) {
@@ -156,7 +178,55 @@ export class OrganizationsService extends AutowiredService {
         return this.organizationMemberProvider.getMembers(organizationId)
     }
 
-    public async updateOrganizationMembers(name: string, data: UpdateOrganizationMembers): Promise<OrganizationMember[]> {
+    public async addMemberToOrganization(organizationName: string, userName: string): Promise<OrganizationMemberJoin> {
+        const organization: Organization = await this.getOrganization({ filter: { name: organizationName } })
+        if (!organization) {
+            throw new PreconditionFailedException('Organization does not exist')
+        }
+        const user: User = await this.usersService.getUser({ filter: { username: userName } })
+        if (!user) {
+            throw new PreconditionFailedException('User does not exist')
+        }
+
+        const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
+        const member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id)
+        if (member) {
+            throw new PreconditionFailedException('User already belongs to the organization')
+        }
+
+        const newMember: OrganizationMemberJoin = new OrganizationMemberJoin(organization.id, user.id, [], true)
+        return this.organizationMemberProvider.create(newMember)
+    }
+
+    public async removeMemberFromOrganization(organizationName: string, userName: string): Promise<boolean> {
+        const organization: Organization = await this.getOrganization({ filter: { name: organizationName } })
+        if (!organization) {
+            throw new PreconditionFailedException('Organization does not exist')
+        }
+
+        const user: User = await this.usersService.getUser({ filter: { username: userName } })
+        if (!user) {
+            throw new PreconditionFailedException('User does not exist')
+        }
+
+        const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
+        const index: number = members.findIndex((x: OrganizationMemberJoin) => x.member_id === user.id)
+        if (index === -1) {
+            throw new PreconditionFailedException('User is not a member of this organization')
+        }
+
+        await this.organizationMemberProvider.delete({ organization_id: organization.id, member_id: user.id })
+        members.splice(index, 1)
+
+        if (members.length === 0) {
+            // Organization without members, delete it
+            await this.provider.delete({ _id: this.provider.toObjectId(organization.id) })
+        }
+
+        return true
+    }
+
+    public async updateOrganizationMembersRoles(name: string, data: UpdateOrganizationMembers): Promise<OrganizationMember[]> {
         const organization: Organization = await this.getOrganization({ filter: { name } })
         if (!organization) {
             throw new PreconditionFailedException('Organization does not exist')
@@ -170,7 +240,11 @@ export class OrganizationsService extends AutowiredService {
         ]
         const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
         for (const element of data.members) {
-            const member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === element.user_id)
+            const user: User = await this.usersService.getUser({ filter: { username: element.username } })
+            if (!user) {
+                throw new PreconditionFailedException('User does not exist')
+            }
+            const member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id)
             if (!member) {
                 throw new PreconditionFailedException('User is not a member of this organization')
             }
@@ -180,18 +254,24 @@ export class OrganizationsService extends AutowiredService {
                     throw new PreconditionFailedException(`Role ${element.role} is not valid`)
                 }
                 await this.organizationMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $push: { role_names: element.role } })
+            } else {
+                throw new PreconditionFailedException('User already has this role')
             }
         }
         return this.getOrganizationMembers(organization.name)
     }
 
-    public async removeOrganizationMember(name: string, member_id: string, role: string): Promise<OrganizationMember[]> {
+    public async removeOrganizationMemberRole(name: string, username: string, role: string): Promise<boolean> {
         const organization: Organization = await this.getOrganization({ filter: { name } })
         if (!organization) {
             throw new PreconditionFailedException('Organization does not exist')
         }
+        const user: User = await this.usersService.getUser({ filter: { username } })
+        if (!user) {
+            throw new PreconditionFailedException('User does not exist')
+        }
         const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
-        const data: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === member_id)
+        const data: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id)
         if (!data) {
             throw new PreconditionFailedException('User is not a member of this organization')
         }
@@ -200,6 +280,13 @@ export class OrganizationsService extends AutowiredService {
             throw new PreconditionFailedException(`User does not have role ${role}`)
         }
         await this.organizationMemberProvider.update({ _id: this.provider.toObjectId(data.id) }, { $pull: { role_names: role } })
-        return this.getOrganizationMembers(organization.name)
+        return true
+    }
+
+    public async getUserOrganizations(user_id: string): Promise<Organization[]> {
+        const userInOrganizations: OrganizationMemberJoin[] = await this.organizationMemberProvider.read({ filter: { member_id: user_id } })
+        return this.provider.read({
+            filter: { _id: { $in: userInOrganizations.map((x: OrganizationMemberJoin) => this.provider.toObjectId(x.organization_id)) } },
+        })
     }
 }

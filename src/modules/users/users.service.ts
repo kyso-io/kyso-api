@@ -29,10 +29,10 @@ export function createProvider(): Provider<UsersService> {
 
 @Injectable()
 export class UsersService extends AutowiredService {
-    @Autowired({ typeName: "OrganizationsService" })
+    @Autowired({ typeName: 'OrganizationsService' })
     private organizationsService: OrganizationsService
-    
-    @Autowired({ typeName: "TeamsService" })
+
+    @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
 
     constructor(private mailerService: MailerService, private readonly provider: UsersMongoProvider) {
@@ -79,7 +79,7 @@ export class UsersService extends AutowiredService {
         const userDb: User = await this.provider.create(newUser)
 
         // Create user organization
-        const organizationName: string = userDb.username.charAt(0).toUpperCase() + userDb.username.slice(1) + "'s Workspace"
+        const organizationName: string = userDb.nickname.charAt(0).toUpperCase() + userDb.nickname.slice(1) + "'s Workspace"
         const newOrganization: Organization = new Organization(organizationName, [], userDb.email, uuidv4(), false)
         Logger.log(`Creating new organization ${newOrganization.name}`)
         const organizationDb: Organization = await this.organizationsService.createOrganization(newOrganization)
@@ -89,7 +89,7 @@ export class UsersService extends AutowiredService {
         await this.organizationsService.addMembersById(organizationDb.id, [userDb.id], [KysoRole.ORGANIZATION_ADMIN_ROLE.name])
 
         // Create user team
-        const teamName: string = userDb.username.charAt(0).toUpperCase() + userDb.username.slice(1) + "'s Private"
+        const teamName: string = userDb.nickname.charAt(0).toUpperCase() + userDb.nickname.slice(1) + "'s Private"
         const newUserTeam: Team = new Team(teamName, null, null, null, [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
         Logger.log(`Creating new team ${newUserTeam.name}...`)
         const userTeamDb: Team = await this.teamsService.createTeam(newUserTeam)
@@ -102,26 +102,36 @@ export class UsersService extends AutowiredService {
             .sendMail({
                 to: userDb.email,
                 subject: 'Welcome to Kyso',
-                html: `Welcome to Kyso, ${userDb.username}!`,
+                html: `Welcome to Kyso, ${userDb.nickname}!`,
             })
             .then(() => {
-                Logger.log(`Welcome mail sent to ${userDb.username}`, UsersService.name)
+                Logger.log(`Welcome mail sent to ${userDb.nickname}`, UsersService.name)
             })
             .catch((err) => {
-                Logger.error(`Error sending welcome mail to ${userDb.username}`, err, UsersService.name)
+                Logger.error(`Error sending welcome mail to ${userDb.nickname}`, err, UsersService.name)
             })
 
         return userDb
     }
 
-    async deleteUser(email: string) {
-        const exists = await this.getUser({ filter: { email: email } })
-
-        if (!exists) {
+    async deleteUser(email: string): Promise<boolean> {
+        const user: User = await this.getUser({ filter: { email: email } })
+        if (!user) {
             throw new PreconditionFailedException(null, `Can't delete user as does not exists`)
-        } else {
-            this.provider.delete({ email: email })
         }
+
+        const teams: Team[] = await this.teamsService.getUserTeams(user.id)
+        for (const team of teams) {
+            await this.teamsService.removeMemberFromTeam(team.name, user.username)
+        }
+
+        const organizations: Organization[] = await this.organizationsService.getUserOrganizations(user.id)
+        for (const organization of organizations) {
+            await this.organizationsService.removeMemberFromOrganization(organization.name, user.username)
+        }
+
+        await this.provider.delete({ email: email })
+        return true
     }
 
     public async addAccount(email: string, userAccount: UserAccount): Promise<boolean> {

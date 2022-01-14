@@ -34,13 +34,13 @@ export function createProvider(): Provider<TeamsService> {
 
 @Injectable()
 export class TeamsService extends AutowiredService {
-    @Autowired({ typeName: "UsersService" })
+    @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
-    @Autowired({ typeName: "OrganizationsService" })
+    @Autowired({ typeName: 'OrganizationsService' })
     private organizationsService: OrganizationsService
 
-    @Autowired({ typeName: "ReportsService" })
+    @Autowired({ typeName: 'ReportsService' })
     private reportsService: ReportsService
 
     constructor(private readonly provider: TeamsMongoProvider, private readonly teamMemberProvider: TeamMemberMongoProvider) {
@@ -203,8 +203,9 @@ export class TeamsService extends AutowiredService {
         const userInTeam: boolean = userTeams.find((x) => x.id === team.id) !== undefined
         const members: OrganizationMemberJoin[] = await this.organizationsService.getMembers(team.organization_id)
         const userBelongsToOrganization: boolean = members.find((x: OrganizationMemberJoin) => x.member_id === token.id) !== undefined
+        const hasGlobalPermissionAdmin: boolean = userHasPermission(token, GlobalPermissionsEnum.GLOBAL_ADMIN)
         if (team.visibility === TeamVisibilityEnum.PUBLIC) {
-            if (!userInTeam && !userBelongsToOrganization) {
+            if (!userInTeam && !userBelongsToOrganization && !hasGlobalPermissionAdmin) {
                 throw new PreconditionFailedException('You are not a member of this team and not of the organization')
             }
             return reports
@@ -214,23 +215,65 @@ export class TeamsService extends AutowiredService {
             }
             const userHasReportPermissionRead: boolean = userHasPermission(token, ReportPermissionsEnum.READ)
             const userHasReportPermissionAdmin: boolean = userHasPermission(token, ReportPermissionsEnum.ADMIN)
-            const hasGlobalPermissionAdmin: boolean = userHasPermission(token, GlobalPermissionsEnum.GLOBAL_ADMIN)
             if (!userHasReportPermissionRead && !userHasReportPermissionAdmin && !hasGlobalPermissionAdmin && !userBelongsToOrganization) {
                 throw new PreconditionFailedException('User does not have permission to read reports')
             }
             return reports
         } else if (team.visibility === TeamVisibilityEnum.PRIVATE) {
-            if (!userInTeam) {
+            if (!hasGlobalPermissionAdmin && !userInTeam) {
                 throw new PreconditionFailedException('You are not a member of this team')
             }
             const userHasReportPermissionRead: boolean = userHasPermission(token, ReportPermissionsEnum.READ)
             const userHasReportPermissionAdmin: boolean = userHasPermission(token, ReportPermissionsEnum.ADMIN)
-            const hasGlobalPermissionAdmin: boolean = userHasPermission(token, GlobalPermissionsEnum.GLOBAL_ADMIN)
             if (!userHasReportPermissionRead && !userHasReportPermissionAdmin && !hasGlobalPermissionAdmin) {
                 throw new PreconditionFailedException('User does not have permission to read reports')
             }
             return reports
         }
         return []
+    }
+
+    public async deleteGivenOrganization(organization_id: string): Promise<void> {
+        // Get all team  of the organization
+        const teams: Team[] = await this.getTeams({ filter: { organization_id } })
+        for (const team of teams) {
+            // Delete all members of this team
+            await this.teamMemberProvider.delete({ filter: { team_id: team.id } })
+            // Delete team
+            await this.provider.delete({ filter: { _id: this.provider.toObjectId(team.id) } })
+        }
+    }
+
+    public async getUserTeams(user_id: string): Promise<Team[]> {
+        const userInTeams: TeamMemberJoin[] = await this.teamMemberProvider.read({ filter: { member_id: user_id } })
+        return this.provider.read({ filter: { _id: { $in: userInTeams.map((x) => this.provider.toObjectId(x.team_id)) } } })
+    }
+
+    public async removeMemberFromTeam(teamName: string, userName: string): Promise<boolean> {
+        const team: Team = await this.getTeam({ filter: { name: teamName } })
+        if (!team) {
+            throw new PreconditionFailedException('Team not found')
+        }
+
+        const user: User = await this.usersService.getUser({ filter: { username: userName } })
+        if (!user) {
+            throw new PreconditionFailedException('User not found')
+        }
+
+        const members: TeamMemberJoin[] = await this.teamMemberProvider.read({ filter: { team_id: team.id } })
+        const index: number = members.findIndex((x) => x.member_id === user.id)
+        if (index === -1) {
+            throw new PreconditionFailedException('User is not a member of this team')
+        }
+
+        await this.teamMemberProvider.delete({ team_id: team.id, member_id: user.id })
+        members.splice(index, 1)
+
+        if (members.length === 0) {
+            // Team without members, delete it
+            await this.provider.delete({ _id: this.provider.toObjectId(team.id) })
+        }
+
+        return true
     }
 }

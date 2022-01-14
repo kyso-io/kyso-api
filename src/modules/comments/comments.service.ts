@@ -1,4 +1,4 @@
-import { Inject, Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
+import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
@@ -13,30 +13,32 @@ import { CommentsMongoProvider } from './providers/mongo-comments.provider'
 import { CommentPermissionsEnum } from './security/comment-permissions.enum'
 
 function factory(service: CommentsService) {
-    return service;
+    return service
 }
-  
+
 export function createProvider(): Provider<CommentsService> {
     return {
         provide: `${CommentsService.name}`,
-        useFactory: service => factory(service),
+        useFactory: (service) => factory(service),
         inject: [CommentsService],
-    };
+    }
 }
 
 @Injectable()
 export class CommentsService extends AutowiredService {
-    @Autowired({ typeName: "TeamsService" })
+    @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
-    
-    @Autowired({ typeName: "ReportsService" })
+
+    @Autowired({ typeName: 'ReportsService' })
     private reportsService: ReportsService
-  
+
     constructor(private readonly provider: CommentsMongoProvider) {
         super()
     }
 
-    async createComment(comment: Comment): Promise<Comment> {
+    async createCommentGivenToken(token: Token, comment: Comment): Promise<Comment> {
+        comment.user_id = token.id
+        comment.username = token.username
         if (comment?.comment_id) {
             const relatedComments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(comment.comment_id) } })
             if (relatedComments.length === 0) {
@@ -55,13 +57,19 @@ export class CommentsService extends AutowiredService {
             throw new PreconditionFailedException('The specified team could not be found')
         }
         const userTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(comment.user_id)
-        if (!userTeams.find((t: Team) => t.id === team.id)) {
+        const hasGlobalPermissionAdmin: boolean = userHasPermission(token, GlobalPermissionsEnum.GLOBAL_ADMIN)
+        const userBelongsToTheTeam: boolean = userTeams.find((t: Team) => t.id === team.id) !== undefined
+        if (!hasGlobalPermissionAdmin && !userBelongsToTheTeam) {
             throw new PreconditionFailedException('The specified user does not belong to the team of the specified report')
         }
+        return this.createComment(comment)
+    }
+
+    async createComment(comment: Comment): Promise<Comment> {
         return this.provider.create(comment)
     }
 
-    async deleteComment(token: Token, id: string): Promise<Comment> {
+    async deleteComment(token: Token, id: string): Promise<boolean> {
         const comments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(id) } })
         if (comments.length === 0) {
             throw new PreconditionFailedException('The specified comment could not be found')
@@ -85,7 +93,7 @@ export class CommentsService extends AutowiredService {
             throw new PreconditionFailedException('The specified user does not have permission to delete this comment')
         }
         await this.provider.delete({ _id: this.provider.toObjectId(id) })
-        return comment
+        return true
     }
 
     async getComments(query) {

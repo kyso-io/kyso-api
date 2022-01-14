@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationBootstrap, Provider } from '@nestjs/common'
+import { Injectable, Logger, Provider } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcryptjs'
 import * as mongo from 'mongodb'
@@ -12,6 +12,7 @@ import { Team } from '../../model/team.model'
 import { TokenPermissions } from '../../model/token-permissions.model'
 import { Token } from '../../model/token.model'
 import { User } from '../../model/user.model'
+import { KysoPermissions } from '../../security/general-permissions.enum'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
@@ -21,15 +22,15 @@ import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provi
 import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
 
 function factory(service: AuthService) {
-    return service;
+    return service
 }
-  
+
 export function createProvider(): Provider<AuthService> {
     return {
         provide: `${AuthService.name}`,
-        useFactory: service => factory(service),
+        useFactory: (service) => factory(service),
         inject: [AuthService],
-    };
+    }
 }
 
 @Injectable()
@@ -39,10 +40,10 @@ export class AuthService extends AutowiredService {
         private readonly githubLoginProvider: GithubLoginProvider,
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
-    ) { 
+    ) {
         super()
     }
-    
+
     static hashPassword(plainPassword: string): string {
         return bcrypt.hashSync(plainPassword)
     }
@@ -95,7 +96,7 @@ export class AuthService extends AutowiredService {
                 const teamRoles: KysoRole[] = team.roles
 
                 // For every role assigned to this user in this team, retrieve their permissions
-                let computedPermissions = []
+                let computedPermissions: KysoPermissions[] = []
 
                 teamMembership.role_names.map((element) => {
                     let existsRole: KysoRole[]
@@ -135,7 +136,7 @@ export class AuthService extends AutowiredService {
                 const organizationRoles: KysoRole[] = organization.roles
 
                 // For every role assigned to this user in this organization, retrieve their permissions
-                let computedPermissions = []
+                let computedPermissions: KysoPermissions[] = []
 
                 organizationMembership.role_names.map((element) => {
                     let existsRole: KysoRole[]
@@ -196,7 +197,7 @@ export class AuthService extends AutowiredService {
                 const organizationRoles: KysoRole[] = organization.roles
 
                 // For every role assigned to this user in this organization, retrieve their permissions
-                let computedPermissions = []
+                let computedPermissions: KysoPermissions[] = []
 
                 organizationMembership.role_names.map((element) => {
                     let existsRole: KysoRole[]

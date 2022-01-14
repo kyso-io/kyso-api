@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
+import { KysoPermissions, kysoPermissionsList } from '../security/general-permissions.enum'
 import { KysoRole } from './kyso-role.model'
 
 export class ResourcePermissions {
@@ -11,9 +12,9 @@ export class ResourcePermissions {
     @ApiProperty({
         isArray: true,
         description: 'List of roles applied to that resource',
-        enum: KysoRole,
+        enum: kysoPermissionsList,
     })
-    public permissions?: KysoRole[]
+    public permissions?: KysoPermissions[]
 
     @ApiProperty({
         required: false,

@@ -60,9 +60,7 @@ export class CommentsController extends GenericController<Comment> {
     })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN, CommentPermissionsEnum.ADMIN, CommentPermissionsEnum.CREATE])
     public async createComment(@CurrentToken() token: Token, @Body() comment: Comment): Promise<NormalizedResponse> {
-        comment.user_id = token.id
-        comment.username = token.username
-        const newComment: Comment = await this.commentsService.createComment(comment)
+        const newComment: Comment = await this.commentsService.createCommentGivenToken(token, comment)
         return new NormalizedResponse(newComment)
     }
 
@@ -74,7 +72,7 @@ export class CommentsController extends GenericController<Comment> {
     @ApiNormalizedResponse({
         status: 200,
         description: `Comment deleted`,
-        type: Comment,
+        type: Boolean,
     })
     @ApiParam({
         name: 'commentId',
@@ -85,7 +83,7 @@ export class CommentsController extends GenericController<Comment> {
     })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN, CommentPermissionsEnum.ADMIN, CommentPermissionsEnum.DELETE])
     async deleteComment(@CurrentToken() token: Token, @Param('commentId') commentId: string): Promise<NormalizedResponse> {
-        const comment = await this.commentsService.deleteComment(token, commentId)
-        return new NormalizedResponse(comment)
+        const result: boolean = await this.commentsService.deleteComment(token, commentId)
+        return new NormalizedResponse(result)
     }
 }

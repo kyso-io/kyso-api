@@ -11,7 +11,7 @@ import { AuthService } from '../auth.service'
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-    @Autowired({ typeName: "AuthService" })
+    @Autowired({ typeName: 'AuthService' })
     private readonly authService: AuthService
 
     constructor(private readonly reflector: Reflector) {}

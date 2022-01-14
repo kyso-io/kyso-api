@@ -4,8 +4,10 @@ import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
 import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
 import { UpdateOrganizationMembers } from '../../model/dto/update-organization-members.dto'
+import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
 import { OrganizationMember } from '../../model/organization-member.model'
 import { Organization } from '../../model/organization.model'
+import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { OrganizationsService } from './organizations.service'
@@ -48,6 +50,24 @@ export class OrganizationsController extends GenericController<Organization> {
         }
     }
 
+    @Delete('/:organizationName')
+    @ApiOperation({
+        summary: `Delete an organization`,
+        description: `Allows deleting an organization passing its name`,
+    })
+    @ApiParam({
+        name: 'organizationName',
+        required: true,
+        description: `Name of the organization to delete`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Organization matching name`, type: Boolean })
+    @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
+    public async deleteOrganization(@Param('organizationName') name: string): Promise<NormalizedResponse> {
+        const deleted: boolean = await this.organizationService.deleteOrganization(name)
+        return new NormalizedResponse(deleted)
+    }
+
     @Get('/:organizationName/members')
     @ApiOperation({
         summary: `Get all the members of an organization`,
@@ -71,11 +91,11 @@ export class OrganizationsController extends GenericController<Organization> {
         summary: `Create a new organization`,
         description: `By passing the appropiate parameters you can create a new organization`,
     })
-    @ApiNormalizedResponse({ status: 200, description: `Created organization`, type: Organization })
+    @ApiNormalizedResponse({ status: 201, description: `Created organization`, type: Organization })
     @Permission([OrganizationPermissionsEnum.CREATE])
     async createOrganization(@Body() organization: Organization) {
-        const data = await this.organizationService.createOrganization(organization)
-        return data
+        const newOrganization: Organization = await this.organizationService.createOrganization(organization)
+        return new NormalizedResponse(newOrganization)
     }
 
     @Patch(':organizationName')
@@ -90,34 +110,58 @@ export class OrganizationsController extends GenericController<Organization> {
         return new NormalizedResponse(updatedOrganization)
     }
 
-    @Post(':organizationName/members')
+    @Post(':organizationName/members/:userName')
+    @ApiOperation({
+        summary: `Add user to an organization`,
+        description: `By passing the appropiate parameters you can add a user to an organization`,
+    })
+    @ApiNormalizedResponse({ status: 201, description: `Added user`, type: OrganizationMemberJoin })
+    @Permission([OrganizationPermissionsEnum.ADMIN])
+    public async addMemberToOrganization(@Param('organizationName') organizationName, @Param('userName') userName: string): Promise<NormalizedResponse> {
+        const organizationMemberJoin: OrganizationMemberJoin = await this.organizationService.addMemberToOrganization(organizationName, userName)
+        return new NormalizedResponse(organizationMemberJoin)
+    }
+
+    @Delete(':organizationName/members/:userName')
+    @ApiOperation({
+        summary: `Remove user to an organization`,
+        description: `By passing the appropiate parameters you can remove a user to an organization`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Added user`, type: Boolean })
+    @Permission([OrganizationPermissionsEnum.ADMIN])
+    public async removeMemberFromOrganization(@Param('organizationName') organizationName, @Param('userName') userName: string): Promise<NormalizedResponse> {
+        const result: boolean = await this.organizationService.removeMemberFromOrganization(organizationName, userName)
+        return new NormalizedResponse(result)
+    }
+
+    @Post(':organizationName/members-roles')
     @ApiOperation({
         summary: `Update the members of an organization`,
-        description: `By passing the appropiate parameters you can update the members of an organization`,
+        description: `By passing the appropiate parameters you can update the roles of the members of an organization`,
     })
-    @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: OrganizationMember })
+    @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: OrganizationMember })
     @Permission([OrganizationPermissionsEnum.ADMIN])
-    public async updateOrganizationMembers(
+    public async updateOrganizationMembersRoles(
         @Param('organizationName') organizationName: string,
         @Body() data: UpdateOrganizationMembers,
     ): Promise<NormalizedResponse> {
-        const organizationMembers: OrganizationMember[] = await this.organizationService.updateOrganizationMembers(organizationName, data)
+        const organizationMembers: OrganizationMember[] = await this.organizationService.updateOrganizationMembersRoles(organizationName, data)
         return new NormalizedResponse(organizationMembers)
     }
 
-    @Delete(':organizationName/members/:memberId/:role')
+    @Delete(':organizationName/members-roles/:userName/:role')
     @ApiOperation({
         summary: `remove a user's role in an organization`,
-        description: `By passing the appropiate parameters you can remove a user's role in an organization`,
+        description: `By passing the appropiate parameters you can remove a role of a member in an organization`,
     })
-    @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: OrganizationMember })
+    @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Boolean })
     @Permission([OrganizationPermissionsEnum.ADMIN])
-    public async removeOrganizationMember(
+    public async removeOrganizationMemberRole(
         @Param('organizationName') organizationName: string,
-        @Param('memberId') memberId: string,
+        @Param('userName') userName: string,
         @Param('role') role: string,
     ): Promise<NormalizedResponse> {
-        const organizationMember: OrganizationMember[] = await this.organizationService.removeOrganizationMember(organizationName, memberId, role)
-        return new NormalizedResponse(organizationMember)
+        const result: boolean = await this.organizationService.removeOrganizationMemberRole(organizationName, userName, role)
+        return new NormalizedResponse(result)
     }
 }

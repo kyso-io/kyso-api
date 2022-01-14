@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer'
-import { ArrayMinSize, IsArray, IsMongoId, IsNotEmpty, ValidateNested } from 'class-validator'
+import { ArrayMinSize, IsArray, IsNotEmpty, IsString, ValidateNested } from 'class-validator'
 
 export class UpdateOrganizationMembers {
     @IsArray()
@@ -10,8 +10,8 @@ export class UpdateOrganizationMembers {
 }
 
 export class UserRole {
-    @IsMongoId({ each: true })
-    public user_id: string
+    @IsString()
+    public username: string
 
     @IsNotEmpty()
     public role: string

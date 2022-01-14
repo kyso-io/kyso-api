@@ -56,8 +56,6 @@ export class UsersController extends GenericController<User> {
             query.projection = {} // ??? not documented
         }
 
-        query.projection.accessToken = 0
-
         const result: User[] = await this.usersService.getUsers(query)
         return new NormalizedResponse(result)
     }
@@ -130,9 +128,11 @@ export class UsersController extends GenericController<User> {
         schema: { type: 'string' },
     })
     @ApiResponse({ status: 200, description: `Deletion done successfully` })
+    @ApiNormalizedResponse({ status: 200, description: `Organization matching name`, type: Boolean })
     @Permission([UserPermissionsEnum.DELETE])
-    async deleteUser(@Param('mail') mail: string) {
-        await this.usersService.deleteUser(mail)
+    async deleteUser(@Param('mail') mail: string): Promise<NormalizedResponse> {
+        const result: boolean = await this.usersService.deleteUser(mail)
+        return new NormalizedResponse(result)
     }
 
     @Patch('/:email/accounts')
