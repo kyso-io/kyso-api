@@ -39,6 +39,7 @@ export class Token {
 
     constructor(id: string, username: string, nickname: string, email: string, plan: string, permissions: TokenPermissions, avatar_url: string) {
         this.id = id
+        this.nickname = nickname
         this.username = username
         this.email = email
         this.plan = plan
