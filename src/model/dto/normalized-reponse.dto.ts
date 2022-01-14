@@ -5,6 +5,7 @@ import { Comment } from '../comment.model'
 import { Team } from '../team.model'
 import { Organization } from '../organization.model'
 import { BaseModel } from '../base.model'
+import { Relations } from '../relations.model'
 
 const MODELS = [User, Report, Comment, Team, Organization]
 
@@ -25,25 +26,39 @@ export class NormalizedResponse {
     })
     relations: object
 
-    constructor(data: BaseModel | BaseModel[] | any, relations?) {
+    constructor(data: BaseModel | BaseModel[] | any, relations?: Relations) {
         this.data = data
 
-        if(Array.isArray(data)) {
-            if(data[0]) {
+        if (Array.isArray(data)) {
+            if (data[0]) {
                 // We assume that all the objects in the array are of the same type...
-                if(data[0] instanceof BaseModel) {
-                    data.map(x => x.buildHatoes(relations))
+                if (data[0] instanceof BaseModel) {
+                    data.map((x) => x.buildHatoes(relations))
                 }
             }
-        } else if(data instanceof BaseModel) {
+        } else if (data instanceof BaseModel) {
             data[0].buildHatoes(relations)
         }
 
         this.relations = relations
 
-        /*
-        if (data.buildHatoes && relations) data.buildHatoes(relations)
-        // I want also here to buildHatoes for each object inside relations
-        */
+        const keys = Object.keys(relations)
+        this.relations = keys.reduce((prev, key) => {
+            const collection = relations[key]
+            const ids = Object.keys(collection)
+
+            prev[key] = ids.reduce((last, id) => {
+                const model = relations[key][id]
+
+                if (model instanceof BaseModel) {
+                    model.buildHatoes(relations)
+                }
+
+                last[id] = model
+                return last
+            }, {})
+
+            return prev
+        }, {})
     }
 }

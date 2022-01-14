@@ -8,6 +8,7 @@ import { Team } from '../../model/team.model'
 import { Organization } from '../../model/organization.model'
 import { Relations } from '../../model/relations.model'
 import { Relation } from 'src/model/relation.model'
+import { plainToClass } from 'class-transformer'
 
 const capitalize = (s) => s && s[0].toUpperCase() + s.slice(1)
 
@@ -64,11 +65,11 @@ export class RelationsService extends AutowiredService {
             const models = await this.provider.readFromCollectionByIds(collection, groupedRelations[collection])
 
             relations[collection.toLowerCase()] = models.reduce((acc, model) => {
-                if (collection === 'User') acc[model._id] = model as User
-                if (collection === 'Report') acc[model._id] = model as Report
-                if (collection === 'Comment') acc[model._id] = model as Comment
-                if (collection === 'Team') acc[model._id] = model as Team
-                if (collection === 'Organization') acc[model._id] = model as Organization
+                if (collection === 'User') acc[model._id] = plainToClass(User, model)
+                if (collection === 'Report') acc[model._id] = plainToClass(Report, model)
+                if (collection === 'Comment') acc[model._id] = plainToClass(Comment, model)
+                if (collection === 'Team') acc[model._id] = plainToClass(Team, model)
+                if (collection === 'Organization') acc[model._id] = plainToClass(Organization, model)
                 return acc
             }, {})
 
@@ -76,9 +77,6 @@ export class RelationsService extends AutowiredService {
         }
 
         const relations = await Object.keys(groupedRelations).reduce(reducer, {})
-
-        // console.log(relations)
-
-        return relations
+        return plainToClass(Relations, relations)
     }
 }

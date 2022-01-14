@@ -35,6 +35,13 @@ export class User extends BaseUser {
     @ApiProperty()
     public type: 'user'
 
+    public buildHatoes(relations?) {
+        this.links = {
+            self_api: `/${this.nickname}`,
+            self_ui: `/${this.nickname}`,
+        }
+    }
+
     constructor(
         email: string,
         username: string,
