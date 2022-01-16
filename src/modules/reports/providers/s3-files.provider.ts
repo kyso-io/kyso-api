@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 const AWS = require('aws-sdk')
 const S3Adapter = require('@parse/s3-files-adapter')
-const MailgunAdapter = require('@parse/simple-mailgun-adapter')
+// const MailgunAdapter = require('@parse/simple-mailgun-adapter')
 
 const bucket = process.env.AWS_S3_BUCKET
 
@@ -36,11 +36,11 @@ export class FilesS3Provider {
         let emailAdapter = {}
 
         if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_EMAIL_DOMAIN) {
-            emailAdapter = MailgunAdapter({
+            /*emailAdapter = MailgunAdapter({
                 fromAddress: 'support@kyso.io',
                 apiKey: process.env.MAILGUN_API_KEY,
                 domain: process.env.MAILGUN_EMAIL_DOMAIN,
-            })
+            })*/
         } else {
             emailAdapter = EmptyMailAdapter
         }

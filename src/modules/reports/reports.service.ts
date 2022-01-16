@@ -1,14 +1,18 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common'
-import { AlreadyExistsError, ForbiddenError, InvalidInputError, NotFoundError } from 'src/helpers/errorHandling'
-import { QueryParser } from 'src/helpers/queryParser'
-import { Validators } from 'src/helpers/validators'
-import { ReportsMongoProvider } from 'src/modules/reports/providers/mongo-reports.provider'
+import { Injectable, Logger, Provider } from '@nestjs/common'
+import { Autowired } from '../../decorators/autowired'
+import { AutowiredService } from '../../generic/autowired.generic'
+import { AlreadyExistsError, InvalidInputError, NotFoundError } from '../../helpers/errorHandling'
+import { Validators } from '../../helpers/validators'
+import { CreateReport } from '../../model/dto/create-report-request.dto'
+import { Report } from '../../model/report.model'
+import { User } from '../../model/user.model'
 import { GithubReposService } from '../github-repos/github-repos.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { LocalReportsService } from './local-reports.service'
+import { ReportsMongoProvider } from './providers/mongo-reports.provider'
 
-const CREATE_REPORT_FIELDS = ['main', 'title', 'description', 'preview', 'tags', 'authors']
+const CREATE_REPORT_FIELDS = ['main', 'title', 'description', 'preview', 'tags', 'authors', 'team_id']
 const LOCAL_REPORT_HOST = 's3'
 
 function generateReportName(repoName, path) {
@@ -16,18 +20,37 @@ function generateReportName(repoName, path) {
     return repoName + (pathName ? '_' : '') + pathName
 }
 
-@Injectable()
-export class ReportsService {
-    constructor(
-        private readonly provider: ReportsMongoProvider,
-        @Inject(forwardRef(() => GithubReposService))
-        private readonly githubReposService: GithubReposService,
-        private readonly teamsService: TeamsService,
-        private readonly usersService: UsersService,
-        private readonly localReportsService: LocalReportsService,
-    ) {}
+function factory(service: ReportsService) {
+    return service;
+}
+  
+export function createProvider(): Provider<ReportsService> {
+    return {
+        provide: `${ReportsService.name}`,
+        useFactory: service => factory(service),
+        inject: [ReportsService],
+    };
+}
 
-    async getReports(query) {
+@Injectable()
+export class ReportsService extends AutowiredService {
+    @Autowired({ typeName: "UsersService" })
+    private usersService: UsersService
+    
+    @Autowired({ typeName: "TeamsService" })
+    private teamsService: TeamsService
+    
+    @Autowired({ typeName: "GithubReposService" })
+    private githubReposService: GithubReposService
+
+    @Autowired({ typeName: "LocalReportsService" })
+    private localReportsService: LocalReportsService
+
+    constructor(private readonly provider: ReportsMongoProvider) {
+        super()
+    }
+
+    async getReports(query): Promise<Report[]> {
         if (query.filter && query.filter.owner) {
             const results = await Promise.allSettled([
                 this.usersService.getUser({
@@ -40,9 +63,9 @@ export class ReportsService {
 
             delete query.filter.owner
             if (results[0].status === 'fulfilled') {
-                query.filter._p_user = QueryParser.createForeignKey('_User', results[0].value.id)
+                query.filter.user_id = results[0].value.id
             } else if (results[1].status === 'fulfilled') {
-                query.filter._p_team = QueryParser.createForeignKey('Team', results[1].value.id)
+                query.filter.team_id = results[1].value.id
             } else {
                 return []
             }
@@ -60,10 +83,10 @@ export class ReportsService {
         }
 
         const reports = await this.provider.getReportsWithOwner(query)
-        return reports
+        return reports as Report[]
     }
 
-    async getReport(reportOwner, reportName) {
+    async getReport(reportOwner, reportName): Promise<Report> {
         const reports = await this.getReports({
             filter: {
                 owner: reportOwner,
@@ -76,33 +99,40 @@ export class ReportsService {
             throw new NotFoundError({
                 message: "The specified report couldn't be found",
             })
-        return reports[0]
+
+        return Object.assign(new Report(), reports[0])
     }
 
-    async createReport(user, data, teamName) {
-        if (!Validators.isValidReportName(data.src.name))
+    async createReport(user: User, createReportRequest: CreateReport, teamName) {
+        if (!Validators.isValidReportName(createReportRequest.name))
             throw new InvalidInputError({
                 message: `Study name can only consist of letters, numbers, '_' and '-'.`,
             })
 
-        const basePath = (data.src.path || '').replace(/^[.]\//, '')
-        const reportName = generateReportName(data.src.name, basePath)
+        const basePath = (createReportRequest.path || '').replace(/^[.]\//, '')
+        const reportName = createReportRequest.name
+
+        // const reportName = generateReportName(createReportRequest.name, basePath)
 
         // OLD line... what is he doing with the result of this???
-        // await this.reposService({ provider: data.src.provider, accessToken: user.accessToken }).getRepo(user, data.src.owner, data.src.name)
+        // await this.reposService({ provider: createReportRequest.src.provider, accessToken: user.accessToken }).getRepo(user, createReportRequest.src.owner, createReportRequest.src.name)
 
         // NEW
-        switch (data.src.provider) {
+        switch (createReportRequest.provider) {
             case 'github':
-            default:
+                if (!user.accessToken) {
+                    Logger.error(`User ${user.username} does not have a valid accessToken to make login in Github`, ReportsService.name)
+                    break
+                }
                 this.githubReposService.login(user.accessToken)
-                await this.githubReposService.getRepo(user, data.src.owner, data.src.name)
+                await this.githubReposService.getRepo(user, createReportRequest.owner, createReportRequest.name)
+                break
+            default:
                 break
         }
         // END NEW
-
         let report = {
-            _p_user: QueryParser.createForeignKey('_User', user.objectId),
+            user_id: user.id,
         } as any
         const usedNameQuery = {
             filter: {
@@ -115,14 +145,13 @@ export class ReportsService {
             const { id: teamId } = await this.teamsService.getTeam({
                 filter: { name: teamName },
             })
-            if (!(await this.teamsService.hasPermissionLevel(user.objectId, teamName, 'editor'))) {
-                throw new ForbiddenError({
-                    message: 'You are not allowed to create a report for this team',
-                })
-            }
-            report._p_team = QueryParser.createForeignKey('Team', teamId)
-            usedNameQuery.filter._p_team = report._p_team
-        } else usedNameQuery.filter._p_user = report._p_user
+
+            report.team_id = teamId
+            usedNameQuery.filter.team_id = report.team_id
+        } else {
+            usedNameQuery.filter.user_id = report.user_id
+            report.team_id = createReportRequest.team_id
+        }
 
         const reports = await this.provider.read(usedNameQuery)
         if (reports.length !== 0)
@@ -134,11 +163,21 @@ export class ReportsService {
         try {
             // OLD LINE
             // metadata = await this.reposService({ provider: data.src.provider, accessToken: user.accessToken }).getConfigFile(basePath, data.src.owner, data.src.name, data.src.default_branch)
-            switch (data.src.provider) {
+            switch (createReportRequest.provider) {
                 case 'github':
-                default:
+                    if (!user.accessToken) {
+                        Logger.error(`User ${user.username} does not have a valid accessToken to make login in Github`, ReportsService.name)
+                        break
+                    }
                     this.githubReposService.login(user.accessToken)
-                    metadata = this.githubReposService.getConfigFile(basePath, data.src.owner, data.src.name, data.src.default_branch)
+                    metadata = this.githubReposService.getConfigFile(
+                        basePath,
+                        createReportRequest.owner,
+                        createReportRequest.name,
+                        createReportRequest.default_branch,
+                    )
+                    break
+                default:
                     break
             }
         } catch (err) {}
@@ -150,12 +189,13 @@ export class ReportsService {
             ...report,
             name: reportName,
             provider: {
-                source: data.src.provider,
-                owner: data.src.owner,
-                name: data.src.name,
-                defaultBranch: data.src.default_branch,
+                source: createReportRequest.provider,
+                owner: createReportRequest.owner,
+                name: createReportRequest.name,
+                defaultBranch: createReportRequest.default_branch,
                 basePath,
             },
+            links: {},
             numberOfComments: 0,
             stars: 0,
             views: 0,
@@ -167,44 +207,17 @@ export class ReportsService {
     async updateReport(userId, reportOwner, reportName, data) {
         const report = await this.getReport(reportOwner, reportName)
 
-        if (
-            (report.owner.type === 'user' && report.owner.id !== userId) ||
-            (report.owner.type === 'team' && !(await this.teamsService.hasPermissionLevel(userId, reportOwner, 'editor')))
-        ) {
-            throw new ForbiddenError({
-                message: 'You are not allowed to delete this report',
-            })
-        }
-
-        return this.provider.update({ _id: report.id }, data)
+        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, data)
     }
 
     async deleteReport(userId, reportOwner, reportName) {
         const report = await this.getReport(reportOwner, reportName)
 
-        if (
-            (report.owner.type === 'user' && report.owner.id !== userId) ||
-            (report.owner.type === 'team' && !(await this.teamsService.hasPermissionLevel(userId, reportOwner, 'editor')))
-        ) {
-            throw new ForbiddenError({
-                message: 'You are not allowed to delete this report',
-            })
-        }
-
-        await this.provider.delete({ _id: this.provider.parseId(report.id) })
+        await this.provider.delete({ _id: this.provider.toObjectId(report.id) })
     }
 
     async pinReport(userId, reportOwner, reportName) {
         const report = await this.getReport(reportOwner, reportName)
-
-        if (
-            (report.owner.type === 'user' && report.owner.id !== userId) ||
-            (report.owner.type === 'team' && !(await this.teamsService.hasPermissionLevel(userId, reportOwner, 'editor')))
-        ) {
-            throw new ForbiddenError({
-                message: 'You are not allowed to edit this report',
-            })
-        }
 
         const existingReports = await this.getReports({
             filter: {
@@ -226,14 +239,14 @@ export class ReportsService {
     }
 
     async getBranches(reportOwner, reportName) {
-        const { id, source, _p_user } = await this.getReport(reportOwner, reportName)
+        const { id, source, user_id } = await this.getReport(reportOwner, reportName)
         let branches
 
         if (source.provider === LOCAL_REPORT_HOST) {
             branches = await this.localReportsService.getReportVersions(id)
         } else {
             const { accessToken } = await this.usersService.getUser({
-                filter: { _id: _p_user },
+                filter: { _id: user_id },
             })
 
             // OLD
@@ -255,14 +268,14 @@ export class ReportsService {
     }
 
     async getCommits(reportOwner, reportName, branch) {
-        const { source, _p_user } = await this.getReport(reportOwner, reportName)
+        const { source, user_id } = await this.getReport(reportOwner, reportName)
         if (source.provider === LOCAL_REPORT_HOST)
             throw new InvalidInputError({
                 message: 'This functionality is not available in S3',
             })
 
         const { accessToken } = await this.usersService.getUser({
-            filter: { _id: _p_user },
+            filter: { _id: user_id },
         })
         // OLD
         // const commits = await this.reposService({ provider: source.provider, accessToken }).getCommits(source.owner, source.name, branch)
@@ -278,14 +291,14 @@ export class ReportsService {
     }
 
     async getFileHash(reportOwner, reportName, branch, path) {
-        const { id, source, _p_user } = await this.getReport(reportOwner, reportName)
+        const { id, source, user_id } = await this.getReport(reportOwner, reportName)
         let data = {}
 
         if (source.provider === LOCAL_REPORT_HOST) {
             data = await this.localReportsService.getFileHash(id, branch)
         } else {
             const { accessToken } = await this.usersService.getUser({
-                filter: { _id: _p_user },
+                filter: { _id: user_id },
             })
             const fullPath = `${source.basePath}${path}`
             // OLD
@@ -303,14 +316,14 @@ export class ReportsService {
     }
 
     async getReportFileContent(reportOwner, reportName, hash) {
-        const { id, source, _p_user } = await this.getReport(reportOwner, reportName)
+        const { id, source, user_id } = await this.getReport(reportOwner, reportName)
         let content
 
         if (source.provider === LOCAL_REPORT_HOST) {
             content = await this.localReportsService.getFileContent(id, hash)
         } else {
             const { accessToken } = await this.usersService.getUser({
-                filter: { _id: _p_user },
+                filter: { _id: user_id },
             })
             // OLD
             // content = await this.reposService({ provider: source.provider, accessToken }).getFileContent(hash, source.owner, source.name)
@@ -325,5 +338,10 @@ export class ReportsService {
         }
 
         return content
+    }
+
+    public async getById(id: string): Promise<Report> {
+        const reports: Report[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(id) } })
+        return reports.length === 1 ? reports[0] : null
     }
 }

@@ -1,11 +1,15 @@
-import { Injectable } from '@nestjs/common'
-import { NotFoundError } from 'src/helpers/errorHandling'
-import { MongoProvider } from 'src/providers/mongo.provider'
-
+import { Injectable, Logger } from '@nestjs/common'
+import { NotFoundError } from '../../../helpers/errorHandling'
+import { db } from '../../../main'
+import { MongoProvider } from '../../../providers/mongo.provider'
 @Injectable()
-export class FilesMongoProvider extends MongoProvider {
+export class FilesMongoProvider extends MongoProvider<any> {
     constructor() {
-        super('File')
+        super('File', db)
+    }
+
+    populateMinimalData() {
+        Logger.log(`${this.baseCollection} has no minimal data to populate`)
     }
 
     async getFile(fileSha) {

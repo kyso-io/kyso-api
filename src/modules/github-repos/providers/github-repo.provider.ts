@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common'
-import { ApiUnauthorizedResponse } from '@nestjs/swagger'
-import { NotFoundError } from 'src/helpers/errorHandling'
-const { Octokit } = require('@octokit/rest')
-const axios = require('axios').default
+import { Octokit } from '@octokit/rest'
+import axios from 'axios'
+import { NotFoundError } from '../../../helpers/errorHandling'
 
 const MAX_ORGANIZATIONS_PER_USER = 100
 
@@ -21,8 +20,6 @@ const repoMapFunction = (repo) => ({
 @Injectable()
 export class GithubReposProvider {
     octokit: any
-
-    constructor() {}
 
     async login(accessToken) {
         this.octokit = new Octokit({
@@ -165,7 +162,7 @@ export class GithubReposProvider {
     }
 
     async getUserByAccessToken(access_token: string) {
-        let res = await axios.get(`https://api.github.com/user`, {
+        const res = await axios.get(`https://api.github.com/user`, {
             headers: {
                 Authorization: `token ${access_token}`,
                 'content-type': 'application/json',
@@ -176,7 +173,7 @@ export class GithubReposProvider {
     }
 
     async getEmailByAccessToken(access_token: string) {
-        let res = await axios.get(`https://api.github.com/user/emails`, {
+        const res = await axios.get(`https://api.github.com/user/emails`, {
             headers: {
                 Authorization: `token ${access_token}`,
                 'content-type': 'application/json',

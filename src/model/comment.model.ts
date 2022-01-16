@@ -1,14 +1,35 @@
 import { ApiProperty } from '@nestjs/swagger'
+import { IsMongoId, IsNotEmpty, IsOptional } from 'class-validator'
 import { BaseModel } from './base.model'
-import { Hateoas } from './hateoas.model'
 
 export class Comment extends BaseModel {
-    @ApiProperty()
-    public id: string
-    @ApiProperty()
+    @ApiProperty({ format: 'faker: lorem.sentance' })
+    @IsNotEmpty()
     public text: string
+
+    @ApiProperty({ format: 'faker: datatype.uuid' })
+    public user_id: string
+
+    @ApiProperty({ format: 'faker: datatype.uuid' })
+    @IsMongoId()
+    public report_id: string
+
+    @ApiProperty({ format: 'faker: datatype.uuid' })
+    @IsOptional()
+    @IsMongoId()
+    public comment_id: string
+
     @ApiProperty()
-    public _p_user: string
-    @ApiProperty()
-    public child_comments: Comment[]
+    public type: 'comment'
+
+    buildHatoes(relations?: any) {}
+
+    constructor(text, user_id, report_id, comment_id) {
+        super()
+        this.text = text
+        this.user_id = user_id
+        this.report_id = report_id
+        this.comment_id = comment_id
+        this.type = 'comment'
+    }
 }

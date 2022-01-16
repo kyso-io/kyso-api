@@ -1,36 +1,100 @@
-import { Injectable } from '@nestjs/common'
-import { NotFoundError } from 'src/helpers/errorHandling'
-import { QueryParser } from 'src/helpers/queryParser'
-import { CommentsMongoProvider } from 'src/modules/comments/providers/mongo-comments.provider'
+import { Inject, Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
+import { Autowired } from '../../decorators/autowired'
+import { AutowiredService } from '../../generic/autowired.generic'
+import { userHasPermission } from '../../helpers/permissions'
+import { Comment } from '../../model/comment.model'
+import { Report } from '../../model/report.model'
+import { Team } from '../../model/team.model'
+import { Token } from '../../model/token.model'
+import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
+import { ReportsService } from '../reports/reports.service'
+import { TeamsService } from '../teams/teams.service'
+import { CommentsMongoProvider } from './providers/mongo-comments.provider'
+import { CommentPermissionsEnum } from './security/comment-permissions.enum'
+
+function factory(service: CommentsService) {
+    return service;
+}
+  
+export function createProvider(): Provider<CommentsService> {
+    return {
+        provide: `${CommentsService.name}`,
+        useFactory: service => factory(service),
+        inject: [CommentsService],
+    };
+}
 
 @Injectable()
-export class CommentsService {
-    constructor(private readonly provider: CommentsMongoProvider) {}
+export class CommentsService extends AutowiredService {
+    @Autowired({ typeName: "TeamsService" })
+    private teamsService: TeamsService
+    
+    @Autowired({ typeName: "ReportsService" })
+    private reportsService: ReportsService
+  
+    constructor(private readonly provider: CommentsMongoProvider) {
+        super()
+    }
 
-    async getReportComments(reportId) {
+    async createComment(comment: Comment): Promise<Comment> {
+        if (comment?.comment_id) {
+            const relatedComments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(comment.comment_id) } })
+            if (relatedComments.length === 0) {
+                throw new PreconditionFailedException('The specified related comment could not be found')
+            }
+        }
+        const report: Report = await this.reportsService.getById(comment.report_id)
+        if (!report) {
+            throw new PreconditionFailedException('The specified report could not be found')
+        }
+        if (!report.team_id || report.team_id == null || report.team_id === '') {
+            throw new PreconditionFailedException('The specified report does not have a team associated')
+        }
+        const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
+        if (!team) {
+            throw new PreconditionFailedException('The specified team could not be found')
+        }
+        const userTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(comment.user_id)
+        if (!userTeams.find((t: Team) => t.id === team.id)) {
+            throw new PreconditionFailedException('The specified user does not belong to the team of the specified report')
+        }
+        return this.provider.create(comment)
+    }
+
+    async deleteComment(token: Token, id: string): Promise<Comment> {
+        const comments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(id) } })
+        if (comments.length === 0) {
+            throw new PreconditionFailedException('The specified comment could not be found')
+        }
+        const comment: Comment = comments[0]
+        const report: Report = await this.reportsService.getById(comment.report_id)
+        if (!report) {
+            throw new PreconditionFailedException('The specified report could not be found')
+        }
+        if (!report.team_id || report.team_id == null || report.team_id === '') {
+            throw new PreconditionFailedException('The specified report does not have a team associated')
+        }
+        const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
+        if (!team) {
+            throw new PreconditionFailedException('The specified team could not be found')
+        }
+        const userIsCommentCreator: boolean = comment.user_id === token.id
+        const hasCommentPermissionAdmin: boolean = userHasPermission(token, CommentPermissionsEnum.ADMIN)
+        const hasGlobalPermissionAdmin: boolean = userHasPermission(token, GlobalPermissionsEnum.GLOBAL_ADMIN)
+        if (!userIsCommentCreator && !hasCommentPermissionAdmin && !hasGlobalPermissionAdmin) {
+            throw new PreconditionFailedException('The specified user does not have permission to delete this comment')
+        }
+        await this.provider.delete({ _id: this.provider.toObjectId(id) })
+        return comment
+    }
+
+    async getComments(query) {
         const comments = await this.provider.read({
-            filter: {
-                _p_study: QueryParser.createForeignKey('Study', reportId),
-            },
+            filter: query,
             sort: { _created_at: -1 },
         })
 
-        const commentMap = {}
-        const parents = []
-        const childs = []
-
-        comments.forEach((comment) => {
-            comment.childComments = []
-            commentMap[comment.id] = comment
-            if (comment.parent !== null) childs.push(comment)
-            else parents.push(comment)
-        })
-
-        childs.forEach((child) => {
-            if (commentMap[child._p_parent]) commentMap[child._p_parent].childComments.push(child)
-        })
-
-        return parents
+        return comments
     }
 
     async getCommentWithChildren(commentId) {
@@ -39,12 +103,13 @@ export class CommentsService {
             limit: 1,
         })
 
-        if (comments.length === 0)
-            throw new NotFoundError({
-                message: "The specified comment couldn't be found",
-            })
-        const reportComments = await this.getReportComments(comments[0]._p_study)
+        if (comments.length === 0) {
+            return {}
+        }
 
-        return reportComments.find((comment) => comment.id === commentId)
+        return comments
+        // const reportComments = await this.getReportComments(comments[0].report_id)
+
+        // return reportComments.find((comment) => comment.id === commentId)
     }
 }

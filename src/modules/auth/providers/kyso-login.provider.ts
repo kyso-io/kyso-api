@@ -1,41 +1,64 @@
-import { Injectable } from '@nestjs/common'
-import { UsersService } from 'src/modules/users/users.service'
+import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
-import * as bcrypt from 'bcryptjs'
+import { Autowired } from '../../../decorators/autowired'
+import { TokenPermissions } from '../../../model/token-permissions.model'
+import { Token } from '../../../model/token.model'
+import { CommentsService } from '../../comments/comments.service'
+import { GithubReposService } from '../../github-repos/github-repos.service'
+import { OrganizationsService } from '../../organizations/organizations.service'
+import { LocalReportsService } from '../../reports/local-reports.service'
+import { ReportsService } from '../../reports/reports.service'
+import { TeamsService } from '../../teams/teams.service'
+import { UsersService } from '../../users/users.service'
+import { AuthService } from '../auth.service'
+import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
+import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
 @Injectable()
 export class KysoLoginProvider {
-    constructor(private readonly userService: UsersService, private readonly jwtService: JwtService) {}
+    @Autowired({ typeName: "UsersService" })
+    private usersService: UsersService
+    
+    @Autowired({ typeName: "OrganizationsService" })
+    private organizationsService: OrganizationsService
+    
+    @Autowired({ typeName: "TeamsService" })
+    private teamsService: TeamsService
+    
+    constructor(
+        private readonly platformRoleProvider: PlatformRoleMongoProvider,
+        private readonly jwtService: JwtService,
+        private readonly userRoleProvider: UserRoleMongoProvider,
+    ) {}
 
-    async login(password: string, username?: string): Promise<String> {
+    async login(password: string, username?: string): Promise<string> {
         // Get user from database
-        let user = await this.userService.getUser({
+        const user = await this.usersService.getUser({
             filter: { username: username },
         })
 
-        const isRightPassword = await bcrypt.compare(password, user.hashed_password)
+        if (!user) {
+            throw new UnauthorizedException('Unauthorized')
+        }
+
+        const isRightPassword = await AuthService.isPasswordCorrect(password, user.hashed_password)
 
         if (isRightPassword) {
-            // Get all the teams of the user
+            // Build all the permissions for this user
+            const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
+                username,
+                this.usersService,
+                this.teamsService,
+                this.organizationsService,
+                this.platformRoleProvider,
+                this.userRoleProvider,
+            )
 
-            // Get all the permissions for every team
+            const payload: Token = new Token(user.id.toString(), user.username, user.nickname, user.email, user.plan, permissions, user.avatar_url)
 
             // generate token
             const token = this.jwtService.sign(
-                {
-                    username: user.username,
-                    nickname: user.nickname,
-                    plan: user.plan,
-                    id: user.id,
-                    email: user.email,
-                    // TODO: USE PERMISSION SYSTEM ;)
-                    teams: [
-                        {
-                            name: 'Team Name',
-                            permissions: ['READ_REPORTS', 'READ_COMMENTS'],
-                        },
-                    ],
-                },
+                { payload },
                 {
                     expiresIn: '2h',
                     issuer: 'kyso',
@@ -44,7 +67,7 @@ export class KysoLoginProvider {
 
             return token
         } else {
-            // throw unauthorized exception
+            throw new UnauthorizedException('Unauthorized')
         }
     }
 }

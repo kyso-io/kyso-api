@@ -1,15 +1,36 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { UsersService } from 'src/modules/users/users.service'
 import { JwtService } from '@nestjs/jwt'
-import { UnauthorizedError } from 'src/helpers/errorHandling'
-import { User } from 'src/model/user.model'
-import { GithubReposService } from 'src/modules/github-repos/github-repos.service'
-
-const axios = require('axios').default
+import axios from 'axios'
+import { Autowired } from '../../../decorators/autowired'
+import { UnauthorizedError } from '../../../helpers/errorHandling'
+import { User } from '../../../model/user.model'
+import { GithubReposService } from '../../github-repos/github-repos.service'
+import { OrganizationsService } from '../../organizations/organizations.service'
+import { TeamsService } from '../../teams/teams.service'
+import { UsersService } from '../../users/users.service'
+import { AuthService } from '../auth.service'
+import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
+import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
 @Injectable()
 export class GithubLoginProvider {
-    constructor(private readonly userService: UsersService, private readonly githubService: GithubReposService, private readonly jwtService: JwtService) {}
+    @Autowired({ typeName: "UsersService" })
+    private usersService: UsersService
+    
+    @Autowired({ typeName: "OrganizationsService" })
+    private organizationsService: OrganizationsService
+    
+    @Autowired({ typeName: "TeamsService" })
+    private teamsService: TeamsService
+   
+    @Autowired({ typeName: "GithubReposService" })
+    private githubReposService: GithubReposService
+
+    constructor(
+        private readonly platformRoleProvider: PlatformRoleMongoProvider,
+        private readonly jwtService: JwtService,
+        private readonly userRoleProvider: UserRoleMongoProvider,
+    ) {}
     // FLOW:
     //     * After calling login, frontend should call to
     // https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_url=${REDIRECT}&state=${RANDOM_STRING}
@@ -17,7 +38,7 @@ export class GithubLoginProvider {
     //     * Then, frontend should call this method throught the API to get the final JWT
     //     * Finally, should use this JWT for the rest of the methods
     //     * The access_token will be stored in MongoDB, so the next operations could be managed as well
-    async login(code: string): Promise<String> {
+    async login(code: string): Promise<string> {
         const res = await axios.post(
             `https://github.com/login/oauth/access_token`,
             {
@@ -39,8 +60,8 @@ export class GithubLoginProvider {
         // Retrieve the token...
         const access_token = res.data.split('&')[0].split('=')[1]
 
-        const githubUser = await this.githubService.getUserByAccessToken(access_token)
-        const emails = await this.githubService.getEmailByAccessToken(access_token)
+        const githubUser = await this.githubReposService.getUserByAccessToken(access_token)
+        const emails = await this.githubReposService.getEmailByAccessToken(access_token)
         const onlyPrimaryMail = emails.filter((x) => x.primary === true)[0]
 
         const user = User.fromGithubUser(githubUser, onlyPrimaryMail)
@@ -49,7 +70,7 @@ export class GithubLoginProvider {
         // Check if the user exists in database, and if not, create it
         let userInDb = null
         try {
-            let userInDb = await this.userService.getUser({
+            userInDb = await this.usersService.getUser({
                 filter: { email: user.email },
             })
         } catch (ex) {
@@ -63,8 +84,19 @@ export class GithubLoginProvider {
             // User does not exists, create it
         }
 
+        // Build all the permissions for this user
+        const permissions = await AuthService.buildFinalPermissionsForUser(
+            user.username,
+            this.usersService,
+            this.teamsService,
+            this.organizationsService,
+            this.platformRoleProvider,
+            this.userRoleProvider,
+        )
+
         // In any case, generate JWT Token here
         // generate token
+
         const token = this.jwtService.sign(
             {
                 username: user.username,
@@ -72,13 +104,7 @@ export class GithubLoginProvider {
                 // plan: user.plan,
                 id: userInDb.id,
                 email: user.email,
-                // TODO: USE PERMISSION SYSTEM ;)
-                teams: [
-                    {
-                        name: 'Team Name',
-                        permissions: ['READ_REPORTS', 'READ_COMMENTS'],
-                    },
-                ],
+                permissions,
             },
             {
                 expiresIn: '2h',

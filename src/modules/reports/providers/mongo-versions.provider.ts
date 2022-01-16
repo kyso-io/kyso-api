@@ -1,18 +1,23 @@
-import { Injectable } from '@nestjs/common'
-import { NotFoundError } from 'src/helpers/errorHandling'
-import { QueryParser } from 'src/helpers/queryParser'
-import { MongoProvider } from 'src/providers/mongo.provider'
+import { Injectable, Logger } from '@nestjs/common'
+import { NotFoundError } from '../../../helpers/errorHandling'
+import { QueryParser } from '../../../helpers/queryParser'
+import { db } from '../../../main'
+import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
-export class VersionsMongoProvider extends MongoProvider {
+export class VersionsMongoProvider extends MongoProvider<any> {
     constructor() {
-        super('Version')
+        super('Version', db)
+    }
+
+    populateMinimalData() {
+        Logger.log(`${this.baseCollection} has no minimal data to populate`)
     }
 
     async getReportVersions(reportId) {
         const versions = await this.read({
             filter: {
-                _p_study: QueryParser.createForeignKey('Study', reportId),
+                report_id: reportId,
             },
         })
         return versions
@@ -22,7 +27,7 @@ export class VersionsMongoProvider extends MongoProvider {
         const versions = await this.read({
             filter: {
                 _id: version,
-                _p_study: QueryParser.createForeignKey('Study', reportId),
+                report_id: reportId,
             },
             limit: 1,
         })

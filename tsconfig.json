@@ -18,5 +18,9 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false
+  },
+  "typedocOptions": {
+    "entryPoints": ["src/main.ts"],
+    "out": "docs"
   }
 }

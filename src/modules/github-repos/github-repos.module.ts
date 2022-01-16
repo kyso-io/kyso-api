@@ -1,13 +1,22 @@
-import { forwardRef, Module } from '@nestjs/common'
-import { ReportsModule } from '../reports/reports.module'
+import { DynamicModule, Module } from '@nestjs/common'
 import { GithubReposController } from './github-repos.controller'
-import { GithubReposService } from './github-repos.service'
+import { createProvider, GithubReposService } from './github-repos.service'
 import { GithubReposProvider } from './providers/github-repo.provider'
 
-@Module({
-    imports: [forwardRef(() => ReportsModule)],
+/*@Module({
     providers: [GithubReposService, GithubReposProvider],
     controllers: [GithubReposController],
     exports: [GithubReposService],
-})
-export class GithubReposModule {}
+})*/
+export class GithubReposModule {
+    static forRoot(): DynamicModule {
+        const dynamicProvider = createProvider();
+   
+        return {
+            module: GithubReposModule,
+            providers: [GithubReposService, GithubReposProvider, dynamicProvider],
+            controllers: [GithubReposController],
+            exports: [dynamicProvider],
+        };
+    }
+}

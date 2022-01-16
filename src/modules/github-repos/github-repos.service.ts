@@ -1,8 +1,7 @@
-import { forwardRef, Inject, Injectable, OnModuleInit, Scope } from '@nestjs/common'
-import { NotFoundError } from 'src/helpers/errorHandling'
-import { QueryParser } from 'src/helpers/queryParser'
-import { GithubReposProvider } from 'src/modules/github-repos/providers/github-repo.provider'
-import { ReportsService } from '../reports/reports.service'
+import { Injectable, Provider } from '@nestjs/common'
+import { AutowiredService } from '../../generic/autowired.generic'
+import { NotFoundError } from '../../helpers/errorHandling'
+import { GithubReposProvider } from './providers/github-repo.provider'
 const { safeLoad } = require('js-yaml')
 
 const DEFAULT_REPOS_PER_PAGE = 30
@@ -21,13 +20,24 @@ function parseConfig(format, data) {
     return config
 }
 
-@Injectable({ scope: Scope.REQUEST })
-export class GithubReposService {
-    constructor(
-        private readonly provider: GithubReposProvider,
-        @Inject(forwardRef(() => ReportsService))
-        private readonly reportsService: ReportsService,
-    ) {}
+function factory(service: GithubReposService) {
+    return service;
+}
+  
+export function createProvider(): Provider<GithubReposService> {
+    return {
+        provide: `${GithubReposService.name}`,
+        useFactory: service => factory(service),
+        inject: [GithubReposService],
+    };
+}
+
+// @Injectable({ scope: Scope.REQUEST })
+@Injectable()
+export class GithubReposService extends AutowiredService{
+    constructor(private readonly provider: GithubReposProvider) {
+        super()
+    }
 
     login(access_token) {
         this.provider.login(access_token)
@@ -45,24 +55,25 @@ export class GithubReposService {
         return commits
     }
 
+    /*
     _assignReports(user) {
         return async (repo) => {
             const reports = await this.reportsService.getReports({
                 filter: {
                     'provider.owner': repo.owner,
                     'provider.name': repo.name.toLowerCase(),
-                    _p_user: QueryParser.createForeignKey('_User', user.objectId),
+                    user_id: QueryParser.createForeignKey('_User', user.objectId),
                 },
             })
 
             if (reports.length) repo.report = reports[0].full_name
         }
-    }
+    }*/
 
     async getRepos({ user, filter, page = 1, perPage = DEFAULT_REPOS_PER_PAGE }) {
         const repos = filter ? await this.provider.searchRepos(filter, page, perPage) : await this.provider.getRepos(page, perPage)
 
-        await Promise.all(repos.map(this._assignReports(user)))
+        // await Promise.all(repos.map(this._assignReports(user)))
 
         return repos
     }
@@ -73,7 +84,8 @@ export class GithubReposService {
             throw new NotFoundError({
                 message: "The specified repository couldn't be found",
             })
-        await this._assignReports(user)(repo)
+
+        //    await this._assignReports(user)(repo)
 
         return repo
     }

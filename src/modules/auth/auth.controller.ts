@@ -1,17 +1,26 @@
-import { Controller, Post, Body } from '@nestjs/common'
+import { Body, Controller, Post } from '@nestjs/common'
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
-import { GenericController } from 'src/generic/controller.generic'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { Autowired } from '../../decorators/autowired'
+import { GenericController } from '../../generic/controller.generic'
+import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
+import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
+import { Login } from '../../model/login.model'
+import { User } from '../../model/user.model'
+import { UsersService } from '../users/users.service'
 import { AuthService } from './auth.service'
-import { Login } from './model/login.model'
 
 @ApiTags('auth')
 @Controller('auth')
-export class AuthController extends GenericController<String> {
+export class AuthController extends GenericController<string> {
+    @Autowired({ typeName: "UsersService "})
+    private readonly usersService: UsersService
+
     constructor(private readonly authService: AuthService) {
         super()
     }
 
-    assignReferences(item: String) {
+    assignReferences(item: string) {
         // Nothing to do here
     }
 
@@ -26,6 +35,18 @@ export class AuthController extends GenericController<String> {
         type: String,
     })
     async login(@Body() login: Login) {
-        return this.authService.login(login.password, login.provider, login.username)
+        const jwt = await this.authService.login(login.password, login.provider, login.username)
+        return new NormalizedResponse(jwt)
+    }
+
+    @Post('/sign-up')
+    @ApiOperation({
+        summary: `Signs up an user into Kyso`,
+        description: `Allows new users to sign-up into Kyso`,
+    })
+    @ApiNormalizedResponse({ status: 201, description: `Registered user`, type: User })
+    public async signUp(@Body() createUserRequest: CreateUserRequest): Promise<NormalizedResponse> {
+        const user: User = await this.usersService.createUser(createUserRequest)
+        return new NormalizedResponse(user)
     }
 }

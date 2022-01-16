@@ -1,27 +1,6 @@
-const schemas = {
-    Study: {
-        name: 'string',
-        versionsArray: 'array',
-        stargazers: 'array',
-        stars: 'number',
-        state: 'string',
-        preview: 'file',
-        description: 'string',
-        views: 'number',
-        tags: 'array',
-        user: '*_User',
-        requestPrivate: 'boolean',
-        forkedFrom: '*Study',
-        forks: 'array',
-    },
-}
-
-// const mongo = require("../mongo/index")
-const { MongoClient, ObjectId } = require('mongodb')
-
-const DB_NAME = 'kyso-initial'
-let client
-let db
+import { Logger } from '@nestjs/common'
+import * as mongo from 'mongodb'
+import { ObjectId } from 'mongodb'
 
 const FK_NAME_REGEX = /^_p_(_?[a-zA-Z]+)$/
 const FK_VALUE_REGEX = RegExp('^_?[a-zA-Z]+\\$(\\w+)$')
@@ -33,20 +12,40 @@ const QUERY_TO_PIPELINE = {
     limit: '$limit',
 }
 
-export class MongoProvider {
+export class MongoProvider<T> {
     baseCollection: any
+    private db: any
 
-    constructor(collection) {
-        initialize()
+    constructor(collection, mongoDB) {
+        this.db = mongoDB
         this.baseCollection = collection
+
+        const existsCollectionPromise = this.existsMongoDBCollection(this.baseCollection)
+
+        existsCollectionPromise.then((existsCollection) => {
+            if (!existsCollection) {
+                try {
+                    Logger.log(`Collection ${this.baseCollection} does not exists, creating it`)
+                    this.db.createCollection(this.baseCollection)
+
+                    Logger.log(`Populating minimal data for ${this.baseCollection} collection`)
+                    this.populateMinimalData()
+                } catch (ex) {
+                    Logger.log(`Collection ${this.baseCollection} already exists`, ex)
+                }
+            }
+        })
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    populateMinimalData() {}
 
     getCollection(name?) {
         const collectionName = name || this.baseCollection
-        return db.collection(collectionName)
+        return this.db.collection(collectionName)
     }
 
-    parseId(id) {
+    toObjectId(id: string): mongo.ObjectId {
         return new ObjectId(id)
     }
 
@@ -61,7 +60,7 @@ export class MongoProvider {
     }
 
     static joinStage(field, from, as) {
-        return [
+        const a = [
             {
                 $addFields: {
                     [as]: {
@@ -78,23 +77,26 @@ export class MongoProvider {
                 },
             },
         ]
+
+        return a
     }
 
-    async create(obj) {
-        obj._created_at = new Date()
-        const result = await this.getCollection().insertOne(obj)
-        result.ops[0]._id = result.ops[0]._id.toString()
-        return result.ops[0]
+    async create(obj: any): Promise<any> {
+        obj.created_at = new Date()
+        await this.getCollection().insertOne(obj)
+        obj.id = obj._id.toString()
+
+        return obj
     }
 
-    async aggregate(pipeline, collection = '') {
+    async aggregate(pipeline, collection = ''): Promise<T[]> {
         const cursor = await this.getCollection(collection)
             .aggregate(pipeline)
             .map((elem) => parseForeignKeys(elem))
         return cursor.toArray()
     }
 
-    async read(query) {
+    async read(query): Promise<T[]> {
         const { filter, ...options } = query
         const cursor = await this.getCollection()
             .find(filter, options)
@@ -102,17 +104,21 @@ export class MongoProvider {
         return cursor.toArray()
     }
 
-    async update(filterQuery, updateQuery) {
+    async update(filterQuery, updateQuery): Promise<T> {
         if (!updateQuery.$currentDate) updateQuery.$currentDate = {}
         updateQuery.$currentDate._updated_at = { $type: 'date' }
 
-        const obj = await this.getCollection().findOneAndUpdate(filterQuery, updateQuery, { returnOriginal: false })
+        const obj = await this.getCollection().findOneAndUpdate(filterQuery, updateQuery, { returnDocument: 'after' })
 
         return parseForeignKeys(obj.value)
     }
 
     async delete(filter) {
         await this.getCollection().deleteOne(filter)
+    }
+
+    async existsMongoDBCollection(name: string) {
+        return (await (await this.db.listCollections().toArray()).findIndex((item) => item.name === name)) !== -1
     }
 }
 
@@ -140,22 +146,4 @@ function parseForeignKeys(obj) {
     })
 
     return result
-}
-
-async function initialize() {
-    if (!client) {
-        try {
-            client = await MongoClient.connect(process.env.DATABASE_URI, {
-                useUnifiedTopology: true,
-                maxPoolSize: 10,
-                // poolSize: 10 <-- Deprecated
-            })
-            db = client.db(DB_NAME)
-            await db.command({ ping: 1 })
-        } catch (err) {
-            console.error(`Couldn't connect with mongoDB instance at ${process.env.DATABASE_URI}`)
-            console.error(err)
-            process.exit()
-        }
-    }
 }

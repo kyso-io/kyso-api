@@ -1,8 +1,7 @@
 import { Controller, Get, Param, Post, Query, Req } from '@nestjs/common'
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
-import { GenericController } from 'src/generic/controller.generic'
-import { HateoasLinker } from 'src/helpers/hateoasLinker'
-import { Repository } from 'src/model/repository.model'
+import { GenericController } from '../../generic/controller.generic'
+import { Repository } from '../../model/repository.model'
 import { BitbucketReposProvider } from './providers/bitbucket-repo.provider'
 
 @ApiTags('repos/bitbucket')
@@ -13,8 +12,8 @@ export class BitbucketReposController extends GenericController<Repository> {
     }
 
     assignReferences(repo: Repository) {
-        repo.self_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}`)
-        repo.tree_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}/${repo.default_branch}/tree`)
+        // repo.self_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}`)
+        // repo.tree_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}/${repo.default_branch}/tree`)
 
         /* TODO: Does not appear in the documentation... it's correct?
         if (repo.report) repo.reportUrl = HateoasLinker.createRef(`/${repo.report}`)

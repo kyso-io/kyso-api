@@ -1,65 +1,75 @@
-import { Injectable } from '@nestjs/common'
-import { MongoProvider } from 'src/providers/mongo.provider'
+import { Injectable, Logger } from '@nestjs/common'
+import { db } from '../../../main'
+import { BaseModel } from '../../../model/base.model'
+import { Report } from '../../../model/report.model'
+import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
-export class ReportsMongoProvider extends MongoProvider {
+export class ReportsMongoProvider extends MongoProvider<Report> {
     constructor() {
-        super('Study')
+        super('Report', db)
     }
 
-    async getReportsWithOwner(query) {
+    populateMinimalData() {
+        Logger.log(`${this.baseCollection} has no minimal data to populate`)
+    }
+
+    async getReportsWithOwner(query): Promise<Report[]> {
         const pipeline = []
 
         const { projection, ...rest } = MongoProvider.aggregationRename(query) as any
 
         if (projection) {
-            projection.$project._p_user = 1
-            projection.$project._p_team = 1
+            projection.$project.user_id = 1
+            projection.$project.team_id = 1
             pipeline.push(projection)
         }
 
         pipeline.push(
             ...Object.values(rest),
-            ...MongoProvider.joinStage('_p_user', '_User', 'user'),
-            ...MongoProvider.joinStage('_p_team', 'Team', 'team'),
-            {
-                $match: {
-                    $or: [{ user: { $ne: [] } }, { team: { $ne: [] } }],
-                },
-            },
-            {
-                $addFields: {
-                    owner: {
-                        $cond: {
-                            if: { $gt: ['$_p_team', null] },
-                            then: {
-                                $mergeObjects: [{ $arrayElemAt: ['$team', 0] }, { type: 'team' }],
-                            },
-                            else: {
-                                $mergeObjects: [{ $arrayElemAt: ['$user', 0] }, { type: 'user' }],
-                            },
-                        },
-                    },
-                },
-            },
-            {
-                $project: {
-                    versionsArray: 0,
-                    user: 0,
-                    team: 0,
-                    owner: { accessToken: 0 },
-                },
-            },
-            {
-                $addFields: {
-                    full_name: {
-                        $concat: [{ $ifNull: ['$owner.nickname', '$owner.name'] }, '/', '$name'],
-                    },
-                },
-            },
+
+            // this is fucking me up
+            // ...MongoProvider.joinStage('user_id', 'User', 'user'),
+            // ...MongoProvider.joinStage('team_id', 'Team', 'team'),
+            // {
+            //     $match: {
+            //         $or: [{ user: { $ne: [] } }, { team: { $ne: [] } }],
+            //     },
+            // },
+            // {
+            //     $addFields: {
+            //         owner: {
+            //             $cond: {
+            //                 if: { $gt: ['$team_id', null] },
+            //                 then: {
+            //                     $mergeObjects: [{ $arrayElemAt: ['$team', 0] }, { type: 'team' }],
+            //                 },
+            //                 else: {
+            //                     $mergeObjects: [{ $arrayElemAt: ['$user', 0] }, { type: 'user' }],
+            //                 },
+            //             },
+            //         },
+            //     },
+            // },
+            // {
+            //     $project: {
+            //         versionsArray: 0,
+            //         user: 0,
+            //         team: 0,
+            //         owner: { accessToken: 0 },
+            //     },
+            // },
+            // {
+            //     $addFields: {
+            //         full_name: {
+            //             $concat: [{ $ifNull: ['$owner.nickname', '$owner.name'] }, '/', '$name'],
+            //         },
+            //     },
+            // },
         )
 
+        // console.log(JSON.stringify(pipeline, null, 2))
         const reports = await this.aggregate(pipeline)
-        return reports
+        return reports as Report[]
     }
 }

@@ -1,12 +1,19 @@
-import { Controller, Get, Param, Post, Query, Req, Res } from '@nestjs/common'
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
-import { GenericController } from 'src/generic/controller.generic'
-import { HateoasLinker } from 'src/helpers/hateoasLinker'
-import { Repository } from 'src/model/repository.model'
-import { GithubReposService } from 'src/modules/github-repos/github-repos.service'
-import { GithubAccount } from './model/github-account.model'
+import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common'
+import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { Permission } from '../auth/annotations/permission.decorator'
+import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { GithubAccount } from '../../model/github-account.model'
+import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { GithubRepoPermissionsEnum } from './security/github-repos-permissions.enum'
+import { Repository } from '../../model/repository.model'
+import { GenericController } from '../../generic/controller.generic'
+import { GithubReposService } from './github-repos.service'
 
 @ApiTags('repos/github')
+@ApiExtraModels(GithubAccount, Repository)
+@UseGuards(PermissionsGuard)
+@ApiBearerAuth()
 @Controller('repos/github')
 export class GithubReposController extends GenericController<Repository> {
     constructor(private readonly reposService: GithubReposService) {
@@ -14,13 +21,6 @@ export class GithubReposController extends GenericController<Repository> {
     }
 
     assignReferences(repo: Repository) {
-        repo.self_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}`)
-        repo.tree_url = HateoasLinker.createRef(`/repos/github/${repo.owner}/${repo.name}/${repo.default_branch}/tree`)
-
-        /* TODO: Does not appear in the documentation... it's correct?
-        if (repo.report) repo.reportUrl = HateoasLinker.createRef(`/${repo.report}`)
-        delete repo.report
-        */
         return repo
     }
 
@@ -29,11 +29,12 @@ export class GithubReposController extends GenericController<Repository> {
         summary: `Get and search repositories`,
         description: `By passing in the appropriate options, you can search for available repositories in the linked git provider account`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Search results matching criteria`,
         type: Repository,
     })
+    @Permission([GithubRepoPermissionsEnum.READ])
     async getRepos(@Query('filter') filter, @Query('page') page, @Query('per_page') perPage, @Req() req) {
         // LOGIN??
 
@@ -46,7 +47,7 @@ export class GithubReposController extends GenericController<Repository> {
 
         repos.forEach((x) => this.assignReferences(x))
 
-        return repos
+        return new NormalizedResponse(repos)
     }
 
     @Get('/:repoOwner/:repoName')
@@ -66,18 +67,19 @@ export class GithubReposController extends GenericController<Repository> {
         description: 'Name of the repository to fetch',
         schema: { type: 'string' },
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `The data of the specified repository`,
         type: Repository,
     })
+    @Permission([GithubRepoPermissionsEnum.READ])
     async getRepo(@Param('repoOwner') repoOwner: string, @Param('repoName') repoName: string, @Req() req) {
         // LOGIN?? That's req.user? We trust in that?
 
         const repo = await req.reposService.getRepo(req.user, repoOwner, repoName)
         this.assignReferences(repo)
 
-        return repo
+        return new NormalizedResponse(repo)
     }
 
     @Get('/:repoOwner/:repoName/:branch/tree')
@@ -103,17 +105,18 @@ export class GithubReposController extends GenericController<Repository> {
         description: 'Branch to fetch content from. Accepts slashes.',
         schema: { type: 'string' },
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `The data of the specified repository`,
         type: Repository,
     })
+    @Permission([GithubRepoPermissionsEnum.READ])
     async getRepoTree(@Param('repoOwner') repoOwner: string, @Param('repoName') repoName: string, @Param('branch') branch: string, @Req() req) {
         // LOGIN??
 
         const tree = await req.reposService.getRepoTree(repoOwner, repoName, branch)
 
-        return tree
+        return new NormalizedResponse(tree)
     }
 
     @Get('/user')
@@ -121,17 +124,18 @@ export class GithubReposController extends GenericController<Repository> {
         summary: `Get git logged user info`,
         description: `Get data about the git provider account that was linked with the requesting user account.`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `The data of the specified repository`,
         type: GithubAccount,
     })
+    @Permission([GithubRepoPermissionsEnum.READ])
     async getAuthenticatedUser() {
         // LOGIN??
 
         const user = await this.reposService.getUser()
 
-        return user
+        return new NormalizedResponse(user)
     }
 
     @Get('/user/access_token/:accessToken')
@@ -145,15 +149,16 @@ export class GithubReposController extends GenericController<Repository> {
         description: `Github's access token related to the user you want to fetch data`,
         schema: { type: 'string' },
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `The data of the specified repository`,
         type: GithubAccount,
     })
+    @Permission([GithubRepoPermissionsEnum.READ])
     async getUserByAccessToken(@Param('accessToken') accessToken: string) {
         const user = await this.reposService.getUserByAccessToken(accessToken)
 
-        return user
+        return new NormalizedResponse(user)
     }
 
     @Get('/user/email/access_token/:accessToken')
@@ -167,14 +172,15 @@ export class GithubReposController extends GenericController<Repository> {
         description: `Github's access token related to the user you want to fetch email data`,
         schema: { type: 'string' },
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `The data of the specified repository`,
         type: GithubAccount,
     })
+    @Permission([GithubRepoPermissionsEnum.READ])
     async getUserEmailByAccessToken(@Param('accessToken') accessToken: string) {
         const email = await this.reposService.getEmailByAccessToken(accessToken)
 
-        return email
+        return new NormalizedResponse(email)
     }
 }

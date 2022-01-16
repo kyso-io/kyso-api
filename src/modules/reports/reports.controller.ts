@@ -1,21 +1,33 @@
-import { Controller, Delete, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common'
-import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
-import { GenericController } from 'src/generic/controller.generic'
-import { HateoasLinker } from 'src/helpers/hateoasLinker'
-import { Report } from 'src/model/report.model'
-import { QueryParser } from 'src/helpers/queryParser'
-import { Validators } from 'src/helpers/validators'
-import { InvalidInputError } from 'src/helpers/errorHandling'
-import { CommentsService } from 'src/modules/comments/comments.service'
-import { ReportsService } from './reports.service'
-import { ReportFilterQuery } from './model/dto/report-filter-query.dto'
-import { CreateReportRequest } from './model/dto/create-report-request.dto'
-import { BatchReportCreation } from './model/dto/batch-report-creation-response.dto'
-import { UpdateReportRequest } from './model/dto/update-report-request.dto'
-import { Comment } from 'src/model/comment.model'
-import { Branch } from 'src/model/branch.model'
+import { Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
+import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
+import { Relations } from 'src/model/relations.model'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { Autowired } from '../../decorators/autowired'
+import { GenericController } from '../../generic/controller.generic'
+import { InvalidInputError } from '../../helpers/errorHandling'
+import { HateoasLinker } from '../../helpers/hateoasLinker'
+import { QueryParser } from '../../helpers/queryParser'
+import { Validators } from '../../helpers/validators'
+import { Branch } from '../../model/branch.model'
+import { Comment } from '../../model/comment.model'
+import { BatchReportCreation } from '../../model/dto/batch-report-creation-response.dto'
+import { CreateReportRequest } from '../../model/dto/create-report-request.dto'
+import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
+import { ReportFilterQuery } from '../../model/dto/report-filter-query.dto'
+import { UpdateReportRequest } from '../../model/dto/update-report-request.dto'
+import { Report } from '../../model/report.model'
+import { User } from '../../model/user.model'
+import { Permission } from '../auth/annotations/permission.decorator'
+import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { CommentsService } from '../comments/comments.service'
+import { GithubReposService } from '../github-repos/github-repos.service'
+import { OrganizationsService } from '../organizations/organizations.service'
+import { RelationsService } from '../relations/relations.service'
+import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
-import { User } from 'src/model/user.model'
+import { LocalReportsService } from './local-reports.service'
+import { ReportsService } from './reports.service'
+import { ReportPermissionsEnum } from './security/report-permissions.enum'
 
 const UPDATABLE_FIELDS = ['stars', 'tags', 'title', 'description', 'request_private', 'name']
 
@@ -24,33 +36,26 @@ const DEFAULT_GET_REPORT_FILTERS = {
     hidden: { $ne: 'true' },
 }
 
+@ApiExtraModels(Report, NormalizedResponse)
 @ApiTags('reports')
+@UseGuards(PermissionsGuard)
+@ApiBearerAuth()
 @Controller('reports')
 export class ReportsController extends GenericController<Report> {
-    constructor(
-        private readonly reportsService: ReportsService,
-        private readonly commentsService: CommentsService,
-        private readonly usersService: UsersService,
-    ) {
+    @Autowired({ typeName: "CommentsService" })
+    private commentsService: CommentsService
+
+    @Autowired({ typeName: "UsersService" })
+    private usersService: UsersService
+    
+    @Autowired({ typeName: "ReportsService" })
+    private reportsService: ReportsService
+
+    @Autowired({ typeName: "RelationsService" })
+    private relationsService: RelationsService
+    
+    constructor() {
         super()
-    }
-
-    // assigned to null because does not match between documentation and real code...
-    assignReferences(report: any /*report: Report*/) {
-        report.self_url = HateoasLinker.createRef(`/reports/${report.full_name}`)
-        report.branches_url = HateoasLinker.createRef(`/reports/${report.full_name}/branches`)
-
-        report.owner.selfUrl = HateoasLinker.createRef(`/${report.owner.type}s/${report.owner.name || report.owner.nickname}`)
-
-        if (report.source) {
-            if (report.source.provider !== 's3') {
-                report.tree_url = HateoasLinker.createRef(`/reports/${report.full_name}/${report.source.defaultBranch}/tree`)
-                report.commits_url = HateoasLinker.createRef(`/reports/${report.full_name}/${report.source.defaultBranch}/commits`)
-
-                // TODO: Does that should be a HateoasLinker as well?
-                report.html_url = `https://${report.source.provider}.com/${report.source.owner}/${report.source.name}`
-            }
-        }
     }
 
     @Get('')
@@ -59,11 +64,13 @@ export class ReportsController extends GenericController<Report> {
         description: `By passing the appropiate parameters you can fetch and filter the reports available to the authenticated user.<br />
          **This endpoint supports filtering**. Refer to the Report schema to see available options.`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Reports matching criteria`,
         type: Report,
+        isArray: true,
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getReports(@Req() req, @Res() res, @Query() paginationQuery: ReportFilterQuery) {
         // Object paginationQuery is there for documentation purposes. A refactor of this method should be done in the future
         const query = QueryParser.toQueryObject(req.url)
@@ -73,10 +80,10 @@ export class ReportsController extends GenericController<Report> {
             if (!query.filter[key]) query.filter[key] = value
         })
 
-        const reports = await this.reportsService.getReports(query)
-
-        reports.forEach((x) => this.assignReferences(x))
-        return res.status(200).send(reports)
+        const reports = Report.fromObjectArray(await this.reportsService.getReports(query))
+        const relations = await this.relationsService.getRelations(reports)
+        res.status(200).send(new NormalizedResponse(reports, relations))
+        return
     }
 
     @Get('/:reportOwner/:reportName')
@@ -84,7 +91,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Get a report`,
         description: `Allows fetching content of a specific report passing its full name`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Report matching id`,
         type: Report,
@@ -101,11 +108,12 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
-    async getReport(@Req() req, @Res() res) {
+    @Permission([ReportPermissionsEnum.READ])
+    async getReport(@Req() req, @Res() res): Promise<void> {
         const report = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
-
-        this.assignReferences(report)
-        return res.status(200).send(report)
+        const relations = await this.relationsService.getRelations(report)
+        res.status(200).send(new NormalizedResponse(report, relations))
+        return
     }
 
     @Get('/:reportOwner/pinned')
@@ -113,11 +121,10 @@ export class ReportsController extends GenericController<Report> {
         summary: `Get pinned reports for an user`,
         description: `Allows fetching pinned reports of a specific user passing its full name`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `All the pinned reports of an user`,
         type: Report,
-        isArray: true,
     })
     @ApiParam({
         name: 'reportOwner',
@@ -125,17 +132,12 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the owner of the report to fetch',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getPinnedReportsForAnUser(@Param('reportOwner') reportOwner: string) {
         const userData: User = await this.usersService.getUser({ username: reportOwner })
-
-        const pinnedReports = await this.reportsService.getReports({ pin: true, _p_user: userData.id })
-
-        const response = []
-        pinnedReports.forEach((report) => {
-            response.push(this.assignReferences(report))
-        })
-
-        return response
+        const reports = await this.reportsService.getReports({ pin: true, user_id: userData.id })
+        const relations = await this.relationsService.getRelations(reports)
+        return new NormalizedResponse(reports, relations)
     }
 
     @Post('')
@@ -154,6 +156,7 @@ export class ReportsController extends GenericController<Report> {
         type: CreateReportRequest,
         description: 'Pass an array to create multiple objects',
     })
+    @Permission([ReportPermissionsEnum.CREATE])
     async createReport(@Req() req, @Req() res) {
         const owner = req.body.team || req.user.nickname
         if (Array.isArray(req.body.reports)) {
@@ -175,14 +178,16 @@ export class ReportsController extends GenericController<Report> {
                 }
             })
 
-            return res.status(201).send(response)
+            res.status(201).send(response)
+            return
         }
 
         const created = await this.reportsService.createReport(req.user, req.body.reports, req.body.team)
         const report = await this.reportsService.getReport(owner, created.name)
-        this.assignReferences(report)
 
-        return res.status(201).send(report)
+        const relations = await this.relationsService.getRelations(report)
+        res.status(201).send(new NormalizedResponse(report, relations))
+        return
     }
 
     @Patch('/:reportOwner/:reportName')
@@ -190,7 +195,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Update the specific report`,
         description: `Allows updating content from the specified report`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Specified report data`,
         type: Report,
@@ -208,6 +213,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @ApiBody({ type: UpdateReportRequest })
+    @Permission([ReportPermissionsEnum.EDIT])
     async updateReport(@Req() req, @Res() res) {
         const fields = Object.fromEntries(Object.entries(req.body).filter((entry) => UPDATABLE_FIELDS.includes(entry[0])))
 
@@ -221,7 +227,9 @@ export class ReportsController extends GenericController<Report> {
             ? this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
             : await this.reportsService.updateReport(req.user.objectId, req.params.reportOwner, req.params.reportName, updatePayload))
 
-        return res.status(200).send(report)
+        const relations = await this.relationsService.getRelations(report)
+        res.status(200).send(new NormalizedResponse(report, relations))
+        return
     }
 
     @Delete('/:reportOwner/:reportName')
@@ -242,10 +250,11 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.DELETE])
     async deleteReport(@Req() req, @Res() res) {
         await this.reportsService.deleteReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
-
-        return res.status(204).send()
+        res.status(204).send()
+        return
     }
 
     @Post('/:reportOwner/:reportName/pin')
@@ -253,7 +262,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Toggles the pin of the specified report`,
         description: `Allows pinning of the specified report, unpins any other pinned report for owner`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Specified report data`,
         type: Report,
@@ -270,10 +279,12 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.EDIT])
     async pinReport(@Req() req, @Res() res) {
         const report = await this.reportsService.pinReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
-
-        return res.status(200).send(report)
+        const relations = await this.relationsService.getRelations(report)
+        res.status(200).send(new NormalizedResponse(report, relations))
+        return
     }
 
     @Get('/:reportOwner/:reportName/comments')
@@ -281,7 +292,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Get comments of a report`,
         description: `By passing in the appropriate options you can see all the comments of a report`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Comments of the specified report`,
         type: Comment,
@@ -299,20 +310,14 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getComments(@Req() req, @Res() res) {
-        const { id: reportId } = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
+        const { id: report_id } = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
 
-        const comments = await this.commentsService.getReportComments(reportId)
-
-        const assignRefs = (comment) => {
-            comment.selfUrl = HateoasLinker.createRef(`/comments/${comment.id}`)
-            comment.childComments.forEach(assignRefs)
-        }
-        comments.forEach((comment) => {
-            assignRefs(comment)
-        })
-
-        return res.status(200).send(comments)
+        const comments = await this.commentsService.getComments({ report_id })
+        const relations = await this.relationsService.getRelations(comments)
+        res.status(200).send(new NormalizedResponse(comments, relations))
+        return
     }
 
     @Get('/:reportOwner/:reportName/branches')
@@ -320,7 +325,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Get branches of a report`,
         description: `By passing in the appropriate options you can see all the branches of a report`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Branches of the specified report`,
         type: Branch,
@@ -338,16 +343,12 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getBranches(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branches = await this.reportsService.getBranches(reportOwner, reportName)
-
-        branches.forEach((branch) => {
-            branch.contentUrl = HateoasLinker.createRef(`/reports/${reportOwner}/${reportName}/${branch.name}/tree`)
-            branch.commitsUrl = HateoasLinker.createRef(`/reports/${reportOwner}/${reportName}/${branch.name}/commits`)
-        })
-
-        return res.status(200).send(branches)
+        res.status(200).send(new NormalizedResponse(branches))
+        return
     }
 
     @Get('/:reportOwner/:reportName/:branch/commits')
@@ -355,7 +356,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Get commits of a report imported from a git provider`,
         description: `By passing in the appropriate options you can see the commits of a branch for the repository the specified report is linked to`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Commits of the specified report branch`,
         type: Branch,
@@ -379,16 +380,13 @@ export class ReportsController extends GenericController<Report> {
         description: 'Branch to start listing commits from. Accepts slashes',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getCommits(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branch = req.params[0]
         const commits = await this.reportsService.getCommits(reportOwner, reportName, branch)
-
-        commits.forEach((commit) => {
-            commit.selfUrl = HateoasLinker.createRef(`/reports/${reportOwner}/${reportName}/${commit.sha}/tree`)
-        })
-
-        return res.status(200).send(commits)
+        res.status(200).send(new NormalizedResponse(commits))
+        return
     }
 
     // todo: this function name is confusing?
@@ -397,7 +395,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Explore a report tree`,
         description: `Get hash of a file for a given report. If the file is a folder, will get information about the files in it too (non-recursively). Path is currently ignored for local reports.`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Content of the requested file`,
         type: String,
@@ -426,19 +424,13 @@ export class ReportsController extends GenericController<Report> {
         description: 'Path of the file to be consulted',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getReportFileHash(@Req() req, @Res() res) {
         const { reportOwner, reportName } = req.params
         const branch = req.params[0]
         const hash = await this.reportsService.getFileHash(reportOwner, reportName, branch, req.params[1])
-
-        const assignUrl = (item) => {
-            const route = item.type === 'dir' ? `${branch}/tree/${item.path}` : `file/${item.hash}`
-            item.selfUrl = HateoasLinker.createRef(`/reports/${reportOwner}/${reportName}/${route}`)
-        }
-        if (Array.isArray(hash)) hash.forEach(assignUrl)
-        else assignUrl(hash)
-
-        return res.status(200).send(hash)
+        res.status(200).send(new NormalizedResponse(hash))
+        return
     }
 
     @Get('/:reportOwner/:reportName/file/:hash')
@@ -446,7 +438,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Get content of a file`,
         description: `By passing the hash of a file, get its raw content directly from the source.`,
     })
-    @ApiResponse({
+    @ApiNormalizedResponse({
         status: 200,
         description: `Content of the requested file`,
         type: String,
@@ -469,6 +461,7 @@ export class ReportsController extends GenericController<Report> {
         description: 'Hash of the file to access',
         schema: { type: 'string' },
     })
+    @Permission([ReportPermissionsEnum.READ])
     async getReportFileContent(@Res() req, @Req() res) {
         const { hash } = req.params
         if (!Validators.isValidSha(hash))
@@ -478,6 +471,7 @@ export class ReportsController extends GenericController<Report> {
 
         const content = await this.reportsService.getReportFileContent(req.params.reportOwner, req.params.reportName, hash)
 
-        return res.status(200).send(content)
+        res.status(200).send(content)
+        return
     }
 }

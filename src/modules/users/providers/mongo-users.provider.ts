@@ -1,130 +1,38 @@
-import { Injectable } from '@nestjs/common'
-import { MongoProvider } from 'src/providers/mongo.provider'
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
+import { v4 as uuidv4 } from 'uuid'
+import { db } from '../../../main'
+import { DEFAULT_GLOBAL_ADMIN_USER, User } from '../../../model/user.model'
+import { MongoProvider } from '../../../providers/mongo.provider'
+import { AuthService } from '../../auth/auth.service'
 
 @Injectable()
-export class UsersMongoProvider extends MongoProvider {
+export class UsersMongoProvider extends MongoProvider<User> {
     provider: any
 
     constructor() {
-        super('_User')
+        super('User', db)
     }
 
-    async getUsersFromTeam(query, team) {
-        const pipeline = []
-        const renamed = MongoProvider.aggregationRename(query)
-        const { _p_viewers: viewers, _p_editors: editors, _p_admins: admins } = team
+    async populateMinimalData() {
+        Logger.log(`Populating minimal data for ${this.baseCollection}`)
 
-        pipeline.push(
-            {
-                $match: {
-                    $expr: {
-                        $or: [{ $eq: ['$owningId', viewers] }, { $eq: ['$owningId', editors] }, { $eq: ['$owningId', admins] }],
-                    },
-                },
-            },
-            {
-                $lookup: {
-                    from: '_User',
-                    localField: 'relatedId',
-                    foreignField: '_id',
-                    as: 'user',
-                },
-            },
-            { $unwind: '$user' },
-            { $replaceRoot: { newRoot: '$user' } },
-            ...Object.values(renamed),
-        )
+        Logger.log(`Creating default global admin user`)
+        const randomPassword = uuidv4()
+        Logger.log(`
+                ad8888888888ba
+                dP'         \`"8b,
+                8  ,aaa,       "Y888a     ,aaaa,     ,aaa,  ,aa,
+                8  8' \`8           "88baadP""""YbaaadP"""YbdP""Yb
+                8  8   8              """        """      ""    8b
+                8  8, ,8         ,aaaaaaaaaaaaaaaaaaaaaaaaddddd88P
+                8  \`"""'       ,d8""
+                Yb,         ,ad8"       PASSWORD FOR default-admin@kyso.io USER IS: ${randomPassword}
+                "Y8888888888P"
+        `)
 
-        const users = await this.aggregate(pipeline, '_Join:users:_Role')
-        return users
-    }
+        let copycat: User = DEFAULT_GLOBAL_ADMIN_USER
+        copycat.hashed_password = AuthService.hashPassword(randomPassword)
 
-    async getUsersWithSessionAndTeams(userId) {
-        const pipeline = [
-            { $match: { _id: userId } },
-            {
-                $addFields: {
-                    session: {
-                        $concat: ['_User$', '$_id'],
-                    },
-                },
-            },
-            {
-                $lookup: {
-                    from: '_Session',
-                    localField: 'session',
-                    foreignField: '_p_user',
-                    as: 'session',
-                },
-            },
-            {
-                $addFields: {
-                    session_token: {
-                        $let: {
-                            vars: {
-                                lastSession: { $arrayElemAt: ['$session', -1] },
-                            },
-                            in: '$$lastSession._session_token',
-                        },
-                    },
-                },
-            },
-            {
-                $lookup: {
-                    from: '_Join:users:_Role',
-                    localField: '_id',
-                    foreignField: 'relatedId',
-                    as: 'roles',
-                },
-            },
-            {
-                $lookup: {
-                    from: '_Role',
-                    localField: 'roles.owningId',
-                    foreignField: '_id',
-                    as: 'roles',
-                },
-            },
-            {
-                $addFields: {
-                    roles: {
-                        $map: {
-                            input: '$roles',
-                            as: 'each',
-                            in: {
-                                $mergeObjects: [
-                                    '$$each',
-                                    {
-                                        roleId: {
-                                            $concat: ['_Role$', '$$each._id'],
-                                        },
-                                    },
-                                ],
-                            },
-                        },
-                    },
-                },
-            },
-            {
-                $lookup: {
-                    from: 'Team',
-                    let: { roleId: '$roles.roleId' },
-                    as: 'teams',
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: {
-                                    $or: [{ $in: ['$_p_admins', '$$roleId'] }, { $in: ['$_p_editors', '$$roleId'] }, { $in: ['$_p_viewers', '$$roleId'] }],
-                                },
-                            },
-                        },
-                    ],
-                },
-            },
-            { $project: { session: 0, roles: 0 } },
-        ]
-
-        const user = await this.aggregate(pipeline)
-        return user
+        await this.create(copycat)
     }
 }

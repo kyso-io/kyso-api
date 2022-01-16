@@ -1,31 +1,68 @@
-import { NestFactory } from '@nestjs/core'
+import { ClassSerializerInterceptor, Logger, Provider, ValidationPipe } from '@nestjs/common'
+import { NestFactory, Reflector } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
-import { AppModule } from './app.module'
-import * as helmet from 'helmet'
-import { INestApplication } from '@nestjs/common'
+import * as dotenv from 'dotenv'
 import * as fs from 'fs'
-import { RedocOptions, RedocModule } from 'nestjs-redoc'
+import * as helmet from 'helmet'
+import { MongoClient } from 'mongodb'
+import { RedocModule, RedocOptions } from 'nestjs-redoc'
+import { AppModule } from './app.module'
+import { getSingletons, getSingletonValue, registerSingleton } from './decorators/autowired'
+import { TransformInterceptor } from './interceptors/exclude.interceptor'
+import { CommentsService } from './modules/comments/comments.service'
+import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service'
+export let client
+export let db
+
+const cspDefaults = helmet.contentSecurityPolicy.getDefaultDirectives()
+delete cspDefaults['upgrade-insecure-requests']
 
 async function bootstrap() {
+    Logger.log(`Loading .env-${process.env.NODE_ENV}`)
+
+    await dotenv.config({
+        path: `.env-${process.env.NODE_ENV}`,
+    })
+
+    await connectToDatabase(process.env.DATABASE_NAME || 'kyso-initial')
     const app = await NestFactory.create(AppModule)
+
     const globalPrefix = 'v1'
     // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately
-    app.use(helmet())
-    app.setGlobalPrefix(globalPrefix)
+    let helmetOpts = {}
+    if (process.env.NODE_ENV === 'development') {
+        //https://github.com/scottie1984/swagger-ui-express/issues/237
+        helmetOpts = {
+            contentSecurityPolicy: { directives: cspDefaults },
+        }
+    }
+    app.use(helmet(helmetOpts))
 
-    // bindSwaggerDocument(globalPrefix, app);
+    app.useGlobalPipes(
+        new ValidationPipe({
+            whitelist: true,
+            transform: true,
+        }),
+    )
+    app.useGlobalInterceptors(new TransformInterceptor())
+    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
+
+    app.setGlobalPrefix(globalPrefix)
 
     const config = new DocumentBuilder()
         .setTitle(`Kyso's API`)
         .setDescription(`Spec for Kyso's API`)
         .setVersion('v1')
+        .addBearerAuth()
         .setLicense('Apache 2.0', 'http://www.apache.org/licenses/LICENSE-2.0.html')
         .build()
 
     const document = SwaggerModule.createDocument(app, config)
 
-    // TODO: Only publish in development / staging mode, remove for production
-    SwaggerModule.setup(globalPrefix, app, document)
+    if (process.env.NODE_ENV === 'development') {
+        // Only publish in development / staging mode, remove for production - or discuss it...
+        SwaggerModule.setup(globalPrefix, app, document)
+    }
 
     const redocOptions: RedocOptions = {
         title: 'Kyso API',
@@ -40,7 +77,7 @@ async function bootstrap() {
         hideHostname: false,
     }
 
-    let redocDocument = Object.assign({}, document)
+    const redocDocument = Object.assign({}, document)
 
     // Only for redocs, add general documentation data (tags)
     redocDocument.tags = [
@@ -62,12 +99,43 @@ async function bootstrap() {
         },
     ]
 
-    // Instead of using SwaggerModule.setup() you call this module
     await RedocModule.setup('/redoc', app, redocDocument, redocOptions)
 
-    await app.listen(3000)
+    await app.listen(process.env.PORT || 4000)
+
+    if (process.env.POPULATE_TEST_DATA === 'true') {
+        setTimeout(async () => {
+            const testingDataPopulatorService: TestingDataPopulatorService = app.get(TestingDataPopulatorService)
+            await testingDataPopulatorService.populateTestData()
+        }, 10000)
+    }
+    
+    // Autowired extension to allow injection outside the constructor and avoid circular dependencies
+    const singletons: string[] = getSingletons()
+
+    singletons.forEach((x: any) => {
+        const instance = app.get(x)
+        registerSingleton(x, instance)
+    })
 }
 
-const bindSwaggerDocument = (globalPrefix: string, app: INestApplication) => {}
+async function connectToDatabase(DB_NAME) {
+    Logger.log(`Connecting to database... ${DB_NAME}`)
+    if (!client) {
+        try {
+            client = await MongoClient.connect(process.env.DATABASE_URI, {
+                // useUnifiedTopology: true,
+                maxPoolSize: 10,
+                // poolSize: 10 <-- Deprecated
+            })
+            db = await client.db(DB_NAME)
+            await db.command({ ping: 1 })
+        } catch (err) {
+            Logger.error(`Couldn't connect with mongoDB instance at ${process.env.DATABASE_URI}`)
+            Logger.error(err)
+            process.exit()
+        }
+    }
+}
 
 bootstrap()
