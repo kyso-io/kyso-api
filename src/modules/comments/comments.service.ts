@@ -105,19 +105,11 @@ export class CommentsService extends AutowiredService {
         return comments
     }
 
-    async getCommentWithChildren(commentId) {
-        const comments = await this.provider.read({
-            filter: { _id: commentId },
+    async getCommentWithChildren(commentId): Promise<Comment> {
+        const comments: Comment[] = await this.provider.read({
+            filter: { _id: this.provider.toObjectId(commentId) },
             limit: 1,
         })
-
-        if (comments.length === 0) {
-            return {}
-        }
-
-        return comments
-        // const reportComments = await this.getReportComments(comments[0].report_id)
-
-        // return reportComments.find((comment) => comment.id === commentId)
+        return comments.length === 0 ? null : comments[0]
     }
 }
