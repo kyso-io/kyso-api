@@ -2,6 +2,7 @@ import { Injectable, PreconditionFailedException, Provider } from '@nestjs/commo
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
+import { UpdateTeamMembers } from '../../model/dto/update-team-members'
 import { TeamVisibilityEnum } from '../../model/enum/team-visibility.enum'
 import { KysoRole } from '../../model/kyso-role.model'
 import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
@@ -116,11 +117,11 @@ export class TeamsService extends AutowiredService {
     }
 
     async getMembers(teamName: string) {
-        const team: Team[] = await this.provider.read({ filter: { name: teamName } })
+        const teams: Team[] = await this.provider.read({ filter: { name: teamName } })
 
-        if (team) {
+        if (teams && teams.length > 0) {
             // Get all the members of this team
-            const members: TeamMemberJoin[] = await this.teamMemberProvider.getMembers(team[0].id)
+            const members: TeamMemberJoin[] = await this.teamMemberProvider.getMembers(teams[0].id)
 
             // Build query object to retrieve all the users
             const user_ids = members.map((x: TeamMemberJoin) => {
@@ -128,10 +129,11 @@ export class TeamsService extends AutowiredService {
             })
 
             // Build the query to retrieve all the users
-            const filterArray = []
-            user_ids.forEach((id: string) => {
-                filterArray.push({ _id: id })
-            })
+            const filterArray = user_ids.map((id: string) => ({ _id: this.provider.toObjectId(id) }))
+
+            if (filterArray.length === 0) {
+                return []
+            }
 
             const filter = { filter: { $or: filterArray } }
 
@@ -249,7 +251,33 @@ export class TeamsService extends AutowiredService {
         return this.provider.read({ filter: { _id: { $in: userInTeams.map((x) => this.provider.toObjectId(x.team_id)) } } })
     }
 
-    public async removeMemberFromTeam(teamName: string, userName: string): Promise<boolean> {
+    public async addMemberToTeam(teamName: string, userName: string): Promise<TeamMember[]> {
+        const team: Team = await this.getTeam({
+            filter: { name: teamName },
+        })
+        if (!team) {
+            throw new PreconditionFailedException('Team not found')
+        }
+
+        const user: User = await this.usersService.getUser({
+            filter: { username: userName },
+        })
+        if (!user) {
+            throw new PreconditionFailedException('User not found')
+        }
+
+        let members: TeamMember[] = await this.getMembers(teamName)
+        const index: number = members.findIndex((member: TeamMember) => member.id === user.id)
+        if (index !== -1) {
+            throw new PreconditionFailedException('User already in team')
+        }
+
+        await this.addMembersById(team.id, [user.id], [])
+
+        return this.getMembers(teamName)
+    }
+
+    public async removeMemberFromTeam(teamName: string, userName: string): Promise<TeamMember[]> {
         const team: Team = await this.getTeam({ filter: { name: teamName } })
         if (!team) {
             throw new PreconditionFailedException('Team not found')
@@ -274,6 +302,60 @@ export class TeamsService extends AutowiredService {
             await this.provider.delete({ _id: this.provider.toObjectId(team.id) })
         }
 
-        return true
+        return this.getMembers(teamName)
+    }
+
+    public async updateTeamMembersRoles(teamName: string, data: UpdateTeamMembers): Promise<TeamMember[]> {
+        const team: Team = await this.getTeam({ filter: { name: teamName } })
+        if (!team) {
+            throw new PreconditionFailedException('Team not found')
+        }
+
+        const validRoles: string[] = team.roles.map((role: KysoRole) => role.name)
+
+        const members: TeamMemberJoin[] = await this.teamMemberProvider.getMembers(team.id)
+        for (const element of data.members) {
+            const user: User = await this.usersService.getUser({ filter: { username: element.username } })
+            if (!user) {
+                throw new PreconditionFailedException('User does not exist')
+            }
+            const member: TeamMemberJoin = members.find((x: TeamMemberJoin) => x.member_id === user.id)
+            if (!member) {
+                throw new PreconditionFailedException('User is not a member of this team')
+            }
+            const role: string = member.role_names.find((x: string) => x === element.role)
+            if (!role) {
+                if (!validRoles.includes(element.role)) {
+                    throw new PreconditionFailedException(`Role ${element.role} is not valid`)
+                }
+                await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $push: { role_names: element.role } })
+            } else {
+                throw new PreconditionFailedException('User already has this role')
+            }
+        }
+
+        return this.getMembers(teamName)
+    }
+
+    public async removeTeamMemberRole(teamName: string, userName: string, role: string): Promise<TeamMember[]> {
+        const team: Team = await this.getTeam({ filter: { name: teamName } })
+        if (!team) {
+            throw new PreconditionFailedException('Team not found')
+        }
+        const user: User = await this.usersService.getUser({ filter: { username: userName } })
+        if (!user) {
+            throw new PreconditionFailedException('User does not exist')
+        }
+        const members: TeamMemberJoin[] = await this.teamMemberProvider.getMembers(team.id)
+        const member: TeamMemberJoin = members.find((x: TeamMemberJoin) => x.member_id === user.id)
+        if (!member) {
+            throw new PreconditionFailedException('User is not a member of this team')
+        }
+        const index: number = member.role_names.findIndex((x: string) => x === role)
+        if (index === -1) {
+            throw new PreconditionFailedException('User does not have this role')
+        }
+        await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $pull: { role_names: role } })
+        return this.getMembers(teamName)
     }
 }

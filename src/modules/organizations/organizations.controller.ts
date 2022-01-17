@@ -154,6 +154,24 @@ export class OrganizationsController extends GenericController<Organization> {
         summary: `remove a user's role in an organization`,
         description: `By passing the appropiate parameters you can remove a role of a member in an organization`,
     })
+    @ApiParam({
+        name: 'organizationName',
+        required: true,
+        description: `Name of the organization to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'userName',
+        required: true,
+        description: `Name of the user to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'role',
+        required: true,
+        description: `Role of the user to fetch`,
+        schema: { type: 'string' },
+    })
     @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Boolean })
     @Permission([OrganizationPermissionsEnum.ADMIN])
     public async removeOrganizationMemberRole(
