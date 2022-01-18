@@ -22,6 +22,7 @@
     "test:e2e": "NODE_ENV=testing jest --detectOpenHandles --testTimeout=60000 --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@kyso-io/kyso-model": "^0.0.1",
     "@nestjs-modules/mailer": "^1.6.1",
     "@nestjs/common": "^8.0.0",
     "@nestjs/config": "^1.1.0",
