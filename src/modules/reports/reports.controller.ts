@@ -19,12 +19,8 @@ import { User } from '../../model/user.model'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CommentsService } from '../comments/comments.service'
-import { GithubReposService } from '../github-repos/github-repos.service'
-import { OrganizationsService } from '../organizations/organizations.service'
 import { RelationsService } from '../relations/relations.service'
-import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
-import { LocalReportsService } from './local-reports.service'
 import { ReportsService } from './reports.service'
 import { ReportPermissionsEnum } from './security/report-permissions.enum'
 
@@ -41,18 +37,18 @@ const DEFAULT_GET_REPORT_FILTERS = {
 @ApiBearerAuth()
 @Controller('reports')
 export class ReportsController extends GenericController<Report> {
-    @Autowired({ typeName: "CommentsService" })
+    @Autowired({ typeName: 'CommentsService' })
     private commentsService: CommentsService
 
-    @Autowired({ typeName: "UsersService" })
+    @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
-    
-    @Autowired({ typeName: "ReportsService" })
+
+    @Autowired({ typeName: 'ReportsService' })
     private reportsService: ReportsService
 
-    @Autowired({ typeName: "RelationsService" })
+    @Autowired({ typeName: 'RelationsService' })
     private relationsService: RelationsService
-    
+
     constructor() {
         super()
     }
@@ -109,7 +105,7 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.READ])
     async getReport(@Req() req, @Res() res): Promise<void> {
-        const report = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
+        const report: Report = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
         const relations = await this.relationsService.getRelations(report)
         res.status(200).send(new NormalizedResponse(report, relations))
         return

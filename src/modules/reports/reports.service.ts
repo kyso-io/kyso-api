@@ -21,29 +21,29 @@ function generateReportName(repoName, path) {
 }
 
 function factory(service: ReportsService) {
-    return service;
+    return service
 }
-  
+
 export function createProvider(): Provider<ReportsService> {
     return {
         provide: `${ReportsService.name}`,
-        useFactory: service => factory(service),
+        useFactory: (service) => factory(service),
         inject: [ReportsService],
-    };
+    }
 }
 
 @Injectable()
 export class ReportsService extends AutowiredService {
-    @Autowired({ typeName: "UsersService" })
+    @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
-    
-    @Autowired({ typeName: "TeamsService" })
+
+    @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
-    
-    @Autowired({ typeName: "GithubReposService" })
+
+    @Autowired({ typeName: 'GithubReposService' })
     private githubReposService: GithubReposService
 
-    @Autowired({ typeName: "LocalReportsService" })
+    @Autowired({ typeName: 'LocalReportsService' })
     private localReportsService: LocalReportsService
 
     constructor(private readonly provider: ReportsMongoProvider) {
