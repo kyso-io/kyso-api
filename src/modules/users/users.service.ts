@@ -1,16 +1,10 @@
+import { CreateUserRequest, KysoRole, Organization, Team, TeamVisibilityEnum, UpdateUserRequest, User, UserAccount } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
-import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
-import { UpdateUserRequest } from '../../model/dto/update-user-request.dto'
-import { TeamVisibilityEnum } from '../../model/enum/team-visibility.enum'
-import { KysoRole } from '../../model/kyso-role.model'
-import { Organization } from '../../model/organization.model'
-import { Team } from '../../model/team.model'
-import { UserAccount } from '../../model/user-account'
-import { User } from '../../model/user.model'
+import { AuthService } from '../auth/auth.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
@@ -75,6 +69,7 @@ export class UsersService extends AutowiredService {
         // Create user into database
         // Hash the password and delete the plain password property
         const newUser: User = User.fromCreateUserRequest(userToCreate)
+        newUser.hashed_password = AuthService.hashPassword(userToCreate.password)
         Logger.log(`Creating new user ${userToCreate.nickname}...`)
         const userDb: User = await this.provider.create(newUser)
 
@@ -90,7 +85,7 @@ export class UsersService extends AutowiredService {
 
         // Create user team
         const teamName: string = userDb.nickname.charAt(0).toUpperCase() + userDb.nickname.slice(1) + "'s Private"
-        const newUserTeam: Team = new Team(teamName, null, null, null, [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
+        const newUserTeam: Team = new Team(teamName, null, null, null, null, [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
         Logger.log(`Creating new team ${newUserTeam.name}...`)
         const userTeamDb: Team = await this.teamsService.createTeam(newUserTeam)
 

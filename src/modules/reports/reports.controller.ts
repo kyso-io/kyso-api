@@ -1,3 +1,14 @@
+import {
+    BatchReportCreation,
+    Branch,
+    Comment,
+    CreateReportRequest,
+    NormalizedResponse,
+    Report,
+    ReportFilterQuery,
+    UpdateReportRequest,
+    User,
+} from '@kyso-io/kyso-model'
 import { Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -7,15 +18,6 @@ import { InvalidInputError } from '../../helpers/errorHandling'
 import { HateoasLinker } from '../../helpers/hateoasLinker'
 import { QueryParser } from '../../helpers/queryParser'
 import { Validators } from '../../helpers/validators'
-import { Branch } from '../../model/branch.model'
-import { Comment } from '../../model/comment.model'
-import { BatchReportCreation } from '../../model/dto/batch-report-creation-response.dto'
-import { CreateReportRequest } from '../../model/dto/create-report-request.dto'
-import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
-import { ReportFilterQuery } from '../../model/dto/report-filter-query.dto'
-import { UpdateReportRequest } from '../../model/dto/update-report-request.dto'
-import { Report } from '../../model/report.model'
-import { User } from '../../model/user.model'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CommentsService } from '../comments/comments.service'

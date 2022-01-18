@@ -1,6 +1,6 @@
+import { OrganizationMemberJoin } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { db } from '../../../main'
-import { OrganizationMemberJoin } from '../../../model/organization-member-join.model'
 import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()

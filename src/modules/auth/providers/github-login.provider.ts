@@ -1,9 +1,9 @@
+import { User } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
 import { Autowired } from '../../../decorators/autowired'
 import { UnauthorizedError } from '../../../helpers/errorHandling'
-import { User } from '../../../model/user.model'
 import { GithubReposService } from '../../github-repos/github-repos.service'
 import { OrganizationsService } from '../../organizations/organizations.service'
 import { TeamsService } from '../../teams/teams.service'
@@ -14,16 +14,16 @@ import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
 @Injectable()
 export class GithubLoginProvider {
-    @Autowired({ typeName: "UsersService" })
+    @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
-    
-    @Autowired({ typeName: "OrganizationsService" })
+
+    @Autowired({ typeName: 'OrganizationsService' })
     private organizationsService: OrganizationsService
-    
-    @Autowired({ typeName: "TeamsService" })
+
+    @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
-   
-    @Autowired({ typeName: "GithubReposService" })
+
+    @Autowired({ typeName: 'GithubReposService' })
     private githubReposService: GithubReposService
 
     constructor(

@@ -1,14 +1,12 @@
+import { GithubAccount, NormalizedResponse, Repository } from '@kyso-io/kyso-model'
 import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common'
-import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
+import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { GenericController } from '../../generic/controller.generic'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
-import { GithubAccount } from '../../model/github-account.model'
-import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
-import { GithubRepoPermissionsEnum } from './security/github-repos-permissions.enum'
-import { Repository } from '../../model/repository.model'
-import { GenericController } from '../../generic/controller.generic'
 import { GithubReposService } from './github-repos.service'
+import { GithubRepoPermissionsEnum } from './security/github-repos-permissions.enum'
 
 @ApiTags('repos/github')
 @ApiExtraModels(GithubAccount, Repository)

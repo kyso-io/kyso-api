@@ -1,12 +1,9 @@
+import { CreateUserRequest, Login, NormalizedResponse, User } from '@kyso-io/kyso-model'
 import { Body, Controller, Post } from '@nestjs/common'
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
-import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
-import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
-import { Login } from '../../model/login.model'
-import { User } from '../../model/user.model'
 import { UsersService } from '../users/users.service'
 import { AuthService } from './auth.service'
 

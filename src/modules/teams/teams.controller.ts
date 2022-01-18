@@ -1,4 +1,15 @@
 import {
+    HEADER_X_KYSO_ORGANIZATION,
+    HEADER_X_KYSO_TEAM,
+    NormalizedResponse,
+    Report,
+    Team,
+    TeamMember,
+    Token,
+    UpdateTeamMembers,
+    UpdateTeamRequest,
+} from '@kyso-io/kyso-model'
+import {
     BadRequestException,
     Body,
     Controller,
@@ -17,14 +28,6 @@ import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTa
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
-import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM } from '../../model/constants'
-import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
-import { UpdateTeamMembers } from '../../model/dto/update-team-members'
-import { Report } from '../../model/report.model'
-import { TeamMember } from '../../model/team-member.model'
-import { Team } from '../../model/team.model'
-import { Token } from '../../model/token.model'
-import { UpdateTeamRequest } from '../../model/update-team-request.model'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { AuthService } from '../auth/auth.service'

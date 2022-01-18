@@ -1,11 +1,9 @@
+import { CreateReport, Report, User } from '@kyso-io/kyso-model'
 import { Injectable, Logger, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { AlreadyExistsError, InvalidInputError, NotFoundError } from '../../helpers/errorHandling'
 import { Validators } from '../../helpers/validators'
-import { CreateReport } from '../../model/dto/create-report-request.dto'
-import { Report } from '../../model/report.model'
-import { User } from '../../model/user.model'
 import { GithubReposService } from '../github-repos/github-repos.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
@@ -95,12 +93,13 @@ export class ReportsService extends AutowiredService {
             limit: 1,
         })
 
-        if (reports.length === 0)
+        if (reports.length === 0) {
             throw new NotFoundError({
                 message: "The specified report couldn't be found",
             })
+        }
 
-        return Object.assign(new Report(), reports[0])
+        return reports[0]
     }
 
     async createReport(user: User, createReportRequest: CreateReport, teamName) {

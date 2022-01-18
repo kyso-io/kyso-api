@@ -1,18 +1,20 @@
+import {
+    KysoRole,
+    Organization,
+    OrganizationMemberJoin,
+    Report,
+    Team,
+    TeamMember,
+    TeamMemberJoin,
+    TeamVisibilityEnum,
+    Token,
+    UpdateTeamMembers,
+    User,
+} from '@kyso-io/kyso-model'
 import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
-import { UpdateTeamMembers } from '../../model/dto/update-team-members'
-import { TeamVisibilityEnum } from '../../model/enum/team-visibility.enum'
-import { KysoRole } from '../../model/kyso-role.model'
-import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
-import { Organization } from '../../model/organization.model'
-import { Report } from '../../model/report.model'
-import { TeamMemberJoin } from '../../model/team-member-join.model'
-import { TeamMember } from '../../model/team-member.model'
-import { Team } from '../../model/team.model'
-import { Token } from '../../model/token.model'
-import { User } from '../../model/user.model'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
@@ -146,21 +148,7 @@ export class TeamsService extends AutowiredService {
                 return { ...u, roles: thisMember.role_names }
             })
 
-            const toFinalObject = usersAndRoles.map((x) => {
-                const obj: TeamMember = new TeamMember()
-
-                obj.avatar_url = x.avatar_url
-                obj.bio = x.bio
-                obj.id = x.id.toString()
-                obj.nickname = x.nickname
-                obj.team_roles = x.roles
-                obj.username = x.username
-                obj.email = x.email
-
-                return obj
-            })
-
-            return toFinalObject
+            return usersAndRoles.map((x) => new TeamMember(x.id.toString(), x.nickname, x.username, x.roles, x.bio, x.avatar_url, x.email))
         } else {
             return []
         }
@@ -266,7 +254,7 @@ export class TeamsService extends AutowiredService {
             throw new PreconditionFailedException('User not found')
         }
 
-        let members: TeamMember[] = await this.getMembers(teamName)
+        const members: TeamMember[] = await this.getMembers(teamName)
         const index: number = members.findIndex((member: TeamMember) => member.id === user.id)
         if (index !== -1) {
             throw new PreconditionFailedException('User already in team')

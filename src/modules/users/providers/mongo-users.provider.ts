@@ -1,7 +1,7 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
+import { DEFAULT_GLOBAL_ADMIN_USER, User } from '@kyso-io/kyso-model'
+import { Injectable, Logger } from '@nestjs/common'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '../../../main'
-import { DEFAULT_GLOBAL_ADMIN_USER, User } from '../../../model/user.model'
 import { MongoProvider } from '../../../providers/mongo.provider'
 import { AuthService } from '../../auth/auth.service'
 

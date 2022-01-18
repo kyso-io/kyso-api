@@ -1,12 +1,7 @@
+import { KysoRole, Organization, OrganizationMember, OrganizationMemberJoin, UpdateOrganizationMembers, User } from '@kyso-io/kyso-model'
 import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
-import { UpdateOrganizationMembers } from '../../model/dto/update-organization-members.dto'
-import { KysoRole } from '../../model/kyso-role.model'
-import { OrganizationMemberJoin } from '../../model/organization-member-join.model'
-import { OrganizationMember } from '../../model/organization-member.model'
-import { Organization } from '../../model/organization.model'
-import { User } from '../../model/user.model'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
@@ -133,20 +128,7 @@ export class OrganizationsService extends AutowiredService {
                 return { ...u, roles: thisMember.role_names }
             })
 
-            const toFinalObject = usersAndRoles.map((x) => {
-                const obj: OrganizationMember = new OrganizationMember()
-
-                obj.avatar_url = x.avatar_url
-                obj.id = x.id.toString()
-                obj.nickname = x.nickname
-                obj.organization_roles = x.roles
-                obj.username = x.username
-                obj.email = x.email
-
-                return obj
-            })
-
-            return toFinalObject
+            return usersAndRoles.map((x) => new OrganizationMember(x.id.toString(), x.nickname, x.username, x.roles, x.bio, x.avatar_url, x.email))
         } else {
             return []
         }

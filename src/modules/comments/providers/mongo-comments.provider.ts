@@ -1,6 +1,6 @@
+import { Comment } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { db } from '../../../main'
-import { Comment } from '../../../model/comment.model'
 import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
