@@ -31,8 +31,8 @@ export class AuthController extends GenericController<string> {
         description: `JWT token related to user`,
         type: String,
     })
-    async login(@Body() login: Login) {
-        const jwt = await this.authService.login(login.password, login.provider, login.username)
+    async login(@Body() login: Login): Promise<NormalizedResponse<string>> {
+        const jwt: string = await this.authService.login(login.password, login.provider, login.username)
         return new NormalizedResponse(jwt)
     }
 

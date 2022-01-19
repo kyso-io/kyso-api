@@ -1,5 +1,6 @@
 import { CreateReport, Report, User } from '@kyso-io/kyso-model'
 import { Injectable, Logger, Provider } from '@nestjs/common'
+import { resourceLimits } from 'worker_threads'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { AlreadyExistsError, InvalidInputError, NotFoundError } from '../../helpers/errorHandling'

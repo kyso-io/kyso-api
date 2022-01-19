@@ -78,7 +78,7 @@ export class ReportsController extends GenericController<Report> {
         })
 
         const reports = await this.reportsService.getReports(query)
-        const relations = await this.relationsService.getRelations(reports)
+        const relations = await this.relationsService.getRelations(reports, 'report')
         res.status(200).send(new NormalizedResponse(reports, relations))
         return
     }
@@ -107,8 +107,8 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.READ])
     async getReport(@Req() req, @Res() res): Promise<void> {
-        const report: Report = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
-        const relations = await this.relationsService.getRelations(report)
+        const report = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
+        const relations = await this.relationsService.getRelations(report, 'report')
         res.status(200).send(new NormalizedResponse(report, relations))
         return
     }
@@ -133,7 +133,7 @@ export class ReportsController extends GenericController<Report> {
     async getPinnedReportsForAnUser(@Param('reportOwner') reportOwner: string) {
         const userData: User = await this.usersService.getUser({ username: reportOwner })
         const reports = await this.reportsService.getReports({ pin: true, user_id: userData.id })
-        const relations = await this.relationsService.getRelations(reports)
+        const relations = await this.relationsService.getRelations(reports, 'report')
         return new NormalizedResponse(reports, relations)
     }
 
@@ -182,7 +182,7 @@ export class ReportsController extends GenericController<Report> {
         const created = await this.reportsService.createReport(req.user, req.body.reports, req.body.team)
         const report = await this.reportsService.getReport(owner, created.name)
 
-        const relations = await this.relationsService.getRelations(report)
+        const relations = await this.relationsService.getRelations(report, 'report')
         res.status(201).send(new NormalizedResponse(report, relations))
         return
     }
@@ -224,7 +224,7 @@ export class ReportsController extends GenericController<Report> {
             ? this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
             : await this.reportsService.updateReport(req.user.objectId, req.params.reportOwner, req.params.reportName, updatePayload))
 
-        const relations = await this.relationsService.getRelations(report)
+        const relations = await this.relationsService.getRelations(report, 'report')
         res.status(200).send(new NormalizedResponse(report, relations))
         return
     }
@@ -279,7 +279,7 @@ export class ReportsController extends GenericController<Report> {
     @Permission([ReportPermissionsEnum.EDIT])
     async pinReport(@Req() req, @Res() res) {
         const report = await this.reportsService.pinReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
-        const relations = await this.relationsService.getRelations(report)
+        const relations = await this.relationsService.getRelations(report, 'report')
         res.status(200).send(new NormalizedResponse(report, relations))
         return
     }
@@ -310,10 +310,14 @@ export class ReportsController extends GenericController<Report> {
     @Permission([ReportPermissionsEnum.READ])
     async getComments(@Req() req, @Res() res) {
         const { id: report_id } = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
-
         const comments = await this.commentsService.getComments({ report_id })
-        const relations = await this.relationsService.getRelations(comments)
-        res.status(200).send(new NormalizedResponse(comments, relations))
+        const relations = await this.relationsService.getRelations(comments, 'comment')
+        res.status(200).send(
+            new NormalizedResponse(
+                comments.filter((comment) => !comment.comment_id),
+                relations,
+            ),
+        )
         return
     }
 

@@ -109,4 +109,9 @@ export class CommentsService extends AutowiredService {
         })
         return comments.length === 0 ? null : comments[0]
     }
+
+    public async getCommentById(id: string): Promise<Comment> {
+        const comments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(id) } })
+        return comments.length === 0 ? null : comments[0]
+    }
 }
