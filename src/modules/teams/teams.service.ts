@@ -12,6 +12,7 @@ import {
     User,
 } from '@kyso-io/kyso-model'
 import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
+import { existsSync, unlinkSync } from 'fs'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
@@ -48,6 +49,10 @@ export class TeamsService extends AutowiredService {
 
     constructor(private readonly provider: TeamsMongoProvider, private readonly teamMemberProvider: TeamMemberMongoProvider) {
         super()
+    }
+
+    public async getTeamById(id: string): Promise<Team> {
+        return this.getTeam({ filter: { _id: this.provider.toObjectId(id) } })
     }
 
     async getTeam(query) {
@@ -162,9 +167,8 @@ export class TeamsService extends AutowiredService {
     async createTeam(team: Team) {
         try {
             // The name of this team exists?
-            const exists: any[] = await this.provider.read({ filter: { name: team.name } })
-
-            if (exists.length > 0) {
+            const teams: Team[] = await this.provider.read({ filter: { name: team.name } })
+            if (teams.length > 0) {
                 // Exists, throw an exception
                 throw new PreconditionFailedException('The name of the team must be unique')
             }
@@ -174,6 +178,11 @@ export class TeamsService extends AutowiredService {
             })
             if (!organization) {
                 throw new PreconditionFailedException('The organization does not exist')
+            }
+
+            const users: User[] = await this.usersService.getUsers({ filter: { nickname: team.name } })
+            if (users.length > 0) {
+                throw new PreconditionFailedException('There is already a user with this nickname')
             }
 
             return this.provider.create(team)
@@ -239,7 +248,7 @@ export class TeamsService extends AutowiredService {
         return this.provider.read({ filter: { _id: { $in: userInTeams.map((x) => this.provider.toObjectId(x.team_id)) } } })
     }
 
-    public async addMemberToTeam(teamName: string, userName: string): Promise<TeamMember[]> {
+    public async userBelongsToTeam(teamName: string, email: string): Promise<boolean> {
         const team: Team = await this.getTeam({
             filter: { name: teamName },
         })
@@ -248,7 +257,7 @@ export class TeamsService extends AutowiredService {
         }
 
         const user: User = await this.usersService.getUser({
-            filter: { username: userName },
+            filter: { email },
         })
         if (!user) {
             throw new PreconditionFailedException('User not found')
@@ -256,12 +265,21 @@ export class TeamsService extends AutowiredService {
 
         const members: TeamMember[] = await this.getMembers(teamName)
         const index: number = members.findIndex((member: TeamMember) => member.id === user.id)
-        if (index !== -1) {
-            throw new PreconditionFailedException('User already in team')
+        return index !== -1
+    }
+
+    public async addMemberToTeam(teamName: string, email: string): Promise<TeamMember[]> {
+        const userBelongsToTeam = await this.userBelongsToTeam(teamName, email)
+        if (userBelongsToTeam) {
+            throw new PreconditionFailedException('User already belongs to this team')
         }
-
+        const team: Team = await this.getTeam({
+            filter: { name: teamName },
+        })
+        const user: User = await this.usersService.getUser({
+            filter: { email },
+        })
         await this.addMembersById(team.id, [user.id], [])
-
         return this.getMembers(teamName)
     }
 
@@ -345,5 +363,34 @@ export class TeamsService extends AutowiredService {
         }
         await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $pull: { role_names: role } })
         return this.getMembers(teamName)
+    }
+
+    public async setProfilePicture(teamName: string, file: Express.Multer.File): Promise<Team> {
+        const team: Team = await this.getTeam({ filter: { name: teamName } })
+        if (!team) {
+            throw new PreconditionFailedException('Team not found')
+        }
+        if (team?.avatar_url && team.avatar_url.length > 0) {
+            const imagePath = `./public/${team.avatar_url}`
+            if (existsSync(imagePath)) {
+                unlinkSync(imagePath)
+            }
+        }
+        const profilePicturePath: string = file.path.replace('public/', '')
+        return this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url: profilePicturePath } })
+    }
+
+    public async deleteProfilePicture(teamName: string): Promise<Team> {
+        const team: Team = await this.getTeam({ filter: { name: teamName } })
+        if (!team) {
+            throw new PreconditionFailedException('Team not found')
+        }
+        if (team?.avatar_url && team.avatar_url.length > 0) {
+            const imagePath = `./public/${team.avatar_url}`
+            if (existsSync(imagePath)) {
+                unlinkSync(imagePath)
+            }
+        }
+        return this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url: null } })
     }
 }

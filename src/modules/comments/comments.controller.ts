@@ -41,8 +41,8 @@ export class CommentsController extends GenericController<Comment> {
         example: 'K1bOzHjEmN',
     })
     @Permission([CommentPermissionsEnum.READ])
-    async getComment(@Param('commentId') commentId: string) {
-        const comment = await this.commentsService.getCommentWithChildren(commentId)
+    async getComment(@Param('commentId') commentId: string): Promise<NormalizedResponse<Comment>> {
+        const comment: Comment = await this.commentsService.getCommentWithChildren(commentId)
         return new NormalizedResponse(comment)
     }
 
@@ -57,7 +57,7 @@ export class CommentsController extends GenericController<Comment> {
         type: Comment,
     })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN, CommentPermissionsEnum.ADMIN, CommentPermissionsEnum.CREATE])
-    public async createComment(@CurrentToken() token: Token, @Body() comment: Comment): Promise<NormalizedResponse> {
+    public async createComment(@CurrentToken() token: Token, @Body() comment: Comment): Promise<NormalizedResponse<Comment>> {
         const newComment: Comment = await this.commentsService.createCommentGivenToken(token, comment)
         return new NormalizedResponse(newComment)
     }
@@ -80,7 +80,7 @@ export class CommentsController extends GenericController<Comment> {
         example: 'K1bOzHjEmN',
     })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN, CommentPermissionsEnum.ADMIN, CommentPermissionsEnum.DELETE])
-    async deleteComment(@CurrentToken() token: Token, @Param('commentId') commentId: string): Promise<NormalizedResponse> {
+    async deleteComment(@CurrentToken() token: Token, @Param('commentId') commentId: string): Promise<NormalizedResponse<boolean>> {
         const result: boolean = await this.commentsService.deleteComment(token, commentId)
         return new NormalizedResponse(result)
     }

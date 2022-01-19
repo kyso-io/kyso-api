@@ -39,12 +39,12 @@ export class UserController extends GenericController<User> {
         description: `Authenticated user data`,
         type: User,
     })
-    async getAuthenticatedUser(@Headers('authorization') authorizationHeader: string) {
+    async getAuthenticatedUser(@Headers('authorization') authorizationHeader: string): Promise<NormalizedResponse<User>> {
         const splittedToken = authorizationHeader.split('Bearer ')[1]
 
         const token: Token = this.authService.evaluateAndDecodeToken(splittedToken)
 
-        const user = await this.usersService.getUser({ filter: { username: token.username } })
+        const user: User = await this.usersService.getUser({ filter: { username: token.username } })
         return new NormalizedResponse(user)
     }
 }

@@ -1,6 +1,7 @@
-import { CreateUserRequest, KysoRole, Organization, Team, TeamVisibilityEnum, UpdateUserRequest, User, UserAccount } from '@kyso-io/kyso-model'
+import { CreateUserRequest, KysoRole, Organization, Team, TeamVisibilityEnum, Token, UpdateUserRequest, User, UserAccount } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { existsSync, unlinkSync } from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -39,6 +40,10 @@ export class UsersService extends AutowiredService {
         users = await this.provider.read(query)
 
         return users
+    }
+
+    public async getUserById(id: string): Promise<User> {
+        return this.getUser({ filter: { id: this.provider.toObjectId(id) } })
     }
 
     async getUser(query): Promise<User> {
@@ -85,7 +90,7 @@ export class UsersService extends AutowiredService {
 
         // Create user team
         const teamName: string = userDb.nickname.charAt(0).toUpperCase() + userDb.nickname.slice(1) + "'s Private"
-        const newUserTeam: Team = new Team(teamName, null, null, null, null, [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
+        const newUserTeam: Team = new Team(teamName, null, null, null, null, [], organizationDb.id, TeamVisibilityEnum.PRIVATE, null, null, false, null)
         Logger.log(`Creating new team ${newUserTeam.name}...`)
         const userTeamDb: Team = await this.teamsService.createTeam(newUserTeam)
 
@@ -175,5 +180,34 @@ export class UsersService extends AutowiredService {
             throw new PreconditionFailedException(null, `Can't update user as does not exists`)
         }
         return this.updateUser({ email: email }, { $set: data })
+    }
+
+    public async setProfilePicture(token: Token, file: Express.Multer.File): Promise<User> {
+        const user: User = await this.getUser({ filter: { _id: this.provider.toObjectId(token.id) } })
+        if (!user) {
+            throw new PreconditionFailedException('User not found')
+        }
+        if (user?.avatar_url && user.avatar_url.length > 0) {
+            const imagePath = `./public/${user.avatar_url}`
+            if (existsSync(imagePath)) {
+                unlinkSync(imagePath)
+            }
+        }
+        const profilePicturePath: string = file.path.replace('public/', '')
+        return this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { avatar_url: profilePicturePath } })
+    }
+
+    public async deleteProfilePicture(token: Token): Promise<User> {
+        const user: User = await this.getUser({ filter: { id: this.provider.toObjectId(token.id) } })
+        if (!user) {
+            throw new PreconditionFailedException('User not found')
+        }
+        if (user?.avatar_url && user.avatar_url.length > 0) {
+            const imagePath = `./public/${user.avatar_url}`
+            if (existsSync(imagePath)) {
+                unlinkSync(imagePath)
+            }
+        }
+        return this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { avatar_url: null } })
     }
 }

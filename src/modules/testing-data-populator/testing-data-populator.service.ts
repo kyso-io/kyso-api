@@ -252,6 +252,10 @@ export class TestingDataPopulatorService {
                 [],
                 this.DarksideOrganization.id,
                 TeamVisibilityEnum.PUBLIC,
+                null,
+                null,
+                false,
+                null,
             )
 
             this.CustomTeamRole = new KysoRole('custom-team-random-role', [ReportPermissionsEnum.READ])
@@ -265,6 +269,10 @@ export class TestingDataPopulatorService {
                 [this.CustomTeamRole],
                 this.LightsideOrganization.id,
                 TeamVisibilityEnum.PROTECTED,
+                null,
+                null,
+                false,
+                null,
             )
 
             const privateTeam = new Team(
@@ -276,6 +284,10 @@ export class TestingDataPopulatorService {
                 [this.CustomTeamRole],
                 this.DarksideOrganization.id,
                 TeamVisibilityEnum.PRIVATE,
+                null,
+                null,
+                false,
+                null,
             )
 
             this.PublicTeam = await this._createTeam(publicTeam)
