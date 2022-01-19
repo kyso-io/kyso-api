@@ -1,12 +1,10 @@
+import { CreateReport, Report, User } from '@kyso-io/kyso-model'
 import { Injectable, Logger, Provider } from '@nestjs/common'
 import { resourceLimits } from 'worker_threads'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { AlreadyExistsError, InvalidInputError, NotFoundError } from '../../helpers/errorHandling'
 import { Validators } from '../../helpers/validators'
-import { CreateReport } from '../../model/dto/create-report-request.dto'
-import { Report } from '../../model/report.model'
-import { User } from '../../model/user.model'
 import { GithubReposService } from '../github-repos/github-repos.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
@@ -22,29 +20,29 @@ function generateReportName(repoName, path) {
 }
 
 function factory(service: ReportsService) {
-    return service;
+    return service
 }
-  
+
 export function createProvider(): Provider<ReportsService> {
     return {
         provide: `${ReportsService.name}`,
-        useFactory: service => factory(service),
+        useFactory: (service) => factory(service),
         inject: [ReportsService],
-    };
+    }
 }
 
 @Injectable()
 export class ReportsService extends AutowiredService {
-    @Autowired({ typeName: "UsersService" })
+    @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
-    
-    @Autowired({ typeName: "TeamsService" })
+
+    @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
-    
-    @Autowired({ typeName: "GithubReposService" })
+
+    @Autowired({ typeName: 'GithubReposService' })
     private githubReposService: GithubReposService
 
-    @Autowired({ typeName: "LocalReportsService" })
+    @Autowired({ typeName: 'LocalReportsService' })
     private localReportsService: LocalReportsService
 
     constructor(private readonly provider: ReportsMongoProvider) {
@@ -96,12 +94,13 @@ export class ReportsService extends AutowiredService {
             limit: 1,
         })
 
-        if (reports.length === 0)
+        if (reports.length === 0) {
             throw new NotFoundError({
                 message: "The specified report couldn't be found",
             })
+        }
 
-        return Object.assign(new Report(), reports[0])
+        return reports[0]
     }
 
     async createReport(user: User, createReportRequest: CreateReport, teamName) {

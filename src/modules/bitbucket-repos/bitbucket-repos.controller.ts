@@ -1,7 +1,7 @@
-import { Controller, Get, Param, Post, Query, Req } from '@nestjs/common'
+import { Repository } from '@kyso-io/kyso-model'
+import { Controller, Get, Param, Query, Req } from '@nestjs/common'
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { GenericController } from '../../generic/controller.generic'
-import { Repository } from '../../model/repository.model'
 import { BitbucketReposProvider } from './providers/bitbucket-repo.provider'
 
 @ApiTags('repos/bitbucket')

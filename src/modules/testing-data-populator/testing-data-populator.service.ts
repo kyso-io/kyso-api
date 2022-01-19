@@ -1,15 +1,17 @@
+import {
+    Comment,
+    CreateReport,
+    CreateUserRequest,
+    KysoRole,
+    LoginProviderEnum,
+    Organization,
+    Report,
+    Team,
+    TeamVisibilityEnum,
+    User,
+} from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
-import { Comment } from '../../model/comment.model'
-import { CreateReport } from '../../model/dto/create-report-request.dto'
-import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
-import { LoginProviderEnum } from '../../model/enum/login-provider.enum'
-import { TeamVisibilityEnum } from '../../model/enum/team-visibility.enum'
-import { KysoRole } from '../../model/kyso-role.model'
-import { Organization } from '../../model/organization.model'
-import { Report } from '../../model/report.model'
-import { Team } from '../../model/team.model'
-import { User } from '../../model/user.model'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
 import { CommentsService } from '../comments/comments.service'
 import { OrganizationsService } from '../organizations/organizations.service'
@@ -41,20 +43,19 @@ export class TestingDataPopulatorService {
     private ProtectedTeamWithCustomRole: Team
     private PrivateTeam: Team
 
-
-    @Autowired({ typeName: "CommentsService" })
+    @Autowired({ typeName: 'CommentsService' })
     private commentsService: CommentsService
 
-    @Autowired({ typeName: "UsersService" })
+    @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
-    
-    @Autowired({ typeName: "OrganizationsService" })
+
+    @Autowired({ typeName: 'OrganizationsService' })
     private organizationsService: OrganizationsService
-    
-    @Autowired({ typeName: "TeamsService" })
+
+    @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
-    
-    @Autowired({ typeName: "ReportsService" })
+
+    @Autowired({ typeName: 'ReportsService' })
     private reportsService: ReportsService
 
     public async populateTestData() {
@@ -104,8 +105,8 @@ export class TestingDataPopulatorService {
             'free',
             'https://bit.ly/3Fgdosn',
             true,
-            'n0tiene',
             [],
+            'n0tiene',
         )
 
         const kylo_TestTeamContributorUser: CreateUserRequest = new CreateUserRequest(
@@ -117,8 +118,8 @@ export class TestingDataPopulatorService {
             'free',
             'https://bit.ly/3qfdNVo',
             true,
-            'n0tiene',
             [],
+            'n0tiene',
         )
 
         const chewbacca_TestTeamReaderUser: CreateUserRequest = new CreateUserRequest(
@@ -130,8 +131,8 @@ export class TestingDataPopulatorService {
             'free',
             'https://bit.ly/3slTUyI',
             true,
-            'n0tiene',
             [],
+            'n0tiene',
         )
 
         const gideon_TestOrganizationAdminUser: CreateUserRequest = new CreateUserRequest(
@@ -143,8 +144,8 @@ export class TestingDataPopulatorService {
             'free',
             'https://bit.ly/3EWyNG6',
             true,
-            'n0tiene',
             [],
+            'n0tiene',
         )
 
         const palpatine_TestPlatformAdminUser: CreateUserRequest = new CreateUserRequest(
@@ -156,8 +157,8 @@ export class TestingDataPopulatorService {
             'free',
             'https://bit.ly/3e9b9ep',
             true,
-            'n0tiene',
             [GlobalPermissionsEnum.GLOBAL_ADMIN],
+            'n0tiene',
         )
 
         this.Rey_TeamAdminUser = await this._createUser(rey_TestTeamAdminUser)
@@ -246,10 +247,15 @@ export class TestingDataPopulatorService {
                 'public-team',
                 'https://bit.ly/3J49GUO',
                 'A public team',
+                '',
                 'Cleveland',
                 [],
                 this.DarksideOrganization.id,
                 TeamVisibilityEnum.PUBLIC,
+                null,
+                null,
+                false,
+                null,
             )
 
             this.CustomTeamRole = new KysoRole('custom-team-random-role', [ReportPermissionsEnum.READ])
@@ -258,20 +264,30 @@ export class TestingDataPopulatorService {
                 'protected-team',
                 'https://bit.ly/3e9mDOZ',
                 'A protected team with custom roles',
+                '',
                 'Sacramento',
                 [this.CustomTeamRole],
                 this.LightsideOrganization.id,
                 TeamVisibilityEnum.PROTECTED,
+                null,
+                null,
+                false,
+                null,
             )
 
             const privateTeam = new Team(
                 'private-team',
                 'https://bit.ly/3sr8x45',
                 'A private team',
+                '',
                 'Milwaukee',
                 [this.CustomTeamRole],
                 this.DarksideOrganization.id,
                 TeamVisibilityEnum.PRIVATE,
+                null,
+                null,
+                false,
+                null,
             )
 
             this.PublicTeam = await this._createTeam(publicTeam)

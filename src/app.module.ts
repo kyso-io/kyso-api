@@ -5,6 +5,7 @@ import { join } from 'path'
 import { AuthModule } from './modules/auth/auth.module'
 import { BitbucketReposModule } from './modules/bitbucket-repos/bitbucket-repos.module'
 import { CommentsModule } from './modules/comments/comments.module'
+import { DiscussionsModule } from './modules/discussions/discussions.module'
 import { GithubReposModule } from './modules/github-repos/github-repos.module'
 import { OrganizationsModule } from './modules/organizations/organizations.module'
 import { RelationsModule } from './modules/relations/relations.module'
@@ -15,16 +16,11 @@ import { UsersModule } from './modules/users/users.module'
 
 @Module({
     imports: [
-        UsersModule.forRoot(),
         AuthModule.forRoot(),
         BitbucketReposModule.forRoot(),
         CommentsModule.forRoot(),
+        DiscussionsModule.forRoot(),
         GithubReposModule.forRoot(),
-        OrganizationsModule.forRoot(),
-        ReportsModule.forRoot(),
-        TeamsModule.forRoot(),
-        RelationsModule.forRoot(),
-        TestingDataPopulatorModule,
         MailerModule.forRootAsync({
             useFactory: () => {
                 return {
@@ -42,6 +38,12 @@ import { UsersModule } from './modules/users/users.module'
                 }
             },
         }),
+        OrganizationsModule.forRoot(),
+        RelationsModule.forRoot(),
+        ReportsModule.forRoot(),
+        TeamsModule.forRoot(),
+        TestingDataPopulatorModule,
+        UsersModule.forRoot(),
     ],
 })
 export class AppModule {}

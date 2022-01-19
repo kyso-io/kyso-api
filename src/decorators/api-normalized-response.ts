@@ -1,10 +1,6 @@
-import { Type, applyDecorators } from '@nestjs/common'
+import { Comment, Organization, Report, Team, User } from '@kyso-io/kyso-model'
+import { applyDecorators, Type } from '@nestjs/common'
 import { ApiOkResponse, getSchemaPath } from '@nestjs/swagger'
-import { User } from '../model/user.model'
-import { Report } from '../model/report.model'
-import { Comment } from '../model/comment.model'
-import { Team } from '../model/team.model'
-import { Organization } from '../model/organization.model'
 
 const MODELS = [User, Report, Comment, Team, Organization]
 

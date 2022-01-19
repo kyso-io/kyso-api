@@ -1,11 +1,8 @@
+import { Comment, Report, Team, Token } from '@kyso-io/kyso-model'
 import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
-import { Comment } from '../../model/comment.model'
-import { Report } from '../../model/report.model'
-import { Team } from '../../model/team.model'
-import { Token } from '../../model/token.model'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
 import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
@@ -110,6 +107,11 @@ export class CommentsService extends AutowiredService {
             filter: { _id: this.provider.toObjectId(commentId) },
             limit: 1,
         })
+        return comments.length === 0 ? null : comments[0]
+    }
+
+    public async getCommentById(id: string): Promise<Comment> {
+        const comments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(id) } })
         return comments.length === 0 ? null : comments[0]
     }
 }

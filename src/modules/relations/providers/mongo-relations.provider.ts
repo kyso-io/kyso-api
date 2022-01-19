@@ -1,7 +1,7 @@
+import { Relation } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { ObjectId } from 'mongodb'
 import { db } from '../../../main'
-import { Relation } from '../../../model/relation.model'
 import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()

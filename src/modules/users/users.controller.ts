@@ -1,20 +1,18 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common'
+import { BaseFilterQuery, CreateUserRequest, NormalizedResponse, Token, UpdateUserRequest, User, UserAccount } from '@kyso-io/kyso-model'
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
+import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { diskStorage } from 'multer'
+import { extname } from 'path'
+import { v4 as uuidv4 } from 'uuid'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
-import { BaseFilterQuery } from '../../model/dto/base-filter.dto'
-import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
-import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
-import { UpdateUserRequest } from '../../model/dto/update-user-request.dto'
-import { UserAccount } from '../../model/user-account'
-import { User } from '../../model/user.model'
+import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { UserPermissionsEnum } from './security/user-permissions.enum'
 import { UsersService } from './users.service'
-
-const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 
 @ApiTags('users')
 @UseGuards(PermissionsGuard)
@@ -41,7 +39,7 @@ export class UsersController extends GenericController<User> {
         type: User,
     })
     @Permission([UserPermissionsEnum.READ])
-    async getUsers(@Req() req, @Query() filters: BaseFilterQuery): Promise<NormalizedResponse> {
+    async getUsers(@Req() req, @Query() filters: BaseFilterQuery): Promise<NormalizedResponse<User[]>> {
         // <-- Lack of documentation due to inconsistent stuff
         // filters variable is just for documentation purposes. But a refactoring removing Req and Res would be great.
         const query = QueryParser.toQueryObject(req.url)
@@ -60,6 +58,28 @@ export class UsersController extends GenericController<User> {
         return new NormalizedResponse(result)
     }
 
+    @Get('/id/:id')
+    @ApiOperation({
+        summary: `Get an user`,
+        description: `Allows fetching content of a specific user passing its id`,
+    })
+    @ApiParam({
+        name: 'id',
+        required: true,
+        description: `Id of the user to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
+    @Permission([UserPermissionsEnum.READ])
+    async getUserById(@Param('id') id: string): Promise<NormalizedResponse<User>> {
+        const user: User = await this.usersService.getUserById(id)
+        if (!user) {
+            throw new BadRequestException(`User with id ${id} not found`)
+        }
+        this.assignReferences(user)
+        return new NormalizedResponse(user)
+    }
+
     @Get('/:userName')
     @ApiOperation({
         summary: `Get an user`,
@@ -73,7 +93,7 @@ export class UsersController extends GenericController<User> {
     })
     @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
     @Permission([UserPermissionsEnum.READ])
-    async getUser(@Param('userName') userName: string): Promise<NormalizedResponse> {
+    async getUser(@Param('userName') userName: string): Promise<NormalizedResponse<User>> {
         const user: User = await this.usersService.getUser({
             filter: { nickname: userName },
             projection: { accessToken: 0 },
@@ -91,7 +111,7 @@ export class UsersController extends GenericController<User> {
     })
     @ApiNormalizedResponse({ status: 201, description: `User creation gone well`, type: User })
     @Permission([UserPermissionsEnum.CREATE])
-    async createUser(@Body() user: CreateUserRequest) {
+    async createUser(@Body() user: CreateUserRequest): Promise<NormalizedResponse<User>> {
         return new NormalizedResponse(await this.usersService.createUser(user))
     }
 
@@ -111,7 +131,7 @@ export class UsersController extends GenericController<User> {
         description: `Authenticated user data`,
         type: User,
     })
-    public async updateUserData(@Param('email') email: string, @Body() data: UpdateUserRequest): Promise<NormalizedResponse> {
+    public async updateUserData(@Param('email') email: string, @Body() data: UpdateUserRequest): Promise<NormalizedResponse<User>> {
         const user: User = await this.usersService.updateUserData(email, data)
         return new NormalizedResponse(user)
     }
@@ -130,7 +150,7 @@ export class UsersController extends GenericController<User> {
     @ApiResponse({ status: 200, description: `Deletion done successfully` })
     @ApiNormalizedResponse({ status: 200, description: `Organization matching name`, type: Boolean })
     @Permission([UserPermissionsEnum.DELETE])
-    async deleteUser(@Param('mail') mail: string): Promise<NormalizedResponse> {
+    async deleteUser(@Param('mail') mail: string): Promise<NormalizedResponse<boolean>> {
         const result: boolean = await this.usersService.deleteUser(mail)
         return new NormalizedResponse(result)
     }
@@ -179,5 +199,46 @@ export class UsersController extends GenericController<User> {
     @Permission([UserPermissionsEnum.EDIT])
     async removeAccount(@Param('email') email: string, @Param('provider') provider: string, @Param('accountId') accountId: string) {
         return this.usersService.removeAccount(email, provider, accountId)
+    }
+
+    @UseInterceptors(
+        FileInterceptor('profilePicture', {
+            storage: diskStorage({
+                destination: './public/users-profile-pictures',
+                filename: (req, file, callback) => {
+                    callback(null, `${uuidv4()}${extname(file.originalname)}`)
+                },
+            }),
+            fileFilter: (req, file, callback) => {
+                if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+                    return callback(new Error('Only image files are allowed!'), false)
+                }
+                callback(null, true)
+            },
+        }),
+    )
+    @Post('profile-picture')
+    @ApiOperation({
+        summary: `Upload a profile picture for a team`,
+        description: `Allows uploading a profile picture for a user the image`,
+    })
+    @ApiNormalizedResponse({ status: 201, description: `Updated user`, type: User })
+    public async setProfilePicture(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponse<User>> {
+        if (!file) {
+            throw new BadRequestException(`Missing file`)
+        }
+        const user: User = await this.usersService.setProfilePicture(token, file)
+        return new NormalizedResponse(user)
+    }
+
+    @Delete('profile-picture')
+    @ApiOperation({
+        summary: `Delete a profile picture for a team`,
+        description: `Allows deleting a profile picture for a user`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: User })
+    public async deleteBackgroundImage(@CurrentToken() token: Token): Promise<NormalizedResponse<User>> {
+        const user: User = await this.usersService.deleteProfilePicture(token)
+        return new NormalizedResponse(user)
     }
 }
