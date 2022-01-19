@@ -365,7 +365,8 @@ export class TeamsService extends AutowiredService {
         return this.getMembers(teamName)
     }
 
-    public async setProfilePicture(teamName: string, file: Express.Multer.File): Promise<Team> {
+    // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
+    public async setProfilePicture(teamName: string, file: any /*Express.Multer.File*/): Promise<Team> {
         const team: Team = await this.getTeam({ filter: { name: teamName } })
         if (!team) {
             throw new PreconditionFailedException('Team not found')

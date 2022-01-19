@@ -10,6 +10,8 @@ import { AuthService } from '../auth/auth.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
+// This is a hack to make Multer available in the Express namespace
+import { Multer } from 'multer';
 
 function factory(service: UsersService) {
     return service
@@ -183,7 +185,8 @@ export class UsersService extends AutowiredService {
         return this.updateUser({ email: email }, { $set: data })
     }
 
-    public async setProfilePicture(token: Token, file: Express.Multer.File): Promise<User> {
+    // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
+    public async setProfilePicture(token: Token, file: any /*Express.Multer.File*/): Promise<User> {
         const user: User = await this.getUser({ filter: { _id: this.provider.toObjectId(token.id) } })
         if (!user) {
             throw new PreconditionFailedException('User not found')

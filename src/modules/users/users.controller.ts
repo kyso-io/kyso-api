@@ -223,7 +223,8 @@ export class UsersController extends GenericController<User> {
         description: `Allows uploading a profile picture for a user the image`,
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated user`, type: User })
-    public async setProfilePicture(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponse<User>> {
+    // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
+    public async setProfilePicture(@CurrentToken() token: Token, @UploadedFile() file: any /*Express.Multer.File*/): Promise<NormalizedResponse<User>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }

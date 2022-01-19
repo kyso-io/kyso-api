@@ -415,7 +415,8 @@ export class TeamsController extends GenericController<Team> {
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: Team })
     @Permission([TeamPermissionsEnum.EDIT])
-    public async setProfilePicture(@Param('teamName') teamName: string, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponse<Team>> {
+    // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
+    public async setProfilePicture(@Param('teamName') teamName: string, @UploadedFile() file: any /*Express.Multer.File*/): Promise<NormalizedResponse<Team>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }
