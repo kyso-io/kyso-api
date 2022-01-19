@@ -6,16 +6,23 @@ const capitalize = (s) => s && s[0].toUpperCase() + s.slice(1)
 
 const flatten = (list) => list.reduce((a, b) => a.concat(Array.isArray(b) ? flatten(b) : b), [])
 
-function factory(service: RelationsService) {
-    return service;
+const listKeyToVal = (data: any) => {
+    return data.reduce((prev: any, curr: any) => {
+        prev[curr.id] = curr
+        return prev
+    }, {} as object)
 }
-  
+
+function factory(service: RelationsService) {
+    return service
+}
+
 export function createProvider(): Provider<RelationsService> {
     return {
         provide: `${RelationsService.name}`,
-        useFactory: service => factory(service),
+        useFactory: (service) => factory(service),
         inject: [RelationsService],
-    };
+    }
 }
 
 @Injectable()
@@ -47,12 +54,12 @@ export class RelationsService extends AutowiredService {
         }, {})
     }
 
-    async getRelations(entities: object | [object]) {
+    async getRelations(entities: object | [object], entityType: string) {
         if (!Array.isArray(entities)) entities = [entities]
 
         const groupedRelations = this.scanForRelations(entities)
 
-        return await Object.keys(groupedRelations).reduce(async (previousPromise, collection) => {
+        const relations = await Object.keys(groupedRelations).reduce(async (previousPromise, collection) => {
             const accumulator = await previousPromise
             const entities = await this.provider.readFromCollectionByIds(collection, groupedRelations[collection])
             accumulator[collection.toLowerCase()] = entities.reduce((acc, entity) => {
@@ -61,5 +68,12 @@ export class RelationsService extends AutowiredService {
             }, {})
             return accumulator
         }, Promise.resolve({}))
+
+        relations[entityType] = {
+            ...relations[entityType],
+            ...listKeyToVal(entities),
+        }
+
+        return relations
     }
 }
