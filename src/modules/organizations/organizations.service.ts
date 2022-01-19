@@ -2,6 +2,7 @@ import { KysoRole, Organization, OrganizationMember, OrganizationMemberJoin, Upd
 import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
+import { PlatformRole } from '../../security/platform-roles'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
@@ -214,10 +215,10 @@ export class OrganizationsService extends AutowiredService {
             throw new PreconditionFailedException('Organization does not exist')
         }
         const validRoles: string[] = [
-            KysoRole.TEAM_ADMIN_ROLE.name,
-            KysoRole.TEAM_CONTRIBUTOR_ROLE.name,
-            KysoRole.TEAM_READER_ROLE.name,
-            KysoRole.ORGANIZATION_ADMIN_ROLE.name,
+            PlatformRole.TEAM_ADMIN_ROLE.name,
+            PlatformRole.TEAM_CONTRIBUTOR_ROLE.name,
+            PlatformRole.TEAM_READER_ROLE.name,
+            PlatformRole.ORGANIZATION_ADMIN_ROLE.name,
             ...organization.roles.map((x: KysoRole) => x.name),
         ]
         const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)

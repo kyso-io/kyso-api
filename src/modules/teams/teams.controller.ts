@@ -131,12 +131,12 @@ export class TeamsController extends GenericController<Team> {
         required: true,
     })
     @Permission([TeamPermissionsEnum.READ])
-    async getTeamMembers(@Param('teamName') teamName: string, @Headers(HEADER_X_KYSO_TEAM) xKysoTeamHeader: string): Promise<NormalizedResponse> {
+    async getTeamMembers(@Param('teamName') teamName: string, @Headers(HEADER_X_KYSO_TEAM) xKysoTeamHeader: string): Promise<NormalizedResponse<TeamMember[]>> {
         if (xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
             throw new UnauthorizedException('Team path param and team header are not equal. This incident will be reported')
         }
 
-        const data = await this.teamsService.getMembers(teamName)
+        const data: TeamMember[] = await this.teamsService.getMembers(teamName)
         return new NormalizedResponse(data)
     }
 
@@ -159,7 +159,7 @@ export class TeamsController extends GenericController<Team> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
     @Permission([TeamPermissionsEnum.EDIT])
-    async addMemberToTeam(@Param('teamName') teamName: string, @Param('userName') userName: string): Promise<NormalizedResponse> {
+    async addMemberToTeam(@Param('teamName') teamName: string, @Param('userName') userName: string): Promise<NormalizedResponse<TeamMember[]>> {
         const members: TeamMember[] = await this.teamsService.addMemberToTeam(teamName, userName)
         return new NormalizedResponse(members)
     }
@@ -183,7 +183,7 @@ export class TeamsController extends GenericController<Team> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
     @Permission([TeamPermissionsEnum.EDIT])
-    async removeMemberFromTeam(@Param('teamName') teamName: string, @Param('userName') userName: string): Promise<NormalizedResponse> {
+    async removeMemberFromTeam(@Param('teamName') teamName: string, @Param('userName') userName: string): Promise<NormalizedResponse<TeamMember[]>> {
         const members: TeamMember[] = await this.teamsService.removeMemberFromTeam(teamName, userName)
         return new NormalizedResponse(members)
     }
@@ -241,7 +241,7 @@ export class TeamsController extends GenericController<Team> {
         type: Team,
     })
     @Permission([TeamPermissionsEnum.CREATE])
-    async createTeam(@Body() team: Team): Promise<NormalizedResponse> {
+    async createTeam(@Body() team: Team): Promise<NormalizedResponse<Team>> {
         const teamDb: Team = await this.teamsService.createTeam(team)
         return new NormalizedResponse(teamDb)
     }
@@ -268,7 +268,7 @@ export class TeamsController extends GenericController<Team> {
         @CurrentToken() token: Token,
         @Param('teamName') teamName: string,
         @Headers(HEADER_X_KYSO_TEAM) xKysoTeamHeader: string,
-    ): Promise<NormalizedResponse> {
+    ): Promise<NormalizedResponse<Report[]>> {
         if (xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
             throw new UnauthorizedException('Team path param and team header are not equal. This incident will be reported')
         }
@@ -289,7 +289,7 @@ export class TeamsController extends GenericController<Team> {
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: TeamMember })
     @Permission([TeamPermissionsEnum.EDIT])
-    public async updateTeamMembersRoles(@Param('teamName') teamName: string, @Body() data: UpdateTeamMembers): Promise<NormalizedResponse> {
+    public async updateTeamMembersRoles(@Param('teamName') teamName: string, @Body() data: UpdateTeamMembers): Promise<NormalizedResponse<TeamMember[]>> {
         const teamMembers: TeamMember[] = await this.teamsService.updateTeamMembersRoles(teamName, data)
         return new NormalizedResponse(teamMembers)
     }
@@ -323,7 +323,7 @@ export class TeamsController extends GenericController<Team> {
         @Param('teamName') teamName: string,
         @Param('userName') userName: string,
         @Param('role') role: string,
-    ): Promise<NormalizedResponse> {
+    ): Promise<NormalizedResponse<TeamMember[]>> {
         const teamMembers: TeamMember[] = await this.teamsService.removeTeamMemberRole(teamName, userName, role)
         return new NormalizedResponse(teamMembers)
     }

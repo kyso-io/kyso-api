@@ -4,6 +4,7 @@ import { Injectable, Logger, PreconditionFailedException, Provider } from '@nest
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
+import { PlatformRole } from '../../security/platform-roles'
 import { AuthService } from '../auth/auth.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
@@ -80,18 +81,20 @@ export class UsersService extends AutowiredService {
         const organizationDb: Organization = await this.organizationsService.createOrganization(newOrganization)
 
         // Add user to organization as admin
-        Logger.log(`Adding ${userDb.nickname} to organization ${organizationDb.name} with role ${KysoRole.ORGANIZATION_ADMIN_ROLE.name}...`)
-        await this.organizationsService.addMembersById(organizationDb.id, [userDb.id], [KysoRole.ORGANIZATION_ADMIN_ROLE.name])
+        Logger.log(`Adding ${userDb.nickname} to organization ${organizationDb.name} with role ${PlatformRole.ORGANIZATION_ADMIN_ROLE.name}...`)
+        await this.organizationsService.addMembersById(organizationDb.id, [userDb.id], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name])
 
         // Create user team
         const teamName: string = userDb.nickname.charAt(0).toUpperCase() + userDb.nickname.slice(1) + "'s Private"
-        const newUserTeam: Team = new Team(teamName, null, null, null, null, [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
+        
+        // TODO: ADDED LAST 4 PARAMETERS AS THE MODEL HAS BEEN CHANGED
+        const newUserTeam: Team = new Team(teamName, null, null, null, null, [], organizationDb.id, TeamVisibilityEnum.PRIVATE, "", "", false, {})
         Logger.log(`Creating new team ${newUserTeam.name}...`)
         const userTeamDb: Team = await this.teamsService.createTeam(newUserTeam)
 
         // Add user to team as admin
-        Logger.log(`Adding ${userDb.nickname} to team ${userTeamDb.name} with role ${KysoRole.TEAM_ADMIN_ROLE.name}...`)
-        await this.teamsService.addMembersById(userTeamDb.id, [userDb.id], [KysoRole.TEAM_ADMIN_ROLE.name])
+        Logger.log(`Adding ${userDb.nickname} to team ${userTeamDb.name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}...`)
+        await this.teamsService.addMembersById(userTeamDb.id, [userDb.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
 
         this.mailerService
             .sendMail({

@@ -42,7 +42,7 @@ export class AuthController extends GenericController<string> {
         description: `Allows new users to sign-up into Kyso`,
     })
     @ApiNormalizedResponse({ status: 201, description: `Registered user`, type: User })
-    public async signUp(@Body() createUserRequest: CreateUserRequest): Promise<NormalizedResponse> {
+    public async signUp(@Body() createUserRequest: CreateUserRequest): Promise<NormalizedResponse<User>> {
         const user: User = await this.usersService.createUser(createUserRequest)
         return new NormalizedResponse(user)
     }

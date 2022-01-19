@@ -59,7 +59,7 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Organization matching name`, type: Boolean })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
-    public async deleteOrganization(@Param('organizationName') name: string): Promise<NormalizedResponse> {
+    public async deleteOrganization(@Param('organizationName') name: string): Promise<NormalizedResponse<Boolean>> {
         const deleted: boolean = await this.organizationService.deleteOrganization(name)
         return new NormalizedResponse(deleted)
     }
@@ -101,7 +101,7 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Organization })
     @Permission([OrganizationPermissionsEnum.EDIT])
-    public async updateOrganization(@Param('organizationName') name: string, @Body() organization: Organization): Promise<NormalizedResponse> {
+    public async updateOrganization(@Param('organizationName') name: string, @Body() organization: Organization): Promise<NormalizedResponse<Organization>> {
         const updatedOrganization: Organization = await this.organizationService.updateOrganization(name, organization)
         return new NormalizedResponse(updatedOrganization)
     }
@@ -113,7 +113,7 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 201, description: `Added user`, type: OrganizationMemberJoin })
     @Permission([OrganizationPermissionsEnum.ADMIN])
-    public async addMemberToOrganization(@Param('organizationName') organizationName, @Param('userName') userName: string): Promise<NormalizedResponse> {
+    public async addMemberToOrganization(@Param('organizationName') organizationName, @Param('userName') userName: string): Promise<NormalizedResponse<OrganizationMemberJoin>> {
         const organizationMemberJoin: OrganizationMemberJoin = await this.organizationService.addMemberToOrganization(organizationName, userName)
         return new NormalizedResponse(organizationMemberJoin)
     }
@@ -125,7 +125,7 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Added user`, type: Boolean })
     @Permission([OrganizationPermissionsEnum.ADMIN])
-    public async removeMemberFromOrganization(@Param('organizationName') organizationName, @Param('userName') userName: string): Promise<NormalizedResponse> {
+    public async removeMemberFromOrganization(@Param('organizationName') organizationName, @Param('userName') userName: string): Promise<NormalizedResponse<Boolean>> {
         const result: boolean = await this.organizationService.removeMemberFromOrganization(organizationName, userName)
         return new NormalizedResponse(result)
     }
@@ -140,7 +140,7 @@ export class OrganizationsController extends GenericController<Organization> {
     public async updateOrganizationMembersRoles(
         @Param('organizationName') organizationName: string,
         @Body() data: UpdateOrganizationMembers,
-    ): Promise<NormalizedResponse> {
+    ): Promise<NormalizedResponse<OrganizationMember[]>> {
         const organizationMembers: OrganizationMember[] = await this.organizationService.updateOrganizationMembersRoles(organizationName, data)
         return new NormalizedResponse(organizationMembers)
     }
@@ -174,7 +174,7 @@ export class OrganizationsController extends GenericController<Organization> {
         @Param('organizationName') organizationName: string,
         @Param('userName') userName: string,
         @Param('role') role: string,
-    ): Promise<NormalizedResponse> {
+    ): Promise<NormalizedResponse<Boolean>> {
         const result: boolean = await this.organizationService.removeOrganizationMemberRole(organizationName, userName, role)
         return new NormalizedResponse(result)
     }

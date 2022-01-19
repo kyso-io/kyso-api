@@ -36,7 +36,7 @@ export class UsersController extends GenericController<User> {
         type: User,
     })
     @Permission([UserPermissionsEnum.READ])
-    async getUsers(@Req() req, @Query() filters: BaseFilterQuery): Promise<NormalizedResponse> {
+    async getUsers(@Req() req, @Query() filters: BaseFilterQuery): Promise<NormalizedResponse<User[]>> {
         // <-- Lack of documentation due to inconsistent stuff
         // filters variable is just for documentation purposes. But a refactoring removing Req and Res would be great.
         const query = QueryParser.toQueryObject(req.url)
@@ -68,7 +68,7 @@ export class UsersController extends GenericController<User> {
     })
     @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
     @Permission([UserPermissionsEnum.READ])
-    async getUser(@Param('userName') userName: string): Promise<NormalizedResponse> {
+    async getUser(@Param('userName') userName: string): Promise<NormalizedResponse<User>> {
         const user: User = await this.usersService.getUser({
             filter: { nickname: userName },
             projection: { accessToken: 0 },
@@ -106,7 +106,7 @@ export class UsersController extends GenericController<User> {
         description: `Authenticated user data`,
         type: User,
     })
-    public async updateUserData(@Param('email') email: string, @Body() data: UpdateUserRequest): Promise<NormalizedResponse> {
+    public async updateUserData(@Param('email') email: string, @Body() data: UpdateUserRequest): Promise<NormalizedResponse<User>> {
         const user: User = await this.usersService.updateUserData(email, data)
         return new NormalizedResponse(user)
     }
@@ -125,7 +125,7 @@ export class UsersController extends GenericController<User> {
     @ApiResponse({ status: 200, description: `Deletion done successfully` })
     @ApiNormalizedResponse({ status: 200, description: `Organization matching name`, type: Boolean })
     @Permission([UserPermissionsEnum.DELETE])
-    async deleteUser(@Param('mail') mail: string): Promise<NormalizedResponse> {
+    async deleteUser(@Param('mail') mail: string): Promise<NormalizedResponse<Boolean>> {
         const result: boolean = await this.usersService.deleteUser(mail)
         return new NormalizedResponse(result)
     }

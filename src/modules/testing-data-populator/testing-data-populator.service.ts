@@ -13,6 +13,7 @@ import {
 import { Injectable, Logger } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
+import { PlatformRole } from '../../security/platform-roles'
 import { CommentsService } from '../comments/comments.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
@@ -252,6 +253,10 @@ export class TestingDataPopulatorService {
                 [],
                 this.DarksideOrganization.id,
                 TeamVisibilityEnum.PUBLIC,
+                "",
+                "",
+                false,
+                 {}
             )
 
             this.CustomTeamRole = new KysoRole('custom-team-random-role', [ReportPermissionsEnum.READ])
@@ -265,6 +270,10 @@ export class TestingDataPopulatorService {
                 [this.CustomTeamRole],
                 this.LightsideOrganization.id,
                 TeamVisibilityEnum.PROTECTED,
+                "",
+                "",
+                false,
+                 {}
             )
 
             const privateTeam = new Team(
@@ -276,6 +285,10 @@ export class TestingDataPopulatorService {
                 [this.CustomTeamRole],
                 this.DarksideOrganization.id,
                 TeamVisibilityEnum.PRIVATE,
+                "",
+                "",
+                false,
+                 {}
             )
 
             this.PublicTeam = await this._createTeam(publicTeam)
@@ -303,24 +316,24 @@ export class TestingDataPopulatorService {
             await this.organizationsService.addMembersById(
                 this.DarksideOrganization.id,
                 [this.Gideon_OrganizationAdminUser.id.toString()],
-                [KysoRole.ORGANIZATION_ADMIN_ROLE.name],
+                [PlatformRole.ORGANIZATION_ADMIN_ROLE.name],
             )
 
             await this.organizationsService.addMembersById(
                 this.DarksideOrganization.id,
                 [this.Kylo_TeamContributorUser.id.toString()],
-                [KysoRole.TEAM_CONTRIBUTOR_ROLE.name],
+                [PlatformRole.TEAM_CONTRIBUTOR_ROLE.name],
             )
 
             /*** Lightside organization ***/
-            await this.organizationsService.addMembersById(this.LightsideOrganization.id, [this.Rey_TeamAdminUser.id], [KysoRole.TEAM_ADMIN_ROLE.name])
+            await this.organizationsService.addMembersById(this.LightsideOrganization.id, [this.Rey_TeamAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
 
-            await this.organizationsService.addMembersById(this.LightsideOrganization.id, [this.Kylo_TeamContributorUser.id], [KysoRole.TEAM_READER_ROLE.name])
+            await this.organizationsService.addMembersById(this.LightsideOrganization.id, [this.Kylo_TeamContributorUser.id], [PlatformRole.TEAM_READER_ROLE.name])
 
             await this.organizationsService.addMembersById(
                 this.LightsideOrganization.id,
                 [this.Chewbacca_TeamReaderUser.id.toString()],
-                [KysoRole.TEAM_READER_ROLE.name],
+                [PlatformRole.TEAM_READER_ROLE.name],
             )
         } catch (ex) {
             // silent exception for now ;)
@@ -332,11 +345,11 @@ export class TestingDataPopulatorService {
             Logger.log(`Adding ${this.Gideon_OrganizationAdminUser.nickname} to team ${this.PrivateTeam.name} with role ${this.CustomTeamRole.name}`)
             await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Gideon_OrganizationAdminUser.id], [this.CustomTeamRole.name])
 
-            Logger.log(`Adding ${this.Rey_TeamAdminUser.nickname} to team ${this.PrivateTeam.name} with role ${KysoRole.TEAM_ADMIN_ROLE.name}`)
-            await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Rey_TeamAdminUser.id], [KysoRole.TEAM_ADMIN_ROLE.name])
+            Logger.log(`Adding ${this.Rey_TeamAdminUser.nickname} to team ${this.PrivateTeam.name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}`)
+            await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Rey_TeamAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
 
-            Logger.log(`Adding ${this.Kylo_TeamContributorUser.nickname} to team ${this.PrivateTeam.name} with role ${KysoRole.TEAM_CONTRIBUTOR_ROLE.name}`)
-            await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Kylo_TeamContributorUser.id], [KysoRole.TEAM_CONTRIBUTOR_ROLE.name])
+            Logger.log(`Adding ${this.Kylo_TeamContributorUser.nickname} to team ${this.PrivateTeam.name} with role ${PlatformRole.TEAM_CONTRIBUTOR_ROLE.name}`)
+            await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Kylo_TeamContributorUser.id], [PlatformRole.TEAM_CONTRIBUTOR_ROLE.name])
         } catch (ex) {
             // silent it
         }
