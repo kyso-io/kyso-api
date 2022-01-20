@@ -58,23 +58,23 @@ export class UsersController extends GenericController<User> {
         return new NormalizedResponse(result)
     }
 
-    @Get(':id')
+    @Get('/:userId')
     @ApiOperation({
         summary: `Get an user`,
         description: `Allows fetching content of a specific user passing its id`,
     })
     @ApiParam({
-        name: 'id',
+        name: 'userId',
         required: true,
         description: `Id of the user to fetch`,
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
     @Permission([UserPermissionsEnum.READ])
-    async getUserById(@Param('id') id: string): Promise<NormalizedResponse<User>> {
-        const user: User = await this.usersService.getUserById(id)
+    async getUserById(@Param('userId') userId: string): Promise<NormalizedResponse<User>> {
+        const user: User = await this.usersService.getUserById(userId)
         if (!user) {
-            throw new BadRequestException(`User with id ${id} not found`)
+            throw new BadRequestException(`User with id ${userId} not found`)
         }
         this.assignReferences(user)
         return new NormalizedResponse(user)
@@ -91,13 +91,13 @@ export class UsersController extends GenericController<User> {
         return new NormalizedResponse(await this.usersService.createUser(user))
     }
 
-    @Patch(':id')
+    @Patch('/:userId')
     @ApiOperation({
         summary: `Update an user`,
         description: `Allows updating an user passing its id`,
     })
     @ApiParam({
-        name: 'id',
+        name: 'userId',
         required: true,
         description: `Id of the user to update`,
         schema: { type: 'string' },
@@ -107,12 +107,12 @@ export class UsersController extends GenericController<User> {
         description: `Authenticated user data`,
         type: User,
     })
-    public async updateUserData(@Param('id') id: string, @Body() data: UpdateUserRequest): Promise<NormalizedResponse<User>> {
-        const user: User = await this.usersService.updateUserData(id, data)
+    public async updateUserData(@Param('userId') userId: string, @Body() data: UpdateUserRequest): Promise<NormalizedResponse<User>> {
+        const user: User = await this.usersService.updateUserData(userId, data)
         return new NormalizedResponse(user)
     }
 
-    @Delete(':id')
+    @Delete('/:id')
     @ApiOperation({
         summary: `Deletes an user`,
         description: `Allows deleting a specific user passing its id`,
@@ -126,35 +126,35 @@ export class UsersController extends GenericController<User> {
     @ApiResponse({ status: 200, description: `Deletion done successfully` })
     @ApiNormalizedResponse({ status: 200, description: `Organization matching name`, type: Boolean })
     @Permission([UserPermissionsEnum.DELETE])
-    async deleteUser(@Param('id') id: string): Promise<NormalizedResponse<boolean>> {
-        const deleted: boolean = await this.usersService.deleteUser(id)
+    async deleteUser(@Param('userId') userId: string): Promise<NormalizedResponse<boolean>> {
+        const deleted: boolean = await this.usersService.deleteUser(userId)
         return new NormalizedResponse(deleted)
     }
 
-    @Patch(':id/accounts')
+    @Patch('/:userId/accounts')
     @ApiOperation({
         summary: `Add an account to an user`,
         description: `Allows adding an account to an user passing its id`,
     })
     @ApiParam({
-        name: 'id',
+        name: 'userId',
         required: true,
         description: `id of the user to add an account`,
         schema: { type: 'string' },
     })
     @ApiResponse({ status: 200, description: `Account added successfully` })
     @Permission([UserPermissionsEnum.EDIT])
-    async addAccount(@Param('id') id: string, @Body() userAccount: UserAccount): Promise<boolean> {
-        return this.usersService.addAccount(id, userAccount)
+    async addAccount(@Param('userId') userId: string, @Body() userAccount: UserAccount): Promise<boolean> {
+        return this.usersService.addAccount(userId, userAccount)
     }
 
-    @Delete('/:id/accounts/:provider/:accountId')
+    @Delete('/:userId/accounts/:provider/:accountId')
     @ApiOperation({
         summary: `Remove an account from an user`,
         description: `Allows removing an account from an user passing its username`,
     })
     @ApiParam({
-        name: 'id',
+        name: 'userId',
         required: true,
         description: `Id of the user to remove an account`,
         schema: { type: 'string' },
@@ -173,8 +173,8 @@ export class UsersController extends GenericController<User> {
     })
     @ApiResponse({ status: 200, description: `Account removed successfully` })
     @Permission([UserPermissionsEnum.EDIT])
-    async removeAccount(@Param('id') id: string, @Param('provider') provider: string, @Param('accountId') accountId: string) {
-        return this.usersService.removeAccount(id, provider, accountId)
+    async removeAccount(@Param('userId') userId: string, @Param('provider') provider: string, @Param('accountId') accountId: string) {
+        return this.usersService.removeAccount(userId, provider, accountId)
     }
 
     @UseInterceptors(
@@ -193,7 +193,7 @@ export class UsersController extends GenericController<User> {
             },
         }),
     )
-    @Post('profile-picture')
+    @Post('/profile-picture')
     @ApiOperation({
         summary: `Upload a profile picture for a team`,
         description: `Allows uploading a profile picture for a user the image`,
@@ -208,7 +208,7 @@ export class UsersController extends GenericController<User> {
         return new NormalizedResponse(user)
     }
 
-    @Delete('profile-picture')
+    @Delete('/profile-picture')
     @ApiOperation({
         summary: `Delete a profile picture for a team`,
         description: `Allows deleting a profile picture for a user`,

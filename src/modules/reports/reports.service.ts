@@ -1,5 +1,5 @@
 import { CreateReport, Report, User } from '@kyso-io/kyso-model'
-import { Injectable, Logger, Provider } from '@nestjs/common'
+import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { AlreadyExistsError, InvalidInputError, NotFoundError } from '../../helpers/errorHandling'
@@ -217,7 +217,7 @@ export class ReportsService extends AutowiredService {
     }
 
     async deleteReport(reportId: string): Promise<void> {
-        return this.provider.delete({ _id: this.provider.toObjectId(reportId) })
+        return this.provider.deleteOne({ _id: this.provider.toObjectId(reportId) })
     }
 
     async pinReport(userId: string, reportId: string): Promise<Report> {
@@ -272,10 +272,11 @@ export class ReportsService extends AutowiredService {
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
         }
-        if (report.source.provider === LOCAL_REPORT_HOST)
+        if (report.source.provider === LOCAL_REPORT_HOST) {
             throw new InvalidInputError({
                 message: 'This functionality is not available in S3',
             })
+        }
         const user: User = await this.usersService.getUserById(userId)
         // OLD
         // const commits = await this.reposService({ provider: source.provider, accessToken }).getCommits(source.owner, source.name, branch)
@@ -315,24 +316,26 @@ export class ReportsService extends AutowiredService {
         return data
     }
 
-    async getReportFileContent(reportOwner, reportName, hash) {
-        const { id, source, user_id } = await this.getReport(reportOwner, reportName)
+    async getReportFileContent(userId: string, reportId: string, hash: string): Promise<any> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('The specified report could not be found')
+        }
         let content
-
-        if (source.provider === LOCAL_REPORT_HOST) {
-            content = await this.localReportsService.getFileContent(id, hash)
+        if (report.source.provider === LOCAL_REPORT_HOST) {
+            content = await this.localReportsService.getFileContent(hash)
         } else {
-            const { accessToken } = await this.usersService.getUser({
-                filter: { _id: user_id },
-            })
+            const user: User = await this.usersService.getUserById(userId)
+            if (!user) {
+                throw new PreconditionFailedException('The specified user could not be found')
+            }
             // OLD
             // content = await this.reposService({ provider: source.provider, accessToken }).getFileContent(hash, source.owner, source.name)
-
-            switch (source.provider) {
+            switch (report.source.provider) {
                 case 'github':
                 default:
-                    this.githubReposService.login(accessToken)
-                    content = await this.githubReposService.getFileContent(hash, source.owner, source.name)
+                    this.githubReposService.login(user.accessToken)
+                    content = await this.githubReposService.getFileContent(hash, userId, report.source.name)
                     break
             }
         }

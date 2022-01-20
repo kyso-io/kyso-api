@@ -1,6 +1,6 @@
 import { CreateDiscussionRequest, Discussion, NormalizedResponse, UpdateDiscussionRequest } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, PreconditionFailedException, UseGuards } from '@nestjs/common'
-import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
 import { Permission } from '../auth/annotations/permission.decorator'
@@ -18,30 +18,53 @@ export class DiscussionsController extends GenericController<Discussion> {
         super()
     }
 
-    @Get('/team-discussions/:team_id')
+    @Get('/team-discussions/:teamId')
     @ApiOperation({
         summary: 'Get all team discussions',
         description: 'Get all team discussions',
     })
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
+    @ApiParam({
+        name: 'teamId',
+        required: true,
+        description: 'Id of the team to fetch the discussions',
+        schema: { type: 'string' },
+        example: 'K1bOzHjEmN',
+    })
     @Permission([DiscussionPermissionsEnum.READ])
-    public async getDiscussionsByTeam(@Param('team_id') team_id: string): Promise<NormalizedResponse<Discussion[]>> {
-        const discussions: Discussion[] = await this.discussionsService.getDiscussions({ filter: { team_id, mark_delete_at: { $ne: null } } })
+    public async getDiscussionsByTeam(@Param('teamId') teamId: string): Promise<NormalizedResponse<Discussion[]>> {
+        const discussions: Discussion[] = await this.discussionsService.getDiscussions({ filter: { team_id: teamId, mark_delete_at: { $ne: null } } })
         return new NormalizedResponse(discussions)
     }
 
-    @Get('/:team_id/:discussion_number')
+    @Get('/:teamId/:discussionNumber')
     @ApiOperation({
-        summary: 'Get discussion given team_id and discussion_number',
-        description: 'Get discussion given team_id and discussion_number',
+        summary: 'Get discussion given id of the team and discussion number',
+        description: 'Get discussion given id of the team and discussion number',
+    })
+    @ApiParam({
+        name: 'teamId',
+        required: true,
+        description: 'Id of the team to fetch the discussions',
+        schema: { type: 'string' },
+        example: 'K1bOzHjEmN',
+    })
+    @ApiParam({
+        name: 'discussionNumber',
+        required: true,
+        description: 'Discussion number of the discussion',
+        schema: { type: 'number' },
+        example: '1',
     })
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
     @Permission([DiscussionPermissionsEnum.READ])
     public async getDiscussionGivenTeamIdAndDiscussionNumber(
-        @Param('team_id') team_id: string,
-        @Param('discussion_number', ParseIntPipe) discussion_number: number,
+        @Param('teamId') teamId: string,
+        @Param('discussionNumber', ParseIntPipe) discussionNumber: number,
     ): Promise<NormalizedResponse<Discussion>> {
-        const discussion: Discussion = await this.discussionsService.getDiscussion({ filter: { team_id, discussion_number, mark_delete_at: { $ne: null } } })
+        const discussion: Discussion = await this.discussionsService.getDiscussion({
+            filter: { team_id: teamId, discussion_number: discussionNumber, mark_delete_at: { $ne: null } },
+        })
         if (!discussion) {
             throw new PreconditionFailedException('Discussion not found')
         }
@@ -60,27 +83,44 @@ export class DiscussionsController extends GenericController<Discussion> {
         return new NormalizedResponse(updatedDiscussion)
     }
 
-    @Patch(':id')
+    @Patch('/:discussionId')
     @ApiOperation({
         summary: 'Update discussion',
         description: 'Update discussion',
     })
+    @ApiParam({
+        name: 'discussionId',
+        required: true,
+        description: 'Id of the discussion to update',
+        schema: { type: 'string' },
+        example: 'K1bOzHjEmN',
+    })
     @Permission([DiscussionPermissionsEnum.EDIT])
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
-    public async updateDiscussion(@Param('id') id: string, @Body() updateDiscussionRequest: UpdateDiscussionRequest): Promise<NormalizedResponse<Discussion>> {
-        const updatedDiscussion: Discussion = await this.discussionsService.updateDiscussion(id, updateDiscussionRequest)
+    public async updateDiscussion(
+        @Param('discussionId') discussionId: string,
+        @Body() updateDiscussionRequest: UpdateDiscussionRequest,
+    ): Promise<NormalizedResponse<Discussion>> {
+        const updatedDiscussion: Discussion = await this.discussionsService.updateDiscussion(discussionId, updateDiscussionRequest)
         return new NormalizedResponse(updatedDiscussion)
     }
 
-    @Delete(':id')
+    @Delete('/:discussionId')
     @ApiOperation({
         summary: 'Delete discussion',
         description: 'Delete discussion',
     })
+    @ApiParam({
+        name: 'discussionId',
+        required: true,
+        description: 'Id of the discussion to delete',
+        schema: { type: 'string' },
+        example: 'K1bOzHjEmN',
+    })
     @Permission([DiscussionPermissionsEnum.DELETE])
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
-    public async deleteDiscussion(@Param('id') id: string): Promise<NormalizedResponse<Discussion>> {
-        const deletedDiscussion: Discussion = await this.discussionsService.deleteDiscussion(id)
+    public async deleteDiscussion(@Param('discussionId') discussionId: string): Promise<NormalizedResponse<Discussion>> {
+        const deletedDiscussion: Discussion = await this.discussionsService.deleteDiscussion(discussionId)
         return new NormalizedResponse(deletedDiscussion)
     }
 }

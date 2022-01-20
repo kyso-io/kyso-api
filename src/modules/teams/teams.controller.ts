@@ -37,7 +37,6 @@ import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { AuthService } from '../auth/auth.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
-import { UsersService } from '../users/users.service'
 import { TeamPermissionsEnum } from './security/team-permissions.enum'
 import { TeamsService } from './teams.service'
 
@@ -49,9 +48,6 @@ import { TeamsService } from './teams.service'
 export class TeamsController extends GenericController<Team> {
     @Autowired({ typeName: 'AuthService' })
     private readonly authService: AuthService
-
-    @Autowired({ typeName: 'UsersService' })
-    private readonly usersService: UsersService
 
     constructor(private readonly teamsService: TeamsService) {
         super()
@@ -82,7 +78,7 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse(teams)
     }
 
-    @Get(':id')
+    @Get('/:id')
     @ApiOperation({
         summary: `Get a team`,
         description: `Allows fetching content of a specific team passing its id`,
@@ -93,12 +89,7 @@ export class TeamsController extends GenericController<Team> {
         description: `Id of the team to fetch`,
         schema: { type: 'string' },
     })
-    @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Team })
-    @ApiHeader({
-        name: HEADER_X_KYSO_TEAM,
-        description: 'Name of the team',
-        required: true,
-    })
+    @ApiNormalizedResponse({ status: 200, description: `Team matching id`, type: Team })
     @Permission([TeamPermissionsEnum.READ])
     async getTeamById(@Param('id') id: string): Promise<NormalizedResponse<Team>> {
         const team: Team = await this.teamsService.getTeamById(id)
@@ -109,25 +100,25 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse(team)
     }
 
-    @Get('/check-name/:teamName')
+    @Get('/check-name/:name')
     @ApiOperation({
         summary: `Check if team name is unique`,
         description: `Allows checking if a team name is unique`,
     })
     @ApiParam({
-        name: 'teamName',
+        name: 'name',
         required: true,
         description: `Name of the team to fetch`,
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Boolean })
     @Permission([TeamPermissionsEnum.READ])
-    public async checkIfTeamNameIsUnique(@Param('teamName') teamName: string): Promise<NormalizedResponse<boolean>> {
-        const team: Team = await this.teamsService.getTeam({ filter: { name: teamName } })
+    public async checkIfTeamNameIsUnique(@Param('name') name: string): Promise<NormalizedResponse<boolean>> {
+        const team: Team = await this.teamsService.getTeam({ filter: { name } })
         return new NormalizedResponse<boolean>(team !== null)
     }
 
-    @Get(':id/members')
+    @Get('/:id/members')
     @ApiOperation({
         summary: `Get the member's team`,
         description: `Allows fetching content of a specific team passing its name`,
@@ -150,7 +141,7 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse(data)
     }
 
-    @Get(':teamId/members/:userId')
+    @Get('/:teamId/members/:userId')
     @ApiOperation({
         summary: `Check if users belongs to a team`,
         description: `Allows fetching content of a specific team passing its id`,
@@ -184,7 +175,7 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse(belongs)
     }
 
-    @Patch(':teamId/members/:userId')
+    @Patch('/:teamId/members/:userId')
     @ApiOperation({
         summary: `Add a member to a team`,
         description: `Allows adding a member to a team passing its name and the user's name`,
@@ -208,7 +199,7 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse(members)
     }
 
-    @Delete(':teamId/members/:userId')
+    @Delete('/:teamId/members/:userId')
     @ApiOperation({
         summary: `Remove a member from a team`,
         description: `Allows removing a member from a team passing its id and the user's id`,
@@ -232,7 +223,7 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse(members)
     }
 
-    @Patch(':teamId')
+    @Patch('/:teamId')
     @ApiOperation({
         summary: `Update the specified team`,
         description: `Allows updating content from the specified team`,
@@ -254,7 +245,7 @@ export class TeamsController extends GenericController<Team> {
         required: true,
     })
     @Permission([TeamPermissionsEnum.EDIT])
-    async updateTeam(@Body() data: UpdateTeamRequest, @Req() req, @Param('teamId') teamId: string): Promise<NormalizedResponse<Team>> {
+    async updateTeam(@Param('teamId') teamId: string, @Body() data: UpdateTeamRequest): Promise<NormalizedResponse<Team>> {
         const team: Team = await this.teamsService.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
@@ -279,7 +270,7 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse(teamDb)
     }
 
-    @Get(':teamId/reports')
+    @Get('/:teamId/reports')
     @ApiOperation({
         summary: `Get the reports of the specified team`,
         description: `Allows fetching content of a specific team passing its name`,
@@ -302,7 +293,7 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse(reports)
     }
 
-    @Post(':teamId/members-roles')
+    @Post('/:teamId/members-roles')
     @ApiOperation({
         summary: `Add a role to a member of a team`,
         description: `Allows adding a role to a member of a team passing its id`,
@@ -320,7 +311,7 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse(teamMembers)
     }
 
-    @Delete(':teamId/members-roles/:userId/:role')
+    @Delete('/:teamId/members-roles/:userId/:role')
     @ApiOperation({
         summary: `Remove a role from a member of a team`,
         description: `Allows removing a role from a member of a team passing its id and the user's id`,
@@ -343,7 +334,7 @@ export class TeamsController extends GenericController<Team> {
         description: `Name of the role to remove`,
         schema: { type: 'string' },
     })
-    @ApiNormalizedResponse({ status: 200, description: `Remove role of user in a team`, type: TeamMember })
+    @ApiNormalizedResponse({ status: 200, description: `Remove role of user in a team`, type: TeamMember, isArray: true })
     @Permission([TeamPermissionsEnum.EDIT])
     public async removeTeamMemberRole(
         @Param('teamId') teamId: string,
@@ -392,7 +383,7 @@ export class TeamsController extends GenericController<Team> {
             },
         }),
     )
-    @Post(':teamId/profile-picture')
+    @Post('/:teamId/profile-picture')
     @ApiOperation({
         summary: `Upload a profile picture for a team`,
         description: `Allows uploading a profile picture for a team passing its id and image`,
@@ -414,7 +405,7 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse(team)
     }
 
-    @Delete(':teamId/profile-picture')
+    @Delete('/:teamId/profile-picture')
     @ApiOperation({
         summary: `Delete a profile picture for a team`,
         description: `Allows deleting a profile picture for a team passing its id`,
@@ -431,7 +422,7 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse(team)
     }
 
-    @Delete(':teamId')
+    @Delete('/:teamId')
     @ApiOperation({
         summary: `Delete a team`,
         description: `Allows deleting a team passing its id`,

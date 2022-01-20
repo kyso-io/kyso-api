@@ -128,10 +128,10 @@ export class UsersService extends AutowiredService {
 
         const organizations: Organization[] = await this.organizationsService.getUserOrganizations(user.id)
         for (const organization of organizations) {
-            await this.organizationsService.removeMemberFromOrganization(organization.name, user.username)
+            await this.organizationsService.removeMemberFromOrganization(organization.id, user.id)
         }
 
-        await this.provider.delete({ id: this.provider.toObjectId(id) })
+        await this.provider.deleteOne({ id: this.provider.toObjectId(id) })
         return true
     }
 

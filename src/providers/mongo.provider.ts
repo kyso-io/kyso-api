@@ -113,8 +113,12 @@ export class MongoProvider<T> {
         return parseForeignKeys(obj.value)
     }
 
-    async delete(filter) {
+    async deleteOne(filter) {
         await this.getCollection().deleteOne(filter)
+    }
+
+    async deleteMany(filter) {
+        await this.getCollection().deleteMany(filter)
     }
 
     async existsMongoDBCollection(name: string) {

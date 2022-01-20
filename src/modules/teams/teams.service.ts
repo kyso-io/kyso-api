@@ -231,9 +231,9 @@ export class TeamsService extends AutowiredService {
         const teams: Team[] = await this.getTeams({ filter: { organization_id } })
         for (const team of teams) {
             // Delete all members of this team
-            await this.teamMemberProvider.delete({ filter: { team_id: team.id } })
+            await this.teamMemberProvider.deleteMany({ filter: { team_id: team.id } })
             // Delete team
-            await this.provider.delete({ filter: { _id: this.provider.toObjectId(team.id) } })
+            await this.provider.deleteOne({ filter: { _id: this.provider.toObjectId(team.id) } })
         }
     }
 
@@ -290,12 +290,12 @@ export class TeamsService extends AutowiredService {
             throw new PreconditionFailedException('User is not a member of this team')
         }
 
-        await this.teamMemberProvider.delete({ team_id: team.id, member_id: user.id })
+        await this.teamMemberProvider.deleteOne({ team_id: team.id, member_id: user.id })
         members.splice(index, 1)
 
         if (members.length === 0) {
             // Team without members, delete it
-            await this.provider.delete({ _id: this.provider.toObjectId(team.id) })
+            await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
         }
 
         return this.getMembers(team.id)
@@ -391,9 +391,9 @@ export class TeamsService extends AutowiredService {
             throw new PreconditionFailedException('Team not found')
         }
         // Delete all members of this team
-        await this.teamMemberProvider.delete({ team_id: team.id })
+        await this.teamMemberProvider.deleteOne({ team_id: team.id })
         // Delete team
-        await this.provider.delete({ _id: this.provider.toObjectId(team.id) })
+        await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
         return team
     }
 }

@@ -111,7 +111,7 @@ export class CommentsService extends AutowiredService {
         if (!userIsCommentCreator && !hasCommentPermissionAdmin && !hasGlobalPermissionAdmin) {
             throw new PreconditionFailedException('The specified user does not have permission to delete this comment')
         }
-        await this.provider.delete({ _id: this.provider.toObjectId(id) })
+        await this.provider.deleteOne({ _id: this.provider.toObjectId(id) })
         return true
     }
 

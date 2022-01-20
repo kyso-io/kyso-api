@@ -71,13 +71,10 @@ export class GithubReposController extends GenericController<Repository> {
         type: Repository,
     })
     @Permission([GithubRepoPermissionsEnum.READ])
-    async getRepo(@Param('repoOwner') repoOwner: string, @Param('repoName') repoName: string, @Req() req) {
-        // LOGIN?? That's req.user? We trust in that?
-
-        const repo = await req.reposService.getRepo(req.user, repoOwner, repoName)
-        this.assignReferences(repo)
-
-        return new NormalizedResponse(repo)
+    async getRepo(@Param('repoOwner') repoOwner: string, @Param('repoName') repoName: string, @Req() req): Promise<NormalizedResponse<any>> {
+        const repository: any = await this.reposService.getRepo(req.user, repoOwner, repoName)
+        // this.assignReferences(repo)
+        return new NormalizedResponse(repository)
     }
 
     @Get('/:repoOwner/:repoName/:branch/tree')

@@ -10,7 +10,7 @@ import {
     UpdateReportRequest,
     User,
 } from '@kyso-io/kyso-model'
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -70,7 +70,7 @@ export class ReportsController extends GenericController<Report> {
         isArray: true,
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getReports(@Req() req, @Res() res, @Query() paginationQuery: ReportFilterQuery) {
+    async getReports(@Req() req, @Query() paginationQuery: ReportFilterQuery): Promise<NormalizedResponse<Report[]>> {
         // Object paginationQuery is there for documentation purposes. A refactor of this method should be done in the future
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) query.sort = { _created_at: -1 }
@@ -78,14 +78,12 @@ export class ReportsController extends GenericController<Report> {
         Object.entries(DEFAULT_GET_REPORT_FILTERS).forEach(([key, value]) => {
             if (!query.filter[key]) query.filter[key] = value
         })
-
-        const reports = await this.reportsService.getReports(query)
+        const reports: Report[] = await this.reportsService.getReports(query)
         const relations = await this.relationsService.getRelations(reports, 'report')
-        res.status(200).send(new NormalizedResponse(reports, relations))
-        return
+        return new NormalizedResponse(reports, relations)
     }
 
-    @Get(':reportId')
+    @Get('/:reportId')
     @ApiOperation({
         summary: `Get a report`,
         description: `Allows fetching content of a specific report passing its id`,
@@ -111,7 +109,7 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponse(report, relations)
     }
 
-    @Get(':userId/pinned')
+    @Get('/:userId/pinned')
     @ApiOperation({
         summary: `Get pinned reports for an user`,
         description: `Allows fetching pinned reports of a specific user passing its id`,
@@ -124,7 +122,7 @@ export class ReportsController extends GenericController<Report> {
     @ApiParam({
         name: 'userId',
         required: true,
-        description: 'id of the owner of the report to fetch',
+        description: 'Id of the owner of the report to fetch',
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
@@ -188,7 +186,7 @@ export class ReportsController extends GenericController<Report> {
         return
     }
 
-    @Patch(':reportId')
+    @Patch('/:reportId')
     @ApiOperation({
         summary: `Update the specific report`,
         description: `Allows updating content from the specified report`,
@@ -201,7 +199,7 @@ export class ReportsController extends GenericController<Report> {
     @ApiParam({
         name: 'reportId',
         required: true,
-        description: 'Name of the report to fetch',
+        description: 'Id of the report to update',
         schema: { type: 'string' },
     })
     @ApiBody({ type: UpdateReportRequest })
@@ -224,7 +222,7 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponse(report, relations)
     }
 
-    @Delete(':reportId')
+    @Delete('/:reportId')
     @ApiOperation({
         summary: `Delete a report`,
         description: `Allows deleting a specific report`,
@@ -233,7 +231,7 @@ export class ReportsController extends GenericController<Report> {
     @ApiParam({
         name: 'reportId',
         required: true,
-        description: 'Name of the report to fetch',
+        description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.DELETE])
@@ -246,7 +244,7 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponse(report)
     }
 
-    @Post(':reportId/pin')
+    @Post('/:reportId/pin')
     @ApiOperation({
         summary: `Toggles the pin of the specified report`,
         description: `Allows pinning of the specified report, unpins any other pinned report for owner`,
@@ -259,7 +257,7 @@ export class ReportsController extends GenericController<Report> {
     @ApiParam({
         name: 'reportId',
         required: true,
-        description: 'Name of the report to fetch',
+        description: 'Id of the report to pin',
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.EDIT])
@@ -269,7 +267,7 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponse(report, relations)
     }
 
-    @Get(':reportId/comments')
+    @Get('/:reportId/comments')
     @ApiOperation({
         summary: `Get comments of a report`,
         description: `By passing in the appropriate options you can see all the comments of a report`,
@@ -287,7 +285,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getComments(@Param('reportId') reportId: string): Promise<NormalizedResponse<Report>> {
+    async getComments(@Param('reportId') reportId: string): Promise<NormalizedResponse<Comment[]>> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
             throw new InvalidInputError('Report not found')
@@ -295,12 +293,12 @@ export class ReportsController extends GenericController<Report> {
         const comments: Comment[] = await this.commentsService.getComments({ report_id: reportId })
         const relations = await this.relationsService.getRelations(comments, 'comment')
         return new NormalizedResponse(
-            comments.filter((comment) => !comment.comment_id),
+            comments.filter((comment: Comment) => !comment.comment_id),
             relations,
         )
     }
 
-    @Get(':reportId/branches')
+    @Get('/:reportId/branches')
     @ApiOperation({
         summary: `Get branches of a report`,
         description: `By passing in the appropriate options you can see all the branches of a report`,
@@ -314,7 +312,7 @@ export class ReportsController extends GenericController<Report> {
     @ApiParam({
         name: 'reportId',
         required: true,
-        description: 'Name of the report to fetch',
+        description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
@@ -323,21 +321,15 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponse(branches)
     }
 
-    @Get(':reportName/:branch/commits')
+    @Get('/:reportId/:branch/commits')
     @ApiOperation({
         summary: `Get commits of a report imported from a git provider`,
         description: `By passing in the appropriate options you can see the commits of a branch for the repository the specified report is linked to`,
     })
-    @ApiNormalizedResponse({
-        status: 200,
-        description: `Commits of the specified report branch`,
-        type: Branch,
-        isArray: true,
-    })
     @ApiParam({
-        name: 'reportName',
+        name: 'reportId',
         required: true,
-        description: 'Name of the report to fetch',
+        description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
     @ApiParam({
@@ -353,7 +345,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     // todo: this function name is confusing?
-    @Get(':reportId/:branch/tree/:filePath')
+    @Get('/:reportId/:branch/tree/:filePath')
     @ApiOperation({
         summary: `Explore a report tree`,
         description: `Get hash of a file for a given report. If the file is a folder, will get information about the files in it too (non-recursively). Path is currently ignored for local reports.`,
@@ -392,7 +384,7 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponse(hash)
     }
 
-    @Get(':reportId/file/:hash')
+    @Get('/:reportId/file/:hash')
     @ApiOperation({
         summary: `Get content of a file`,
         description: `By passing the hash of a file, get its raw content directly from the source.`,
