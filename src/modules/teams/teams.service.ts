@@ -391,7 +391,7 @@ export class TeamsService extends AutowiredService {
             throw new PreconditionFailedException('Team not found')
         }
         // Delete all members of this team
-        await this.teamMemberProvider.deleteOne({ team_id: team.id })
+        await this.teamMemberProvider.deleteMany({ team_id: team.id })
         // Delete team
         await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
         return team
