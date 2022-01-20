@@ -81,7 +81,7 @@ export class MongoProvider<T> {
         return a
     }
 
-    async create(obj: any): Promise<any> {
+    public async create(obj: any): Promise<any> {
         obj.created_at = new Date()
         await this.getCollection().insertOne(obj)
         obj.id = obj._id.toString()
@@ -89,14 +89,14 @@ export class MongoProvider<T> {
         return obj
     }
 
-    async aggregate(pipeline, collection = '') {
+    public async aggregate(pipeline, collection = '') {
         const cursor = await this.getCollection(collection)
             .aggregate(pipeline)
             .map((elem) => parseForeignKeys(elem))
         return cursor.toArray()
     }
 
-    async read(query): Promise<T[]> {
+    public async read(query): Promise<T[]> {
         const { filter, ...options } = query
         const cursor = await this.getCollection()
             .find(filter, options)
@@ -104,7 +104,7 @@ export class MongoProvider<T> {
         return cursor.toArray()
     }
 
-    async update(filterQuery, updateQuery): Promise<T> {
+    public async update(filterQuery, updateQuery): Promise<T> {
         if (!updateQuery.$currentDate) updateQuery.$currentDate = {}
         updateQuery.$currentDate._updated_at = { $type: 'date' }
 
@@ -113,15 +113,19 @@ export class MongoProvider<T> {
         return parseForeignKeys(obj.value)
     }
 
-    async delete(filter) {
+    public async deleteOne(filter: any): Promise<void> {
         await this.getCollection().deleteOne(filter)
     }
 
-    async existsMongoDBCollection(name: string) {
+    public async deleteMany(filter: any): Promise<void> {
+        await this.getCollection().deleteMany(filter)
+    }
+
+    public async existsMongoDBCollection(name: string): Promise<boolean> {
         return (await (await this.db.listCollections().toArray()).findIndex((item) => item.name === name)) !== -1
     }
 
-    async count(query): Promise<number> {
+    public async count(query): Promise<number> {
         const { filter } = query
         const count = await this.getCollection().countDocuments(filter)
         return count

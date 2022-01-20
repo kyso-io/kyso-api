@@ -1,7 +1,7 @@
 import {
     Comment,
-    CreateReport,
-    CreateUserRequest,
+    CreateReportDTO,
+    CreateUserRequestDTO,
     KysoRole,
     LoginProviderEnum,
     Organization,
@@ -97,7 +97,7 @@ export class TestingDataPopulatorService {
     }
 
     private async createTestingUsers() {
-        const rey_TestTeamAdminUser: CreateUserRequest = new CreateUserRequest(
+        const rey_TestTeamAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
             'rey@kyso.io',
             'rey@kyso.io',
             'rey',
@@ -110,7 +110,7 @@ export class TestingDataPopulatorService {
             'n0tiene',
         )
 
-        const kylo_TestTeamContributorUser: CreateUserRequest = new CreateUserRequest(
+        const kylo_TestTeamContributorUser: CreateUserRequestDTO = new CreateUserRequestDTO(
             'kylo@kyso.io',
             'kylo@kyso.io',
             'kyloren',
@@ -123,7 +123,7 @@ export class TestingDataPopulatorService {
             'n0tiene',
         )
 
-        const chewbacca_TestTeamReaderUser: CreateUserRequest = new CreateUserRequest(
+        const chewbacca_TestTeamReaderUser: CreateUserRequestDTO = new CreateUserRequestDTO(
             'chewbacca@kyso.io',
             'chewbacca@kyso.io',
             'chewbacca',
@@ -136,7 +136,7 @@ export class TestingDataPopulatorService {
             'n0tiene',
         )
 
-        const gideon_TestOrganizationAdminUser: CreateUserRequest = new CreateUserRequest(
+        const gideon_TestOrganizationAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
             'gideon@kyso.io',
             'gideon@kyso.io',
             'moffgideon',
@@ -149,7 +149,7 @@ export class TestingDataPopulatorService {
             'n0tiene',
         )
 
-        const palpatine_TestPlatformAdminUser: CreateUserRequest = new CreateUserRequest(
+        const palpatine_TestPlatformAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
             'palpatine@kyso.io',
             'palpatine@kyso.io',
             'palpatine',
@@ -169,7 +169,7 @@ export class TestingDataPopulatorService {
         this.Palpatine_PlatformAdminUser = await this._createUser(palpatine_TestPlatformAdminUser)
     }
 
-    private async _createUser(user: CreateUserRequest) {
+    private async _createUser(user: CreateUserRequestDTO) {
         try {
             Logger.log(`Creating ${user.nickname} user...`)
             return await this.usersService.createUser(user)
@@ -180,11 +180,11 @@ export class TestingDataPopulatorService {
     }
 
     private async createTestingReports() {
-        const testReport = new CreateReport('kylos-report', 'team-contributor', null, 'main', '.', this.PrivateTeam.id)
+        const testReport = new CreateReportDTO('kylos-report', 'team-contributor', null, 'main', '.', this.PrivateTeam.id)
         this.TestReport = await this._createReport(this.Kylo_TeamContributorUser, testReport)
     }
 
-    private async _createReport(user: User, report: CreateReport) {
+    private async _createReport(user: User, report: CreateReportDTO) {
         try {
             Logger.log(`Creating ${report.name} report...`)
             return this.reportsService.createReport(user, report, null)

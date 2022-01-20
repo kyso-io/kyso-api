@@ -1,5 +1,5 @@
 import { Injectable, Provider } from '@nestjs/common'
-import { AutowiredService } from '../../generic/autowired.generic';
+import { AutowiredService } from '../../generic/autowired.generic'
 import { RelationsMongoProvider } from './providers/mongo-relations.provider'
 
 const capitalize = (s) => s && s[0].toUpperCase() + s.slice(1)

@@ -1,4 +1,4 @@
-import { KysoRole, Organization, OrganizationMember, OrganizationMemberJoin, UpdateOrganizationMembers, User } from '@kyso-io/kyso-model'
+import { KysoRole, Organization, OrganizationMember, OrganizationMemberJoin, UpdateOrganizationMembersDTO, User } from '@kyso-io/kyso-model'
 import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -32,7 +32,7 @@ export class OrganizationsService extends AutowiredService {
         super()
     }
 
-    async getOrganization(query: any): Promise<Organization> {
+    public async getOrganization(query: any): Promise<Organization> {
         const organization = await this.provider.read(query)
         if (organization.length === 0) {
             return null
@@ -41,20 +41,21 @@ export class OrganizationsService extends AutowiredService {
         return organization[0]
     }
 
-    async createOrganization(organization: Organization): Promise<Organization> {
-        // The name of this organization exists?
-        const exists: any[] = await this.provider.read({ filter: { name: organization.name } })
-
-        if (exists.length > 0) {
-            // Exists, throw an exception
-            throw new PreconditionFailedException('The name of the organization must be unique')
-        } else {
-            return await this.provider.create(organization)
-        }
+    public async getOrganizationById(id: string): Promise<Organization> {
+        return this.getOrganization({ filter: { _id: this.provider.toObjectId(id) } })
     }
 
-    async deleteOrganization(organizationName: string): Promise<boolean> {
-        const organization: Organization = await this.getOrganization({ filter: { name: organizationName } })
+    public async createOrganization(organization: Organization): Promise<Organization> {
+        // The name of this organization exists?
+        const organizations: Organization[] = await this.provider.read({ filter: { name: organization.name } })
+        if (organizations.length > 0) {
+            throw new PreconditionFailedException('The name of the organization must be unique')
+        }
+        return this.provider.create(organization)
+    }
+
+    public async deleteOrganization(organizationId: string): Promise<boolean> {
+        const organization: Organization = await this.getOrganizationById(organizationId)
         if (!organization) {
             throw new PreconditionFailedException('Organization does not exist')
         }
@@ -63,49 +64,47 @@ export class OrganizationsService extends AutowiredService {
         await this.teamsService.deleteGivenOrganization(organization.id)
 
         // Delete all members of this organization
-        await this.organizationMemberProvider.delete({ filter: { organization_id: organization.id } })
+        await this.organizationMemberProvider.deleteMany({ filter: { organization_id: organization.id } })
 
         // Delete the organization
-        await this.provider.delete({ _id: this.provider.toObjectId(organization.id) })
+        await this.provider.deleteOne({ _id: this.provider.toObjectId(organization.id) })
 
         return true
     }
 
-    async addMembers(organizationName: string, members: User[], roles: KysoRole[]) {
-        const organization: Organization = await this.getOrganization({ filter: { name: organizationName } })
-        const memberIds = members.map((x) => x.id.toString())
-        const rolesToApply = roles.map((y) => y.name)
-
+    public async addMembers(organizationId: string, members: User[], roles: KysoRole[]): Promise<void> {
+        const organization: Organization = await this.getOrganizationById(organizationId)
+        if (!organization) {
+            throw new PreconditionFailedException('Organization does not exist')
+        }
+        const memberIds: string[] = members.map((x) => x.id.toString())
+        const rolesToApply: string[] = roles.map((y) => y.name)
         await this.addMembersById(organization.id, memberIds, rolesToApply)
     }
 
-    async addMembersById(organizationId: string, memberIds: string[], rolesToApply: string[]) {
-        memberIds.forEach(async (userId: string) => {
-            const member: OrganizationMemberJoin = new OrganizationMemberJoin(organizationId, userId, rolesToApply, true)
-
+    public async addMembersById(organizationId: string, memberIds: string[], rolesToApply: string[]): Promise<void> {
+        for (const memberId of memberIds) {
+            const member: OrganizationMemberJoin = new OrganizationMemberJoin(organizationId, memberId, rolesToApply, true)
             await this.organizationMemberProvider.create(member)
-        })
+        }
     }
 
-    async isUserInOrganization(user: User, organization: Organization) {
-        const res = await this.searchMembersJoin({ filter: { $and: [{ member_id: user.id }, { organization_id: organization.id }] } })
-
-        return res
+    public async isUserInOrganization(user: User, organization: Organization): Promise<OrganizationMemberJoin[]> {
+        return this.searchMembersJoin({ filter: { $and: [{ member_id: user.id }, { organization_id: organization.id }] } })
     }
 
-    async searchMembersJoin(query: any): Promise<OrganizationMemberJoin[]> {
+    public async searchMembersJoin(query: any): Promise<OrganizationMemberJoin[]> {
         return this.organizationMemberProvider.read(query) as Promise<OrganizationMemberJoin[]>
     }
 
     /**
      * Return an array of user id's that belongs to provided organization
      */
-    async getOrganizationMembers(organizationName: string): Promise<OrganizationMember[]> {
-        const organizations: Organization[] = await this.provider.read({ filter: { name: organizationName } })
-
-        if (organizations.length > 0) {
+    public async getOrganizationMembers(organizationId: string): Promise<OrganizationMember[]> {
+        const organization: Organization = await this.getOrganizationById(organizationId)
+        if (organization) {
             // Get all the members of this organization
-            const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organizations[0].id)
+            const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
 
             // Build query object to retrieve all the users
             const user_ids = members.map((x: OrganizationMemberJoin) => {
@@ -135,13 +134,12 @@ export class OrganizationsService extends AutowiredService {
         }
     }
 
-    public async updateOrganization(name: string, organization: Organization): Promise<Organization> {
-        const organizations: Organization[] = await this.provider.read({ filter: { name } })
-        if (organizations.length === 0) {
+    public async updateOrganization(organizationId: string, organization: Organization): Promise<Organization> {
+        const organizationDb: Organization = await this.getOrganizationById(organizationId)
+        if (!organization) {
             throw new PreconditionFailedException('Organization does not exist')
         }
 
-        const organizationDb: Organization = organizations[0]
         if (organizationDb.name !== organization.name) {
             const existsAnotherOrganization: Organization[] = await this.provider.read({ filter: { name: organization.name } })
             if (existsAnotherOrganization.length > 0) {
@@ -161,12 +159,12 @@ export class OrganizationsService extends AutowiredService {
         return this.organizationMemberProvider.getMembers(organizationId)
     }
 
-    public async addMemberToOrganization(organizationName: string, userName: string): Promise<OrganizationMemberJoin> {
-        const organization: Organization = await this.getOrganization({ filter: { name: organizationName } })
+    public async addMemberToOrganization(organizationId: string, userId: string): Promise<OrganizationMemberJoin> {
+        const organization: Organization = await this.getOrganizationById(organizationId)
         if (!organization) {
             throw new PreconditionFailedException('Organization does not exist')
         }
-        const user: User = await this.usersService.getUser({ filter: { username: userName } })
+        const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new PreconditionFailedException('User does not exist')
         }
@@ -181,13 +179,13 @@ export class OrganizationsService extends AutowiredService {
         return this.organizationMemberProvider.create(newMember)
     }
 
-    public async removeMemberFromOrganization(organizationName: string, userName: string): Promise<boolean> {
-        const organization: Organization = await this.getOrganization({ filter: { name: organizationName } })
+    public async removeMemberFromOrganization(organizationId: string, userId: string): Promise<boolean> {
+        const organization: Organization = await this.getOrganizationById(organizationId)
         if (!organization) {
             throw new PreconditionFailedException('Organization does not exist')
         }
 
-        const user: User = await this.usersService.getUser({ filter: { username: userName } })
+        const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new PreconditionFailedException('User does not exist')
         }
@@ -198,19 +196,19 @@ export class OrganizationsService extends AutowiredService {
             throw new PreconditionFailedException('User is not a member of this organization')
         }
 
-        await this.organizationMemberProvider.delete({ organization_id: organization.id, member_id: user.id })
+        await this.organizationMemberProvider.deleteOne({ organization_id: organization.id, member_id: user.id })
         members.splice(index, 1)
 
         if (members.length === 0) {
             // Organization without members, delete it
-            await this.provider.delete({ _id: this.provider.toObjectId(organization.id) })
+            await this.provider.deleteOne({ _id: this.provider.toObjectId(organization.id) })
         }
 
         return true
     }
 
-    public async updateOrganizationMembersRoles(name: string, data: UpdateOrganizationMembers): Promise<OrganizationMember[]> {
-        const organization: Organization = await this.getOrganization({ filter: { name } })
+    public async UpdateOrganizationMembersDTORoles(organizationId: string, data: UpdateOrganizationMembersDTO): Promise<OrganizationMember[]> {
+        const organization: Organization = await this.getOrganizationById(organizationId)
         if (!organization) {
             throw new PreconditionFailedException('Organization does not exist')
         }
@@ -244,12 +242,12 @@ export class OrganizationsService extends AutowiredService {
         return this.getOrganizationMembers(organization.name)
     }
 
-    public async removeOrganizationMemberRole(name: string, username: string, role: string): Promise<boolean> {
-        const organization: Organization = await this.getOrganization({ filter: { name } })
+    public async removeOrganizationMemberRole(organizationId: string, userId: string, role: string): Promise<boolean> {
+        const organization: Organization = await this.getOrganizationById(organizationId)
         if (!organization) {
             throw new PreconditionFailedException('Organization does not exist')
         }
-        const user: User = await this.usersService.getUser({ filter: { username } })
+        const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new PreconditionFailedException('User does not exist')
         }
@@ -266,8 +264,8 @@ export class OrganizationsService extends AutowiredService {
         return true
     }
 
-    public async getUserOrganizations(user_id: string): Promise<Organization[]> {
-        const userInOrganizations: OrganizationMemberJoin[] = await this.organizationMemberProvider.read({ filter: { member_id: user_id } })
+    public async getUserOrganizations(userId: string): Promise<Organization[]> {
+        const userInOrganizations: OrganizationMemberJoin[] = await this.organizationMemberProvider.read({ filter: { member_id: userId } })
         return this.provider.read({
             filter: { _id: { $in: userInOrganizations.map((x: OrganizationMemberJoin) => this.provider.toObjectId(x.organization_id)) } },
         })

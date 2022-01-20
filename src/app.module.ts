@@ -10,6 +10,7 @@ import { GithubReposModule } from './modules/github-repos/github-repos.module'
 import { OrganizationsModule } from './modules/organizations/organizations.module'
 import { RelationsModule } from './modules/relations/relations.module'
 import { ReportsModule } from './modules/reports/reports.module'
+import { TagsModule } from './modules/tags/tags.module'
 import { TeamsModule } from './modules/teams/teams.module'
 import { TestingDataPopulatorModule } from './modules/testing-data-populator/testing-data-populator.module'
 import { UsersModule } from './modules/users/users.module'
@@ -41,6 +42,7 @@ import { UsersModule } from './modules/users/users.module'
         OrganizationsModule.forRoot(),
         RelationsModule.forRoot(),
         ReportsModule.forRoot(),
+        TagsModule.forRoot(),
         TeamsModule.forRoot(),
         TestingDataPopulatorModule,
         UsersModule.forRoot(),

@@ -8,7 +8,7 @@ import {
     TeamMemberJoin,
     TeamVisibilityEnum,
     Token,
-    UpdateTeamMembers,
+    UpdateTeamMembersDTO,
     User,
 } from '@kyso-io/kyso-model'
 import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
@@ -55,7 +55,7 @@ export class TeamsService extends AutowiredService {
         return this.getTeam({ filter: { _id: this.provider.toObjectId(id) } })
     }
 
-    async getTeam(query) {
+    async getTeam(query: any): Promise<Team> {
         const teams = await this.provider.read(query)
         if (teams.length === 0) {
             return null
@@ -63,7 +63,7 @@ export class TeamsService extends AutowiredService {
         return teams[0]
     }
 
-    async getTeams(query) {
+    async getTeams(query): Promise<Team[]> {
         return await this.provider.read(query)
     }
 
@@ -74,7 +74,7 @@ export class TeamsService extends AutowiredService {
      */
     async getTeamsVisibleForUser(userId: string): Promise<Team[]> {
         // All public teams
-        const userTeamsResult = await this.getTeams({ filter: { visibility: TeamVisibilityEnum.PUBLIC } })
+        const userTeamsResult: Team[] = await this.getTeams({ filter: { visibility: TeamVisibilityEnum.PUBLIC } })
 
         // All protected teams from organizations that the user belongs
         const allUserOrganizations: OrganizationMemberJoin[] = await this.organizationsService.searchMembersJoin({ filter: { member_id: userId } })
@@ -91,7 +91,7 @@ export class TeamsService extends AutowiredService {
         }
 
         // All teams (whenever is public, private or protected) in which user is member
-        const members = await this.searchMembers({ filter: { member_id: userId } })
+        const members: TeamMemberJoin[] = await this.searchMembers({ filter: { member_id: userId } })
 
         for (const m of members) {
             const result = await this.getTeam({ filter: { _id: this.provider.toObjectId(m.team_id) } })
@@ -115,23 +115,21 @@ export class TeamsService extends AutowiredService {
         await this.addMembersById(team.id, memberIds, rolesToApply)
     }
 
-    async addMembersById(teamId: string, memberIds: string[], rolesToApply: string[]) {
-        memberIds.forEach(async (userId: string) => {
+    async addMembersById(teamId: string, memberIds: string[], rolesToApply: string[]): Promise<void> {
+        for (const userId of memberIds) {
             const member: TeamMemberJoin = new TeamMemberJoin(teamId, userId, rolesToApply, true)
-
             await this.teamMemberProvider.create(member)
-        })
+        }
     }
 
-    async getMembers(teamName: string) {
-        const teams: Team[] = await this.provider.read({ filter: { name: teamName } })
-
-        if (teams && teams.length > 0) {
+    public async getMembers(teamId: string): Promise<TeamMember[]> {
+        const team: Team = await this.getTeamById(teamId)
+        if (team) {
             // Get all the members of this team
-            const members: TeamMemberJoin[] = await this.teamMemberProvider.getMembers(teams[0].id)
+            const members: TeamMemberJoin[] = await this.teamMemberProvider.getMembers(team.id)
 
             // Build query object to retrieve all the users
-            const user_ids = members.map((x: TeamMemberJoin) => {
+            const user_ids: string[] = members.map((x: TeamMemberJoin) => {
                 return x.member_id
             })
 
@@ -159,9 +157,8 @@ export class TeamsService extends AutowiredService {
         }
     }
 
-    async updateTeam(filterQuery, updateQuery) {
-        const user = await this.provider.update(filterQuery, updateQuery)
-        return user
+    async updateTeam(filterQuery: any, updateQuery: any): Promise<Team> {
+        return this.provider.update(filterQuery, updateQuery)
     }
 
     async createTeam(team: Team) {
@@ -173,9 +170,7 @@ export class TeamsService extends AutowiredService {
                 throw new PreconditionFailedException('The name of the team must be unique')
             }
 
-            const organization: Organization = await this.organizationsService.getOrganization({
-                filter: { _id: this.provider.toObjectId(team.organization_id) },
-            })
+            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
             if (!organization) {
                 throw new PreconditionFailedException('The organization does not exist')
             }
@@ -191,12 +186,11 @@ export class TeamsService extends AutowiredService {
         }
     }
 
-    public async getReportsOfTeam(token: Token, teamName: string): Promise<Report[]> {
-        const teams: Team[] = await this.provider.read({ filter: { name: teamName } })
-        if (teams.length === 0) {
+    public async getReportsOfTeam(token: Token, teamId: string): Promise<Report[]> {
+        const team: Team = await this.getTeamById(teamId)
+        if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
-        const team: Team = teams[0]
         const reports: Report[] = await this.reportsService.getReports({ filter: { team_id: team.id } })
         const userTeams: Team[] = await this.getTeamsVisibleForUser(token.id)
         const userInTeam: boolean = userTeams.find((x) => x.id === team.id) !== undefined
@@ -237,9 +231,9 @@ export class TeamsService extends AutowiredService {
         const teams: Team[] = await this.getTeams({ filter: { organization_id } })
         for (const team of teams) {
             // Delete all members of this team
-            await this.teamMemberProvider.delete({ filter: { team_id: team.id } })
+            await this.teamMemberProvider.deleteMany({ filter: { team_id: team.id } })
             // Delete team
-            await this.provider.delete({ filter: { _id: this.provider.toObjectId(team.id) } })
+            await this.provider.deleteOne({ filter: { _id: this.provider.toObjectId(team.id) } })
         }
     }
 
@@ -248,48 +242,44 @@ export class TeamsService extends AutowiredService {
         return this.provider.read({ filter: { _id: { $in: userInTeams.map((x) => this.provider.toObjectId(x.team_id)) } } })
     }
 
-    public async userBelongsToTeam(teamName: string, email: string): Promise<boolean> {
-        const team: Team = await this.getTeam({
-            filter: { name: teamName },
-        })
+    public async userBelongsToTeam(teamId: string, userId: string): Promise<boolean> {
+        const team: Team = await this.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
 
-        const user: User = await this.usersService.getUser({
-            filter: { email },
-        })
+        const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new PreconditionFailedException('User not found')
         }
 
-        const members: TeamMember[] = await this.getMembers(teamName)
+        const members: TeamMember[] = await this.getMembers(team.id)
         const index: number = members.findIndex((member: TeamMember) => member.id === user.id)
         return index !== -1
     }
 
-    public async addMemberToTeam(teamName: string, email: string): Promise<TeamMember[]> {
-        const userBelongsToTeam = await this.userBelongsToTeam(teamName, email)
+    public async addMemberToTeam(teamId: string, userId: string): Promise<TeamMember[]> {
+        const userBelongsToTeam = await this.userBelongsToTeam(teamId, userId)
         if (userBelongsToTeam) {
             throw new PreconditionFailedException('User already belongs to this team')
         }
         const team: Team = await this.getTeam({
-            filter: { name: teamName },
+            filter: { name: teamId },
         })
         const user: User = await this.usersService.getUser({
-            filter: { email },
+            filter: { email: userId },
         })
         await this.addMembersById(team.id, [user.id], [])
-        return this.getMembers(teamName)
+        return this.getMembers(teamId)
     }
 
-    public async removeMemberFromTeam(teamName: string, userName: string): Promise<TeamMember[]> {
-        const team: Team = await this.getTeam({ filter: { name: teamName } })
+    public async removeMemberFromTeam(teamId: string, userId: string): Promise<TeamMember[]> {
+        const team: Team = await this.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
 
-        const user: User = await this.usersService.getUser({ filter: { username: userName } })
+        const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new PreconditionFailedException('User not found')
         }
@@ -300,18 +290,18 @@ export class TeamsService extends AutowiredService {
             throw new PreconditionFailedException('User is not a member of this team')
         }
 
-        await this.teamMemberProvider.delete({ team_id: team.id, member_id: user.id })
+        await this.teamMemberProvider.deleteOne({ team_id: team.id, member_id: user.id })
         members.splice(index, 1)
 
         if (members.length === 0) {
             // Team without members, delete it
-            await this.provider.delete({ _id: this.provider.toObjectId(team.id) })
+            await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
         }
 
-        return this.getMembers(teamName)
+        return this.getMembers(team.id)
     }
 
-    public async updateTeamMembersRoles(teamName: string, data: UpdateTeamMembers): Promise<TeamMember[]> {
+    public async UpdateTeamMembersDTORoles(teamName: string, data: UpdateTeamMembersDTO): Promise<TeamMember[]> {
         const team: Team = await this.getTeam({ filter: { name: teamName } })
         if (!team) {
             throw new PreconditionFailedException('Team not found')
@@ -343,12 +333,12 @@ export class TeamsService extends AutowiredService {
         return this.getMembers(teamName)
     }
 
-    public async removeTeamMemberRole(teamName: string, userName: string, role: string): Promise<TeamMember[]> {
-        const team: Team = await this.getTeam({ filter: { name: teamName } })
+    public async removeTeamMemberRole(teamId: string, userId: string, role: string): Promise<TeamMember[]> {
+        const team: Team = await this.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
-        const user: User = await this.usersService.getUser({ filter: { username: userName } })
+        const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new PreconditionFailedException('User does not exist')
         }
@@ -362,12 +352,12 @@ export class TeamsService extends AutowiredService {
             throw new PreconditionFailedException('User does not have this role')
         }
         await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $pull: { role_names: role } })
-        return this.getMembers(teamName)
+        return this.getMembers(userId)
     }
 
     // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
-    public async setProfilePicture(teamName: string, file: any /*Express.Multer.File*/): Promise<Team> {
-        const team: Team = await this.getTeam({ filter: { name: teamName } })
+    public async setProfilePicture(teamId: string, file: any /*Express.Multer.File*/): Promise<Team> {
+        const team: Team = await this.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
@@ -381,8 +371,8 @@ export class TeamsService extends AutowiredService {
         return this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url: profilePicturePath } })
     }
 
-    public async deleteProfilePicture(teamName: string): Promise<Team> {
-        const team: Team = await this.getTeam({ filter: { name: teamName } })
+    public async deleteProfilePicture(teamId: string): Promise<Team> {
+        const team: Team = await this.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
@@ -395,15 +385,15 @@ export class TeamsService extends AutowiredService {
         return this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url: null } })
     }
 
-    public async deleteTeam(teamName: string): Promise<Team> {
-        const team: Team = await this.getTeam({ filter: { name: teamName } })
+    public async deleteTeam(teamId: string): Promise<Team> {
+        const team: Team = await this.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
         // Delete all members of this team
-        await this.teamMemberProvider.delete({ team_id: team.id })
+        await this.teamMemberProvider.deleteMany({ team_id: team.id })
         // Delete team
-        await this.provider.delete({ _id: this.provider.toObjectId(team.id) })
+        await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
         return team
     }
 }
