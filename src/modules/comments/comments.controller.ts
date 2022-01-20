@@ -1,5 +1,5 @@
 import { Comment, NormalizedResponse, Token } from '@kyso-io/kyso-model'
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
@@ -60,6 +60,33 @@ export class CommentsController extends GenericController<Comment> {
     public async createComment(@CurrentToken() token: Token, @Body() comment: Comment): Promise<NormalizedResponse<Comment>> {
         const newComment: Comment = await this.commentsService.createCommentGivenToken(token, comment)
         return new NormalizedResponse(newComment)
+    }
+
+    @Patch('/:commentId')
+    @ApiOperation({
+        summary: `Update a comment`,
+        description: `Allows updating a comment`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Comment matching id`,
+        type: Comment,
+    })
+    @ApiParam({
+        name: 'commentId',
+        required: true,
+        description: 'Id of the comment to fetch',
+        schema: { type: 'string' },
+        example: 'K1bOzHjEmN',
+    })
+    @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN, CommentPermissionsEnum.ADMIN, CommentPermissionsEnum.EDIT])
+    public async updateComment(
+        @CurrentToken() token: Token,
+        @Param('commentId') commentId: string,
+        @Body() comment: Comment,
+    ): Promise<NormalizedResponse<Comment>> {
+        const updatedComment: Comment = await this.commentsService.updateComment(token, commentId, comment)
+        return new NormalizedResponse(updatedComment)
     }
 
     @Delete('/:commentId')

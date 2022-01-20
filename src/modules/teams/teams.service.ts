@@ -394,4 +394,16 @@ export class TeamsService extends AutowiredService {
         }
         return this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url: null } })
     }
+
+    public async deleteTeam(teamName: string): Promise<Team> {
+        const team: Team = await this.getTeam({ filter: { name: teamName } })
+        if (!team) {
+            throw new PreconditionFailedException('Team not found')
+        }
+        // Delete all members of this team
+        await this.teamMemberProvider.delete({ team_id: team.id })
+        // Delete team
+        await this.provider.delete({ _id: this.provider.toObjectId(team.id) })
+        return team
+    }
 }

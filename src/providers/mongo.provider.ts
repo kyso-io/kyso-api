@@ -120,6 +120,12 @@ export class MongoProvider<T> {
     async existsMongoDBCollection(name: string) {
         return (await (await this.db.listCollections().toArray()).findIndex((item) => item.name === name)) !== -1
     }
+
+    async count(query): Promise<number> {
+        const { filter } = query
+        const count = await this.getCollection().countDocuments(filter)
+        return count
+    }
 }
 
 function parseForeignKeys(obj) {

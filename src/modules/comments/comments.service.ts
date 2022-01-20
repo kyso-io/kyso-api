@@ -66,6 +66,28 @@ export class CommentsService extends AutowiredService {
         return this.provider.create(comment)
     }
 
+    public async updateComment(token: Token, id: string, updateCommentRequest: Comment): Promise<Comment> {
+        const comment: Comment = await this.getCommentById(id)
+        if (!comment) {
+            throw new PreconditionFailedException('The specified comment could not be found')
+        }
+        const dataFields: any = {
+            text: updateCommentRequest.text,
+            marked: updateCommentRequest.marked,
+        }
+        if (updateCommentRequest.marked) {
+            dataFields.marked_by = token.id
+        }
+        if (comment.text !== updateCommentRequest.text) {
+            dataFields.edited = true
+        }
+        return this.provider.update({ _id: this.provider.toObjectId(id) }, dataFields)
+    }
+
+    public async getNumberOfComments(query: any): Promise<number> {
+        return this.provider.count(query)
+    }
+
     async deleteComment(token: Token, id: string): Promise<boolean> {
         const comments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(id) } })
         if (comments.length === 0) {
