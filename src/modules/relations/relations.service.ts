@@ -65,11 +65,11 @@ export class RelationsService extends AutowiredService {
             const models = await this.provider.readFromCollectionByIds(collection, groupedRelations[collection])
 
             relations[collection.toLowerCase()] = models.reduce((acc, model) => {
-                if (collection === 'User') acc[model._id] = plainToClass(User, model)
-                if (collection === 'Report') acc[model._id] = plainToClass(Report, model)
-                if (collection === 'Comment') acc[model._id] = plainToClass(Comment, model)
-                if (collection === 'Team') acc[model._id] = plainToClass(Team, model)
-                if (collection === 'Organization') acc[model._id] = plainToClass(Organization, model)
+                if (collection === 'User') acc[model.id] = plainToClass(User, model)
+                if (collection === 'Report') acc[model.id] = plainToClass(Report, model)
+                if (collection === 'Comment') acc[model.id] = plainToClass(Comment, model)
+                if (collection === 'Team') acc[model.id] = plainToClass(Team, model)
+                if (collection === 'Organization') acc[model.id] = plainToClass(Organization, model)
                 return acc
             }, {})
 
@@ -77,6 +77,8 @@ export class RelationsService extends AutowiredService {
         }
 
         const relations = await Object.keys(groupedRelations).reduce(reducer, {})
+
+        console.log({ relations })
         return plainToClass(Relations, relations)
     }
 }

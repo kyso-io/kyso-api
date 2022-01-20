@@ -15,7 +15,13 @@ export class RelationsMongoProvider extends MongoProvider<Relation> {
     async readFromCollectionByIds(collection, ids) {
         const cursor = await this.getCollection(collection).find({ _id: { $in: ids.map((id) => new ObjectId(id)) } })
 
-        return cursor.toArray()
+        const items = (await cursor.toArray()).map((item) => {
+            item.id = item._id.toString()
+            delete item._id
+            return item
+        })
+
+        return items
     }
 
     populateMinimalData() {

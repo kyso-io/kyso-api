@@ -6,7 +6,7 @@ import { Team } from '../team.model'
 import { Organization } from '../organization.model'
 import { BaseModel } from '../base.model'
 import { Relations } from '../relations.model'
-
+import { classToPlain } from 'class-transformer'
 const MODELS = [User, Report, Comment, Team, Organization]
 
 export class NormalizedResponse {
@@ -37,10 +37,12 @@ export class NormalizedResponse {
                 }
             }
         } else if (data instanceof BaseModel) {
-            data[0].buildHatoes(relations)
+            data.buildHatoes(relations)
         }
 
         this.relations = relations
+
+        if (!this.relations) return
 
         const keys = Object.keys(relations)
         this.relations = keys.reduce((prev, key) => {

@@ -100,7 +100,7 @@ async function bootstrap() {
     ]
 
     await RedocModule.setup('/redoc', app, redocDocument, redocOptions)
-
+    app.enableCors()
     await app.listen(process.env.PORT || 4000)
 
     if (process.env.POPULATE_TEST_DATA === 'true') {
