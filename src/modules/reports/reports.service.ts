@@ -1,6 +1,5 @@
 import { CreateReport, Report, User } from '@kyso-io/kyso-model'
 import { Injectable, Logger, Provider } from '@nestjs/common'
-import { resourceLimits } from 'worker_threads'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { AlreadyExistsError, InvalidInputError, NotFoundError } from '../../helpers/errorHandling'
@@ -101,6 +100,11 @@ export class ReportsService extends AutowiredService {
         }
 
         return reports[0]
+    }
+
+    public async getReportById(reportId: string): Promise<Report> {
+        const reports: Report[] = await this.provider.read({ _id: this.provider.toObjectId(reportId) })
+        return reports.length === 1 ? reports[0] : null
     }
 
     async createReport(user: User, createReportRequest: CreateReport, teamName) {
@@ -204,110 +208,106 @@ export class ReportsService extends AutowiredService {
         return this.provider.create(report)
     }
 
-    async updateReport(userId, reportOwner, reportName, data) {
-        const report = await this.getReport(reportOwner, reportName)
-
-        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, data)
+    async updateReport(reportId: string, data: any): Promise<Report> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new NotFoundError({ message: 'The specified report could not be found' })
+        }
+        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: data })
     }
 
-    async deleteReport(userId, reportOwner, reportName) {
-        const report = await this.getReport(reportOwner, reportName)
-
-        await this.provider.delete({ _id: this.provider.toObjectId(report.id) })
+    async deleteReport(reportId: string): Promise<void> {
+        return this.provider.delete({ _id: this.provider.toObjectId(reportId) })
     }
 
-    async pinReport(userId, reportOwner, reportName) {
-        const report = await this.getReport(reportOwner, reportName)
-
-        const existingReports = await this.getReports({
+    async pinReport(userId: string, reportId: string): Promise<Report> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new NotFoundError({ message: 'The specified report could not be found' })
+        }
+        const existingReports: Report[] = await this.getReports({
             filter: {
-                owner: reportOwner,
+                user_id: userId,
                 pin: true,
             },
             limit: 1,
         })
-
         if (existingReports.length !== 0) {
             const existingReport = existingReports[0]
-
             if (existingReport.id !== report.id) {
                 await this.provider.update({ _id: existingReport.id }, { $set: { pin: false } })
             }
         }
-
         return this.provider.update({ _id: report.id }, { $set: { pin: !report.pin } })
     }
 
-    async getBranches(reportOwner, reportName) {
-        const { id, source, user_id } = await this.getReport(reportOwner, reportName)
-        let branches
-
-        if (source.provider === LOCAL_REPORT_HOST) {
-            branches = await this.localReportsService.getReportVersions(id)
+    async getBranches(userId: string, reportId: string): Promise<any[]> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new NotFoundError({ message: 'The specified report could not be found' })
+        }
+        let branches: any[] = []
+        if (report.provider === LOCAL_REPORT_HOST) {
+            branches = await this.localReportsService.getReportVersions(report.id)
         } else {
-            const { accessToken } = await this.usersService.getUser({
-                filter: { _id: user_id },
-            })
-
+            const user: User = await this.usersService.getUserById(userId)
             // OLD
             // branches = await this.reposService({ provider: source.provider, accessToken }).getBranches(source.owner, source.name)
-            switch (source.provider) {
+            switch (report.provider) {
                 case 'github':
                 default:
-                    this.githubReposService.login(accessToken)
-                    branches = await this.githubReposService.getBranches(source.owner, source.name)
+                    this.githubReposService.login(user.accessToken)
+                    branches = await this.githubReposService.getBranches(userId, report.name)
                     break
             }
-
-            branches.forEach((branch) => {
-                branch.is_default = branch === source.defaultBranch
+            branches.forEach((branch: any) => {
+                branch.is_default = branch === report.source.defaultBranch
             })
         }
-
         return branches
     }
 
-    async getCommits(reportOwner, reportName, branch) {
-        const { source, user_id } = await this.getReport(reportOwner, reportName)
-        if (source.provider === LOCAL_REPORT_HOST)
+    async getCommits(userId: string, reportId: string, branch: string): Promise<any[]> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new NotFoundError({ message: 'The specified report could not be found' })
+        }
+        if (report.source.provider === LOCAL_REPORT_HOST)
             throw new InvalidInputError({
                 message: 'This functionality is not available in S3',
             })
-
-        const { accessToken } = await this.usersService.getUser({
-            filter: { _id: user_id },
-        })
+        const user: User = await this.usersService.getUserById(userId)
         // OLD
         // const commits = await this.reposService({ provider: source.provider, accessToken }).getCommits(source.owner, source.name, branch)
-        let commits
-        switch (source.provider) {
+        let commits: any[] = []
+        switch (report.source.provider) {
             case 'github':
             default:
-                this.githubReposService.login(accessToken)
-                commits = await this.githubReposService.getCommits(source.owner, source.name, branch)
+                this.githubReposService.login(user.accessToken)
+                commits = await this.githubReposService.getCommits(userId, reportId, branch)
                 break
         }
         return commits
     }
 
-    async getFileHash(reportOwner, reportName, branch, path) {
-        const { id, source, user_id } = await this.getReport(reportOwner, reportName)
+    async getFileHash(userId: string, reportId: string, branch: string, path: string): Promise<any> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new NotFoundError({ message: 'The specified report could not be found' })
+        }
         let data = {}
-
-        if (source.provider === LOCAL_REPORT_HOST) {
-            data = await this.localReportsService.getFileHash(id, branch)
+        if (report.source.provider === LOCAL_REPORT_HOST) {
+            data = await this.localReportsService.getFileHash(report.id, branch)
         } else {
-            const { accessToken } = await this.usersService.getUser({
-                filter: { _id: user_id },
-            })
-            const fullPath = `${source.basePath}${path}`
+            const user: User = await this.usersService.getUserById(userId)
+            const fullPath = `${report.source.basePath}${path}`
             // OLD
             // data = await this.reposService({ provider: source.provider, accessToken }).getFileHash(fullPath, source.owner, source.name, branch)
-            switch (source.provider) {
+            switch (report.source.provider) {
                 case 'github':
                 default:
-                    this.githubReposService.login(accessToken)
-                    data = await this.githubReposService.getFileHash(fullPath, source.owner, source.name, branch)
+                    this.githubReposService.login(user.accessToken)
+                    data = await this.githubReposService.getFileHash(fullPath, report.source.owner, report.source.name, branch)
                     break
             }
         }
@@ -338,10 +338,5 @@ export class ReportsService extends AutowiredService {
         }
 
         return content
-    }
-
-    public async getById(id: string): Promise<Report> {
-        const reports: Report[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(id) } })
-        return reports.length === 1 ? reports[0] : null
     }
 }

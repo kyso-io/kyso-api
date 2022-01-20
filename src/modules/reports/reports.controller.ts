@@ -6,10 +6,11 @@ import {
     NormalizedResponse,
     Report,
     ReportFilterQuery,
+    Token,
     UpdateReportRequest,
     User,
 } from '@kyso-io/kyso-model'
-import { Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -18,6 +19,7 @@ import { InvalidInputError } from '../../helpers/errorHandling'
 import { HateoasLinker } from '../../helpers/hateoasLinker'
 import { QueryParser } from '../../helpers/queryParser'
 import { Validators } from '../../helpers/validators'
+import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CommentsService } from '../comments/comments.service'
@@ -55,7 +57,7 @@ export class ReportsController extends GenericController<Report> {
         super()
     }
 
-    @Get('')
+    @Get()
     @ApiOperation({
         summary: `Search and fetch reports`,
         description: `By passing the appropiate parameters you can fetch and filter the reports available to the authenticated user.<br />
@@ -83,10 +85,10 @@ export class ReportsController extends GenericController<Report> {
         return
     }
 
-    @Get('/:reportOwner/:reportName')
+    @Get(':reportId')
     @ApiOperation({
         summary: `Get a report`,
-        description: `Allows fetching content of a specific report passing its full name`,
+        description: `Allows fetching content of a specific report passing its id`,
     })
     @ApiNormalizedResponse({
         status: 200,
@@ -94,29 +96,25 @@ export class ReportsController extends GenericController<Report> {
         type: Report,
     })
     @ApiParam({
-        name: 'reportOwner',
+        name: 'reportId',
         required: true,
-        description: 'Name of the owner of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @ApiParam({
-        name: 'reportName',
-        required: true,
-        description: 'Name of the report to fetch',
+        description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getReport(@Req() req, @Res() res): Promise<void> {
-        const report = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
+    async getReport(@Param('reportId') reportId: string): Promise<NormalizedResponse<Report>> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new InvalidInputError('Report not found')
+        }
         const relations = await this.relationsService.getRelations(report, 'report')
-        res.status(200).send(new NormalizedResponse(report, relations))
-        return
+        return new NormalizedResponse(report, relations)
     }
 
-    @Get('/:reportOwner/pinned')
+    @Get(':userId/pinned')
     @ApiOperation({
         summary: `Get pinned reports for an user`,
-        description: `Allows fetching pinned reports of a specific user passing its full name`,
+        description: `Allows fetching pinned reports of a specific user passing its id`,
     })
     @ApiNormalizedResponse({
         status: 200,
@@ -124,20 +122,23 @@ export class ReportsController extends GenericController<Report> {
         type: Report,
     })
     @ApiParam({
-        name: 'reportOwner',
+        name: 'userId',
         required: true,
-        description: 'Name of the owner of the report to fetch',
+        description: 'id of the owner of the report to fetch',
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getPinnedReportsForAnUser(@Param('reportOwner') reportOwner: string) {
-        const userData: User = await this.usersService.getUser({ username: reportOwner })
-        const reports = await this.reportsService.getReports({ pin: true, user_id: userData.id })
+    async getPinnedReportsForAnUser(@Param('userId') userId: string): Promise<NormalizedResponse<Report[]>> {
+        const user: User = await this.usersService.getUserById(userId)
+        if (!user) {
+            throw new InvalidInputError('User not found')
+        }
+        const reports: Report[] = await this.reportsService.getReports({ pin: true, user_id: user.id })
         const relations = await this.relationsService.getRelations(reports, 'report')
         return new NormalizedResponse(reports, relations)
     }
 
-    @Post('')
+    @Post()
     @ApiOperation({
         summary: `Create a new report`,
         description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
@@ -187,7 +188,7 @@ export class ReportsController extends GenericController<Report> {
         return
     }
 
-    @Patch('/:reportOwner/:reportName')
+    @Patch(':reportId')
     @ApiOperation({
         summary: `Update the specific report`,
         description: `Allows updating content from the specified report`,
@@ -198,21 +199,15 @@ export class ReportsController extends GenericController<Report> {
         type: Report,
     })
     @ApiParam({
-        name: 'reportOwner',
-        required: true,
-        description: 'Name of the owner of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @ApiParam({
-        name: 'reportName',
+        name: 'reportId',
         required: true,
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
     @ApiBody({ type: UpdateReportRequest })
     @Permission([ReportPermissionsEnum.EDIT])
-    async updateReport(@Req() req, @Res() res) {
-        const fields = Object.fromEntries(Object.entries(req.body).filter((entry) => UPDATABLE_FIELDS.includes(entry[0])))
+    async updateReport(@Param('reportId') reportId: string, @Body() body: any): Promise<NormalizedResponse<Report>> {
+        const fields = Object.fromEntries(Object.entries(body).filter((entry) => UPDATABLE_FIELDS.includes(entry[0])))
 
         const { stars, ...rest } = fields
         const updatePayload = {
@@ -220,41 +215,38 @@ export class ReportsController extends GenericController<Report> {
             $inc: { stars: Math.sign(stars as any) },
         }
 
-        const report = await (Object.keys(fields).length === 0
-            ? this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
-            : await this.reportsService.updateReport(req.user.objectId, req.params.reportOwner, req.params.reportName, updatePayload))
+        const report: Report =
+            Object.keys(fields).length === 0
+                ? await this.reportsService.getReportById(reportId)
+                : await this.reportsService.updateReport(reportId, updatePayload)
 
         const relations = await this.relationsService.getRelations(report, 'report')
-        res.status(200).send(new NormalizedResponse(report, relations))
-        return
+        return new NormalizedResponse(report, relations)
     }
 
-    @Delete('/:reportOwner/:reportName')
+    @Delete(':reportId')
     @ApiOperation({
         summary: `Delete a report`,
         description: `Allows deleting a specific report`,
     })
     @ApiResponse({ status: 204, description: `Report deleted` })
     @ApiParam({
-        name: 'reportOwner',
-        required: true,
-        description: 'Name of the owner of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @ApiParam({
-        name: 'reportName',
+        name: 'reportId',
         required: true,
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.DELETE])
-    async deleteReport(@Req() req, @Res() res) {
-        await this.reportsService.deleteReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
-        res.status(204).send()
-        return
+    async deleteReport(@Param('reportId') reportId: string): Promise<NormalizedResponse<Report>> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new InvalidInputError('Report not found')
+        }
+        await this.reportsService.deleteReport(reportId)
+        return new NormalizedResponse(report)
     }
 
-    @Post('/:reportOwner/:reportName/pin')
+    @Post(':reportId/pin')
     @ApiOperation({
         summary: `Toggles the pin of the specified report`,
         description: `Allows pinning of the specified report, unpins any other pinned report for owner`,
@@ -265,26 +257,19 @@ export class ReportsController extends GenericController<Report> {
         type: Report,
     })
     @ApiParam({
-        name: 'reportOwner',
-        required: true,
-        description: 'Name of the owner of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @ApiParam({
-        name: 'reportName',
+        name: 'reportId',
         required: true,
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.EDIT])
-    async pinReport(@Req() req, @Res() res) {
-        const report = await this.reportsService.pinReport(req.user.objectId, req.params.reportOwner, req.params.reportName)
+    async pinReport(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponse<Report>> {
+        const report: Report = await this.reportsService.pinReport(token.id, reportId)
         const relations = await this.relationsService.getRelations(report, 'report')
-        res.status(200).send(new NormalizedResponse(report, relations))
-        return
+        return new NormalizedResponse(report, relations)
     }
 
-    @Get('/:reportOwner/:reportName/comments')
+    @Get(':reportId/comments')
     @ApiOperation({
         summary: `Get comments of a report`,
         description: `By passing in the appropriate options you can see all the comments of a report`,
@@ -296,32 +281,26 @@ export class ReportsController extends GenericController<Report> {
         isArray: true,
     })
     @ApiParam({
-        name: 'reportOwner',
+        name: 'reportId',
         required: true,
-        description: 'Name of the owner of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @ApiParam({
-        name: 'reportName',
-        required: true,
-        description: 'Name of the report to fetch',
+        description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getComments(@Req() req, @Res() res) {
-        const { id: report_id } = await this.reportsService.getReport(req.params.reportOwner, req.params.reportName)
-        const comments = await this.commentsService.getComments({ report_id })
+    async getComments(@Param('reportId') reportId: string): Promise<NormalizedResponse<Report>> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new InvalidInputError('Report not found')
+        }
+        const comments: Comment[] = await this.commentsService.getComments({ report_id: reportId })
         const relations = await this.relationsService.getRelations(comments, 'comment')
-        res.status(200).send(
-            new NormalizedResponse(
-                comments.filter((comment) => !comment.comment_id),
-                relations,
-            ),
+        return new NormalizedResponse(
+            comments.filter((comment) => !comment.comment_id),
+            relations,
         )
-        return
     }
 
-    @Get('/:reportOwner/:reportName/branches')
+    @Get(':reportId/branches')
     @ApiOperation({
         summary: `Get branches of a report`,
         description: `By passing in the appropriate options you can see all the branches of a report`,
@@ -333,26 +312,18 @@ export class ReportsController extends GenericController<Report> {
         isArray: true,
     })
     @ApiParam({
-        name: 'reportOwner',
-        required: true,
-        description: 'Name of the owner of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @ApiParam({
-        name: 'reportName',
+        name: 'reportId',
         required: true,
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getBranches(@Req() req, @Res() res) {
-        const { reportOwner, reportName } = req.params
-        const branches = await this.reportsService.getBranches(reportOwner, reportName)
-        res.status(200).send(new NormalizedResponse(branches))
-        return
+    async getBranches(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponse<any[]>> {
+        const branches: any[] = await this.reportsService.getBranches(token.id, reportId)
+        return new NormalizedResponse(branches)
     }
 
-    @Get('/:reportOwner/:reportName/:branch/commits')
+    @Get(':reportName/:branch/commits')
     @ApiOperation({
         summary: `Get commits of a report imported from a git provider`,
         description: `By passing in the appropriate options you can see the commits of a branch for the repository the specified report is linked to`,
@@ -362,12 +333,6 @@ export class ReportsController extends GenericController<Report> {
         description: `Commits of the specified report branch`,
         type: Branch,
         isArray: true,
-    })
-    @ApiParam({
-        name: 'reportOwner',
-        required: true,
-        description: 'Name of the owner of the report to fetch',
-        schema: { type: 'string' },
     })
     @ApiParam({
         name: 'reportName',
@@ -382,16 +347,13 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getCommits(@Req() req, @Res() res) {
-        const { reportOwner, reportName } = req.params
-        const branch = req.params[0]
-        const commits = await this.reportsService.getCommits(reportOwner, reportName, branch)
-        res.status(200).send(new NormalizedResponse(commits))
-        return
+    async getCommits(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Param('branch') branch: string): Promise<NormalizedResponse<any[]>> {
+        const commits: any[] = await this.reportsService.getCommits(token.id, reportId, branch)
+        return new NormalizedResponse(commits)
     }
 
     // todo: this function name is confusing?
-    @Get('/:reportOwner/:reportName/:branch/tree/:filePath')
+    @Get(':reportId/:branch/tree/:filePath')
     @ApiOperation({
         summary: `Explore a report tree`,
         description: `Get hash of a file for a given report. If the file is a folder, will get information about the files in it too (non-recursively). Path is currently ignored for local reports.`,
@@ -402,15 +364,9 @@ export class ReportsController extends GenericController<Report> {
         type: String,
     })
     @ApiParam({
-        name: 'reportOwner',
+        name: 'reportId',
         required: true,
-        description: 'Name of the owner of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @ApiParam({
-        name: 'reportName',
-        required: true,
-        description: 'Name of the report to fetch',
+        description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
     @ApiParam({
@@ -426,15 +382,17 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getReportFileHash(@Req() req, @Res() res) {
-        const { reportOwner, reportName } = req.params
-        const branch = req.params[0]
-        const hash = await this.reportsService.getFileHash(reportOwner, reportName, branch, req.params[1])
-        res.status(200).send(new NormalizedResponse(hash))
-        return
+    async getReportFileHash(
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @Param('branch') branch: string,
+        @Param('filePath') filePath: string,
+    ): Promise<NormalizedResponse<any>> {
+        const hash: any = await this.reportsService.getFileHash(token.id, reportId, branch, filePath)
+        return new NormalizedResponse(hash)
     }
 
-    @Get('/:reportOwner/:reportName/file/:hash')
+    @Get(':reportId/file/:hash')
     @ApiOperation({
         summary: `Get content of a file`,
         description: `By passing the hash of a file, get its raw content directly from the source.`,
@@ -445,13 +403,7 @@ export class ReportsController extends GenericController<Report> {
         type: String,
     })
     @ApiParam({
-        name: 'reportOwner',
-        required: true,
-        description: 'Name of the owner of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @ApiParam({
-        name: 'reportName',
+        name: 'reportId',
         required: true,
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
@@ -463,16 +415,17 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getReportFileContent(@Res() req, @Req() res) {
-        const { hash } = req.params
-        if (!Validators.isValidSha(hash))
+    async getReportFileContent(
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @Param('hash') hash: string,
+    ): Promise<NormalizedResponse<any>> {
+        if (!Validators.isValidSha(hash)) {
             throw new InvalidInputError({
                 message: 'Hash is not a valid sha. Must have 40 hexadecimal characters.',
             })
-
-        const content = await this.reportsService.getReportFileContent(req.params.reportOwner, req.params.reportName, hash)
-
-        res.status(200).send(content)
-        return
+        }
+        const content = await this.reportsService.getReportFileContent(token.id, reportId, hash)
+        return new NormalizedResponse(content)
     }
 }

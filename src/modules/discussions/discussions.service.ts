@@ -87,18 +87,20 @@ export class DiscussionsService extends AutowiredService {
         return this.provider.update(
             { _id: this.provider.toObjectId(discussion.id) },
             {
-                answered: updateDiscussionRequest.answered,
-                assignees: updateDiscussionRequest.assignees,
-                closed: updateDiscussionRequest.closed,
-                description: updateDiscussionRequest.description,
-                discussion_number: updateDiscussionRequest.discussion_number,
-                edited: true,
-                main: updateDiscussionRequest.main,
-                participants: updateDiscussionRequest.participants,
-                request_private: updateDiscussionRequest.request_private,
-                title: updateDiscussionRequest.title,
-                url_name: updateDiscussionRequest.url_name,
-                updated_at: new Date(),
+                $set: {
+                    answered: updateDiscussionRequest.answered,
+                    assignees: updateDiscussionRequest.assignees,
+                    closed: updateDiscussionRequest.closed,
+                    description: updateDiscussionRequest.description,
+                    discussion_number: updateDiscussionRequest.discussion_number,
+                    edited: true,
+                    main: updateDiscussionRequest.main,
+                    participants: updateDiscussionRequest.participants,
+                    request_private: updateDiscussionRequest.request_private,
+                    title: updateDiscussionRequest.title,
+                    url_name: updateDiscussionRequest.url_name,
+                    updated_at: new Date(),
+                },
             },
         )
     }

@@ -29,7 +29,7 @@ export class UserController extends GenericController<User> {
 
     // TODO: This is in /user not in /users... bad naming, and the design is poor. For now, keep as is to don't break
     // the frontend
-    @Get('')
+    @Get()
     @ApiOperation({
         summary: `Get the authenticated user`,
         description: `Allows fetching content of the authenticated user`,

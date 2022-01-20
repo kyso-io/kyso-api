@@ -1,4 +1,4 @@
-import { CreateUserRequest, KysoRole, Organization, Team, TeamVisibilityEnum, Token, UpdateUserRequest, User, UserAccount } from '@kyso-io/kyso-model'
+import { CreateUserRequest, Organization, Team, TeamVisibilityEnum, Token, UpdateUserRequest, User, UserAccount } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { existsSync, unlinkSync } from 'fs'
@@ -10,8 +10,6 @@ import { AuthService } from '../auth/auth.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
-// This is a hack to make Multer available in the Express namespace
-import { Multer } from 'multer';
 
 function factory(service: UsersService) {
     return service
@@ -58,8 +56,8 @@ export class UsersService extends AutowiredService {
         return users[0]
     }
 
-    async updateUser(filterQuery, updateQuery): Promise<User> {
-        return (await this.provider.update(filterQuery, updateQuery)) as User
+    async updateUser(filterQuery: any, updateQuery: any): Promise<User> {
+        return this.provider.update(filterQuery, updateQuery)
     }
 
     async createUser(userToCreate: CreateUserRequest): Promise<User> {
@@ -117,8 +115,8 @@ export class UsersService extends AutowiredService {
         return userDb
     }
 
-    async deleteUser(email: string): Promise<boolean> {
-        const user: User = await this.getUser({ filter: { email: email } })
+    async deleteUser(id: string): Promise<boolean> {
+        const user: User = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
         if (!user) {
             throw new PreconditionFailedException(null, `Can't delete user as does not exists`)
         }
@@ -133,12 +131,12 @@ export class UsersService extends AutowiredService {
             await this.organizationsService.removeMemberFromOrganization(organization.name, user.username)
         }
 
-        await this.provider.delete({ email: email })
+        await this.provider.delete({ id: this.provider.toObjectId(id) })
         return true
     }
 
-    public async addAccount(email: string, userAccount: UserAccount): Promise<boolean> {
-        const user = await this.getUser({ filter: { email: email } })
+    public async addAccount(id: string, userAccount: UserAccount): Promise<boolean> {
+        const user = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
 
         if (!user) {
             throw new PreconditionFailedException(null, `Can't add account to user as does not exists`)
@@ -153,13 +151,13 @@ export class UsersService extends AutowiredService {
             throw new PreconditionFailedException(null, `The user has already registered this account`)
         } else {
             const userAccounts: UserAccount[] = [...user.accounts, userAccount]
-            await this.updateUser({ email: email }, { $set: { accounts: userAccounts } })
+            await this.updateUser({ id: this.provider.toObjectId(id) }, { $set: { accounts: userAccounts } })
         }
         return true
     }
 
-    public async removeAccount(email: string, provider: string, accountId: string): Promise<boolean> {
-        const user = await this.getUser({ filter: { email: email } })
+    public async removeAccount(id: string, provider: string, accountId: string): Promise<boolean> {
+        const user = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
 
         if (!user) {
             throw new PreconditionFailedException(null, `Can't remove account to user as does not exists`)
@@ -170,19 +168,19 @@ export class UsersService extends AutowiredService {
         const index: number = user.accounts.findIndex((account: UserAccount) => account.accountId === accountId && account.type === provider)
         if (index !== -1) {
             const userAccounts: UserAccount[] = [...user.accounts.slice(0, index), ...user.accounts.slice(index + 1)]
-            await this.updateUser({ email: email }, { $set: { accounts: userAccounts } })
+            await this.updateUser({ id: this.provider.toObjectId(id) }, { $set: { accounts: userAccounts } })
         } else {
             throw new PreconditionFailedException(null, `The user has not registered this account`)
         }
         return true
     }
 
-    public async updateUserData(email: string, data: UpdateUserRequest): Promise<User> {
-        const user: User = await this.getUser({ filter: { email } })
+    public async updateUserData(id: string, data: UpdateUserRequest): Promise<User> {
+        const user: User = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
         if (!user) {
             throw new PreconditionFailedException(null, `Can't update user as does not exists`)
         }
-        return this.updateUser({ email: email }, { $set: data })
+        return this.updateUser({ id: this.provider.toObjectId(id) }, { $set: data })
     }
 
     // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error

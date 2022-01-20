@@ -41,6 +41,10 @@ export class OrganizationsService extends AutowiredService {
         return organization[0]
     }
 
+    public async getOrganizationById(id: string): Promise<Organization> {
+        return this.getOrganization({ filter: { _id: this.provider.toObjectId(id) } })
+    }
+
     async createOrganization(organization: Organization): Promise<Organization> {
         // The name of this organization exists?
         const exists: any[] = await this.provider.read({ filter: { name: organization.name } })
@@ -53,8 +57,8 @@ export class OrganizationsService extends AutowiredService {
         }
     }
 
-    async deleteOrganization(organizationName: string): Promise<boolean> {
-        const organization: Organization = await this.getOrganization({ filter: { name: organizationName } })
+    async deleteOrganization(organizationId: string): Promise<boolean> {
+        const organization: Organization = await this.getOrganizationById(organizationId)
         if (!organization) {
             throw new PreconditionFailedException('Organization does not exist')
         }
@@ -100,12 +104,11 @@ export class OrganizationsService extends AutowiredService {
     /**
      * Return an array of user id's that belongs to provided organization
      */
-    async getOrganizationMembers(organizationName: string): Promise<OrganizationMember[]> {
-        const organizations: Organization[] = await this.provider.read({ filter: { name: organizationName } })
-
-        if (organizations.length > 0) {
+    async getOrganizationMembers(organizationId: string): Promise<OrganizationMember[]> {
+        const organization: Organization = await this.getOrganizationById(organizationId)
+        if (organization) {
             // Get all the members of this organization
-            const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organizations[0].id)
+            const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
 
             // Build query object to retrieve all the users
             const user_ids = members.map((x: OrganizationMemberJoin) => {

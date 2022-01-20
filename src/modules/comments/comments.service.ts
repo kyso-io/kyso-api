@@ -42,7 +42,7 @@ export class CommentsService extends AutowiredService {
                 throw new PreconditionFailedException('The specified related comment could not be found')
             }
         }
-        const report: Report = await this.reportsService.getById(comment.report_id)
+        const report: Report = await this.reportsService.getReportById(comment.report_id)
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
         }
@@ -81,7 +81,7 @@ export class CommentsService extends AutowiredService {
         if (comment.text !== updateCommentRequest.text) {
             dataFields.edited = true
         }
-        return this.provider.update({ _id: this.provider.toObjectId(id) }, dataFields)
+        return this.provider.update({ _id: this.provider.toObjectId(id) }, { $set: dataFields })
     }
 
     public async getNumberOfComments(query: any): Promise<number> {
@@ -94,7 +94,7 @@ export class CommentsService extends AutowiredService {
             throw new PreconditionFailedException('The specified comment could not be found')
         }
         const comment: Comment = comments[0]
-        const report: Report = await this.reportsService.getById(comment.report_id)
+        const report: Report = await this.reportsService.getReportById(comment.report_id)
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
         }
@@ -115,13 +115,11 @@ export class CommentsService extends AutowiredService {
         return true
     }
 
-    async getComments(query) {
-        const comments = await this.provider.read({
+    async getComments(query): Promise<Comment[]> {
+        return this.provider.read({
             filter: query,
             sort: { _created_at: -1 },
         })
-
-        return comments
     }
 
     async getCommentWithChildren(commentId): Promise<Comment> {

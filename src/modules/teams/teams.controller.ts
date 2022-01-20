@@ -15,19 +15,18 @@ import {
     Controller,
     Delete,
     Get,
-    Headers,
     Param,
     Patch,
     Post,
     PreconditionFailedException,
     Req,
-    UnauthorizedException,
     UploadedFile,
     UseGuards,
     UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
+import { ObjectId } from 'mongodb'
 import { diskStorage } from 'multer'
 import { extname } from 'path'
 import { v4 as uuidv4 } from 'uuid'
@@ -62,7 +61,7 @@ export class TeamsController extends GenericController<Team> {
         // team.self_url = HateoasLinker.createRef(`/teams/${team.name}`)
     }
 
-    @Get('/')
+    @Get()
     @ApiOperation({
         summary: `Get all team's in which user has visibility`,
         description: `Allows fetching content of all the teams that the user has visibility`,
@@ -83,7 +82,7 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse(teams)
     }
 
-    @Get('/id/:id')
+    @Get(':id')
     @ApiOperation({
         summary: `Get a team`,
         description: `Allows fetching content of a specific team passing its id`,
@@ -110,7 +109,7 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse(team)
     }
 
-    @Get('/check-name/${teamName}')
+    @Get('/check-name/:teamName')
     @ApiOperation({
         summary: `Check if team name is unique`,
         description: `Allows checking if a team name is unique`,
@@ -128,48 +127,13 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse<boolean>(team !== null)
     }
 
-    @Get('/:teamName')
-    @ApiOperation({
-        summary: `Get a team`,
-        description: `Allows fetching content of a specific team passing its name`,
-    })
-    @ApiParam({
-        name: 'teamName',
-        required: true,
-        description: `Name of the team to fetch`,
-        schema: { type: 'string' },
-    })
-    @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Team })
-    @ApiHeader({
-        name: HEADER_X_KYSO_TEAM,
-        description: 'Name of the team',
-        required: true,
-    })
-    @Permission([TeamPermissionsEnum.READ])
-    async getTeam(@Param('teamName') teamName: string, @Headers(HEADER_X_KYSO_TEAM) xKysoTeamHeader: string): Promise<NormalizedResponse<Team>> {
-        if (!xKysoTeamHeader) {
-            throw new BadRequestException('Missing team header')
-        }
-        if (xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
-            throw new UnauthorizedException('Team path param and team header are not equal. This incident will be reported')
-        }
-
-        const team: Team = await this.teamsService.getTeam({
-            filter: { name: teamName },
-        })
-
-        this.assignReferences(team)
-
-        return new NormalizedResponse(team)
-    }
-
-    @Get('/:teamName/members')
+    @Get(':id/members')
     @ApiOperation({
         summary: `Get the member's team`,
         description: `Allows fetching content of a specific team passing its name`,
     })
     @ApiParam({
-        name: 'teamName',
+        name: 'id',
         required: true,
         description: `Name of the team to fetch`,
         schema: { type: 'string' },
@@ -181,19 +145,15 @@ export class TeamsController extends GenericController<Team> {
         required: true,
     })
     @Permission([TeamPermissionsEnum.READ])
-    async getTeamMembers(@Param('teamName') teamName: string, @Headers(HEADER_X_KYSO_TEAM) xKysoTeamHeader: string): Promise<NormalizedResponse<TeamMember[]>> {
-        if (xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
-            throw new UnauthorizedException('Team path param and team header are not equal. This incident will be reported')
-        }
-
-        const data: TeamMember[] = await this.teamsService.getMembers(teamName)
+    async getTeamMembers(@Param('id') id: string): Promise<NormalizedResponse<TeamMember[]>> {
+        const data: TeamMember[] = await this.teamsService.getMembers(id)
         return new NormalizedResponse(data)
     }
 
-    @Get('/:teamId/members/:userId')
+    @Get(':teamId/members/:userId')
     @ApiOperation({
-        summary: `Get the member's team`,
-        description: `Allows fetching content of a specific team passing its name`,
+        summary: `Check if users belongs to a team`,
+        description: `Allows fetching content of a specific team passing its id`,
     })
     @ApiParam({
         name: 'teamId',
@@ -219,66 +179,66 @@ export class TeamsController extends GenericController<Team> {
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
-        const teamMember: TeamMember[] = await this.teamsService.getMembers(team.name)
+        const teamMember: TeamMember[] = await this.teamsService.getMembers(team.id)
         const belongs: boolean = teamMember.findIndex((member: TeamMember) => member.id === userId) !== -1
         return new NormalizedResponse(belongs)
     }
 
-    @Patch('/:teamName/members/:email')
+    @Patch(':teamId/members/:userId')
     @ApiOperation({
         summary: `Add a member to a team`,
         description: `Allows adding a member to a team passing its name and the user's name`,
     })
     @ApiParam({
-        name: 'teamName',
+        name: 'teamId',
         required: true,
         description: `Name of the team to fetch`,
         schema: { type: 'string' },
     })
     @ApiParam({
-        name: 'email',
+        name: 'userId',
         required: true,
-        description: `Name of the user to add`,
+        description: `User id of the user to add`,
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
     @Permission([TeamPermissionsEnum.EDIT])
-    async addMemberToTeam(@Param('teamName') teamName: string, @Param('email') email: string): Promise<NormalizedResponse<TeamMember[]>> {
-        const members: TeamMember[] = await this.teamsService.addMemberToTeam(teamName, email)
+    async addMemberToTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponse<TeamMember[]>> {
+        const members: TeamMember[] = await this.teamsService.addMemberToTeam(teamId, userId)
         return new NormalizedResponse(members)
     }
 
-    @Delete(':teamName/members/:userName')
+    @Delete(':teamId/members/:userId')
     @ApiOperation({
         summary: `Remove a member from a team`,
-        description: `Allows removing a member from a team passing its name and the user's name`,
+        description: `Allows removing a member from a team passing its id and the user's id`,
     })
     @ApiParam({
-        name: 'teamName',
+        name: 'teamId',
         required: true,
-        description: `Name of the team to fetch`,
+        description: `Id of the team to fetch`,
         schema: { type: 'string' },
     })
     @ApiParam({
-        name: 'userName',
+        name: 'userId',
         required: true,
-        description: `Name of the user to remove`,
+        description: `Id of the user to remove`,
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
     @Permission([TeamPermissionsEnum.EDIT])
-    async removeMemberFromTeam(@Param('teamName') teamName: string, @Param('userName') userName: string): Promise<NormalizedResponse<TeamMember[]>> {
-        const members: TeamMember[] = await this.teamsService.removeMemberFromTeam(teamName, userName)
+    async removeMemberFromTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponse<TeamMember[]>> {
+        const members: TeamMember[] = await this.teamsService.removeMemberFromTeam(teamId, userId)
         return new NormalizedResponse(members)
     }
 
-    @Patch('/:teamName')
+    @Patch(':teamId')
     @ApiOperation({
         summary: `Update the specified team`,
         description: `Allows updating content from the specified team`,
     })
     @ApiParam({
-        name: 'teamName',
+        name: 'teamId',
         required: true,
         description: `Name of the team to fetch`,
         schema: { type: 'string' },
@@ -294,28 +254,13 @@ export class TeamsController extends GenericController<Team> {
         required: true,
     })
     @Permission([TeamPermissionsEnum.EDIT])
-    async updateTeam(
-        @Body() data: UpdateTeamRequest,
-        @Req() req,
-        @Param('teamName') teamName: string,
-        @Headers(HEADER_X_KYSO_TEAM) xKysoTeamHeader: string,
-    ): Promise<NormalizedResponse<Team>> {
-        if (!xKysoTeamHeader) {
-            throw new BadRequestException('Missing team header')
-        }
-        if (xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
-            throw new UnauthorizedException('Team path param and team header are not equal. This incident will be reported')
-        }
-
-        const filterObj = { name: teamName }
-
-        let team: Team = await this.teamsService.getTeam({ filter: filterObj })
+    async updateTeam(@Body() data: UpdateTeamRequest, @Req() req, @Param('teamId') teamId: string): Promise<NormalizedResponse<Team>> {
+        const team: Team = await this.teamsService.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
-        team = await this.teamsService.updateTeam(filterObj, { $set: data })
-
-        return new NormalizedResponse(team)
+        const upadtedTeam: Team = await this.teamsService.updateTeam({ id: new ObjectId(teamId) }, { $set: data })
+        return new NormalizedResponse(upadtedTeam)
     }
 
     @Post()
@@ -334,69 +279,62 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponse(teamDb)
     }
 
-    @Get('/:teamName/reports')
+    @Get(':teamId/reports')
     @ApiOperation({
         summary: `Get the reports of the specified team`,
         description: `Allows fetching content of a specific team passing its name`,
     })
     @ApiParam({
-        name: 'teamName',
+        name: 'teamId',
         required: true,
-        description: `Name of the team to fetch`,
+        description: `Id of the team to fetch`,
         schema: { type: 'string' },
     })
-    @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Report })
+    @ApiNormalizedResponse({ status: 200, description: `Team reports`, type: Report })
     @ApiHeader({
         name: HEADER_X_KYSO_TEAM,
         description: 'Name of the team',
         required: true,
     })
     @Permission([TeamPermissionsEnum.READ])
-    async getReportsOfTeam(
-        @CurrentToken() token: Token,
-        @Param('teamName') teamName: string,
-        @Headers(HEADER_X_KYSO_TEAM) xKysoTeamHeader: string,
-    ): Promise<NormalizedResponse<Report[]>> {
-        if (xKysoTeamHeader.toLowerCase() !== teamName.toLowerCase()) {
-            throw new UnauthorizedException('Team path param and team header are not equal. This incident will be reported')
-        }
-        const reports: Report[] = await this.teamsService.getReportsOfTeam(token, teamName)
+    async getReportsOfTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string): Promise<NormalizedResponse<Report[]>> {
+        const reports: Report[] = await this.teamsService.getReportsOfTeam(token, teamId)
         return new NormalizedResponse(reports)
     }
 
-    @Post(':teamName/members-roles')
+    @Post(':teamId/members-roles')
     @ApiOperation({
         summary: `Add a role to a member of a team`,
-        description: `Allows adding a role to a member of a team passing its name and the user's name`,
+        description: `Allows adding a role to a member of a team passing its id`,
     })
     @ApiParam({
-        name: 'teamName',
+        name: 'teamId',
         required: true,
-        description: `Name of the team to fetch`,
+        description: `Id of the team to fetch roles`,
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: TeamMember })
     @Permission([TeamPermissionsEnum.EDIT])
-    public async updateTeamMembersRoles(@Param('teamName') teamName: string, @Body() data: UpdateTeamMembers): Promise<NormalizedResponse<TeamMember[]>> {
-        const teamMembers: TeamMember[] = await this.teamsService.updateTeamMembersRoles(teamName, data)
+    public async updateTeamMembersRoles(@Param('teamId') teamId: string, @Body() data: UpdateTeamMembers): Promise<NormalizedResponse<TeamMember[]>> {
+        const teamMembers: TeamMember[] = await this.teamsService.updateTeamMembersRoles(teamId, data)
         return new NormalizedResponse(teamMembers)
     }
 
-    @Delete(':teamName/members-roles/:userName/:role')
+    @Delete(':teamId/members-roles/:userId/:role')
     @ApiOperation({
         summary: `Remove a role from a member of a team`,
-        description: `Allows removing a role from a member of a team passing its name and the user's name`,
+        description: `Allows removing a role from a member of a team passing its id and the user's id`,
     })
     @ApiParam({
-        name: 'teamName',
+        name: 'teamId',
         required: true,
-        description: `Name of the team to fetch`,
+        description: `Id of the team to fetch`,
         schema: { type: 'string' },
     })
     @ApiParam({
-        name: 'userName',
+        name: 'userId',
         required: true,
-        description: `Name of the user to remove`,
+        description: `Id of the user to remove`,
         schema: { type: 'string' },
     })
     @ApiParam({
@@ -405,36 +343,36 @@ export class TeamsController extends GenericController<Team> {
         description: `Name of the role to remove`,
         schema: { type: 'string' },
     })
-    @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
+    @ApiNormalizedResponse({ status: 200, description: `Remove role of user in a team`, type: TeamMember })
     @Permission([TeamPermissionsEnum.EDIT])
     public async removeTeamMemberRole(
-        @Param('teamName') teamName: string,
-        @Param('userName') userName: string,
+        @Param('teamId') teamId: string,
+        @Param('userId') userId: string,
         @Param('role') role: string,
     ): Promise<NormalizedResponse<TeamMember[]>> {
-        const teamMembers: TeamMember[] = await this.teamsService.removeTeamMemberRole(teamName, userName, role)
+        const teamMembers: TeamMember[] = await this.teamsService.removeTeamMemberRole(teamId, userId, role)
         return new NormalizedResponse(teamMembers)
     }
 
-    @Get('/:teamName/members/:email')
+    @Get('/:teamId/members/:userId')
     @ApiOperation({
         summary: `Check if user belongs to a team`,
-        description: `Allows checking if a user belongs to a team passing its name and the user's email`,
+        description: `Allows checking if a user belongs to a team passing its team id and the user's id`,
     })
     @ApiParam({
-        name: 'teamName',
+        name: 'teamId',
         required: true,
-        description: `Name of the team to fetch`,
+        description: `Id of the team to fetch`,
         schema: { type: 'string' },
     })
     @ApiParam({
-        name: 'email',
+        name: 'userId',
         required: true,
-        description: `Email of the user to check`,
+        description: `Id of the user to check`,
         schema: { type: 'string' },
     })
-    public async userBelongsToTeam(@Param('teamName') teamName: string, @Param('email') email: string): Promise<NormalizedResponse<boolean>> {
-        const belongs: boolean = await this.teamsService.userBelongsToTeam(teamName, email)
+    public async userBelongsToTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponse<boolean>> {
+        const belongs: boolean = await this.teamsService.userBelongsToTeam(teamId, userId)
         return new NormalizedResponse(belongs)
     }
 
@@ -454,60 +392,60 @@ export class TeamsController extends GenericController<Team> {
             },
         }),
     )
-    @Post(':teamName/profile-picture')
+    @Post(':teamId/profile-picture')
     @ApiOperation({
         summary: `Upload a profile picture for a team`,
-        description: `Allows uploading a profile picture for a team passing its name and image`,
+        description: `Allows uploading a profile picture for a team passing its id and image`,
     })
     @ApiParam({
-        name: 'teamName',
+        name: 'teamId',
         required: true,
-        description: `Name of the team to fetch`,
+        description: `Id of the team to fetch`,
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: Team })
     @Permission([TeamPermissionsEnum.EDIT])
     // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
-    public async setProfilePicture(@Param('teamName') teamName: string, @UploadedFile() file: any /*Express.Multer.File*/): Promise<NormalizedResponse<Team>> {
+    public async setProfilePicture(@Param('teamId') teamId: string, @UploadedFile() file: any /*Express.Multer.File*/): Promise<NormalizedResponse<Team>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }
-        const team: Team = await this.teamsService.setProfilePicture(teamName, file)
+        const team: Team = await this.teamsService.setProfilePicture(teamId, file)
         return new NormalizedResponse(team)
     }
 
-    @Delete(':teamName/profile-picture')
+    @Delete(':teamId/profile-picture')
     @ApiOperation({
         summary: `Delete a profile picture for a team`,
-        description: `Allows deleting a profile picture for a team passing its name`,
+        description: `Allows deleting a profile picture for a team passing its id`,
     })
     @ApiParam({
-        name: 'teamName',
+        name: 'teamId',
         required: true,
-        description: `Name of the team to fetch`,
+        description: `Id of the team to fetch`,
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Team })
-    public async deleteBackgroundImage(@Param('teamName') teamName: string): Promise<NormalizedResponse<Team>> {
-        const team: Team = await this.teamsService.deleteProfilePicture(teamName)
+    public async deleteBackgroundImage(@Param('teamId') teamId: string): Promise<NormalizedResponse<Team>> {
+        const team: Team = await this.teamsService.deleteProfilePicture(teamId)
         return new NormalizedResponse(team)
     }
 
-    @Delete(':teamName')
+    @Delete(':teamId')
     @ApiOperation({
         summary: `Delete a team`,
-        description: `Allows deleting a team passing its name`,
+        description: `Allows deleting a team passing its id`,
     })
     @ApiParam({
-        name: 'teamName',
+        name: 'teamId',
         required: true,
-        description: `Name of the team to delete`,
+        description: `Id of the team to delete`,
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Deleted team`, type: Team })
     @Permission([TeamPermissionsEnum.DELETE])
-    public async deleteTeam(@Param('teamName') teamName: string): Promise<NormalizedResponse<Team>> {
-        const team: Team = await this.teamsService.deleteTeam(teamName)
+    public async deleteTeam(@Param('teamId') teamId: string): Promise<NormalizedResponse<Team>> {
+        const team: Team = await this.teamsService.deleteTeam(teamId)
         return new NormalizedResponse(team)
     }
 }
