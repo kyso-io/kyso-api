@@ -1,4 +1,4 @@
-import { NormalizedResponse, Organization, OrganizationMember, OrganizationMemberJoin, UpdateOrganizationMembers } from '@kyso-io/kyso-model'
+import { NormalizedResponseDTO, Organization, OrganizationMember, OrganizationMemberJoin, UpdateOrganizationMembersDTO } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, Patch, Post, PreconditionFailedException, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -36,12 +36,12 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Organization matching id`, type: Organization })
     @Permission([OrganizationPermissionsEnum.READ])
-    async getOrganization(@Param('organizationId') organizationId: string): Promise<NormalizedResponse<Organization>> {
+    async getOrganization(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
         const organization: Organization = await this.organizationService.getOrganizationById(organizationId)
         if (!organization) {
             throw new PreconditionFailedException('Organization not found')
         }
-        return new NormalizedResponse(organization)
+        return new NormalizedResponseDTO(organization)
     }
 
     @Delete('/:organizationId')
@@ -57,9 +57,9 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Organization matching id`, type: Boolean })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
-    public async deleteOrganization(@Param('organizationId') organizationId: string): Promise<NormalizedResponse<boolean>> {
+    public async deleteOrganization(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<boolean>> {
         const deleted: boolean = await this.organizationService.deleteOrganization(organizationId)
-        return new NormalizedResponse(deleted)
+        return new NormalizedResponseDTO(deleted)
     }
 
     @Get('/:organizationId/members')
@@ -75,9 +75,9 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Organization members`, type: OrganizationMember, isArray: true })
     @Permission([OrganizationPermissionsEnum.READ])
-    async getOrganizationMembers(@Param('organizationId') organizationId: string): Promise<NormalizedResponse<OrganizationMember[]>> {
+    async getOrganizationMembers(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
         const data: OrganizationMember[] = await this.organizationService.getOrganizationMembers(organizationId)
-        return new NormalizedResponse(data)
+        return new NormalizedResponseDTO(data)
     }
 
     @Post()
@@ -87,9 +87,9 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 201, description: `Created organization`, type: Organization })
     @Permission([OrganizationPermissionsEnum.CREATE])
-    async createOrganization(@Body() organization: Organization): Promise<NormalizedResponse<Organization>> {
+    async createOrganization(@Body() organization: Organization): Promise<NormalizedResponseDTO<Organization>> {
         const newOrganization: Organization = await this.organizationService.createOrganization(organization)
-        return new NormalizedResponse(newOrganization)
+        return new NormalizedResponseDTO(newOrganization)
     }
 
     @Patch('/:organizationId')
@@ -102,9 +102,9 @@ export class OrganizationsController extends GenericController<Organization> {
     public async updateOrganization(
         @Param('organizationId') organizationId: string,
         @Body() organization: Organization,
-    ): Promise<NormalizedResponse<Organization>> {
+    ): Promise<NormalizedResponseDTO<Organization>> {
         const updatedOrganization: Organization = await this.organizationService.updateOrganization(organizationId, organization)
-        return new NormalizedResponse(updatedOrganization)
+        return new NormalizedResponseDTO(updatedOrganization)
     }
 
     @Post('/:organizationId/members/:userId')
@@ -129,9 +129,9 @@ export class OrganizationsController extends GenericController<Organization> {
     public async addMemberToOrganization(
         @Param('organizationId') organizationId: string,
         @Param('userId') userId: string,
-    ): Promise<NormalizedResponse<OrganizationMemberJoin>> {
+    ): Promise<NormalizedResponseDTO<OrganizationMemberJoin>> {
         const organizationMemberJoin: OrganizationMemberJoin = await this.organizationService.addMemberToOrganization(organizationId, userId)
-        return new NormalizedResponse(organizationMemberJoin)
+        return new NormalizedResponseDTO(organizationMemberJoin)
     }
 
     @Delete('/:organizationId/members/:userId')
@@ -153,9 +153,9 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Added user`, type: Boolean })
     @Permission([OrganizationPermissionsEnum.ADMIN])
-    public async removeMemberFromOrganization(@Param('organizationId') organizationId, @Param('userId') userId: string): Promise<NormalizedResponse<boolean>> {
+    public async removeMemberFromOrganization(@Param('organizationId') organizationId, @Param('userId') userId: string): Promise<NormalizedResponseDTO<boolean>> {
         const result: boolean = await this.organizationService.removeMemberFromOrganization(organizationId, userId)
-        return new NormalizedResponse(result)
+        return new NormalizedResponseDTO(result)
     }
 
     @Post('/:organizationId/members-roles')
@@ -171,12 +171,12 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: OrganizationMember, isArray: true })
     @Permission([OrganizationPermissionsEnum.ADMIN])
-    public async updateOrganizationMembersRoles(
+    public async UpdateOrganizationMembersDTORoles(
         @Param('organizationId') organizationId: string,
-        @Body() data: UpdateOrganizationMembers,
-    ): Promise<NormalizedResponse<OrganizationMember[]>> {
-        const organizationMembers: OrganizationMember[] = await this.organizationService.updateOrganizationMembersRoles(organizationId, data)
-        return new NormalizedResponse(organizationMembers)
+        @Body() data: UpdateOrganizationMembersDTO,
+    ): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
+        const organizationMembers: OrganizationMember[] = await this.organizationService.UpdateOrganizationMembersDTORoles(organizationId, data)
+        return new NormalizedResponseDTO(organizationMembers)
     }
 
     @Delete('/:organizationId/members-roles/:userId/:role')
@@ -208,8 +208,8 @@ export class OrganizationsController extends GenericController<Organization> {
         @Param('organizationId') organizationId: string,
         @Param('userId') userId: string,
         @Param('role') role: string,
-    ): Promise<NormalizedResponse<boolean>> {
+    ): Promise<NormalizedResponseDTO<boolean>> {
         const result: boolean = await this.organizationService.removeOrganizationMemberRole(organizationId, userId, role)
-        return new NormalizedResponse(result)
+        return new NormalizedResponseDTO(result)
     }
 }

@@ -1,4 +1,4 @@
-import { CreateDiscussionRequest, Discussion, NormalizedResponse, UpdateDiscussionRequest } from '@kyso-io/kyso-model'
+import { CreateDiscussionRequestDTO, Discussion, NormalizedResponseDTO, UpdateDiscussionRequestDTO } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, PreconditionFailedException, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -32,9 +32,9 @@ export class DiscussionsController extends GenericController<Discussion> {
         example: 'K1bOzHjEmN',
     })
     @Permission([DiscussionPermissionsEnum.READ])
-    public async getDiscussionsByTeam(@Param('teamId') teamId: string): Promise<NormalizedResponse<Discussion[]>> {
+    public async getDiscussionsByTeam(@Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Discussion[]>> {
         const discussions: Discussion[] = await this.discussionsService.getDiscussions({ filter: { team_id: teamId, mark_delete_at: { $ne: null } } })
-        return new NormalizedResponse(discussions)
+        return new NormalizedResponseDTO(discussions)
     }
 
     @Get('/:teamId/:discussionNumber')
@@ -61,14 +61,14 @@ export class DiscussionsController extends GenericController<Discussion> {
     public async getDiscussionGivenTeamIdAndDiscussionNumber(
         @Param('teamId') teamId: string,
         @Param('discussionNumber', ParseIntPipe) discussionNumber: number,
-    ): Promise<NormalizedResponse<Discussion>> {
+    ): Promise<NormalizedResponseDTO<Discussion>> {
         const discussion: Discussion = await this.discussionsService.getDiscussion({
             filter: { team_id: teamId, discussion_number: discussionNumber, mark_delete_at: { $ne: null } },
         })
         if (!discussion) {
             throw new PreconditionFailedException('Discussion not found')
         }
-        return new NormalizedResponse(discussion)
+        return new NormalizedResponseDTO(discussion)
     }
 
     @Post()
@@ -78,9 +78,9 @@ export class DiscussionsController extends GenericController<Discussion> {
     })
     @Permission([DiscussionPermissionsEnum.CREATE])
     @ApiNormalizedResponse({ status: 201, description: `Discussion`, type: Discussion })
-    public async createDiscussion(@Body() createDiscussionRequest: CreateDiscussionRequest): Promise<NormalizedResponse<Discussion>> {
-        const updatedDiscussion: Discussion = await this.discussionsService.createDiscussion(createDiscussionRequest)
-        return new NormalizedResponse(updatedDiscussion)
+    public async createDiscussion(@Body() data: CreateDiscussionRequestDTO): Promise<NormalizedResponseDTO<Discussion>> {
+        const updatedDiscussion: Discussion = await this.discussionsService.createDiscussion(data)
+        return new NormalizedResponseDTO(updatedDiscussion)
     }
 
     @Patch('/:discussionId')
@@ -99,10 +99,10 @@ export class DiscussionsController extends GenericController<Discussion> {
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
     public async updateDiscussion(
         @Param('discussionId') discussionId: string,
-        @Body() updateDiscussionRequest: UpdateDiscussionRequest,
-    ): Promise<NormalizedResponse<Discussion>> {
-        const updatedDiscussion: Discussion = await this.discussionsService.updateDiscussion(discussionId, updateDiscussionRequest)
-        return new NormalizedResponse(updatedDiscussion)
+        @Body() data: UpdateDiscussionRequestDTO,
+    ): Promise<NormalizedResponseDTO<Discussion>> {
+        const updatedDiscussion: Discussion = await this.discussionsService.updateDiscussion(discussionId, data)
+        return new NormalizedResponseDTO(updatedDiscussion)
     }
 
     @Delete('/:discussionId')
@@ -119,8 +119,8 @@ export class DiscussionsController extends GenericController<Discussion> {
     })
     @Permission([DiscussionPermissionsEnum.DELETE])
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
-    public async deleteDiscussion(@Param('discussionId') discussionId: string): Promise<NormalizedResponse<Discussion>> {
+    public async deleteDiscussion(@Param('discussionId') discussionId: string): Promise<NormalizedResponseDTO<Discussion>> {
         const deletedDiscussion: Discussion = await this.discussionsService.deleteDiscussion(discussionId)
-        return new NormalizedResponse(deletedDiscussion)
+        return new NormalizedResponseDTO(deletedDiscussion)
     }
 }

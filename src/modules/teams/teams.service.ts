@@ -8,7 +8,7 @@ import {
     TeamMemberJoin,
     TeamVisibilityEnum,
     Token,
-    UpdateTeamMembers,
+    UpdateTeamMembersDTO,
     User,
 } from '@kyso-io/kyso-model'
 import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
@@ -301,7 +301,7 @@ export class TeamsService extends AutowiredService {
         return this.getMembers(team.id)
     }
 
-    public async updateTeamMembersRoles(teamName: string, data: UpdateTeamMembers): Promise<TeamMember[]> {
+    public async UpdateTeamMembersDTORoles(teamName: string, data: UpdateTeamMembersDTO): Promise<TeamMember[]> {
         const team: Team = await this.getTeam({ filter: { name: teamName } })
         if (!team) {
             throw new PreconditionFailedException('Team not found')

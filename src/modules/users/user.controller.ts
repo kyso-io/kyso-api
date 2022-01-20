@@ -1,4 +1,4 @@
-import { NormalizedResponse, Token, User } from '@kyso-io/kyso-model'
+import { NormalizedResponseDTO, Token, User } from '@kyso-io/kyso-model'
 import { Controller, Get, Headers, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -39,12 +39,12 @@ export class UserController extends GenericController<User> {
         description: `Authenticated user data`,
         type: User,
     })
-    async getAuthenticatedUser(@Headers('authorization') authorizationHeader: string): Promise<NormalizedResponse<User>> {
+    async getAuthenticatedUser(@Headers('authorization') authorizationHeader: string): Promise<NormalizedResponseDTO<User>> {
         const splittedToken = authorizationHeader.split('Bearer ')[1]
 
         const token: Token = this.authService.evaluateAndDecodeToken(splittedToken)
 
         const user: User = await this.usersService.getUser({ filter: { username: token.username } })
-        return new NormalizedResponse(user)
+        return new NormalizedResponseDTO(user)
     }
 }

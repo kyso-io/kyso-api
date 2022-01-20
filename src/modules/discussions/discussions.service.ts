@@ -1,4 +1,4 @@
-import { CreateDiscussionRequest, Discussion, Team, UpdateDiscussionRequest, User } from '@kyso-io/kyso-model'
+import { CreateDiscussionRequestDTO, Discussion, Team, UpdateDiscussionRequestDTO, User } from '@kyso-io/kyso-model'
 import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -43,43 +43,43 @@ export class DiscussionsService extends AutowiredService {
         return discussions.length > 0 ? discussions[0] : null
     }
 
-    public async createDiscussion(createDiscussionRequest: CreateDiscussionRequest): Promise<Discussion> {
-        const author: User = await this.usersService.getUserById(createDiscussionRequest.user_id)
+    public async createDiscussion(data: CreateDiscussionRequestDTO): Promise<Discussion> {
+        const author: User = await this.usersService.getUserById(data.user_id)
         if (!author) {
             throw new PreconditionFailedException('Author not found')
         }
 
-        for (const participan_id of createDiscussionRequest.participants) {
+        for (const participan_id of data.participants) {
             const participant: User = await this.usersService.getUserById(participan_id)
             if (!participant) {
                 throw new PreconditionFailedException('Participant not found')
             }
         }
 
-        const team: Team = await this.teamsService.getTeamById(createDiscussionRequest.team_id)
+        const team: Team = await this.teamsService.getTeamById(data.team_id)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
 
         const discussion: Discussion = new Discussion(
-            createDiscussionRequest.answered,
-            createDiscussionRequest.assignees,
-            createDiscussionRequest.user_id,
-            createDiscussionRequest.closed,
-            createDiscussionRequest.description,
-            createDiscussionRequest.discussion_number,
-            createDiscussionRequest.main,
+            data.answered,
+            data.assignees,
+            data.user_id,
+            data.closed,
+            data.description,
+            data.discussion_number,
+            data.main,
             author.nickname,
-            createDiscussionRequest.participants,
-            createDiscussionRequest.request_private,
-            createDiscussionRequest.team_id,
-            createDiscussionRequest.title,
-            createDiscussionRequest.url_name,
+            data.participants,
+            data.request_private,
+            data.team_id,
+            data.title,
+            data.url_name,
         )
         return this.provider.create(discussion)
     }
 
-    public async updateDiscussion(id: string, updateDiscussionRequest: UpdateDiscussionRequest): Promise<Discussion> {
+    public async updateDiscussion(id: string, data: UpdateDiscussionRequestDTO): Promise<Discussion> {
         const discussion: Discussion = await this.getDiscussion({ filer: { id: this.provider.toObjectId(id), mark_delete_at: { $ne: null } } })
         if (!discussion) {
             throw new PreconditionFailedException('Discussion not found')
@@ -88,17 +88,17 @@ export class DiscussionsService extends AutowiredService {
             { _id: this.provider.toObjectId(discussion.id) },
             {
                 $set: {
-                    answered: updateDiscussionRequest.answered,
-                    assignees: updateDiscussionRequest.assignees,
-                    closed: updateDiscussionRequest.closed,
-                    description: updateDiscussionRequest.description,
-                    discussion_number: updateDiscussionRequest.discussion_number,
+                    answered: data.answered,
+                    assignees: data.assignees,
+                    closed: data.closed,
+                    description: data.description,
+                    discussion_number: data.discussion_number,
                     edited: true,
-                    main: updateDiscussionRequest.main,
-                    participants: updateDiscussionRequest.participants,
-                    request_private: updateDiscussionRequest.request_private,
-                    title: updateDiscussionRequest.title,
-                    url_name: updateDiscussionRequest.url_name,
+                    main: data.main,
+                    participants: data.participants,
+                    request_private: data.request_private,
+                    title: data.title,
+                    url_name: data.url_name,
                     updated_at: new Date(),
                 },
             },

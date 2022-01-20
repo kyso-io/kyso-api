@@ -1,4 +1,4 @@
-import { CreateReport, Report, User } from '@kyso-io/kyso-model'
+import { CreateReportDTO, Report, User } from '@kyso-io/kyso-model'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -107,29 +107,29 @@ export class ReportsService extends AutowiredService {
         return reports.length === 1 ? reports[0] : null
     }
 
-    async createReport(user: User, createReportRequest: CreateReport, teamName) {
-        if (!Validators.isValidReportName(createReportRequest.name))
+    async createReport(user: User, CreateReportDTORequest: CreateReportDTO, teamName) {
+        if (!Validators.isValidReportName(CreateReportDTORequest.name))
             throw new InvalidInputError({
                 message: `Study name can only consist of letters, numbers, '_' and '-'.`,
             })
 
-        const basePath = (createReportRequest.path || '').replace(/^[.]\//, '')
-        const reportName = createReportRequest.name
+        const basePath = (CreateReportDTORequest.path || '').replace(/^[.]\//, '')
+        const reportName = CreateReportDTORequest.name
 
-        // const reportName = generateReportName(createReportRequest.name, basePath)
+        // const reportName = generateReportName(CreateReportDTORequest.name, basePath)
 
         // OLD line... what is he doing with the result of this???
-        // await this.reposService({ provider: createReportRequest.src.provider, accessToken: user.accessToken }).getRepo(user, createReportRequest.src.owner, createReportRequest.src.name)
+        // await this.reposService({ provider: CreateReportDTORequest.src.provider, accessToken: user.accessToken }).getRepo(user, CreateReportDTORequest.src.owner, CreateReportDTORequest.src.name)
 
         // NEW
-        switch (createReportRequest.provider) {
+        switch (CreateReportDTORequest.provider) {
             case 'github':
                 if (!user.accessToken) {
                     Logger.error(`User ${user.username} does not have a valid accessToken to make login in Github`, ReportsService.name)
                     break
                 }
                 this.githubReposService.login(user.accessToken)
-                await this.githubReposService.getRepo(user, createReportRequest.owner, createReportRequest.name)
+                await this.githubReposService.getRepo(user, CreateReportDTORequest.owner, CreateReportDTORequest.name)
                 break
             default:
                 break
@@ -154,7 +154,7 @@ export class ReportsService extends AutowiredService {
             usedNameQuery.filter.team_id = report.team_id
         } else {
             usedNameQuery.filter.user_id = report.user_id
-            report.team_id = createReportRequest.team_id
+            report.team_id = CreateReportDTORequest.team_id
         }
 
         const reports = await this.provider.read(usedNameQuery)
@@ -167,7 +167,7 @@ export class ReportsService extends AutowiredService {
         try {
             // OLD LINE
             // metadata = await this.reposService({ provider: data.src.provider, accessToken: user.accessToken }).getConfigFile(basePath, data.src.owner, data.src.name, data.src.default_branch)
-            switch (createReportRequest.provider) {
+            switch (CreateReportDTORequest.provider) {
                 case 'github':
                     if (!user.accessToken) {
                         Logger.error(`User ${user.username} does not have a valid accessToken to make login in Github`, ReportsService.name)
@@ -176,9 +176,9 @@ export class ReportsService extends AutowiredService {
                     this.githubReposService.login(user.accessToken)
                     metadata = this.githubReposService.getConfigFile(
                         basePath,
-                        createReportRequest.owner,
-                        createReportRequest.name,
-                        createReportRequest.default_branch,
+                        CreateReportDTORequest.owner,
+                        CreateReportDTORequest.name,
+                        CreateReportDTORequest.default_branch,
                     )
                     break
                 default:
@@ -193,10 +193,10 @@ export class ReportsService extends AutowiredService {
             ...report,
             name: reportName,
             provider: {
-                source: createReportRequest.provider,
-                owner: createReportRequest.owner,
-                name: createReportRequest.name,
-                defaultBranch: createReportRequest.default_branch,
+                source: CreateReportDTORequest.provider,
+                owner: CreateReportDTORequest.owner,
+                name: CreateReportDTORequest.name,
+                defaultBranch: CreateReportDTORequest.default_branch,
                 basePath,
             },
             links: {},

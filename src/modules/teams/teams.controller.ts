@@ -1,12 +1,12 @@
 import {
     HEADER_X_KYSO_ORGANIZATION,
     HEADER_X_KYSO_TEAM,
-    NormalizedResponse,
+    NormalizedResponseDTO,
     Report,
     Team,
     TeamMember,
     Token,
-    UpdateTeamMembers,
+    UpdateTeamMembersDTO,
     UpdateTeamRequest,
 } from '@kyso-io/kyso-model'
 import {
@@ -69,13 +69,13 @@ export class TeamsController extends GenericController<Team> {
         required: true,
     })
     @Permission([TeamPermissionsEnum.READ])
-    async getVisibilityTeams(@Req() req): Promise<NormalizedResponse<Team[]>> {
+    async getVisibilityTeams(@Req() req): Promise<NormalizedResponseDTO<Team[]>> {
         const splittedToken = req.headers['authorization'].split('Bearer ')[1]
 
         const token: Token = this.authService.evaluateAndDecodeToken(splittedToken)
 
         const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
-        return new NormalizedResponse(teams)
+        return new NormalizedResponseDTO(teams)
     }
 
     @Get('/:id')
@@ -91,13 +91,13 @@ export class TeamsController extends GenericController<Team> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Team matching id`, type: Team })
     @Permission([TeamPermissionsEnum.READ])
-    async getTeamById(@Param('id') id: string): Promise<NormalizedResponse<Team>> {
+    async getTeamById(@Param('id') id: string): Promise<NormalizedResponseDTO<Team>> {
         const team: Team = await this.teamsService.getTeamById(id)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
         this.assignReferences(team)
-        return new NormalizedResponse(team)
+        return new NormalizedResponseDTO(team)
     }
 
     @Get('/check-name/:name')
@@ -113,9 +113,9 @@ export class TeamsController extends GenericController<Team> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Boolean })
     @Permission([TeamPermissionsEnum.READ])
-    public async checkIfTeamNameIsUnique(@Param('name') name: string): Promise<NormalizedResponse<boolean>> {
+    public async checkIfTeamNameIsUnique(@Param('name') name: string): Promise<NormalizedResponseDTO<boolean>> {
         const team: Team = await this.teamsService.getTeam({ filter: { name } })
-        return new NormalizedResponse<boolean>(team !== null)
+        return new NormalizedResponseDTO<boolean>(team !== null)
     }
 
     @Get('/:id/members')
@@ -136,9 +136,9 @@ export class TeamsController extends GenericController<Team> {
         required: true,
     })
     @Permission([TeamPermissionsEnum.READ])
-    async getTeamMembers(@Param('id') id: string): Promise<NormalizedResponse<TeamMember[]>> {
+    async getTeamMembers(@Param('id') id: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
         const data: TeamMember[] = await this.teamsService.getMembers(id)
-        return new NormalizedResponse(data)
+        return new NormalizedResponseDTO(data)
     }
 
     @Get('/:teamId/members/:userId')
@@ -165,14 +165,14 @@ export class TeamsController extends GenericController<Team> {
         required: true,
     })
     @Permission([TeamPermissionsEnum.READ])
-    async getTeamMember(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponse<boolean>> {
+    async getTeamMember(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<boolean>> {
         const team: Team = await this.teamsService.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
         const teamMember: TeamMember[] = await this.teamsService.getMembers(team.id)
         const belongs: boolean = teamMember.findIndex((member: TeamMember) => member.id === userId) !== -1
-        return new NormalizedResponse(belongs)
+        return new NormalizedResponseDTO(belongs)
     }
 
     @Patch('/:teamId/members/:userId')
@@ -194,9 +194,9 @@ export class TeamsController extends GenericController<Team> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
     @Permission([TeamPermissionsEnum.EDIT])
-    async addMemberToTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponse<TeamMember[]>> {
+    async addMemberToTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
         const members: TeamMember[] = await this.teamsService.addMemberToTeam(teamId, userId)
-        return new NormalizedResponse(members)
+        return new NormalizedResponseDTO(members)
     }
 
     @Delete('/:teamId/members/:userId')
@@ -218,9 +218,9 @@ export class TeamsController extends GenericController<Team> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
     @Permission([TeamPermissionsEnum.EDIT])
-    async removeMemberFromTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponse<TeamMember[]>> {
+    async removeMemberFromTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
         const members: TeamMember[] = await this.teamsService.removeMemberFromTeam(teamId, userId)
-        return new NormalizedResponse(members)
+        return new NormalizedResponseDTO(members)
     }
 
     @Patch('/:teamId')
@@ -245,13 +245,13 @@ export class TeamsController extends GenericController<Team> {
         required: true,
     })
     @Permission([TeamPermissionsEnum.EDIT])
-    async updateTeam(@Param('teamId') teamId: string, @Body() data: UpdateTeamRequest): Promise<NormalizedResponse<Team>> {
+    async updateTeam(@Param('teamId') teamId: string, @Body() data: UpdateTeamRequest): Promise<NormalizedResponseDTO<Team>> {
         const team: Team = await this.teamsService.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
         const upadtedTeam: Team = await this.teamsService.updateTeam({ id: new ObjectId(teamId) }, { $set: data })
-        return new NormalizedResponse(upadtedTeam)
+        return new NormalizedResponseDTO(upadtedTeam)
     }
 
     @Post()
@@ -265,9 +265,9 @@ export class TeamsController extends GenericController<Team> {
         type: Team,
     })
     @Permission([TeamPermissionsEnum.CREATE])
-    async createTeam(@Body() team: Team): Promise<NormalizedResponse<Team>> {
+    async createTeam(@Body() team: Team): Promise<NormalizedResponseDTO<Team>> {
         const teamDb: Team = await this.teamsService.createTeam(team)
-        return new NormalizedResponse(teamDb)
+        return new NormalizedResponseDTO(teamDb)
     }
 
     @Get('/:teamId/reports')
@@ -288,9 +288,9 @@ export class TeamsController extends GenericController<Team> {
         required: true,
     })
     @Permission([TeamPermissionsEnum.READ])
-    async getReportsOfTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string): Promise<NormalizedResponse<Report[]>> {
+    async getReportsOfTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Report[]>> {
         const reports: Report[] = await this.teamsService.getReportsOfTeam(token, teamId)
-        return new NormalizedResponse(reports)
+        return new NormalizedResponseDTO(reports)
     }
 
     @Post('/:teamId/members-roles')
@@ -306,9 +306,9 @@ export class TeamsController extends GenericController<Team> {
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: TeamMember })
     @Permission([TeamPermissionsEnum.EDIT])
-    public async updateTeamMembersRoles(@Param('teamId') teamId: string, @Body() data: UpdateTeamMembers): Promise<NormalizedResponse<TeamMember[]>> {
-        const teamMembers: TeamMember[] = await this.teamsService.updateTeamMembersRoles(teamId, data)
-        return new NormalizedResponse(teamMembers)
+    public async UpdateTeamMembersDTORoles(@Param('teamId') teamId: string, @Body() data: UpdateTeamMembersDTO): Promise<NormalizedResponseDTO<TeamMember[]>> {
+        const teamMembers: TeamMember[] = await this.teamsService.UpdateTeamMembersDTORoles(teamId, data)
+        return new NormalizedResponseDTO(teamMembers)
     }
 
     @Delete('/:teamId/members-roles/:userId/:role')
@@ -340,9 +340,9 @@ export class TeamsController extends GenericController<Team> {
         @Param('teamId') teamId: string,
         @Param('userId') userId: string,
         @Param('role') role: string,
-    ): Promise<NormalizedResponse<TeamMember[]>> {
+    ): Promise<NormalizedResponseDTO<TeamMember[]>> {
         const teamMembers: TeamMember[] = await this.teamsService.removeTeamMemberRole(teamId, userId, role)
-        return new NormalizedResponse(teamMembers)
+        return new NormalizedResponseDTO(teamMembers)
     }
 
     @Get('/:teamId/members/:userId')
@@ -362,9 +362,9 @@ export class TeamsController extends GenericController<Team> {
         description: `Id of the user to check`,
         schema: { type: 'string' },
     })
-    public async userBelongsToTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponse<boolean>> {
+    public async userBelongsToTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<boolean>> {
         const belongs: boolean = await this.teamsService.userBelongsToTeam(teamId, userId)
-        return new NormalizedResponse(belongs)
+        return new NormalizedResponseDTO(belongs)
     }
 
     @UseInterceptors(
@@ -397,12 +397,12 @@ export class TeamsController extends GenericController<Team> {
     @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: Team })
     @Permission([TeamPermissionsEnum.EDIT])
     // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
-    public async setProfilePicture(@Param('teamId') teamId: string, @UploadedFile() file: any /*Express.Multer.File*/): Promise<NormalizedResponse<Team>> {
+    public async setProfilePicture(@Param('teamId') teamId: string, @UploadedFile() file: any /*Express.Multer.File*/): Promise<NormalizedResponseDTO<Team>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }
         const team: Team = await this.teamsService.setProfilePicture(teamId, file)
-        return new NormalizedResponse(team)
+        return new NormalizedResponseDTO(team)
     }
 
     @Delete('/:teamId/profile-picture')
@@ -417,9 +417,9 @@ export class TeamsController extends GenericController<Team> {
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Team })
-    public async deleteBackgroundImage(@Param('teamId') teamId: string): Promise<NormalizedResponse<Team>> {
+    public async deleteBackgroundImage(@Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Team>> {
         const team: Team = await this.teamsService.deleteProfilePicture(teamId)
-        return new NormalizedResponse(team)
+        return new NormalizedResponseDTO(team)
     }
 
     @Delete('/:teamId')
@@ -435,8 +435,8 @@ export class TeamsController extends GenericController<Team> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Deleted team`, type: Team })
     @Permission([TeamPermissionsEnum.DELETE])
-    public async deleteTeam(@Param('teamId') teamId: string): Promise<NormalizedResponse<Team>> {
+    public async deleteTeam(@Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Team>> {
         const team: Team = await this.teamsService.deleteTeam(teamId)
-        return new NormalizedResponse(team)
+        return new NormalizedResponseDTO(team)
     }
 }

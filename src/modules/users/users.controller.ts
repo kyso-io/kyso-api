@@ -1,4 +1,4 @@
-import { BaseFilterQuery, CreateUserRequest, NormalizedResponse, Token, UpdateUserRequest, User, UserAccount } from '@kyso-io/kyso-model'
+import { BaseFilterQueryDTO, CreateUserRequestDTO, NormalizedResponseDTO, Token, UpdateUserRequestDTO, User, UserAccount } from '@kyso-io/kyso-model'
 import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
@@ -39,7 +39,7 @@ export class UsersController extends GenericController<User> {
         type: User,
     })
     @Permission([UserPermissionsEnum.READ])
-    async getUsers(@Req() req, @Query() filters: BaseFilterQuery): Promise<NormalizedResponse<User[]>> {
+    async getUsers(@Req() req, @Query() filters: BaseFilterQueryDTO): Promise<NormalizedResponseDTO<User[]>> {
         // <-- Lack of documentation due to inconsistent stuff
         // filters variable is just for documentation purposes. But a refactoring removing Req and Res would be great.
         const query = QueryParser.toQueryObject(req.url)
@@ -55,7 +55,7 @@ export class UsersController extends GenericController<User> {
         }
 
         const result: User[] = await this.usersService.getUsers(query)
-        return new NormalizedResponse(result)
+        return new NormalizedResponseDTO(result)
     }
 
     @Get('/:userId')
@@ -71,13 +71,13 @@ export class UsersController extends GenericController<User> {
     })
     @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
     @Permission([UserPermissionsEnum.READ])
-    async getUserById(@Param('userId') userId: string): Promise<NormalizedResponse<User>> {
+    async getUserById(@Param('userId') userId: string): Promise<NormalizedResponseDTO<User>> {
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new BadRequestException(`User with id ${userId} not found`)
         }
         this.assignReferences(user)
-        return new NormalizedResponse(user)
+        return new NormalizedResponseDTO(user)
     }
 
     @Post()
@@ -87,8 +87,8 @@ export class UsersController extends GenericController<User> {
     })
     @ApiNormalizedResponse({ status: 201, description: `User creation gone well`, type: User })
     @Permission([UserPermissionsEnum.CREATE])
-    async createUser(@Body() user: CreateUserRequest): Promise<NormalizedResponse<User>> {
-        return new NormalizedResponse(await this.usersService.createUser(user))
+    async createUser(@Body() user: CreateUserRequestDTO): Promise<NormalizedResponseDTO<User>> {
+        return new NormalizedResponseDTO(await this.usersService.createUser(user))
     }
 
     @Patch('/:userId')
@@ -107,9 +107,9 @@ export class UsersController extends GenericController<User> {
         description: `Authenticated user data`,
         type: User,
     })
-    public async updateUserData(@Param('userId') userId: string, @Body() data: UpdateUserRequest): Promise<NormalizedResponse<User>> {
+    public async updateUserData(@Param('userId') userId: string, @Body() data: UpdateUserRequestDTO): Promise<NormalizedResponseDTO<User>> {
         const user: User = await this.usersService.updateUserData(userId, data)
-        return new NormalizedResponse(user)
+        return new NormalizedResponseDTO(user)
     }
 
     @Delete('/:id')
@@ -126,9 +126,9 @@ export class UsersController extends GenericController<User> {
     @ApiResponse({ status: 200, description: `Deletion done successfully` })
     @ApiNormalizedResponse({ status: 200, description: `Organization matching name`, type: Boolean })
     @Permission([UserPermissionsEnum.DELETE])
-    async deleteUser(@Param('userId') userId: string): Promise<NormalizedResponse<boolean>> {
+    async deleteUser(@Param('userId') userId: string): Promise<NormalizedResponseDTO<boolean>> {
         const deleted: boolean = await this.usersService.deleteUser(userId)
-        return new NormalizedResponse(deleted)
+        return new NormalizedResponseDTO(deleted)
     }
 
     @Patch('/:userId/accounts')
@@ -200,12 +200,12 @@ export class UsersController extends GenericController<User> {
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated user`, type: User })
     // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
-    public async setProfilePicture(@CurrentToken() token: Token, @UploadedFile() file: any /*Express.Multer.File*/): Promise<NormalizedResponse<User>> {
+    public async setProfilePicture(@CurrentToken() token: Token, @UploadedFile() file: any /*Express.Multer.File*/): Promise<NormalizedResponseDTO<User>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }
         const user: User = await this.usersService.setProfilePicture(token, file)
-        return new NormalizedResponse(user)
+        return new NormalizedResponseDTO(user)
     }
 
     @Delete('/profile-picture')
@@ -214,8 +214,8 @@ export class UsersController extends GenericController<User> {
         description: `Allows deleting a profile picture for a user`,
     })
     @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: User })
-    public async deleteBackgroundImage(@CurrentToken() token: Token): Promise<NormalizedResponse<User>> {
+    public async deleteBackgroundImage(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<User>> {
         const user: User = await this.usersService.deleteProfilePicture(token)
-        return new NormalizedResponse(user)
+        return new NormalizedResponseDTO(user)
     }
 }

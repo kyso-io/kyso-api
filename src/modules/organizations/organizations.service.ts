@@ -1,4 +1,4 @@
-import { KysoRole, Organization, OrganizationMember, OrganizationMemberJoin, UpdateOrganizationMembers, User } from '@kyso-io/kyso-model'
+import { KysoRole, Organization, OrganizationMember, OrganizationMemberJoin, UpdateOrganizationMembersDTO, User } from '@kyso-io/kyso-model'
 import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -207,7 +207,7 @@ export class OrganizationsService extends AutowiredService {
         return true
     }
 
-    public async updateOrganizationMembersRoles(organizationId: string, data: UpdateOrganizationMembers): Promise<OrganizationMember[]> {
+    public async UpdateOrganizationMembersDTORoles(organizationId: string, data: UpdateOrganizationMembersDTO): Promise<OrganizationMember[]> {
         const organization: Organization = await this.getOrganizationById(organizationId)
         if (!organization) {
             throw new PreconditionFailedException('Organization does not exist')

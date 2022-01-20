@@ -1,13 +1,13 @@
 import {
-    BatchReportCreation,
+    BatchReportCreationDTO,
     Branch,
     Comment,
-    CreateReportRequest,
-    NormalizedResponse,
+    CreateReportRequestDTO,
+    NormalizedResponseDTO,
     Report,
-    ReportFilterQuery,
+    ReportFilterQueryDTO,
     Token,
-    UpdateReportRequest,
+    UpdateReportRequestDTO,
     User,
 } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common'
@@ -35,7 +35,7 @@ const DEFAULT_GET_REPORT_FILTERS = {
     hidden: { $ne: 'true' },
 }
 
-@ApiExtraModels(Report, NormalizedResponse)
+@ApiExtraModels(Report, NormalizedResponseDTO)
 @ApiTags('reports')
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
@@ -70,7 +70,7 @@ export class ReportsController extends GenericController<Report> {
         isArray: true,
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getReports(@Req() req, @Query() paginationQuery: ReportFilterQuery): Promise<NormalizedResponse<Report[]>> {
+    async getReports(@Req() req, @Query() paginationQuery: ReportFilterQueryDTO): Promise<NormalizedResponseDTO<Report[]>> {
         // Object paginationQuery is there for documentation purposes. A refactor of this method should be done in the future
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) query.sort = { _created_at: -1 }
@@ -80,7 +80,7 @@ export class ReportsController extends GenericController<Report> {
         })
         const reports: Report[] = await this.reportsService.getReports(query)
         const relations = await this.relationsService.getRelations(reports, 'report')
-        return new NormalizedResponse(reports, relations)
+        return new NormalizedResponseDTO(reports, relations)
     }
 
     @Get('/:reportId')
@@ -100,13 +100,13 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getReport(@Param('reportId') reportId: string): Promise<NormalizedResponse<Report>> {
+    async getReport(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
             throw new InvalidInputError('Report not found')
         }
         const relations = await this.relationsService.getRelations(report, 'report')
-        return new NormalizedResponse(report, relations)
+        return new NormalizedResponseDTO(report, relations)
     }
 
     @Get('/:userId/pinned')
@@ -126,14 +126,14 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getPinnedReportsForAnUser(@Param('userId') userId: string): Promise<NormalizedResponse<Report[]>> {
+    async getPinnedReportsForAnUser(@Param('userId') userId: string): Promise<NormalizedResponseDTO<Report[]>> {
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new InvalidInputError('User not found')
         }
         const reports: Report[] = await this.reportsService.getReports({ pin: true, user_id: user.id })
         const relations = await this.relationsService.getRelations(reports, 'report')
-        return new NormalizedResponse(reports, relations)
+        return new NormalizedResponseDTO(reports, relations)
     }
 
     @Post()
@@ -145,11 +145,11 @@ export class ReportsController extends GenericController<Report> {
         status: 201,
         description: `Created report object if passed a single Report, or an array of report creation status if passed an array of reports to create (see schemas)`,
         schema: {
-            oneOf: [{ $ref: getSchemaPath(Report) }, { $ref: getSchemaPath(BatchReportCreation) }],
+            oneOf: [{ $ref: getSchemaPath(Report) }, { $ref: getSchemaPath(BatchReportCreationDTO) }],
         },
     })
     @ApiBody({
-        type: CreateReportRequest,
+        type: CreateReportRequestDTO,
         description: 'Pass an array to create multiple objects',
     })
     @Permission([ReportPermissionsEnum.CREATE])
@@ -182,7 +182,7 @@ export class ReportsController extends GenericController<Report> {
         const report = await this.reportsService.getReport(owner, created.name)
 
         const relations = await this.relationsService.getRelations(report, 'report')
-        res.status(201).send(new NormalizedResponse(report, relations))
+        res.status(201).send(new NormalizedResponseDTO(report, relations))
         return
     }
 
@@ -202,9 +202,9 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to update',
         schema: { type: 'string' },
     })
-    @ApiBody({ type: UpdateReportRequest })
+    @ApiBody({ type: UpdateReportRequestDTO })
     @Permission([ReportPermissionsEnum.EDIT])
-    async updateReport(@Param('reportId') reportId: string, @Body() body: any): Promise<NormalizedResponse<Report>> {
+    async updateReport(@Param('reportId') reportId: string, @Body() body: any): Promise<NormalizedResponseDTO<Report>> {
         const fields = Object.fromEntries(Object.entries(body).filter((entry) => UPDATABLE_FIELDS.includes(entry[0])))
 
         const { stars, ...rest } = fields
@@ -219,7 +219,7 @@ export class ReportsController extends GenericController<Report> {
                 : await this.reportsService.updateReport(reportId, updatePayload)
 
         const relations = await this.relationsService.getRelations(report, 'report')
-        return new NormalizedResponse(report, relations)
+        return new NormalizedResponseDTO(report, relations)
     }
 
     @Delete('/:reportId')
@@ -235,13 +235,13 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.DELETE])
-    async deleteReport(@Param('reportId') reportId: string): Promise<NormalizedResponse<Report>> {
+    async deleteReport(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
             throw new InvalidInputError('Report not found')
         }
         await this.reportsService.deleteReport(reportId)
-        return new NormalizedResponse(report)
+        return new NormalizedResponseDTO(report)
     }
 
     @Post('/:reportId/pin')
@@ -261,10 +261,10 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.EDIT])
-    async pinReport(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponse<Report>> {
+    async pinReport(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.pinReport(token.id, reportId)
         const relations = await this.relationsService.getRelations(report, 'report')
-        return new NormalizedResponse(report, relations)
+        return new NormalizedResponseDTO(report, relations)
     }
 
     @Get('/:reportId/comments')
@@ -285,14 +285,14 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getComments(@Param('reportId') reportId: string): Promise<NormalizedResponse<Comment[]>> {
+    async getComments(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Comment[]>> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
             throw new InvalidInputError('Report not found')
         }
         const comments: Comment[] = await this.commentsService.getComments({ report_id: reportId })
         const relations = await this.relationsService.getRelations(comments, 'comment')
-        return new NormalizedResponse(
+        return new NormalizedResponseDTO(
             comments.filter((comment: Comment) => !comment.comment_id),
             relations,
         )
@@ -316,9 +316,9 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getBranches(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponse<any[]>> {
+    async getBranches(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<any[]>> {
         const branches: any[] = await this.reportsService.getBranches(token.id, reportId)
-        return new NormalizedResponse(branches)
+        return new NormalizedResponseDTO(branches)
     }
 
     @Get('/:reportId/:branch/commits')
@@ -339,9 +339,9 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getCommits(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Param('branch') branch: string): Promise<NormalizedResponse<any[]>> {
+    async getCommits(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Param('branch') branch: string): Promise<NormalizedResponseDTO<any[]>> {
         const commits: any[] = await this.reportsService.getCommits(token.id, reportId, branch)
-        return new NormalizedResponse(commits)
+        return new NormalizedResponseDTO(commits)
     }
 
     // todo: this function name is confusing?
@@ -379,9 +379,9 @@ export class ReportsController extends GenericController<Report> {
         @Param('reportId') reportId: string,
         @Param('branch') branch: string,
         @Param('filePath') filePath: string,
-    ): Promise<NormalizedResponse<any>> {
+    ): Promise<NormalizedResponseDTO<any>> {
         const hash: any = await this.reportsService.getFileHash(token.id, reportId, branch, filePath)
-        return new NormalizedResponse(hash)
+        return new NormalizedResponseDTO(hash)
     }
 
     @Get('/:reportId/file/:hash')
@@ -411,13 +411,13 @@ export class ReportsController extends GenericController<Report> {
         @CurrentToken() token: Token,
         @Param('reportId') reportId: string,
         @Param('hash') hash: string,
-    ): Promise<NormalizedResponse<any>> {
+    ): Promise<NormalizedResponseDTO<any>> {
         if (!Validators.isValidSha(hash)) {
             throw new InvalidInputError({
                 message: 'Hash is not a valid sha. Must have 40 hexadecimal characters.',
             })
         }
         const content = await this.reportsService.getReportFileContent(token.id, reportId, hash)
-        return new NormalizedResponse(content)
+        return new NormalizedResponseDTO(content)
     }
 }

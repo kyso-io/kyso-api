@@ -1,4 +1,4 @@
-import { CreateUserRequest, Organization, Team, TeamVisibilityEnum, Token, UpdateUserRequest, User, UserAccount } from '@kyso-io/kyso-model'
+import { CreateUserRequestDTO, Organization, Team, TeamVisibilityEnum, Token, UpdateUserRequestDTO, User, UserAccount } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { existsSync, unlinkSync } from 'fs'
@@ -60,7 +60,7 @@ export class UsersService extends AutowiredService {
         return this.provider.update(filterQuery, updateQuery)
     }
 
-    async createUser(userToCreate: CreateUserRequest): Promise<User> {
+    async createUser(userToCreate: CreateUserRequestDTO): Promise<User> {
         // exists a prev user with same email?
         const user: User = await this.getUser({ filter: { email: userToCreate.email } })
 
@@ -175,7 +175,7 @@ export class UsersService extends AutowiredService {
         return true
     }
 
-    public async updateUserData(id: string, data: UpdateUserRequest): Promise<User> {
+    public async updateUserData(id: string, data: UpdateUserRequestDTO): Promise<User> {
         const user: User = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
         if (!user) {
             throw new PreconditionFailedException(null, `Can't update user as does not exists`)

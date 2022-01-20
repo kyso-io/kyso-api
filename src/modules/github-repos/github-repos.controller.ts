@@ -1,4 +1,4 @@
-import { GithubAccount, NormalizedResponse, Repository } from '@kyso-io/kyso-model'
+import { GithubAccount, NormalizedResponseDTO, Repository } from '@kyso-io/kyso-model'
 import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -45,7 +45,7 @@ export class GithubReposController extends GenericController<Repository> {
 
         repos.forEach((x) => this.assignReferences(x))
 
-        return new NormalizedResponse(repos)
+        return new NormalizedResponseDTO(repos)
     }
 
     @Get('/:repoOwner/:repoName')
@@ -71,10 +71,10 @@ export class GithubReposController extends GenericController<Repository> {
         type: Repository,
     })
     @Permission([GithubRepoPermissionsEnum.READ])
-    async getRepo(@Param('repoOwner') repoOwner: string, @Param('repoName') repoName: string, @Req() req): Promise<NormalizedResponse<any>> {
+    async getRepo(@Param('repoOwner') repoOwner: string, @Param('repoName') repoName: string, @Req() req): Promise<NormalizedResponseDTO<any>> {
         const repository: any = await this.reposService.getRepo(req.user, repoOwner, repoName)
         // this.assignReferences(repo)
-        return new NormalizedResponse(repository)
+        return new NormalizedResponseDTO(repository)
     }
 
     @Get('/:repoOwner/:repoName/:branch/tree')
@@ -111,7 +111,7 @@ export class GithubReposController extends GenericController<Repository> {
 
         const tree = await req.reposService.getRepoTree(repoOwner, repoName, branch)
 
-        return new NormalizedResponse(tree)
+        return new NormalizedResponseDTO(tree)
     }
 
     @Get('/user')
@@ -130,7 +130,7 @@ export class GithubReposController extends GenericController<Repository> {
 
         const user = await this.reposService.getUser()
 
-        return new NormalizedResponse(user)
+        return new NormalizedResponseDTO(user)
     }
 
     @Get('/user/access_token/:accessToken')
@@ -153,7 +153,7 @@ export class GithubReposController extends GenericController<Repository> {
     async getUserByAccessToken(@Param('accessToken') accessToken: string) {
         const user = await this.reposService.getUserByAccessToken(accessToken)
 
-        return new NormalizedResponse(user)
+        return new NormalizedResponseDTO(user)
     }
 
     @Get('/user/email/access_token/:accessToken')
@@ -176,6 +176,6 @@ export class GithubReposController extends GenericController<Repository> {
     async getUserEmailByAccessToken(@Param('accessToken') accessToken: string) {
         const email = await this.reposService.getEmailByAccessToken(accessToken)
 
-        return new NormalizedResponse(email)
+        return new NormalizedResponseDTO(email)
     }
 }
