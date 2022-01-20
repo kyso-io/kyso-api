@@ -231,7 +231,7 @@ export class TeamsController extends GenericController<Team> {
     @ApiParam({
         name: 'teamId',
         required: true,
-        description: `Name of the team to fetch`,
+        description: `Id of the team to fetch`,
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({
@@ -266,8 +266,8 @@ export class TeamsController extends GenericController<Team> {
     })
     @Permission([TeamPermissionsEnum.CREATE])
     async createTeam(@Body() team: Team): Promise<NormalizedResponseDTO<Team>> {
-        const teamDb: Team = await this.teamsService.createTeam(team)
-        return new NormalizedResponseDTO(teamDb)
+        const newTeam: Team = await this.teamsService.createTeam(team)
+        return new NormalizedResponseDTO(newTeam)
     }
 
     @Get('/:teamId/reports')
