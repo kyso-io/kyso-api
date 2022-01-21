@@ -109,7 +109,7 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponseDTO(report, relations)
     }
 
-    @Get('/:userId/pinned')
+    @Get('/user/:userId/pinned')
     @ApiOperation({
         summary: `Get pinned reports for an user`,
         description: `Allows fetching pinned reports of a specific user passing its id`,
@@ -126,7 +126,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getPinnedReportsForAnUser(@Param('userId') userId: string): Promise<NormalizedResponseDTO<Report[]>> {
+    async getPinnedReportsForAndUser(@Param('userId') userId: string): Promise<NormalizedResponseDTO<Report[]>> {
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new InvalidInputError('User not found')
@@ -153,7 +153,7 @@ export class ReportsController extends GenericController<Report> {
         description: 'Pass an array to create multiple objects',
     })
     @Permission([ReportPermissionsEnum.CREATE])
-    async createReport(@Req() req, @Req() res) {
+    async createReport(@Req() req, @Req() res): Promise<NormalizedResponseDTO<Report>> {
         const owner = req.body.team || req.user.nickname
         if (Array.isArray(req.body.reports)) {
             const promises = req.body.reports.map((report) => this.reportsService.createReport(req.user, report, req.body.team))
@@ -180,10 +180,8 @@ export class ReportsController extends GenericController<Report> {
 
         const created = await this.reportsService.createReport(req.user, req.body.reports, req.body.team)
         const report = await this.reportsService.getReport(owner, created.name)
-
         const relations = await this.relationsService.getRelations(report, 'report')
-        res.status(201).send(new NormalizedResponseDTO(report, relations))
-        return
+        return new NormalizedResponseDTO(report, relations)
     }
 
     @Patch('/:reportId')
@@ -236,15 +234,11 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.DELETE])
     async deleteReport(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
-        const report: Report = await this.reportsService.getReportById(reportId)
-        if (!report) {
-            throw new InvalidInputError('Report not found')
-        }
-        await this.reportsService.deleteReport(reportId)
+        const report: Report = await this.reportsService.deleteReport(reportId)
         return new NormalizedResponseDTO(report)
     }
 
-    @Post('/:reportId/pin')
+    @Patch('/:reportId/pin')
     @ApiOperation({
         summary: `Toggles the pin of the specified report`,
         description: `Allows pinning of the specified report, unpins any other pinned report for owner`,

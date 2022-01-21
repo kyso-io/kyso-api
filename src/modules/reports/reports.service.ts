@@ -216,8 +216,13 @@ export class ReportsService extends AutowiredService {
         return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: data })
     }
 
-    async deleteReport(reportId: string): Promise<void> {
-        return this.provider.deleteOne({ _id: this.provider.toObjectId(reportId) })
+    public async deleteReport(reportId: string): Promise<Report> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new NotFoundError({ message: 'The specified report could not be found' })
+        }
+        await this.provider.deleteOne({ _id: this.provider.toObjectId(reportId) })
+        return report
     }
 
     async pinReport(userId: string, reportId: string): Promise<Report> {
