@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 const aqp = require('api-query-params')
 const { parse } = require('url')
 

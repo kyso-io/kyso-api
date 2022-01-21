@@ -339,7 +339,11 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getCommits(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Param('branch') branch: string): Promise<NormalizedResponseDTO<any[]>> {
+    async getCommits(
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @Param('branch') branch: string,
+    ): Promise<NormalizedResponseDTO<any[]>> {
         const commits: any[] = await this.reportsService.getCommits(token.id, reportId, branch)
         return new NormalizedResponseDTO(commits)
     }

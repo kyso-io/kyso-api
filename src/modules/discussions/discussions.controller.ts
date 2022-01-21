@@ -1,5 +1,5 @@
 import { CreateDiscussionRequestDTO, Discussion, NormalizedResponseDTO, UpdateDiscussionRequestDTO } from '@kyso-io/kyso-model'
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, PreconditionFailedException, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, PreconditionFailedException, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
@@ -16,6 +16,39 @@ import { DiscussionPermissionsEnum } from './security/discussion-permissions.enu
 export class DiscussionsController extends GenericController<Discussion> {
     constructor(private readonly discussionsService: DiscussionsService) {
         super()
+    }
+
+    @Get()
+    @ApiOperation({ summary: 'Get all discussions' })
+    @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion, isArray: true })
+    @Permission(DiscussionPermissionsEnum.READ)
+    public async getDiscussions(
+        @Query('teamId') teamId: string,
+        @Query('userId') userId: string,
+        @Query('page', ParseIntPipe) page: number,
+        @Query('per_page', ParseIntPipe) per_page: number,
+        @Query('sort') sort: string,
+    ): Promise<NormalizedResponseDTO<Discussion[]>> {
+        const data: any = {
+            filter: {
+                mark_delete_at: { $ne: null },
+            },
+            sort: {
+                created_at: -1,
+            },
+            limit: per_page,
+            skip: (page - 1) * per_page,
+        }
+        if (teamId) {
+            data.filter.team_id = teamId
+        } else if (userId) {
+            data.filter.user_id = userId
+        }
+        if (sort && (sort === 'asc' || sort === 'desc')) {
+            data.sort.created_at = sort === 'asc' ? 1 : -1
+        }
+        const discussions: Discussion[] = await this.discussionsService.getDiscussions(data)
+        return new NormalizedResponseDTO(discussions)
     }
 
     @Get('/team-discussions/:teamId')

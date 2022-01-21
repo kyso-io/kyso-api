@@ -88,12 +88,11 @@ export class CommentsService extends AutowiredService {
         return this.provider.count(query)
     }
 
-    async deleteComment(token: Token, id: string): Promise<boolean> {
-        const comments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(id) } })
-        if (comments.length === 0) {
+    async deleteComment(token: Token, commentId: string): Promise<Comment> {
+        const comment: Comment = await this.getCommentById(commentId)
+        if (!comment) {
             throw new PreconditionFailedException('The specified comment could not be found')
         }
-        const comment: Comment = comments[0]
         const report: Report = await this.reportsService.getReportById(comment.report_id)
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
@@ -111,8 +110,8 @@ export class CommentsService extends AutowiredService {
         if (!userIsCommentCreator && !hasCommentPermissionAdmin && !hasGlobalPermissionAdmin) {
             throw new PreconditionFailedException('The specified user does not have permission to delete this comment')
         }
-        await this.provider.deleteOne({ _id: this.provider.toObjectId(id) })
-        return true
+        await this.provider.deleteOne({ _id: this.provider.toObjectId(commentId) })
+        return comment
     }
 
     async getComments(query): Promise<Comment[]> {
