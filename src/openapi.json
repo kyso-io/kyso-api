@@ -8282,16 +8282,16 @@
       }
     },
     "/v1/teams/{teamId}/members-roles": {
-      "post": {
+      "patch": {
         "operationId": "TeamsController_UpdateTeamMembersDTORoles",
-        "summary": "Add a role to a member of a team",
+        "summary": "Add roles to members of a team",
         "description": "Allows adding a role to a member of a team passing its id",
         "parameters": [
           {
             "name": "teamId",
             "required": true,
             "in": "path",
-            "description": "Id of the team to fetch roles",
+            "description": "Id of the team to set user roles",
             "schema": {
               "type": "string"
             }
@@ -8602,7 +8602,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Updated organization",
+            "description": "Updated team",
             "content": {
               "application/json": {
                 "schema": {
