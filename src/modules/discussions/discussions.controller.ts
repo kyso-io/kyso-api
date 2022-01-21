@@ -1,4 +1,4 @@
-import { CreateDiscussionRequestDTO, Discussion, NormalizedResponseDTO, UpdateDiscussionRequestDTO } from '@kyso-io/kyso-model'
+import { CreateDiscussionRequestDTO, Discussion, NormalizedResponseDTO, UpdateDiscussionRequestDTO, Comment } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, PreconditionFailedException, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -102,6 +102,54 @@ export class DiscussionsController extends GenericController<Discussion> {
             throw new PreconditionFailedException('Discussion not found')
         }
         return new NormalizedResponseDTO(discussion)
+    }
+
+    @Get('/:teamId/:discussionNumber/comments')
+    @ApiOperation({
+        summary: `Get discussion's comments given id of the team and discussion number`,
+        description: `Get discussion given id of the team and discussion number`,
+    })
+    @ApiParam({
+        name: 'teamId',
+        required: true,
+        description: 'Id of the team to fetch the discussions',
+        schema: { type: 'string' },
+        example: 'K1bOzHjEmN',
+    })
+    @ApiParam({
+        name: 'discussionNumber',
+        required: true,
+        description: 'Discussion number of the discussion',
+        schema: { type: 'number' },
+        example: '1',
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Comments related to that discussion`, type: Comment, isArray: true })
+    @Permission([DiscussionPermissionsEnum.READ])
+    public async getDiscussionCommentsGivenTeamIdAndDiscussionNumber(
+        @Param('teamId') teamId: string,
+        @Param('discussionNumber', ParseIntPipe) discussionNumber: number,
+    ): Promise<NormalizedResponseDTO<Comment[]>> {
+        // TODO: THIS IS A FAKE RESPONSE
+        const fakeComments: Comment[] = []
+        
+        let comment1 = new Comment(
+            "So I got J&J as my first vaccine and two months later got a Moderna booster. Six months have passed and I wonder whether I should get an additional dose or not and if this should be Moderna or something else.",
+            "61a8ae8f9c2bc3c5a2144000",
+            "61ea82cb2e832f8e0ff9f0c5",
+            "61ea82c6ca89be622f1abd89"
+        )
+
+        let comment2 = new Comment(
+            "The vaccination you got was in retrospect a good idea, but it sounds like you did it through some unofficial/off-label channel (or were you in some trial?), because 1) 6 months ago there was no approved booster and 2) what you got was not the Moderna booster but rather the beginning of the 2-dose series. What the FDA approved and calls a Moderna booster is the 1/2 dose (50ug) shot. You probably just told them you were signing up to get the vaccine and hadn't gotten the J&J?",
+            "61a8ae8f9c2bc3c5a2144000",
+            "61ea82cb2e832f8e0ff9f0c5",
+            "61ea82c6ca89be622f1abd89"
+        )
+
+        fakeComments.push(comment1)
+        fakeComments.push(comment2)
+
+        return new NormalizedResponseDTO(fakeComments)
     }
 
     @Post()
