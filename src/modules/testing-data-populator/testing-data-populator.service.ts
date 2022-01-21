@@ -361,6 +361,7 @@ export class TestingDataPopulatorService {
     }
 
     private async createDiscussions() {
+        Logger.log(`Creating discussions...`)
         const discussion_one = new CreateDiscussionRequestDTO(
             false, 
             [],

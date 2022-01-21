@@ -44,7 +44,7 @@ export class UsersService extends AutowiredService {
     }
 
     public async getUserById(id: string): Promise<User> {
-        return this.getUser({ filter: { id: this.provider.toObjectId(id) } })
+        return this.getUser({ filter: { _id: this.provider.toObjectId(id) } })
     }
 
     async getUser(query): Promise<User> {
