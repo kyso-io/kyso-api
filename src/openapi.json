@@ -4720,9 +4720,9 @@
         ]
       }
     },
-    "/v1/reports/{userId}/pinned": {
+    "/v1/reports/user/{userId}/pinned": {
       "get": {
-        "operationId": "ReportsController_getPinnedReportsForAnUser",
+        "operationId": "ReportsController_getPinnedReportsForAndUser",
         "summary": "Get pinned reports for an user",
         "description": "Allows fetching pinned reports of a specific user passing its id",
         "parameters": [
@@ -4857,7 +4857,7 @@
       }
     },
     "/v1/reports/{reportId}/pin": {
-      "post": {
+      "patch": {
         "operationId": "ReportsController_pinReport",
         "summary": "Toggles the pin of the specified report",
         "description": "Allows pinning of the specified report, unpins any other pinned report for owner",
