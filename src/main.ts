@@ -6,6 +6,7 @@ import * as fs from 'fs'
 import * as helmet from 'helmet'
 import { MongoClient } from 'mongodb'
 import { RedocModule, RedocOptions } from 'nestjs-redoc'
+import * as path from 'path'
 import { AppModule } from './app.module'
 import { getSingletons, registerSingleton } from './decorators/autowired'
 import { TransformInterceptor } from './interceptors/exclude.interceptor'
@@ -57,6 +58,10 @@ async function bootstrap() {
         .build()
 
     const document = SwaggerModule.createDocument(app, config)
+
+    const jsonFile = './src/openapi.json'
+    Logger.log(`Writing openapi.json to ${jsonFile}`)
+    fs.writeFileSync(jsonFile, JSON.stringify(document, null, 2))
 
     if (process.env.NODE_ENV === 'development') {
         // Only publish in development / staging mode, remove for production - or discuss it...
