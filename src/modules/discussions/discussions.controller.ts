@@ -51,25 +51,6 @@ export class DiscussionsController extends GenericController<Discussion> {
         return new NormalizedResponseDTO(discussions)
     }
 
-    @Get('/team-discussions/:teamId')
-    @ApiOperation({
-        summary: 'Get all team discussions',
-        description: 'Get all team discussions',
-    })
-    @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
-    @ApiParam({
-        name: 'teamId',
-        required: true,
-        description: 'Id of the team to fetch the discussions',
-        schema: { type: 'string' },
-        example: 'K1bOzHjEmN',
-    })
-    @Permission([DiscussionPermissionsEnum.READ])
-    public async getDiscussionsByTeam(@Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Discussion[]>> {
-        const discussions: Discussion[] = await this.discussionsService.getDiscussions({ filter: { team_id: teamId, mark_delete_at: { $ne: null } } })
-        return new NormalizedResponseDTO(discussions)
-    }
-
     @Get('/:teamId/:discussionNumber')
     @ApiOperation({
         summary: 'Get discussion given id of the team and discussion number',
