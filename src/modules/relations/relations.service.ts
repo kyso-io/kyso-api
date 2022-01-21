@@ -1,12 +1,17 @@
 import { Injectable, Provider } from '@nestjs/common'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { RelationsMongoProvider } from './providers/mongo-relations.provider'
-import { User, Report, Comment, Relations, Team, Organization } from '@kyso-io/kyso-model'
-import { plainToClass } from 'class-transformer'
 
 const capitalize = (s) => s && s[0].toUpperCase() + s.slice(1)
 
 const flatten = (list) => list.reduce((a, b) => a.concat(Array.isArray(b) ? flatten(b) : b), [])
+
+const listKeyToVal = (data: any) => {
+    return data.reduce((prev: any, curr: any) => {
+        prev[curr.id] = curr
+        return prev
+    }, {} as object)
+}
 
 function factory(service: RelationsService) {
     return service
@@ -49,28 +54,26 @@ export class RelationsService extends AutowiredService {
         }, {})
     }
 
-    async getRelations(entities: object | [object], entityType: string): Promise<Relations> {
+    async getRelations(entities: object | [object], entityType: string) {
         if (!Array.isArray(entities)) entities = [entities]
 
         const groupedRelations = this.scanForRelations(entities)
 
-        const reducer = async (previousPromise, collection: string) => {
-            const relations: Relations = await previousPromise
-            const models = await this.provider.readFromCollectionByIds(collection, groupedRelations[collection])
-
-            relations[collection.toLowerCase()] = models.reduce((acc, model) => {
-                if (collection === 'User') acc[model.id] = plainToClass(User, model)
-                if (collection === 'Report') acc[model.id] = plainToClass(Report, model)
-                if (collection === 'Comment') acc[model.id] = plainToClass(Comment, model)
-                if (collection === 'Team') acc[model.id] = plainToClass(Team, model)
-                if (collection === 'Organization') acc[model.id] = plainToClass(Organization, model)
+        const relations = await Object.keys(groupedRelations).reduce(async (previousPromise, collection) => {
+            const accumulator = await previousPromise
+            const entities = await this.provider.readFromCollectionByIds(collection, groupedRelations[collection])
+            accumulator[collection.toLowerCase()] = entities.reduce((acc, entity) => {
+                acc[entity.id] = entity
                 return acc
             }, {})
+            return accumulator
+        }, Promise.resolve({}))
 
-            return relations
+        relations[entityType] = {
+            ...relations[entityType],
+            ...listKeyToVal(entities),
         }
 
-        const relations = await Object.keys(groupedRelations).reduce(reducer, {})
-        return plainToClass(Relations, relations)
+        return relations
     }
 }

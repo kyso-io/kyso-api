@@ -114,7 +114,7 @@ export class UsersController extends GenericController<User> {
 
     @Delete('/:id')
     @ApiOperation({
-        summary: `Deletes an user`,
+        summary: `Delete a user`,
         description: `Allows deleting a specific user passing its id`,
     })
     @ApiParam({
@@ -171,14 +171,14 @@ export class UsersController extends GenericController<User> {
         description: `Id of the account to remove`,
         schema: { type: 'string' },
     })
-    @ApiResponse({ status: 200, description: `Account removed successfully` })
+    @ApiResponse({ status: 200, description: `Account removed successfully`, type: Boolean })
     @Permission([UserPermissionsEnum.EDIT])
-    async removeAccount(@Param('userId') userId: string, @Param('provider') provider: string, @Param('accountId') accountId: string) {
+    async removeAccount(@Param('userId') userId: string, @Param('provider') provider: string, @Param('accountId') accountId: string): Promise<boolean> {
         return this.usersService.removeAccount(userId, provider, accountId)
     }
 
     @UseInterceptors(
-        FileInterceptor('profilePicture', {
+        FileInterceptor('file', {
             storage: diskStorage({
                 destination: './public/users-profile-pictures',
                 filename: (req, file, callback) => {

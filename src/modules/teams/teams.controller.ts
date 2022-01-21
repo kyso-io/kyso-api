@@ -293,15 +293,15 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponseDTO(reports)
     }
 
-    @Post('/:teamId/members-roles')
+    @Patch('/:teamId/members-roles')
     @ApiOperation({
-        summary: `Add a role to a member of a team`,
+        summary: `Add roles to members of a team`,
         description: `Allows adding a role to a member of a team passing its id`,
     })
     @ApiParam({
         name: 'teamId',
         required: true,
-        description: `Id of the team to fetch roles`,
+        description: `Id of the team to set user roles`,
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: TeamMember })
@@ -368,7 +368,7 @@ export class TeamsController extends GenericController<Team> {
     }
 
     @UseInterceptors(
-        FileInterceptor('profilePicture', {
+        FileInterceptor('file', {
             storage: diskStorage({
                 destination: './public/teams-profile-pictures',
                 filename: (req, file, callback) => {
@@ -394,7 +394,7 @@ export class TeamsController extends GenericController<Team> {
         description: `Id of the team to fetch`,
         schema: { type: 'string' },
     })
-    @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: Team })
+    @ApiNormalizedResponse({ status: 201, description: `Updated team`, type: Team })
     @Permission([TeamPermissionsEnum.EDIT])
     // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
     public async setProfilePicture(@Param('teamId') teamId: string, @UploadedFile() file: any /*Express.Multer.File*/): Promise<NormalizedResponseDTO<Team>> {
