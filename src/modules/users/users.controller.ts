@@ -178,7 +178,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @UseInterceptors(
-        FileInterceptor('profilePicture', {
+        FileInterceptor('file', {
             storage: diskStorage({
                 destination: './public/users-profile-pictures',
                 filename: (req, file, callback) => {
