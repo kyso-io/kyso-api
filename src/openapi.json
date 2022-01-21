@@ -9532,7 +9532,7 @@
     "/v1/users/{id}": {
       "delete": {
         "operationId": "UsersController_deleteUser",
-        "summary": "Deletes an user",
+        "summary": "Delete a user",
         "description": "Allows deleting a specific user passing its id",
         "parameters": [
           {
@@ -9765,7 +9765,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Account removed successfully"
+            "description": "Account removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
           },
           "400": {
             "description": "Input is not correct",
