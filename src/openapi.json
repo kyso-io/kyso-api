@@ -2991,7 +2991,7 @@
                 "schema": {
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/Boolean"
+                      "$ref": "#/components/schemas/Organization"
                     },
                     "relations": {
                       "anyOf": [
@@ -3554,7 +3554,10 @@
                 "schema": {
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/OrganizationMemberJoin"
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrganizationMember"
+                      }
                     },
                     "relations": {
                       "anyOf": [
@@ -3697,7 +3700,10 @@
                 "schema": {
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/Boolean"
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrganizationMember"
+                      }
                     },
                     "relations": {
                       "anyOf": [
@@ -3961,7 +3967,7 @@
     "/v1/organizations/{organizationId}/members-roles/{userId}/{role}": {
       "delete": {
         "operationId": "OrganizationsController_removeOrganizationMemberRole",
-        "summary": "remove a user's role in an organization",
+        "summary": "Remove a user's role in an organization",
         "description": "By passing the appropiate parameters you can remove a role of a member in an organization",
         "parameters": [
           {
