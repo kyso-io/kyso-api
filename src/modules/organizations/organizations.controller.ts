@@ -1,4 +1,4 @@
-import { NormalizedResponseDTO, Organization, OrganizationMember, OrganizationMemberJoin, UpdateOrganizationMembersDTO } from '@kyso-io/kyso-model'
+import { NormalizedResponseDTO, Organization, OrganizationMember, UpdateOrganizationMembersDTO } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, Patch, Post, PreconditionFailedException, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -55,11 +55,11 @@ export class OrganizationsController extends GenericController<Organization> {
         description: `Id of the organization to delete`,
         schema: { type: 'string' },
     })
-    @ApiNormalizedResponse({ status: 200, description: `Organization matching id`, type: Boolean })
+    @ApiNormalizedResponse({ status: 200, description: `Organization matching id`, type: Organization })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
-    public async deleteOrganization(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<boolean>> {
-        const deleted: boolean = await this.organizationService.deleteOrganization(organizationId)
-        return new NormalizedResponseDTO(deleted)
+    public async deleteOrganization(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
+        const organization: Organization = await this.organizationService.deleteOrganization(organizationId)
+        return new NormalizedResponseDTO(organization)
     }
 
     @Get('/:organizationId/members')
@@ -112,7 +112,7 @@ export class OrganizationsController extends GenericController<Organization> {
         summary: `Add user to an organization`,
         description: `By passing the appropiate parameters you can add a user to an organization`,
     })
-    @ApiNormalizedResponse({ status: 201, description: `Added user`, type: OrganizationMemberJoin })
+    @ApiNormalizedResponse({ status: 201, description: `Added user`, type: OrganizationMember, isArray: true })
     @ApiParam({
         name: 'organizationId',
         required: true,
@@ -129,9 +129,9 @@ export class OrganizationsController extends GenericController<Organization> {
     public async addMemberToOrganization(
         @Param('organizationId') organizationId: string,
         @Param('userId') userId: string,
-    ): Promise<NormalizedResponseDTO<OrganizationMemberJoin>> {
-        const organizationMemberJoin: OrganizationMemberJoin = await this.organizationService.addMemberToOrganization(organizationId, userId)
-        return new NormalizedResponseDTO(organizationMemberJoin)
+    ): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
+        const members: OrganizationMember[] = await this.organizationService.addMemberToOrganization(organizationId, userId)
+        return new NormalizedResponseDTO(members)
     }
 
     @Delete('/:organizationId/members/:userId')
@@ -151,11 +151,14 @@ export class OrganizationsController extends GenericController<Organization> {
         description: `Id of the user to remove from the organization`,
         schema: { type: 'string' },
     })
-    @ApiNormalizedResponse({ status: 200, description: `Added user`, type: Boolean })
+    @ApiNormalizedResponse({ status: 200, description: `Added user`, type: OrganizationMember, isArray: true })
     @Permission([OrganizationPermissionsEnum.ADMIN])
-    public async removeMemberFromOrganization(@Param('organizationId') organizationId, @Param('userId') userId: string): Promise<NormalizedResponseDTO<boolean>> {
-        const result: boolean = await this.organizationService.removeMemberFromOrganization(organizationId, userId)
-        return new NormalizedResponseDTO(result)
+    public async removeMemberFromOrganization(
+        @Param('organizationId') organizationId,
+        @Param('userId') userId: string,
+    ): Promise<NormalizedResponseDTO<boolean>> {
+        const members: OrganizationMember[] = await this.organizationService.removeMemberFromOrganization(organizationId, userId)
+        return new NormalizedResponseDTO(members)
     }
 
     @Post('/:organizationId/members-roles')
@@ -181,7 +184,7 @@ export class OrganizationsController extends GenericController<Organization> {
 
     @Delete('/:organizationId/members-roles/:userId/:role')
     @ApiOperation({
-        summary: `remove a user's role in an organization`,
+        summary: `Remove a user's role in an organization`,
         description: `By passing the appropiate parameters you can remove a role of a member in an organization`,
     })
     @ApiParam({
@@ -208,8 +211,8 @@ export class OrganizationsController extends GenericController<Organization> {
         @Param('organizationId') organizationId: string,
         @Param('userId') userId: string,
         @Param('role') role: string,
-    ): Promise<NormalizedResponseDTO<boolean>> {
-        const result: boolean = await this.organizationService.removeOrganizationMemberRole(organizationId, userId, role)
-        return new NormalizedResponseDTO(result)
+    ): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
+        const members: OrganizationMember[] = await this.organizationService.removeOrganizationMemberRole(organizationId, userId, role)
+        return new NormalizedResponseDTO(members)
     }
 }

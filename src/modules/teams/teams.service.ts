@@ -311,7 +311,7 @@ export class TeamsService extends AutowiredService {
 
         const members: TeamMemberJoin[] = await this.teamMemberProvider.getMembers(team.id)
         for (const element of data.members) {
-            const user: User = await this.usersService.getUser({ filter: { username: element.username } })
+            const user: User = await this.usersService.getUserById(element.userId)
             if (!user) {
                 throw new PreconditionFailedException('User does not exist')
             }
