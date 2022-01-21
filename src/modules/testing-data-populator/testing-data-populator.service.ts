@@ -1,7 +1,9 @@
 import {
     Comment,
+    CreateDiscussionRequestDTO,
     CreateReportDTO,
     CreateUserRequestDTO,
+    Discussion,
     KysoRole,
     LoginProviderEnum,
     Organization,
@@ -15,6 +17,7 @@ import { Autowired } from '../../decorators/autowired'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
 import { PlatformRole } from '../../security/platform-roles'
 import { CommentsService } from '../comments/comments.service'
+import { DiscussionsService } from '../discussions/discussions.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
@@ -59,6 +62,9 @@ export class TestingDataPopulatorService {
     @Autowired({ typeName: 'ReportsService' })
     private reportsService: ReportsService
 
+    @Autowired({ typeName: 'DiscussionsService' })
+    private discussionsService: DiscussionsService
+
     public async populateTestData() {
         if (process.env.POPULATE_TEST_DATA && process.env.POPULATE_TEST_DATA === 'true') {
             Logger.log(`
@@ -84,6 +90,7 @@ export class TestingDataPopulatorService {
 
             await this.createTestingReports()
             await this.createTestingComments()
+            await this.createDiscussions()
         }
     }
 
@@ -351,5 +358,132 @@ export class TestingDataPopulatorService {
         } catch (ex) {
             // silent it
         }
+    }
+
+    private async createDiscussions() {
+        const discussion_one = new CreateDiscussionRequestDTO(
+            false, 
+            [],
+            this.Palpatine_PlatformAdminUser.id,
+            false,
+            "Dark Star Engineering Discussion in which discuss how to harden the starship to avoid rebel's attacks. This discussion is public, so anyone in the galaxy can bring their own ideas",
+            1,
+            false, 
+            "Dark Start Engineering Main",
+            [], 
+            false,
+            this.PublicTeam.id,
+            "Dark Star Engineering",
+            "http://localhost:3000/idontknowwhyisthisimportant"
+        );
+
+        const discussion_two = new CreateDiscussionRequestDTO(
+            false, 
+            [],
+            this.Rey_TeamAdminUser.id,
+            false,
+            "Discussion to discuss how to break the empire's Dark Star, taking advantage of that they, for some reason, make her engineering discussion public...",
+            1,
+            false, 
+            "How to break the Dark Star main",
+            [], 
+            false,
+            this.ProtectedTeamWithCustomRole.id,
+            "Breaking Dark's Start",
+            "http://localhost:3000/idontknowwhyisthisimportantagain"
+        );
+
+        const discussion_three = new CreateDiscussionRequestDTO(
+            false, 
+            [],
+            this.Kylo_TeamContributorUser.id,
+            false,
+            "Should I stay at the darkside or change to the lightside?",
+            1,
+            false, 
+            "Should I stay at the darkside or change to the lightside Main",
+            [], 
+            false,
+            this.PublicTeam.id,
+            "Kylo's thoughts",
+            "http://localhost:3000/idontknowwhyisthisimportantagainangaing"
+        );
+
+        const entityD1: Discussion = await this.discussionsService.createDiscussion(discussion_one)
+        
+        // Add comments to every discussion
+        const d1_c1 = new Comment(
+            "We can't satisfy the deadline, I suggest to add a small gate and push to production. The probability to receive an attack there is ridiculous",
+            this.Gideon_OrganizationAdminUser.id,
+            this.TestReport.id,
+            null
+        )
+
+        d1_c1.discussion_id = entityD1.id
+        const entityD1C1 = await this.commentsService.createComment(d1_c1);
+
+        const d1_c2 = new Comment(
+            "Are you sure Gideon? I don't want to lose the war for that...",
+            this.Palpatine_PlatformAdminUser.id,
+            this.TestReport.id,
+            entityD1C1.comment_id
+        )
+
+        d1_c2.discussion_id = entityD1.id 
+        await this.commentsService.createComment(d1_c2);
+
+        const d1_c3 = new Comment(
+            "It's a good idea, if not you'll have delays and enter in a debt with Jabba",
+            this.Rey_TeamAdminUser.id,
+            this.TestReport.id,
+            null
+        )
+        d1_c2.discussion_id = entityD1.id 
+
+        await this.commentsService.createComment(d1_c3);
+
+        const entityD2: Discussion = await this.discussionsService.createDiscussion(discussion_two)
+
+        const d2_c1 = new Comment(
+            "Folks, I just drop a message to Dark Star engineering discussion enforcing shitty Gideon argument, hopefully they'll do it and we can win hahahaha",
+            this.Rey_TeamAdminUser.id,
+            this.TestReport.id,
+            null
+        )
+
+        d2_c1.discussion_id = entityD2.id 
+        await this.commentsService.createComment(d2_c1);
+
+        const d2_c2 = new Comment(
+            "RRWWWGG GGWWWRGHH RAWRGWAWGGR",
+            this.Chewbacca_TeamReaderUser.id,
+            this.TestReport.id,
+            null
+        )
+
+        d2_c2.discussion_id = entityD2.id 
+        await this.commentsService.createComment(d2_c2);
+
+        const d2_c3 = new Comment(
+            "Hahahahaha good one Chewy",
+            this.Kylo_TeamContributorUser.id,
+            this.TestReport.id,
+            null
+        )
+
+        d2_c3.discussion_id = entityD2.id 
+        await this.commentsService.createComment(d2_c3);
+
+        const entityD3: Discussion = await this.discussionsService.createDiscussion(discussion_three)
+
+        const d3_c1 = new Comment(
+            "I'm in a hurry, I want the power that the dark side brings to me, but I also like to be near Rey, I don't know why :S",
+            this.Kylo_TeamContributorUser.id,
+            this.TestReport.id,
+            null
+        )
+
+        d3_c1.discussion_id = entityD3.id 
+        await this.commentsService.createComment(d3_c1);
     }
 }

@@ -2,9 +2,11 @@ import { CreateDiscussionRequestDTO, Discussion, NormalizedResponseDTO, UpdateDi
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, PreconditionFailedException, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { CommentsService } from '../comments/comments.service'
 import { DiscussionsService } from './discussions.service'
 import { DiscussionPermissionsEnum } from './security/discussion-permissions.enum'
 
@@ -14,6 +16,9 @@ import { DiscussionPermissionsEnum } from './security/discussion-permissions.enu
 @ApiBearerAuth()
 @Controller('discussions')
 export class DiscussionsController extends GenericController<Discussion> {
+    @Autowired({ typeName: 'CommentsService'})
+    private readonly commentsService: CommentsService
+
     constructor(private readonly discussionsService: DiscussionsService) {
         super()
     }
@@ -51,86 +56,61 @@ export class DiscussionsController extends GenericController<Discussion> {
         return new NormalizedResponseDTO(discussions)
     }
 
-    @Get('/:teamId/:discussionNumber')
+    @Get('/:discussionId')
     @ApiOperation({
-        summary: 'Get discussion given id of the team and discussion number',
-        description: 'Get discussion given id of the team and discussion number',
+        summary: 'Get discussion detail from specified id',
+        description: 'Get discussion detail from specified id',
     })
     @ApiParam({
-        name: 'teamId',
+        name: 'discussionId',
         required: true,
-        description: 'Id of the team to fetch the discussions',
+        description: 'Id of the discussion to fetch',
         schema: { type: 'string' },
         example: 'K1bOzHjEmN',
-    })
-    @ApiParam({
-        name: 'discussionNumber',
-        required: true,
-        description: 'Discussion number of the discussion',
-        schema: { type: 'number' },
-        example: '1',
     })
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
     @Permission([DiscussionPermissionsEnum.READ])
     public async getDiscussionGivenTeamIdAndDiscussionNumber(
-        @Param('teamId') teamId: string,
-        @Param('discussionNumber', ParseIntPipe) discussionNumber: number,
+        @Param('discussionId') discussionId: string
     ): Promise<NormalizedResponseDTO<Discussion>> {
         const discussion: Discussion = await this.discussionsService.getDiscussion({
-            filter: { team_id: teamId, discussion_number: discussionNumber, mark_delete_at: { $ne: null } },
+            filter: { discussion_id: discussionId, mark_delete_at: { $ne: null } },
         })
+        
         if (!discussion) {
             throw new PreconditionFailedException('Discussion not found')
         }
+
         return new NormalizedResponseDTO(discussion)
     }
 
-    @Get('/:teamId/:discussionNumber/comments')
+    @Get('/:discussionId/comments')
     @ApiOperation({
-        summary: `Get discussion's comments given id of the team and discussion number`,
-        description: `Get discussion given id of the team and discussion number`,
+        summary: `Get discussion's comments`,
+        description: `Get discussion's comments`,
     })
     @ApiParam({
-        name: 'teamId',
+        name: 'discussionId',
         required: true,
-        description: 'Id of the team to fetch the discussions',
+        description: 'Id of the discussions comments to fetch',
         schema: { type: 'string' },
         example: 'K1bOzHjEmN',
-    })
-    @ApiParam({
-        name: 'discussionNumber',
-        required: true,
-        description: 'Discussion number of the discussion',
-        schema: { type: 'number' },
-        example: '1',
     })
     @ApiNormalizedResponse({ status: 200, description: `Comments related to that discussion`, type: Comment, isArray: true })
     @Permission([DiscussionPermissionsEnum.READ])
     public async getDiscussionCommentsGivenTeamIdAndDiscussionNumber(
-        @Param('teamId') teamId: string,
-        @Param('discussionNumber', ParseIntPipe) discussionNumber: number,
+        @Param('discussionId') discussionId: string
     ): Promise<NormalizedResponseDTO<Comment[]>> {
-        // TODO: THIS IS A FAKE RESPONSE
-        const fakeComments: Comment[] = []
-        
-        let comment1 = new Comment(
-            "So I got J&J as my first vaccine and two months later got a Moderna booster. Six months have passed and I wonder whether I should get an additional dose or not and if this should be Moderna or something else.",
-            "61a8ae8f9c2bc3c5a2144000",
-            "61ea82cb2e832f8e0ff9f0c5",
-            "61ea82c6ca89be622f1abd89"
-        )
+        const discussionComments: Comment[] = await this.commentsService.getComments({
+            filter: {
+                discussion_id: discussionId
+            },
+            sort: {
+                created_at: -1
+            }
+        })
 
-        let comment2 = new Comment(
-            "The vaccination you got was in retrospect a good idea, but it sounds like you did it through some unofficial/off-label channel (or were you in some trial?), because 1) 6 months ago there was no approved booster and 2) what you got was not the Moderna booster but rather the beginning of the 2-dose series. What the FDA approved and calls a Moderna booster is the 1/2 dose (50ug) shot. You probably just told them you were signing up to get the vaccine and hadn't gotten the J&J?",
-            "61a8ae8f9c2bc3c5a2144000",
-            "61ea82cb2e832f8e0ff9f0c5",
-            "61ea82c6ca89be622f1abd89"
-        )
-
-        fakeComments.push(comment1)
-        fakeComments.push(comment2)
-
-        return new NormalizedResponseDTO(fakeComments)
+        return new NormalizedResponseDTO(discussionComments)
     }
 
     @Post()
