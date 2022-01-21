@@ -1,11 +1,8 @@
-import { Inject, Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
+import { Comment, Report, Team, Token } from '@kyso-io/kyso-model'
+import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
-import { Comment } from '../../model/comment.model'
-import { Report } from '../../model/report.model'
-import { Team } from '../../model/team.model'
-import { Token } from '../../model/token.model'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
 import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
@@ -13,37 +10,39 @@ import { CommentsMongoProvider } from './providers/mongo-comments.provider'
 import { CommentPermissionsEnum } from './security/comment-permissions.enum'
 
 function factory(service: CommentsService) {
-    return service;
+    return service
 }
-  
+
 export function createProvider(): Provider<CommentsService> {
     return {
         provide: `${CommentsService.name}`,
-        useFactory: service => factory(service),
+        useFactory: (service) => factory(service),
         inject: [CommentsService],
-    };
+    }
 }
 
 @Injectable()
 export class CommentsService extends AutowiredService {
-    @Autowired({ typeName: "TeamsService" })
+    @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
-    
-    @Autowired({ typeName: "ReportsService" })
+
+    @Autowired({ typeName: 'ReportsService' })
     private reportsService: ReportsService
-  
+
     constructor(private readonly provider: CommentsMongoProvider) {
         super()
     }
 
-    async createComment(comment: Comment): Promise<Comment> {
+    async createCommentGivenToken(token: Token, comment: Comment): Promise<Comment> {
+        comment.user_id = token.id
+        // comment.username = token.username
         if (comment?.comment_id) {
             const relatedComments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(comment.comment_id) } })
             if (relatedComments.length === 0) {
                 throw new PreconditionFailedException('The specified related comment could not be found')
             }
         }
-        const report: Report = await this.reportsService.getById(comment.report_id)
+        const report: Report = await this.reportsService.getReportById(comment.report_id)
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
         }
@@ -55,19 +54,47 @@ export class CommentsService extends AutowiredService {
             throw new PreconditionFailedException('The specified team could not be found')
         }
         const userTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(comment.user_id)
-        if (!userTeams.find((t: Team) => t.id === team.id)) {
+        const hasGlobalPermissionAdmin: boolean = userHasPermission(token, GlobalPermissionsEnum.GLOBAL_ADMIN)
+        const userBelongsToTheTeam: boolean = userTeams.find((t: Team) => t.id === team.id) !== undefined
+        if (!hasGlobalPermissionAdmin && !userBelongsToTheTeam) {
             throw new PreconditionFailedException('The specified user does not belong to the team of the specified report')
         }
+        return this.createComment(comment)
+    }
+
+    async createComment(comment: Comment): Promise<Comment> {
         return this.provider.create(comment)
     }
 
-    async deleteComment(token: Token, id: string): Promise<Comment> {
+    public async updateComment(token: Token, id: string, updateCommentRequest: Comment): Promise<Comment> {
+        const comment: Comment = await this.getCommentById(id)
+        if (!comment) {
+            throw new PreconditionFailedException('The specified comment could not be found')
+        }
+        const dataFields: any = {
+            text: updateCommentRequest.text,
+            marked: updateCommentRequest.marked,
+        }
+        if (updateCommentRequest.marked) {
+            dataFields.marked_by = token.id
+        }
+        if (comment.text !== updateCommentRequest.text) {
+            dataFields.edited = true
+        }
+        return this.provider.update({ _id: this.provider.toObjectId(id) }, { $set: dataFields })
+    }
+
+    public async getNumberOfComments(query: any): Promise<number> {
+        return this.provider.count(query)
+    }
+
+    async deleteComment(token: Token, id: string): Promise<boolean> {
         const comments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(id) } })
         if (comments.length === 0) {
             throw new PreconditionFailedException('The specified comment could not be found')
         }
         const comment: Comment = comments[0]
-        const report: Report = await this.reportsService.getById(comment.report_id)
+        const report: Report = await this.reportsService.getReportById(comment.report_id)
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
         }
@@ -84,32 +111,27 @@ export class CommentsService extends AutowiredService {
         if (!userIsCommentCreator && !hasCommentPermissionAdmin && !hasGlobalPermissionAdmin) {
             throw new PreconditionFailedException('The specified user does not have permission to delete this comment')
         }
-        await this.provider.delete({ _id: this.provider.toObjectId(id) })
-        return comment
+        await this.provider.deleteOne({ _id: this.provider.toObjectId(id) })
+        return true
     }
 
-    async getComments(query) {
-        const comments = await this.provider.read({
+    async getComments(query): Promise<Comment[]> {
+        return this.provider.read({
             filter: query,
             sort: { _created_at: -1 },
         })
-
-        return comments
     }
 
-    async getCommentWithChildren(commentId) {
-        const comments = await this.provider.read({
-            filter: { _id: commentId },
+    async getCommentWithChildren(commentId): Promise<Comment> {
+        const comments: Comment[] = await this.provider.read({
+            filter: { _id: this.provider.toObjectId(commentId) },
             limit: 1,
         })
+        return comments.length === 0 ? null : comments[0]
+    }
 
-        if (comments.length === 0) {
-            return {}
-        }
-
-        return comments
-        // const reportComments = await this.getReportComments(comments[0].report_id)
-
-        // return reportComments.find((comment) => comment.id === commentId)
+    public async getCommentById(id: string): Promise<Comment> {
+        const comments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(id) } })
+        return comments.length === 0 ? null : comments[0]
     }
 }

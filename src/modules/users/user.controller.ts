@@ -1,14 +1,12 @@
+import { NormalizedResponseDTO, Token, User } from '@kyso-io/kyso-model'
 import { Controller, Get, Headers, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { UsersService } from './users.service'
-import { PermissionsGuard } from '../auth/guards/permission.guard'
-import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
-import { AuthService } from '../auth/auth.service'
-import { User } from '../../model/user.model'
-import { GenericController } from '../../generic/controller.generic'
-import { Token } from '../../model/token.model'
 import { Autowired } from '../../decorators/autowired'
+import { GenericController } from '../../generic/controller.generic'
+import { AuthService } from '../auth/auth.service'
+import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { UsersService } from './users.service'
 
 const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
 
@@ -18,9 +16,9 @@ const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_tok
 @ApiBearerAuth()
 @Controller('user')
 export class UserController extends GenericController<User> {
-    @Autowired({ typeName: "AuthService" })
+    @Autowired({ typeName: 'AuthService' })
     private readonly authService: AuthService
-    
+
     constructor(private readonly usersService: UsersService) {
         super()
     }
@@ -31,7 +29,7 @@ export class UserController extends GenericController<User> {
 
     // TODO: This is in /user not in /users... bad naming, and the design is poor. For now, keep as is to don't break
     // the frontend
-    @Get('')
+    @Get()
     @ApiOperation({
         summary: `Get the authenticated user`,
         description: `Allows fetching content of the authenticated user`,
@@ -41,12 +39,12 @@ export class UserController extends GenericController<User> {
         description: `Authenticated user data`,
         type: User,
     })
-    async getAuthenticatedUser(@Headers('authorization') authorizationHeader: string) {
+    async getAuthenticatedUser(@Headers('authorization') authorizationHeader: string): Promise<NormalizedResponseDTO<User>> {
         const splittedToken = authorizationHeader.split('Bearer ')[1]
 
         const token: Token = this.authService.evaluateAndDecodeToken(splittedToken)
 
-        const user = await this.usersService.getUser({ filter: { username: token.username } })
-        return new NormalizedResponse(user)
+        const user: User = await this.usersService.getUser({ filter: { username: token.username } })
+        return new NormalizedResponseDTO(user)
     }
 }

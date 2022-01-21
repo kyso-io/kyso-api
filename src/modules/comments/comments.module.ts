@@ -1,4 +1,5 @@
-import { DynamicModule, Module } from '@nestjs/common'
+import { DynamicModule } from '@nestjs/common'
+import { CommentsController } from './comments.controller'
 import { CommentsService, createProvider } from './comments.service'
 import { CommentsMongoProvider } from './providers/mongo-comments.provider'
 
@@ -15,12 +16,13 @@ import { CommentsMongoProvider } from './providers/mongo-comments.provider'
 })*/
 export class CommentsModule {
     static forRoot(): DynamicModule {
-        const dynamicProvider = createProvider();
-   
+        const dynamicProvider = createProvider()
+
         return {
-          module: CommentsModule,
-          providers: [CommentsMongoProvider, CommentsService, dynamicProvider],
-          exports: [dynamicProvider],
-        };
+            module: CommentsModule,
+            providers: [CommentsMongoProvider, CommentsService, dynamicProvider],
+            exports: [dynamicProvider],
+            controllers: [CommentsController],
+        }
     }
 }

@@ -1,17 +1,15 @@
+import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, ResourcePermissions, Token } from '@kyso-io/kyso-model'
 import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { Observable } from 'rxjs'
 import { Autowired } from '../../../decorators/autowired'
-import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM } from '../../../model/constants'
-import { ResourcePermissions } from '../../../model/resource-permissions.model'
-import { Token } from '../../../model/token.model'
 import { GlobalPermissionsEnum } from '../../../security/general-permissions.enum'
 import { PERMISSION_KEY } from '../annotations/permission.decorator'
 import { AuthService } from '../auth.service'
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-    @Autowired({ typeName: "AuthService" })
+    @Autowired({ typeName: 'AuthService' })
     private readonly authService: AuthService
 
     constructor(private readonly reflector: Reflector) {}

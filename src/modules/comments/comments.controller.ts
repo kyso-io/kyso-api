@@ -1,10 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common'
+import { Comment, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model'
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
-import { Comment } from '../../model/comment.model'
-import { NormalizedResponse } from '../../model/dto/normalized-reponse.dto'
-import { Token } from '../../model/token.model'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
@@ -43,9 +41,9 @@ export class CommentsController extends GenericController<Comment> {
         example: 'K1bOzHjEmN',
     })
     @Permission([CommentPermissionsEnum.READ])
-    async getComment(@Param('commentId') commentId: string) {
-        const comment = await this.commentsService.getCommentWithChildren(commentId)
-        return new NormalizedResponse(comment)
+    async getComment(@Param('commentId') commentId: string): Promise<NormalizedResponseDTO<Comment>> {
+        const comment: Comment = await this.commentsService.getCommentWithChildren(commentId)
+        return new NormalizedResponseDTO(comment)
     }
 
     @Post()
@@ -59,10 +57,36 @@ export class CommentsController extends GenericController<Comment> {
         type: Comment,
     })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN, CommentPermissionsEnum.ADMIN, CommentPermissionsEnum.CREATE])
-    public async createComment(@CurrentToken() token: Token, @Body() comment: Comment): Promise<NormalizedResponse> {
-        comment.user_id = token.id
-        const newComment: Comment = await this.commentsService.createComment(comment)
-        return new NormalizedResponse(newComment)
+    public async createComment(@CurrentToken() token: Token, @Body() comment: Comment): Promise<NormalizedResponseDTO<Comment>> {
+        const newComment: Comment = await this.commentsService.createCommentGivenToken(token, comment)
+        return new NormalizedResponseDTO(newComment)
+    }
+
+    @Patch('/:commentId')
+    @ApiOperation({
+        summary: `Update a comment`,
+        description: `Allows updating a comment`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Comment matching id`,
+        type: Comment,
+    })
+    @ApiParam({
+        name: 'commentId',
+        required: true,
+        description: 'Id of the comment to fetch',
+        schema: { type: 'string' },
+        example: 'K1bOzHjEmN',
+    })
+    @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN, CommentPermissionsEnum.ADMIN, CommentPermissionsEnum.EDIT])
+    public async updateComment(
+        @CurrentToken() token: Token,
+        @Param('commentId') commentId: string,
+        @Body() comment: Comment,
+    ): Promise<NormalizedResponseDTO<Comment>> {
+        const updatedComment: Comment = await this.commentsService.updateComment(token, commentId, comment)
+        return new NormalizedResponseDTO(updatedComment)
     }
 
     @Delete('/:commentId')
@@ -73,7 +97,7 @@ export class CommentsController extends GenericController<Comment> {
     @ApiNormalizedResponse({
         status: 200,
         description: `Comment deleted`,
-        type: Comment,
+        type: Boolean,
     })
     @ApiParam({
         name: 'commentId',
@@ -83,8 +107,8 @@ export class CommentsController extends GenericController<Comment> {
         example: 'K1bOzHjEmN',
     })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN, CommentPermissionsEnum.ADMIN, CommentPermissionsEnum.DELETE])
-    async deleteComment(@CurrentToken() token: Token, @Param('commentId') commentId: string): Promise<NormalizedResponse> {
-        const comment = await this.commentsService.deleteComment(token, commentId)
-        return new NormalizedResponse(comment)
+    async deleteComment(@CurrentToken() token: Token, @Param('commentId') commentId: string): Promise<NormalizedResponseDTO<boolean>> {
+        const result: boolean = await this.commentsService.deleteComment(token, commentId)
+        return new NormalizedResponseDTO(result)
     }
 }

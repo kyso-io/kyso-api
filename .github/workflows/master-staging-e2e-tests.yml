@@ -26,7 +26,7 @@ jobs:
         run: node -v
 
       - name: Install dependencies
-        run: yarn install 
+        run: npm install 
 
       - name: Install newman
         run: npm install -g newman 
@@ -57,7 +57,7 @@ jobs:
           DATABASE_NAME: kyso
           POPULATE_TEST_DATA: true
           BASE_URL: http://localhost:3000
-        run: yarn run start:test&
+        run: npm run start:test&
 
       - name: Wait 1 minute until the server is started
         run: sleep 60s

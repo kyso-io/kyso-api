@@ -1,13 +1,8 @@
+import { Token, TokenPermissions } from '@kyso-io/kyso-model'
 import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { Autowired } from '../../../decorators/autowired'
-import { TokenPermissions } from '../../../model/token-permissions.model'
-import { Token } from '../../../model/token.model'
-import { CommentsService } from '../../comments/comments.service'
-import { GithubReposService } from '../../github-repos/github-repos.service'
 import { OrganizationsService } from '../../organizations/organizations.service'
-import { LocalReportsService } from '../../reports/local-reports.service'
-import { ReportsService } from '../../reports/reports.service'
 import { TeamsService } from '../../teams/teams.service'
 import { UsersService } from '../../users/users.service'
 import { AuthService } from '../auth.service'
@@ -16,15 +11,15 @@ import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
 @Injectable()
 export class KysoLoginProvider {
-    @Autowired({ typeName: "UsersService" })
+    @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
-    
-    @Autowired({ typeName: "OrganizationsService" })
+
+    @Autowired({ typeName: 'OrganizationsService' })
     private organizationsService: OrganizationsService
-    
-    @Autowired({ typeName: "TeamsService" })
+
+    @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
-    
+
     constructor(
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,

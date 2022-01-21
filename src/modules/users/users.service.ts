@@ -1,16 +1,12 @@
+import { CreateUserRequestDTO, Organization, Team, TeamVisibilityEnum, Token, UpdateUserRequestDTO, User, UserAccount } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { existsSync, unlinkSync } from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
-import { CreateUserRequest } from '../../model/dto/create-user-request.dto'
-import { UpdateUserRequest } from '../../model/dto/update-user-request.dto'
-import { TeamVisibilityEnum } from '../../model/enum/team-visibility.enum'
-import { KysoRole } from '../../model/kyso-role.model'
-import { Organization } from '../../model/organization.model'
-import { Team } from '../../model/team.model'
-import { UserAccount } from '../../model/user-account'
-import { User } from '../../model/user.model'
+import { PlatformRole } from '../../security/platform-roles'
+import { AuthService } from '../auth/auth.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
@@ -29,10 +25,10 @@ export function createProvider(): Provider<UsersService> {
 
 @Injectable()
 export class UsersService extends AutowiredService {
-    @Autowired({ typeName: "OrganizationsService" })
+    @Autowired({ typeName: 'OrganizationsService' })
     private organizationsService: OrganizationsService
-    
-    @Autowired({ typeName: "TeamsService" })
+
+    @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
 
     constructor(private mailerService: MailerService, private readonly provider: UsersMongoProvider) {
@@ -47,6 +43,10 @@ export class UsersService extends AutowiredService {
         return users
     }
 
+    public async getUserById(id: string): Promise<User> {
+        return this.getUser({ filter: { id: this.provider.toObjectId(id) } })
+    }
+
     async getUser(query): Promise<User> {
         query.limit = 1
         const users = await this.getUsers(query)
@@ -56,11 +56,11 @@ export class UsersService extends AutowiredService {
         return users[0]
     }
 
-    async updateUser(filterQuery, updateQuery): Promise<User> {
-        return (await this.provider.update(filterQuery, updateQuery)) as User
+    async updateUser(filterQuery: any, updateQuery: any): Promise<User> {
+        return this.provider.update(filterQuery, updateQuery)
     }
 
-    async createUser(userToCreate: CreateUserRequest): Promise<User> {
+    async createUser(userToCreate: CreateUserRequestDTO): Promise<User> {
         // exists a prev user with same email?
         const user: User = await this.getUser({ filter: { email: userToCreate.email } })
 
@@ -75,57 +75,68 @@ export class UsersService extends AutowiredService {
         // Create user into database
         // Hash the password and delete the plain password property
         const newUser: User = User.fromCreateUserRequest(userToCreate)
+        newUser.hashed_password = AuthService.hashPassword(userToCreate.password)
         Logger.log(`Creating new user ${userToCreate.nickname}...`)
         const userDb: User = await this.provider.create(newUser)
 
         // Create user organization
-        const organizationName: string = userDb.username.charAt(0).toUpperCase() + userDb.username.slice(1) + "'s Workspace"
+        const organizationName: string = userDb.nickname.charAt(0).toUpperCase() + userDb.nickname.slice(1) + "'s Workspace"
         const newOrganization: Organization = new Organization(organizationName, [], userDb.email, uuidv4(), false)
         Logger.log(`Creating new organization ${newOrganization.name}`)
         const organizationDb: Organization = await this.organizationsService.createOrganization(newOrganization)
 
         // Add user to organization as admin
-        Logger.log(`Adding ${userDb.nickname} to organization ${organizationDb.name} with role ${KysoRole.ORGANIZATION_ADMIN_ROLE.name}...`)
-        await this.organizationsService.addMembersById(organizationDb.id, [userDb.id], [KysoRole.ORGANIZATION_ADMIN_ROLE.name])
+        Logger.log(`Adding ${userDb.nickname} to organization ${organizationDb.name} with role ${PlatformRole.ORGANIZATION_ADMIN_ROLE.name}...`)
+        await this.organizationsService.addMembersById(organizationDb.id, [userDb.id], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name])
 
         // Create user team
-        const teamName: string = userDb.username.charAt(0).toUpperCase() + userDb.username.slice(1) + "'s Private"
-        const newUserTeam: Team = new Team(teamName, null, null, null, [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
+        const teamName: string = userDb.nickname.charAt(0).toUpperCase() + userDb.nickname.slice(1) + "'s Private"
+        const newUserTeam: Team = new Team(teamName, null, null, null, null, [], organizationDb.id, TeamVisibilityEnum.PRIVATE, null, null, false, null)
         Logger.log(`Creating new team ${newUserTeam.name}...`)
         const userTeamDb: Team = await this.teamsService.createTeam(newUserTeam)
 
         // Add user to team as admin
-        Logger.log(`Adding ${userDb.nickname} to team ${userTeamDb.name} with role ${KysoRole.TEAM_ADMIN_ROLE.name}...`)
-        await this.teamsService.addMembersById(userTeamDb.id, [userDb.id], [KysoRole.TEAM_ADMIN_ROLE.name])
+        Logger.log(`Adding ${userDb.nickname} to team ${userTeamDb.name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}...`)
+        await this.teamsService.addMembersById(userTeamDb.id, [userDb.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
 
         this.mailerService
             .sendMail({
                 to: userDb.email,
                 subject: 'Welcome to Kyso',
-                html: `Welcome to Kyso, ${userDb.username}!`,
+                html: `Welcome to Kyso, ${userDb.nickname}!`,
             })
             .then(() => {
-                Logger.log(`Welcome mail sent to ${userDb.username}`, UsersService.name)
+                Logger.log(`Welcome mail sent to ${userDb.nickname}`, UsersService.name)
             })
             .catch((err) => {
-                Logger.error(`Error sending welcome mail to ${userDb.username}`, err, UsersService.name)
+                Logger.error(`Error sending welcome mail to ${userDb.nickname}`, err, UsersService.name)
             })
 
         return userDb
     }
 
-    async deleteUser(email: string) {
-        const exists = await this.getUser({ filter: { email: email } })
-
-        if (!exists) {
+    async deleteUser(id: string): Promise<boolean> {
+        const user: User = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
+        if (!user) {
             throw new PreconditionFailedException(null, `Can't delete user as does not exists`)
-        } else {
-            this.provider.delete({ email: email })
         }
+
+        const teams: Team[] = await this.teamsService.getUserTeams(user.id)
+        for (const team of teams) {
+            await this.teamsService.removeMemberFromTeam(team.name, user.username)
+        }
+
+        const organizations: Organization[] = await this.organizationsService.getUserOrganizations(user.id)
+        for (const organization of organizations) {
+            await this.organizationsService.removeMemberFromOrganization(organization.id, user.id)
+        }
+
+        await this.provider.deleteOne({ id: this.provider.toObjectId(id) })
+        return true
     }
 
-    public async addAccount(email: string, userAccount: UserAccount): Promise<boolean> {
-        const user = await this.getUser({ filter: { email: email } })
+    public async addAccount(id: string, userAccount: UserAccount): Promise<boolean> {
+        const user = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
 
         if (!user) {
             throw new PreconditionFailedException(null, `Can't add account to user as does not exists`)
@@ -140,13 +151,13 @@ export class UsersService extends AutowiredService {
             throw new PreconditionFailedException(null, `The user has already registered this account`)
         } else {
             const userAccounts: UserAccount[] = [...user.accounts, userAccount]
-            await this.updateUser({ email: email }, { $set: { accounts: userAccounts } })
+            await this.updateUser({ id: this.provider.toObjectId(id) }, { $set: { accounts: userAccounts } })
         }
         return true
     }
 
-    public async removeAccount(email: string, provider: string, accountId: string): Promise<boolean> {
-        const user = await this.getUser({ filter: { email: email } })
+    public async removeAccount(id: string, provider: string, accountId: string): Promise<boolean> {
+        const user = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
 
         if (!user) {
             throw new PreconditionFailedException(null, `Can't remove account to user as does not exists`)
@@ -157,18 +168,48 @@ export class UsersService extends AutowiredService {
         const index: number = user.accounts.findIndex((account: UserAccount) => account.accountId === accountId && account.type === provider)
         if (index !== -1) {
             const userAccounts: UserAccount[] = [...user.accounts.slice(0, index), ...user.accounts.slice(index + 1)]
-            await this.updateUser({ email: email }, { $set: { accounts: userAccounts } })
+            await this.updateUser({ id: this.provider.toObjectId(id) }, { $set: { accounts: userAccounts } })
         } else {
             throw new PreconditionFailedException(null, `The user has not registered this account`)
         }
         return true
     }
 
-    public async updateUserData(email: string, data: UpdateUserRequest): Promise<User> {
-        const user: User = await this.getUser({ filter: { email } })
+    public async updateUserData(id: string, data: UpdateUserRequestDTO): Promise<User> {
+        const user: User = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
         if (!user) {
             throw new PreconditionFailedException(null, `Can't update user as does not exists`)
         }
-        return this.updateUser({ email: email }, { $set: data })
+        return this.updateUser({ id: this.provider.toObjectId(id) }, { $set: data })
+    }
+
+    // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
+    public async setProfilePicture(token: Token, file: any /*Express.Multer.File*/): Promise<User> {
+        const user: User = await this.getUser({ filter: { _id: this.provider.toObjectId(token.id) } })
+        if (!user) {
+            throw new PreconditionFailedException('User not found')
+        }
+        if (user?.avatar_url && user.avatar_url.length > 0) {
+            const imagePath = `./public/${user.avatar_url}`
+            if (existsSync(imagePath)) {
+                unlinkSync(imagePath)
+            }
+        }
+        const profilePicturePath: string = file.path.replace('public/', '')
+        return this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { avatar_url: profilePicturePath } })
+    }
+
+    public async deleteProfilePicture(token: Token): Promise<User> {
+        const user: User = await this.getUser({ filter: { id: this.provider.toObjectId(token.id) } })
+        if (!user) {
+            throw new PreconditionFailedException('User not found')
+        }
+        if (user?.avatar_url && user.avatar_url.length > 0) {
+            const imagePath = `./public/${user.avatar_url}`
+            if (existsSync(imagePath)) {
+                unlinkSync(imagePath)
+            }
+        }
+        return this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { avatar_url: null } })
     }
 }

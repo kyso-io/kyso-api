@@ -1,7 +1,6 @@
+import { Report } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { db } from '../../../main'
-import { BaseModel } from '../../../model/base.model'
-import { Report } from '../../../model/report.model'
 import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()

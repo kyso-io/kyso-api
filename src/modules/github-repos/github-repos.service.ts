@@ -2,6 +2,7 @@ import { Injectable, Provider } from '@nestjs/common'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { NotFoundError } from '../../helpers/errorHandling'
 import { GithubReposProvider } from './providers/github-repo.provider'
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { safeLoad } = require('js-yaml')
 
 const DEFAULT_REPOS_PER_PAGE = 30
@@ -21,20 +22,20 @@ function parseConfig(format, data) {
 }
 
 function factory(service: GithubReposService) {
-    return service;
+    return service
 }
-  
+
 export function createProvider(): Provider<GithubReposService> {
     return {
         provide: `${GithubReposService.name}`,
-        useFactory: service => factory(service),
+        useFactory: (service) => factory(service),
         inject: [GithubReposService],
-    };
+    }
 }
 
 // @Injectable({ scope: Scope.REQUEST })
 @Injectable()
-export class GithubReposService extends AutowiredService{
+export class GithubReposService extends AutowiredService {
     constructor(private readonly provider: GithubReposProvider) {
         super()
     }

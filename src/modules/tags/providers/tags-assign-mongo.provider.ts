@@ -1,12 +1,12 @@
-import { Organization } from '@kyso-io/kyso-model'
+import { TagAssign } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { db } from '../../../main'
 import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
-export class OrganizationsMongoProvider extends MongoProvider<Organization> {
+export class TagsAssignMongoProvider extends MongoProvider<TagAssign> {
     constructor() {
-        super('Organization', db)
+        super('TagAssign', db)
     }
 
     populateMinimalData() {

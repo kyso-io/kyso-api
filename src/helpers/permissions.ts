@@ -1,4 +1,4 @@
-import { Token } from '../model/token.model'
+import { Token } from '@kyso-io/kyso-model'
 import { KysoPermissions } from '../security/general-permissions.enum'
 
 export const userHasPermission = (token: Token, kysoPermission: KysoPermissions): boolean => {
@@ -11,7 +11,7 @@ export const userHasPermission = (token: Token, kysoPermission: KysoPermissions)
         for (const resourcePermission of token.permissions.teams) {
             if (resourcePermission?.permissions) {
                 for (const permission of resourcePermission.permissions) {
-                    if ((permission.permissions as string[]).includes(kysoPermission)) {
+                    if (permission === kysoPermission) {
                         return true
                     }
                 }
@@ -22,7 +22,7 @@ export const userHasPermission = (token: Token, kysoPermission: KysoPermissions)
         for (const resourcePermission of token.permissions.organizations) {
             if (resourcePermission?.permissions) {
                 for (const permission of resourcePermission.permissions) {
-                    if ((permission.permissions as string[]).includes(kysoPermission)) {
+                    if (permission === kysoPermission) {
                         return true
                     }
                 }

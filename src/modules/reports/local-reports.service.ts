@@ -1,19 +1,19 @@
 import { Injectable, Provider } from '@nestjs/common'
-import { AutowiredService } from '../../generic/autowired.generic';
+import { AutowiredService } from '../../generic/autowired.generic'
 import { FilesMongoProvider } from './providers/mongo-files.provider'
 import { VersionsMongoProvider } from './providers/mongo-versions.provider'
 import { FilesS3Provider } from './providers/s3-files.provider'
 
 function factory(service: LocalReportsService) {
-    return service;
+    return service
 }
-  
+
 export function createLocalReportsProvider(): Provider<LocalReportsService> {
     return {
         provide: `${LocalReportsService.name}`,
-        useFactory: service => factory(service),
+        useFactory: (service) => factory(service),
         inject: [LocalReportsService],
-    };
+    }
 }
 
 @Injectable()
@@ -51,10 +51,8 @@ export class LocalReportsService extends AutowiredService {
         }))
     }
 
-    async getFileContent(reportId, hash) {
+    public async getFileContent(hash: string): Promise<any> {
         const file = await this.fileDataProvider.getFile(hash)
-        const content = await this.fileProvider.getFile(file.file)
-
-        return content
+        return this.fileProvider.getFile(file.file)
     }
 }

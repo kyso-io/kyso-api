@@ -1,13 +1,7 @@
 import { Injectable, Provider } from '@nestjs/common'
-import { AutowiredService } from '../../generic/autowired.generic';
+import { AutowiredService } from '../../generic/autowired.generic'
 import { RelationsMongoProvider } from './providers/mongo-relations.provider'
-import { User } from '../../model/user.model'
-import { Report } from '../../model/report.model'
-import { Comment } from '../../model/comment.model'
-import { Team } from '../../model/team.model'
-import { Organization } from '../../model/organization.model'
-import { Relations } from '../../model/relations.model'
-import { Relation } from 'src/model/relation.model'
+import { User, Report, Comment, Relations, Team, Organization } from '@kyso-io/kyso-model'
 import { plainToClass } from 'class-transformer'
 
 const capitalize = (s) => s && s[0].toUpperCase() + s.slice(1)
@@ -15,15 +9,15 @@ const capitalize = (s) => s && s[0].toUpperCase() + s.slice(1)
 const flatten = (list) => list.reduce((a, b) => a.concat(Array.isArray(b) ? flatten(b) : b), [])
 
 function factory(service: RelationsService) {
-    return service;
+    return service
 }
-  
+
 export function createProvider(): Provider<RelationsService> {
     return {
         provide: `${RelationsService.name}`,
-        useFactory: service => factory(service),
+        useFactory: (service) => factory(service),
         inject: [RelationsService],
-    };
+    }
 }
 
 @Injectable()
@@ -55,7 +49,7 @@ export class RelationsService extends AutowiredService {
         }, {})
     }
 
-    async getRelations(entities: object | [object]): Promise<Relations> {
+    async getRelations(entities: object | [object], entityType: string): Promise<Relations> {
         if (!Array.isArray(entities)) entities = [entities]
 
         const groupedRelations = this.scanForRelations(entities)
@@ -77,8 +71,6 @@ export class RelationsService extends AutowiredService {
         }
 
         const relations = await Object.keys(groupedRelations).reduce(reducer, {})
-
-        console.log({ relations })
         return plainToClass(Relations, relations)
     }
 }
