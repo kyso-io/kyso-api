@@ -81,7 +81,7 @@ export class UsersService extends AutowiredService {
 
         // Create user organization
         const organizationName: string = userDb.nickname.charAt(0).toUpperCase() + userDb.nickname.slice(1) + "'s Workspace"
-        const newOrganization: Organization = new Organization(organizationName, [], userDb.email, uuidv4(), false)
+        const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], userDb.email, "", "", true)
         Logger.log(`Creating new organization ${newOrganization.name}`)
         const organizationDb: Organization = await this.organizationsService.createOrganization(newOrganization)
 
@@ -91,7 +91,7 @@ export class UsersService extends AutowiredService {
 
         // Create user team
         const teamName: string = userDb.nickname.charAt(0).toUpperCase() + userDb.nickname.slice(1) + "'s Private"
-        const newUserTeam: Team = new Team(teamName, null, null, null, null, [], organizationDb.id, TeamVisibilityEnum.PRIVATE, null, null, false, null)
+        const newUserTeam: Team = new Team(teamName, "", "", "", "", [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
         Logger.log(`Creating new team ${newUserTeam.name}...`)
         const userTeamDb: Team = await this.teamsService.createTeam(newUserTeam)
 
