@@ -5,6 +5,7 @@ import {
     CreateReportRequestDTO,
     GithubBranch,
     GithubCommit,
+    GithubFileHash,
     NormalizedResponseDTO,
     Report,
     ReportDTO,
@@ -169,7 +170,7 @@ export class ReportsController extends GenericController<Report> {
     @ApiNormalizedResponse({
         status: 200,
         description: `Specified report data`,
-        type: Report,
+        type: ReportDTO,
     })
     @ApiParam({
         name: 'reportId',
@@ -179,7 +180,7 @@ export class ReportsController extends GenericController<Report> {
     })
     @ApiBody({ type: UpdateReportRequestDTO })
     @Permission([ReportPermissionsEnum.EDIT])
-    async updateReport(@Param('reportId') reportId: string, @Body() body: any): Promise<NormalizedResponseDTO<Report>> {
+    async updateReport(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Body() body: any): Promise<NormalizedResponseDTO<ReportDTO>> {
         const fields = Object.fromEntries(Object.entries(body).filter((entry) => UPDATABLE_FIELDS.includes(entry[0])))
 
         const { stars, ...rest } = fields
@@ -193,7 +194,8 @@ export class ReportsController extends GenericController<Report> {
                 ? await this.reportsService.getReportById(reportId)
                 : await this.reportsService.updateReport(reportId, updatePayload)
 
-        const relations = await this.relationsService.getRelations(report, 'report')
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(reportDto, 'report')
         return new NormalizedResponseDTO(report, relations)
     }
 
@@ -234,7 +236,8 @@ export class ReportsController extends GenericController<Report> {
     @Permission([ReportPermissionsEnum.EDIT])
     async pinReport(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.pinReport(token.id, reportId)
-        const relations = await this.relationsService.getRelations(report, 'report')
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(reportDto, 'report')
         return new NormalizedResponseDTO(report, relations)
     }
 
@@ -257,7 +260,8 @@ export class ReportsController extends GenericController<Report> {
     @Permission([ReportPermissionsEnum.EDIT])
     async toggleUserPin(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.toggleUserPin(token.id, reportId)
-        const relations = await this.relationsService.getRelations(report, 'report')
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(reportDto, 'report')
         return new NormalizedResponseDTO(report, relations)
     }
 
@@ -280,7 +284,8 @@ export class ReportsController extends GenericController<Report> {
     @Permission([ReportPermissionsEnum.EDIT])
     async toggleUserStar(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.toggleUserStar(token.id, reportId)
-        const relations = await this.relationsService.getRelations(report, 'report')
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(reportDto, 'report')
         return new NormalizedResponseDTO(report, relations)
     }
 
@@ -406,8 +411,8 @@ export class ReportsController extends GenericController<Report> {
         @Param('reportId') reportId: string,
         @Param('branch') branch: string,
         @Param('filePath') filePath: string,
-    ): Promise<NormalizedResponseDTO<any>> {
-        const hash: any = await this.reportsService.getFileHash(token.id, reportId, branch, filePath)
+    ): Promise<NormalizedResponseDTO<GithubFileHash | GithubFileHash[]>> {
+        const hash: GithubFileHash | GithubFileHash[] = await this.reportsService.getFileHash(token.id, reportId, branch, filePath)
         return new NormalizedResponseDTO(hash)
     }
 
@@ -438,13 +443,13 @@ export class ReportsController extends GenericController<Report> {
         @CurrentToken() token: Token,
         @Param('reportId') reportId: string,
         @Param('hash') hash: string,
-    ): Promise<NormalizedResponseDTO<any>> {
+    ): Promise<NormalizedResponseDTO<Buffer>> {
         if (!Validators.isValidSha(hash)) {
             throw new InvalidInputError({
                 message: 'Hash is not a valid sha. Must have 40 hexadecimal characters.',
             })
         }
-        const content = await this.reportsService.getReportFileContent(token.id, reportId, hash)
+        const content: Buffer = await this.reportsService.getReportFileContent(token.id, reportId, hash)
         return new NormalizedResponseDTO(content)
     }
 }

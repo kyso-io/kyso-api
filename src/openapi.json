@@ -4510,7 +4510,7 @@
                 "schema": {
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/Report"
+                      "$ref": "#/components/schemas/ReportDTO"
                     },
                     "relations": {
                       "anyOf": [

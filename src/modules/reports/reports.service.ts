@@ -3,6 +3,7 @@ import {
     CreateReportDTO,
     GithubBranch,
     GithubCommit,
+    GithubFileHash,
     GithubRepository,
     KysoConfigFile,
     PinnedReport,
@@ -17,7 +18,7 @@ import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
-import { InvalidInputError, NotFoundError } from '../../helpers/errorHandling'
+import { NotFoundError } from '../../helpers/errorHandling'
 import { Validators } from '../../helpers/validators'
 import { CommentsService } from '../comments/comments.service'
 import { GithubReposService } from '../github-repos/github-repos.service'
@@ -28,8 +29,6 @@ import { LocalReportsService } from './local-reports.service'
 import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider'
 import { ReportsMongoProvider } from './providers/mongo-reports.provider'
 import { StarredReportsMongoProvider } from './providers/mongo-starred-reports.provider'
-
-const LOCAL_REPORT_HOST = 's3'
 
 function generateReportName(repoName, path) {
     const pathName = path.replace(/\//g, '_')
@@ -76,7 +75,7 @@ export class ReportsService extends AutowiredService {
         super()
     }
 
-    async getReports(query): Promise<Report[]> {
+    public async getReports(query): Promise<Report[]> {
         if (query.filter && query.filter.owner) {
             const results = await Promise.allSettled([
                 this.usersService.getUser({
@@ -112,7 +111,7 @@ export class ReportsService extends AutowiredService {
         return reports as Report[]
     }
 
-    async getReport(reportOwner, reportName): Promise<Report> {
+    public async getReport(reportOwner, reportName): Promise<Report> {
         const reports = await this.getReports({
             filter: {
                 owner: reportOwner,
@@ -135,7 +134,7 @@ export class ReportsService extends AutowiredService {
         return reports.length === 1 ? reports[0] : null
     }
 
-    async createReport(userId: string, createReportDto: CreateReportDTO): Promise<Report> {
+    public async createReport(userId: string, createReportDto: CreateReportDTO): Promise<Report> {
         if (!Validators.isValidReportName(createReportDto.name)) {
             throw new PreconditionFailedException({
                 message: `Report name can only consist of letters, numbers, '_' and '-'.`,
@@ -143,6 +142,9 @@ export class ReportsService extends AutowiredService {
         }
 
         const user: User = await this.usersService.getUserById(userId)
+        if (user.accessToken == null || user.accessToken.length === 0) {
+            throw new PreconditionFailedException(`User ${user.nickname} has no access token`)
+        }
 
         // Try to get github repository
         this.githubReposService.login(user.accessToken)
@@ -193,7 +195,7 @@ export class ReportsService extends AutowiredService {
         return this.provider.create(report)
     }
 
-    async updateReport(reportId: string, data: any): Promise<Report> {
+    public async updateReport(reportId: string, data: any): Promise<Report> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
@@ -210,7 +212,7 @@ export class ReportsService extends AutowiredService {
         return report
     }
 
-    async pinReport(userId: string, reportId: string): Promise<Report> {
+    public async pinReport(userId: string, reportId: string): Promise<Report> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
@@ -231,106 +233,74 @@ export class ReportsService extends AutowiredService {
         return this.provider.update({ _id: report.id }, { $set: { pin: !report.pin } })
     }
 
-    async getBranches(userId: string, reportId: string): Promise<GithubBranch[]> {
-        const report: Report = await this.getReportById(reportId)
-        if (!report) {
-            throw new NotFoundError({ message: 'The specified report could not be found' })
-        }
-        let branches: any[] = []
-        if (report.provider === RepositoryProvider.KYSO) {
-            branches = await this.localReportsService.getReportVersions(report.id)
-        } else {
-            const user: User = await this.usersService.getUserById(userId)
-            // OLD
-            // branches = await this.reposService({ provider: source.provider, accessToken }).getBranches(source.owner, source.name)
-            switch (report.provider) {
-                case 'github':
-                default:
-                    this.githubReposService.login(user.accessToken)
-                    branches = await this.githubReposService.getBranches(userId, report.name)
-                    break
-            }
-            branches.forEach((branch: any) => {
-                branch.is_default = branch === report.default_branch
-            })
-        }
-        return branches
-    }
-
-    async getCommits(userId: string, reportId: string, branch: string): Promise<GithubCommit[]> {
-        const report: Report = await this.getReportById(reportId)
-        if (!report) {
-            throw new NotFoundError({ message: 'The specified report could not be found' })
-        }
-        if (report.provider === RepositoryProvider.KYSO) {
-            throw new InvalidInputError({
-                message: 'This functionality is not available in S3',
-            })
-        }
-        const user: User = await this.usersService.getUserById(userId)
-        // OLD
-        // const commits = await this.reposService({ provider: source.provider, accessToken }).getCommits(source.owner, source.name, branch)
-        let commits: any[] = []
-        switch (report.provider) {
-            case 'github':
-            default:
-                this.githubReposService.login(user.accessToken)
-                commits = await this.githubReposService.getCommits(userId, reportId, branch)
-                break
-        }
-        return commits
-    }
-
-    async getFileHash(userId: string, reportId: string, branch: string, path: string): Promise<any> {
-        const report: Report = await this.getReportById(reportId)
-        if (!report) {
-            throw new NotFoundError({ message: 'The specified report could not be found' })
-        }
-        let data = {}
-        if (report.provider === RepositoryProvider.KYSO) {
-            data = await this.localReportsService.getFileHash(report.id, branch)
-        } else {
-            const user: User = await this.usersService.getUserById(userId)
-            const fullPath = `${report.path}${path}`
-            // OLD
-            // data = await this.reposService({ provider: source.provider, accessToken }).getFileHash(fullPath, source.owner, source.name, branch)
-            switch (report.provider) {
-                case 'github':
-                default:
-                    this.githubReposService.login(user.accessToken)
-                    data = await this.githubReposService.getFileHash(fullPath, report.username_provider, report.name, branch)
-                    break
-            }
-        }
-
-        return data
-    }
-
-    async getReportFileContent(userId: string, reportId: string, hash: string): Promise<any> {
+    public async getBranches(userId: string, reportId: string): Promise<GithubBranch[]> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
         }
-        let content
         if (report.provider === RepositoryProvider.KYSO) {
-            content = await this.localReportsService.getFileContent(hash)
+            return this.localReportsService.getReportVersions(report.id)
         } else {
             const user: User = await this.usersService.getUserById(userId)
-            if (!user) {
-                throw new PreconditionFailedException('The specified user could not be found')
+            if (user.accessToken == null || user.accessToken.length === 0) {
+                throw new PreconditionFailedException(`User ${user.nickname} has no access token`)
             }
-            // OLD
-            // content = await this.reposService({ provider: source.provider, accessToken }).getFileContent(hash, source.owner, source.name)
-            switch (report.provider) {
-                case 'github':
-                default:
-                    this.githubReposService.login(user.accessToken)
-                    content = await this.githubReposService.getFileContent(hash, userId, report.name)
-                    break
-            }
+            this.githubReposService.login(user.accessToken)
+            return this.githubReposService.getBranches(user.id, report.name)
         }
+    }
 
-        return content
+    public async getCommits(userId: string, reportId: string, branch: string): Promise<GithubCommit[]> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('The specified report could not be found')
+        }
+        if (report.provider === RepositoryProvider.KYSO) {
+            throw new PreconditionFailedException({
+                message: 'This functionality is not available in S3',
+            })
+        }
+        const user: User = await this.usersService.getUserById(userId)
+        if (user.accessToken == null || user.accessToken.length === 0) {
+            throw new PreconditionFailedException(`User ${user.nickname} has no access token`)
+        }
+        this.githubReposService.login(user.accessToken)
+        return this.githubReposService.getCommits(userId, report.id, branch)
+    }
+
+    public async getFileHash(userId: string, reportId: string, branch: string, path: string): Promise<GithubFileHash | GithubFileHash[]> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new NotFoundError({ message: 'The specified report could not be found' })
+        }
+        if (report.provider === RepositoryProvider.KYSO) {
+            return this.localReportsService.getFileHash(report.id, branch)
+        } else {
+            const user: User = await this.usersService.getUserById(userId)
+            if (user.accessToken == null || user.accessToken.length === 0) {
+                throw new PreconditionFailedException(`User ${user.nickname} has no access token`)
+            }
+            const fullPath = `${report.path}${path}`
+            this.githubReposService.login(user.accessToken)
+            return this.githubReposService.getFileHash(fullPath, report.username_provider, report.name, branch)
+        }
+    }
+
+    public async getReportFileContent(userId: string, reportId: string, hash: string): Promise<Buffer> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('The specified report could not be found')
+        }
+        if (report.provider === RepositoryProvider.KYSO) {
+            return this.localReportsService.getFileContent(hash)
+        } else {
+            const user: User = await this.usersService.getUserById(userId)
+            if (user.accessToken == null || user.accessToken.length === 0) {
+                throw new PreconditionFailedException(`User ${user.nickname} has no access token`)
+            }
+            this.githubReposService.login(user.accessToken)
+            return this.githubReposService.getFileContent(hash, userId, report.name)
+        }
     }
 
     public async toggleUserPin(userId: string, reportId: string): Promise<Report> {
