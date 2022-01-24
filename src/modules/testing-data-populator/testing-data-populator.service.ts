@@ -217,7 +217,8 @@ export class TestingDataPopulatorService {
     }
 
     private async createOrganizations() {
-        const darksideOrganization: Organization = new Organization('darkside', [], 'darkside@kyso.io', 'random-stripe-id-with-no-use', false)
+        const darksideOrganization: Organization = new Organization(
+            'darkside', 'Darkside Ltd.', [], [], 'darkside@kyso.io', 'random-stripe-id-with-no-use', "G891724", false)
 
         this.DarksideOrganization = await this._createOrganization(darksideOrganization)
 
@@ -225,9 +226,12 @@ export class TestingDataPopulatorService {
 
         const lightsideOrganization: Organization = new Organization(
             'lightside',
+            'The Lightside Inc.', 
             [this.CustomOrganizationRole],
+            [],
             'lightside@kyso.io',
             'another-random-stripe-id-with-no-use',
+            'ES87961244T',
             false,
         )
 
@@ -253,11 +257,7 @@ export class TestingDataPopulatorService {
                 'Cleveland',
                 [],
                 this.DarksideOrganization.id,
-                TeamVisibilityEnum.PUBLIC,
-                null,
-                null,
-                false,
-                null,
+                TeamVisibilityEnum.PUBLIC
             )
 
             this.CustomTeamRole = new KysoRole('custom-team-random-role', [ReportPermissionsEnum.READ])
@@ -270,11 +270,7 @@ export class TestingDataPopulatorService {
                 'Sacramento',
                 [this.CustomTeamRole],
                 this.LightsideOrganization.id,
-                TeamVisibilityEnum.PROTECTED,
-                null,
-                null,
-                false,
-                null,
+                TeamVisibilityEnum.PROTECTED
             )
 
             const privateTeam = new Team(
@@ -285,11 +281,7 @@ export class TestingDataPopulatorService {
                 'Milwaukee',
                 [this.CustomTeamRole],
                 this.DarksideOrganization.id,
-                TeamVisibilityEnum.PRIVATE,
-                null,
-                null,
-                false,
-                null,
+                TeamVisibilityEnum.PRIVATE
             )
 
             this.PublicTeam = await this._createTeam(publicTeam)
