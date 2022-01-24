@@ -1,3 +1,4 @@
+import { GithubBranch, GithubCommit, GithubFileHash, GithubRepository } from '@kyso-io/kyso-model'
 import { Injectable } from '@nestjs/common'
 import { Octokit } from '@octokit/rest'
 import axios from 'axios'
@@ -5,7 +6,7 @@ import { NotFoundError } from '../../../helpers/errorHandling'
 
 const MAX_ORGANIZATIONS_PER_USER = 100
 
-const repoMapFunction = (repo) => ({
+const repoMapFunction = (repo: any): GithubRepository => ({
     id: repo.id,
     owner: repo.owner.login,
     name: repo.name,
@@ -36,13 +37,12 @@ export class GithubReposProvider {
         return res.data.map(repoMapFunction)
     }
 
-    async getRepo(owner, name) {
-        const res = await this.octokit.repos.get({
-            owner,
-            repo: name,
+    public async getRepository(githubUsername: string, repositoryName: string): Promise<GithubRepository> {
+        const response: any = await this.octokit.repos.get({
+            owner: githubUsername,
+            repo: repositoryName,
         })
-
-        return repoMapFunction(res.data)
+        return repoMapFunction(response.data)
     }
 
     async searchRepos(filter, page, perPage) {
@@ -64,25 +64,24 @@ export class GithubReposProvider {
         return res.data.items.map(repoMapFunction)
     }
 
-    async getBranches(owner, repo) {
+    public async getBranches(githubUsername: string, repositoryName: string): Promise<GithubBranch[]> {
         const res = await this.octokit.repos.listBranches({
-            owner,
-            repo,
+            owner: githubUsername,
+            repo: repositoryName,
         })
-
         return res.data.map((branch) => ({
             name: branch.name,
             commit: branch.commit.sha,
+            is_default: false,
         }))
     }
 
-    async getCommits(owner, repo, branch) {
+    public async getCommits(githubUsername: string, repositoryName: string, branch: string): Promise<GithubCommit[]> {
         const res = await this.octokit.repos.listCommits({
-            owner,
-            repo,
+            owner: githubUsername,
+            repo: repositoryName,
             sha: branch,
         })
-
         return res.data.map((elem) => ({
             sha: elem.sha,
             author: {
@@ -95,7 +94,7 @@ export class GithubReposProvider {
         }))
     }
 
-    async getFileHash(filePath, owner, repo, branch) {
+    public async getFileHash(filePath: string, owner: string, repo: string, branch: string): Promise<GithubFileHash | GithubFileHash[]> {
         /* Github API will throw a 403 error when trying to get the hash of a file bigger than 1 MB.
         To work around this, we launch two request simultaneously, one for the filePath specified and
         one for the folder were the requested file is located. If we catch a 403 error on the first

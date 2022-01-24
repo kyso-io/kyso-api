@@ -8,6 +8,7 @@ import {
     LoginProviderEnum,
     Organization,
     Report,
+    RepositoryProvider,
     Team,
     TeamVisibilityEnum,
     User,
@@ -187,14 +188,14 @@ export class TestingDataPopulatorService {
     }
 
     private async createTestingReports() {
-        const testReport = new CreateReportDTO('kylos-report', 'team-contributor', null, 'main', '.', this.PrivateTeam.id)
+        const testReport = new CreateReportDTO('kylos-report', RepositoryProvider.KYSO, null, 'main', '.', this.PrivateTeam.id)
         this.TestReport = await this._createReport(this.Kylo_TeamContributorUser, testReport)
     }
 
     private async _createReport(user: User, report: CreateReportDTO) {
         try {
             Logger.log(`Creating ${report.name} report...`)
-            return this.reportsService.createReport(user, report, 'protected-team')
+            return this.reportsService.createReport(user.id, report)
         } catch (ex) {
             Logger.log(`${report.name} report already exists`)
         }
@@ -363,85 +364,85 @@ export class TestingDataPopulatorService {
     private async createDiscussions() {
         Logger.log(`Creating discussions...`)
         const discussion_one = new CreateDiscussionRequestDTO(
-            false, 
+            false,
             [],
             this.Palpatine_PlatformAdminUser.id,
             false,
             "Dark Star Engineering Discussion in which discuss how to harden the starship to avoid rebel's attacks. This discussion is public, so anyone in the galaxy can bring their own ideas",
             1,
-            false, 
-            "Dark Start Engineering Main",
-            [], 
+            false,
+            'Dark Start Engineering Main',
+            [],
             false,
             this.PublicTeam.id,
-            "Dark Star Engineering",
-            "http://localhost:3000/idontknowwhyisthisimportant"
-        );
+            'Dark Star Engineering',
+            'http://localhost:3000/idontknowwhyisthisimportant',
+        )
 
         const discussion_two = new CreateDiscussionRequestDTO(
-            false, 
+            false,
             [],
             this.Rey_TeamAdminUser.id,
             false,
             "Discussion to discuss how to break the empire's Dark Star, taking advantage of that they, for some reason, make her engineering discussion public...",
             1,
-            false, 
-            "How to break the Dark Star main",
-            [], 
+            false,
+            'How to break the Dark Star main',
+            [],
             false,
             this.ProtectedTeamWithCustomRole.id,
             "Breaking Dark's Start",
-            "http://localhost:3000/idontknowwhyisthisimportantagain"
-        );
+            'http://localhost:3000/idontknowwhyisthisimportantagain',
+        )
 
         const discussion_three = new CreateDiscussionRequestDTO(
-            false, 
+            false,
             [],
             this.Kylo_TeamContributorUser.id,
             false,
-            "Should I stay at the darkside or change to the lightside?",
+            'Should I stay at the darkside or change to the lightside?',
             1,
-            false, 
-            "Should I stay at the darkside or change to the lightside Main",
-            [], 
+            false,
+            'Should I stay at the darkside or change to the lightside Main',
+            [],
             false,
             this.PublicTeam.id,
             "Kylo's thoughts",
-            "http://localhost:3000/idontknowwhyisthisimportantagainangaing"
-        );
+            'http://localhost:3000/idontknowwhyisthisimportantagainangaing',
+        )
 
         const entityD1: Discussion = await this.discussionsService.createDiscussion(discussion_one)
-        
+
         // Add comments to every discussion
         const d1_c1 = new Comment(
             "We can't satisfy the deadline, I suggest to add a small gate and push to production. The probability to receive an attack there is ridiculous",
             this.Gideon_OrganizationAdminUser.id,
             this.TestReport.id,
-            null
+            null,
         )
 
         d1_c1.discussion_id = entityD1.id
-        const entityD1C1 = await this.commentsService.createComment(d1_c1);
+        const entityD1C1 = await this.commentsService.createComment(d1_c1)
 
         const d1_c2 = new Comment(
             "Are you sure Gideon? I don't want to lose the war for that...",
             this.Palpatine_PlatformAdminUser.id,
             this.TestReport.id,
-            entityD1C1.comment_id
+            entityD1C1.comment_id,
         )
 
-        d1_c2.discussion_id = entityD1.id 
-        await this.commentsService.createComment(d1_c2);
+        d1_c2.discussion_id = entityD1.id
+        await this.commentsService.createComment(d1_c2)
 
         const d1_c3 = new Comment(
             "It's a good idea, if not you'll have delays and enter in a debt with Jabba",
             this.Rey_TeamAdminUser.id,
             this.TestReport.id,
-            null
+            null,
         )
-        d1_c2.discussion_id = entityD1.id 
+        d1_c2.discussion_id = entityD1.id
 
-        await this.commentsService.createComment(d1_c3);
+        await this.commentsService.createComment(d1_c3)
 
         const entityD2: Discussion = await this.discussionsService.createDiscussion(discussion_two)
 
@@ -449,31 +450,21 @@ export class TestingDataPopulatorService {
             "Folks, I just drop a message to Dark Star engineering discussion enforcing shitty Gideon argument, hopefully they'll do it and we can win hahahaha",
             this.Rey_TeamAdminUser.id,
             this.TestReport.id,
-            null
+            null,
         )
 
-        d2_c1.discussion_id = entityD2.id 
-        await this.commentsService.createComment(d2_c1);
+        d2_c1.discussion_id = entityD2.id
+        await this.commentsService.createComment(d2_c1)
 
-        const d2_c2 = new Comment(
-            "RRWWWGG GGWWWRGHH RAWRGWAWGGR",
-            this.Chewbacca_TeamReaderUser.id,
-            this.TestReport.id,
-            null
-        )
+        const d2_c2 = new Comment('RRWWWGG GGWWWRGHH RAWRGWAWGGR', this.Chewbacca_TeamReaderUser.id, this.TestReport.id, null)
 
-        d2_c2.discussion_id = entityD2.id 
-        await this.commentsService.createComment(d2_c2);
+        d2_c2.discussion_id = entityD2.id
+        await this.commentsService.createComment(d2_c2)
 
-        const d2_c3 = new Comment(
-            "Hahahahaha good one Chewy",
-            this.Kylo_TeamContributorUser.id,
-            this.TestReport.id,
-            null
-        )
+        const d2_c3 = new Comment('Hahahahaha good one Chewy', this.Kylo_TeamContributorUser.id, this.TestReport.id, null)
 
-        d2_c3.discussion_id = entityD2.id 
-        await this.commentsService.createComment(d2_c3);
+        d2_c3.discussion_id = entityD2.id
+        await this.commentsService.createComment(d2_c3)
 
         const entityD3: Discussion = await this.discussionsService.createDiscussion(discussion_three)
 
@@ -481,10 +472,10 @@ export class TestingDataPopulatorService {
             "I'm in a hurry, I want the power that the dark side brings to me, but I also like to be near Rey, I don't know why :S",
             this.Kylo_TeamContributorUser.id,
             this.TestReport.id,
-            null
+            null,
         )
 
-        d3_c1.discussion_id = entityD3.id 
-        await this.commentsService.createComment(d3_c1);
+        d3_c1.discussion_id = entityD3.id
+        await this.commentsService.createComment(d3_c1)
     }
 }
