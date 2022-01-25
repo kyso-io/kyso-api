@@ -143,7 +143,7 @@ export class ReportsService extends AutowiredService {
             kysoConfigFile ? kysoConfigFile.description : createReportDto.description,
             user.id,
             team.id,
-            createReportDto.name,
+            createReportDto.title,
         )
         return this.provider.create(report)
     }

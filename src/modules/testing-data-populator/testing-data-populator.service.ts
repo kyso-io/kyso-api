@@ -209,7 +209,7 @@ export class TestingDataPopulatorService {
         const reportDeathStarEngineering = new CreateReportDTO(
             'death-star-engineering', 
             'fran-kyso', RepositoryProvider.GITHUB, 'main', 'kronig-penney-exploration', this.PublicTeam.id, 
-            `Engineering details about the construction of the Dark Start for the Imperium`, 
+            `Engineering details about the construction of the Dark Star for the Imperium`, 
             'Make sure that this details dont get leaked as the lightside can really fuck us with that information'
         )
 
@@ -404,7 +404,7 @@ export class TestingDataPopulatorService {
             "Dark Star Engineering Discussion in which discuss how to harden the starship to avoid rebel's attacks. This discussion is public, so anyone in the galaxy can bring their own ideas",
             1,
             false,
-            'Dark Start Engineering Main',
+            'Dark Star Engineering Main',
             [],
             false,
             this.PublicTeam.id,
@@ -424,7 +424,7 @@ export class TestingDataPopulatorService {
             [],
             false,
             this.ProtectedTeamWithCustomRole.id,
-            "Breaking Dark's Start",
+            "Breaking Dark's Star",
             'http://localhost:3000/idontknowwhyisthisimportantagain',
         )
 
