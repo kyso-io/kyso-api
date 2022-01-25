@@ -2127,21 +2127,138 @@
         ]
       }
     },
-    "/v1/repos/github/{repoOwner}/{repoName}": {
+    "/v1/repos/github/user": {
+      "get": {
+        "operationId": "GithubReposController_getAuthenticatedUser",
+        "summary": "Get git logged user info",
+        "description": "Get data about the git provider account that was linked with the requesting user account.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The data of the specified repository",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GithubAccount"
+                    },
+                    "relations": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "$ref": "#/components/schemas/User"
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "$ref": "#/components/schemas/Report"
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "$ref": "#/components/schemas/Comment"
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "$ref": "#/components/schemas/Team"
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "$ref": "#/components/schemas/Organization"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Input is not correct",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "You need to be authenticated to execute this action",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "You are not allowed to perform this action",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The resource you are trying to acces can't be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Precondition failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "repos/github"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/v1/repos/github/{repoName}": {
       "get": {
         "operationId": "GithubReposController_getRepo",
         "summary": "Get a single repository",
         "description": "Fetch data for a repository, after specifying the owner and the name of the repository",
         "parameters": [
-          {
-            "name": "repoOwner",
-            "required": true,
-            "in": "path",
-            "description": "Name of the owner of the repository to fetch",
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "repoName",
             "required": true,
@@ -2272,21 +2389,12 @@
         ]
       }
     },
-    "/v1/repos/github/{repoOwner}/{repoName}/{branch}/tree": {
+    "/v1/repos/github/{repoName}/{branch}/tree": {
       "get": {
         "operationId": "GithubReposController_getRepoTree",
         "summary": "Explore a repository tree",
         "description": "Get the tree of a specific repository",
         "parameters": [
-          {
-            "name": "repoOwner",
-            "required": true,
-            "in": "path",
-            "description": "Name of the owner of the repository to fetch",
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "repoName",
             "required": true,
@@ -2426,133 +2534,7 @@
         ]
       }
     },
-    "/v1/repos/github/user": {
-      "get": {
-        "operationId": "GithubReposController_getAuthenticatedUser",
-        "summary": "Get git logged user info",
-        "description": "Get data about the git provider account that was linked with the requesting user account.",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "The data of the specified repository",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/GithubAccount"
-                    },
-                    "relations": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/User"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/Report"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/Comment"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/Team"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/Organization"
-                          }
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Input is not correct",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "You need to be authenticated to execute this action",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "You are not allowed to perform this action",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The resource you are trying to acces can't be found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "412": {
-            "description": "Precondition failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "repos/github"
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
-      }
-    },
-    "/v1/repos/github/user/access_token/{accessToken}": {
+    "/v1/repos/github/user/access-token/{accessToken}": {
       "get": {
         "operationId": "GithubReposController_getUserByAccessToken",
         "summary": "Get git user info by access token",
@@ -2688,9 +2670,9 @@
         ]
       }
     },
-    "/v1/repos/github/user/email/access_token/{accessToken}": {
+    "/v1/repos/github/user/email/access-token/{accessToken}": {
       "get": {
-        "operationId": "GithubReposController_getUserEmailByAccessToken",
+        "operationId": "GithubReposController_getUserEmailsByAccessToken",
         "summary": "Get email user info by access token",
         "description": "Get email data about the git provider account that belongs to the provided access token",
         "parameters": [
@@ -2712,7 +2694,10 @@
                 "schema": {
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/GithubAccount"
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GithubEmail"
+                      }
                     },
                     "relations": {
                       "anyOf": [

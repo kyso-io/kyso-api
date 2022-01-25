@@ -61,7 +61,7 @@ export class GithubLoginProvider {
         const access_token = res.data.split('&')[0].split('=')[1]
 
         const githubUser = await this.githubReposService.getUserByAccessToken(access_token)
-        const emails = await this.githubReposService.getEmailByAccessToken(access_token)
+        const emails = await this.githubReposService.getEmailsByAccessToken(access_token)
         const onlyPrimaryMail = emails.filter((x) => x.primary === true)[0]
 
         const user = User.fromGithubUser(githubUser, onlyPrimaryMail)

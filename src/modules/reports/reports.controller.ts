@@ -6,6 +6,7 @@ import {
     GithubBranch,
     GithubCommit,
     GithubFileHash,
+    GlobalPermissionsEnum,
     NormalizedResponseDTO,
     Report,
     ReportDTO,
@@ -72,6 +73,9 @@ export class ReportsController extends GenericController<Report> {
         if (!query.filter) query.filter = {}
         const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
         query.filter.team_id = { $in: teams.map((team: Team) => team.id) }
+        if (token.permissions?.global && token.permissions.global.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)) {
+            delete query.filter.team_id
+        }
         const reports: Report[] = await this.reportsService.getReports(query)
         let reportsDtos: ReportDTO[] = []
         if (reports.length > 0) {

@@ -1,5 +1,5 @@
-import { GithubAccount, NormalizedResponseDTO, Repository, Token, User } from '@kyso-io/kyso-model'
-import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common'
+import { GithubAccount, GithubEmail, GithubFileHash, GithubRepository, NormalizedResponseDTO, Repository, Token, User } from '@kyso-io/kyso-model'
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -39,29 +39,49 @@ export class GithubReposController extends GenericController<Repository> {
         type: Repository,
     })
     @Permission([GithubRepoPermissionsEnum.READ])
-    async getRepos(@CurrentToken() token: Token, @Query('filter') filter, @Query('page') page, @Query('per_page') perPage, @Req() req) {
+    async getRepos(
+        @CurrentToken() token: Token,
+        @Query('filter') filter,
+        @Query('page') page,
+        @Query('per_page') perPage,
+    ): Promise<NormalizedResponseDTO<GithubRepository[]>> {
         const user: User = await this.usersService.getUserById(token.id)
         this.githubReposService.login(user.accessToken)
-        const repos = await this.githubReposService.getRepos({
-            user: req.user,
+        const repos: GithubRepository[] = await this.githubReposService.getRepos({
             filter,
             page,
             perPage,
         })
-        repos.forEach((x) => this.assignReferences(x))
         return new NormalizedResponseDTO(repos)
     }
 
-    @Get('/:repoOwner/:repoName')
+    @Get('/user')
+    @ApiOperation({
+        summary: `Get git logged user info`,
+        description: `Get data about the git provider account that was linked with the requesting user account.`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `The data of the specified repository`,
+        type: GithubAccount,
+    })
+    @Permission([GithubRepoPermissionsEnum.READ])
+    public async getAuthenticatedUser(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<GithubAccount>> {
+        try {
+            const user: User = await this.usersService.getUserById(token.id)
+            this.githubReposService.login(user.accessToken)
+            const githubUser: GithubAccount = await this.githubReposService.getUser()
+            return new NormalizedResponseDTO(githubUser)
+        } catch (e) {
+            console.log(e)
+            return new NormalizedResponseDTO(null)
+        }
+    }
+
+    @Get('/:repoName')
     @ApiOperation({
         summary: `Get a single repository`,
         description: `Fetch data for a repository, after specifying the owner and the name of the repository`,
-    })
-    @ApiParam({
-        name: 'repoOwner',
-        required: true,
-        description: 'Name of the owner of the repository to fetch',
-        schema: { type: 'string' },
     })
     @ApiParam({
         name: 'repoName',
@@ -75,22 +95,21 @@ export class GithubReposController extends GenericController<Repository> {
         type: Repository,
     })
     @Permission([GithubRepoPermissionsEnum.READ])
-    async getRepo(@Param('repoOwner') repoOwner: string, @Param('repoName') repoName: string, @Req() req): Promise<NormalizedResponseDTO<any>> {
-        const repository: any = await this.githubReposService.getGithubRepository(repoOwner, repoName)
-        // this.assignReferences(repo)
-        return new NormalizedResponseDTO(repository)
+    async getRepo(@CurrentToken() token: Token, @Param('repoName') repoName: string): Promise<NormalizedResponseDTO<any>> {
+        try {
+            const user: User = await this.usersService.getUserById(token.id)
+            this.githubReposService.login(user.accessToken)
+            const repository: any = await this.githubReposService.getGithubRepository(user.username, repoName)
+            return new NormalizedResponseDTO(repository)
+        } catch (e) {
+            return new NormalizedResponseDTO(null)
+        }
     }
 
-    @Get('/:repoOwner/:repoName/:branch/tree')
+    @Get('/:repoName/:branch/tree')
     @ApiOperation({
         summary: `Explore a repository tree`,
         description: `Get the tree of a specific repository`,
-    })
-    @ApiParam({
-        name: 'repoOwner',
-        required: true,
-        description: 'Name of the owner of the repository to fetch',
-        schema: { type: 'string' },
     })
     @ApiParam({
         name: 'repoName',
@@ -110,34 +129,23 @@ export class GithubReposController extends GenericController<Repository> {
         type: Repository,
     })
     @Permission([GithubRepoPermissionsEnum.READ])
-    async getRepoTree(@Param('repoOwner') repoOwner: string, @Param('repoName') repoName: string, @Param('branch') branch: string, @Req() req) {
-        // LOGIN??
-
-        const tree = await req.reposService.getRepoTree(repoOwner, repoName, branch)
-
-        return new NormalizedResponseDTO(tree)
+    async getRepoTree(
+        @CurrentToken() token: Token,
+        @Param('repoName') repoName: string,
+        @Param('branch') branch: string,
+    ): Promise<NormalizedResponseDTO<GithubFileHash[]>> {
+        try {
+            const user: User = await this.usersService.getUserById(token.id)
+            this.githubReposService.login(user.accessToken)
+            const tree = await this.githubReposService.getRepoTree(user.username, repoName, branch)
+            return new NormalizedResponseDTO(tree)
+        } catch (e) {
+            console.log(e)
+            return new NormalizedResponseDTO(null)
+        }
     }
 
-    @Get('/user')
-    @ApiOperation({
-        summary: `Get git logged user info`,
-        description: `Get data about the git provider account that was linked with the requesting user account.`,
-    })
-    @ApiNormalizedResponse({
-        status: 200,
-        description: `The data of the specified repository`,
-        type: GithubAccount,
-    })
-    @Permission([GithubRepoPermissionsEnum.READ])
-    async getAuthenticatedUser() {
-        // LOGIN??
-
-        const user = await this.githubReposService.getUser()
-
-        return new NormalizedResponseDTO(user)
-    }
-
-    @Get('/user/access_token/:accessToken')
+    @Get('/user/access-token/:accessToken')
     @ApiOperation({
         summary: `Get git user info by access token`,
         description: `Get data about the git provider account that belongs to the provided access token`,
@@ -154,13 +162,12 @@ export class GithubReposController extends GenericController<Repository> {
         type: GithubAccount,
     })
     @Permission([GithubRepoPermissionsEnum.READ])
-    async getUserByAccessToken(@Param('accessToken') accessToken: string) {
+    async getUserByAccessToken(@Param('accessToken') accessToken: string): Promise<NormalizedResponseDTO<any>> {
         const user = await this.githubReposService.getUserByAccessToken(accessToken)
-
         return new NormalizedResponseDTO(user)
     }
 
-    @Get('/user/email/access_token/:accessToken')
+    @Get('/user/email/access-token/:accessToken')
     @ApiOperation({
         summary: `Get email user info by access token`,
         description: `Get email data about the git provider account that belongs to the provided access token`,
@@ -174,12 +181,12 @@ export class GithubReposController extends GenericController<Repository> {
     @ApiNormalizedResponse({
         status: 200,
         description: `The data of the specified repository`,
-        type: GithubAccount,
+        type: GithubEmail,
+        isArray: true,
     })
     @Permission([GithubRepoPermissionsEnum.READ])
-    async getUserEmailByAccessToken(@Param('accessToken') accessToken: string) {
-        const email = await this.githubReposService.getEmailByAccessToken(accessToken)
-
+    async getUserEmailsByAccessToken(@Param('accessToken') accessToken: string): Promise<NormalizedResponseDTO<GithubEmail[]>> {
+        const email = await this.githubReposService.getEmailsByAccessToken(accessToken)
         return new NormalizedResponseDTO(email)
     }
 }

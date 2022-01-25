@@ -1,4 +1,4 @@
-import { GithubBranch, GithubCommit, GithubFileHash, GithubRepository } from '@kyso-io/kyso-model'
+import { GithubBranch, GithubCommit, GithubEmail, GithubFileHash, GithubRepository } from '@kyso-io/kyso-model'
 import { Injectable } from '@nestjs/common'
 import { Octokit } from '@octokit/rest'
 import axios from 'axios'
@@ -171,14 +171,13 @@ export class GithubReposProvider {
         return res.data
     }
 
-    async getEmailByAccessToken(access_token: string) {
+    async getEmailsByAccessToken(access_token: string): Promise<GithubEmail[]> {
         const res = await axios.get(`https://api.github.com/user/emails`, {
             headers: {
                 Authorization: `token ${access_token}`,
                 'content-type': 'application/json',
             },
         })
-
         return res.data
     }
 
@@ -186,7 +185,6 @@ export class GithubReposProvider {
         const res = await this.octokit.orgs.listForAuthenticatedUser({
             per_page: MAX_ORGANIZATIONS_PER_USER,
         })
-
         return res.data
     }
 }

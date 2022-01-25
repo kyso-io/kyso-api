@@ -1,4 +1,4 @@
-import { GithubBranch, GithubCommit, GithubFileHash, GithubRepository, KysoConfigFile } from '@kyso-io/kyso-model'
+import { GithubAccount, GithubBranch, GithubCommit, GithubEmail, GithubFileHash, GithubRepository, KysoConfigFile } from '@kyso-io/kyso-model'
 import { Injectable, Provider } from '@nestjs/common'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { NotFoundError } from '../../helpers/errorHandling'
@@ -40,7 +40,7 @@ export class GithubReposService extends AutowiredService {
         super()
     }
 
-    login(access_token) {
+    public login(access_token): void {
         this.provider.login(access_token)
     }
 
@@ -48,31 +48,12 @@ export class GithubReposService extends AutowiredService {
         return this.provider.getBranches(githubUsername, repositoryName)
     }
 
-    async getCommits(githubUsername: string, repositoryName: string, branch: string): Promise<GithubCommit[]> {
+    public async getCommits(githubUsername: string, repositoryName: string, branch: string): Promise<GithubCommit[]> {
         return this.provider.getCommits(githubUsername, repositoryName, branch)
     }
 
-    /*
-    _assignReports(user) {
-        return async (repo) => {
-            const reports = await this.reportsService.getReports({
-                filter: {
-                    'provider.owner': repo.owner,
-                    'provider.name': repo.name.toLowerCase(),
-                    user_id: QueryParser.createForeignKey('_User', user.objectId),
-                },
-            })
-
-            if (reports.length) repo.report = reports[0].full_name
-        }
-    }*/
-
-    async getRepos({ user, filter, page = 1, perPage = DEFAULT_REPOS_PER_PAGE }) {
-        const repos = filter ? await this.provider.searchRepos(filter, page, perPage) : await this.provider.getRepos(page, perPage)
-
-        // await Promise.all(repos.map(this._assignReports(user)))
-
-        return repos
+    public async getRepos({ filter, page = 1, perPage = DEFAULT_REPOS_PER_PAGE }) {
+        return filter ? this.provider.searchRepos(filter, page, perPage) : this.provider.getRepos(page, perPage)
     }
 
     public async getGithubRepository(githubUsername: string, repositoryName: string): Promise<GithubRepository> {
@@ -85,17 +66,17 @@ export class GithubReposService extends AutowiredService {
         return githubRepository
     }
 
-    async getUserByAccessToken(access_token: string) {
+    public async getUserByAccessToken(access_token: string): Promise<any> {
         return this.provider.getUserByAccessToken(access_token)
     }
 
-    async getEmailByAccessToken(access_token: string) {
-        return this.provider.getEmailByAccessToken(access_token)
+    public async getEmailsByAccessToken(access_token: string): Promise<GithubEmail[]> {
+        return this.provider.getEmailsByAccessToken(access_token)
     }
 
-    async getUser() {
+    public async getUser(): Promise<GithubAccount> {
         const [user, orgs] = await Promise.all([this.provider.getUser(), this.provider.getOrganizations()])
-        const result = {
+        return {
             id: user.id,
             login: user.login,
             orgs: orgs.map((org) => ({
@@ -103,24 +84,22 @@ export class GithubReposService extends AutowiredService {
                 login: org.login,
             })),
         }
-
-        return result
     }
 
-    async getRepoTree(owner, repo, branch) {
+    public async getRepoTree(owner, repo, branch): Promise<GithubFileHash[]> {
         const tree: GithubFileHash | GithubFileHash[] = await this.provider.getFileHash('.', owner, repo, branch)
         return Array.isArray(tree) ? tree.filter((file) => file.type === 'dir') : []
     }
 
-    async getFileHash(path: string, githubUsername: string, repositoryName: string, branch: string): Promise<GithubFileHash | GithubFileHash[]> {
+    public async getFileHash(path: string, githubUsername: string, repositoryName: string, branch: string): Promise<GithubFileHash | GithubFileHash[]> {
         return this.provider.getFileHash(path, githubUsername, repositoryName, branch)
     }
 
-    async getFileContent(hash: string, githubUsername: string, repositoryName: string): Promise<Buffer> {
+    public async getFileContent(hash: string, githubUsername: string, repositoryName: string): Promise<Buffer> {
         return this.provider.getFileContent(hash, githubUsername, repositoryName)
     }
 
-    async getConfigFile(path: string, githubUsername: string, repositoryName: string, branch: string): Promise<KysoConfigFile> {
+    public async getConfigFile(path: string, githubUsername: string, repositoryName: string, branch: string): Promise<KysoConfigFile> {
         let regexPath = path.replace(/^\//, '').replace(/\/$/, '').replace(/\//, '\\/')
         regexPath = regexPath.length ? `${regexPath}/` : ''
         const regex = new RegExp(`^${regexPath}${KYSO_FILE_REGEX}$`)
