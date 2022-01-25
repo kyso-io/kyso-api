@@ -133,4 +133,12 @@ export class CommentsService extends AutowiredService {
         const comments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(id) } })
         return comments.length === 0 ? null : comments[0]
     }
+
+    public async deleteReportComments(reportId: string): Promise<void> {
+        await this.provider.deleteMany({ report_id: reportId })
+    }
+
+    public async deleteUserComments(userId: string): Promise<void> {
+        await this.provider.deleteMany({ user_id: userId })
+    }
 }

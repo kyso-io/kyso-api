@@ -208,29 +208,21 @@ export class ReportsService extends AutowiredService {
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
         }
+
+        // Delete all comments
+        await this.commentsService.deleteReportComments(reportId)
+
+        // Delete relations with tags
+        await this.tagsService.removeTagRelationsOfEntity(reportId)
+
+        // Delete relations with pinned reports
+        await this.pinnedReportsMongoProvider.deleteMany({ report_id: reportId })
+
+        // Delete relations with starred reports
+        await this.starredReportsMongoProvider.deleteMany({ report_id: reportId })
+
         await this.provider.deleteOne({ _id: this.provider.toObjectId(reportId) })
         return report
-    }
-
-    public async pinReport(userId: string, reportId: string): Promise<Report> {
-        const report: Report = await this.getReportById(reportId)
-        if (!report) {
-            throw new NotFoundError({ message: 'The specified report could not be found' })
-        }
-        const existingReports: Report[] = await this.getReports({
-            filter: {
-                user_id: userId,
-                pin: true,
-            },
-            limit: 1,
-        })
-        if (existingReports.length !== 0) {
-            const existingReport = existingReports[0]
-            if (existingReport.id !== report.id) {
-                await this.provider.update({ _id: existingReport.id }, { $set: { pin: false } })
-            }
-        }
-        return this.provider.update({ _id: report.id }, { $set: { pin: !report.pin } })
     }
 
     public async getBranches(userId: string, reportId: string): Promise<GithubBranch[]> {
@@ -395,5 +387,13 @@ export class ReportsService extends AutowiredService {
         const reportIds: string[] = pinnedReports.map((pinnedReport: PinnedReport) => pinnedReport.report_id)
         const reports: Report[] = await this.getReports({ filter: { id: { $in: reportIds } } })
         return Promise.all(reports.map((report: Report) => this.reportModelToReportDTO(report, userId)))
+    }
+
+    public async deleteStarredReportsByUser(userId: string): Promise<void> {
+        await this.starredReportsMongoProvider.deleteMany({ user_id: userId })
+    }
+
+    public async deletePinnedReportsByUser(userId: string): Promise<void> {
+        await this.pinnedReportsMongoProvider.deleteMany({ user_id: userId })
     }
 }

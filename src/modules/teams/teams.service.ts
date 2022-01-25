@@ -231,7 +231,7 @@ export class TeamsService extends AutowiredService {
         const teams: Team[] = await this.getTeams({ filter: { organization_id } })
         for (const team of teams) {
             // Delete all members of this team
-            await this.teamMemberProvider.deleteMany({ filter: { team_id: team.id } })
+            await this.teamMemberProvider.deleteMany({ team_id: team.id })
             // Delete team
             await this.provider.deleteOne({ filter: { _id: this.provider.toObjectId(team.id) } })
         }

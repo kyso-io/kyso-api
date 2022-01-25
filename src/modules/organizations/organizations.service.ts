@@ -64,7 +64,7 @@ export class OrganizationsService extends AutowiredService {
         await this.teamsService.deleteGivenOrganization(organization.id)
 
         // Delete all members of this organization
-        await this.organizationMemberProvider.deleteMany({ filter: { organization_id: organization.id } })
+        await this.organizationMemberProvider.deleteMany({ organization_id: organization.id })
 
         // Delete the organization
         await this.provider.deleteOne({ _id: this.provider.toObjectId(organization.id) })

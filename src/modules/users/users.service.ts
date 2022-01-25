@@ -2,12 +2,13 @@ import { CreateUserRequestDTO, Organization, Team, TeamVisibilityEnum, Token, Up
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { existsSync, unlinkSync } from 'fs'
-import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { PlatformRole } from '../../security/platform-roles'
 import { AuthService } from '../auth/auth.service'
+import { CommentsService } from '../comments/comments.service'
 import { OrganizationsService } from '../organizations/organizations.service'
+import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 
@@ -30,6 +31,12 @@ export class UsersService extends AutowiredService {
 
     @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
+
+    @Autowired({ typeName: 'ReportsService' })
+    private reportsService: ReportsService
+
+    @Autowired({ typeName: 'CommentsService' })
+    private commentsService: CommentsService
 
     constructor(private mailerService: MailerService, private readonly provider: UsersMongoProvider) {
         super()
@@ -81,7 +88,7 @@ export class UsersService extends AutowiredService {
 
         // Create user organization
         const organizationName: string = userDb.nickname.charAt(0).toUpperCase() + userDb.nickname.slice(1) + "'s Workspace"
-        const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], userDb.email, "", "", true)
+        const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], userDb.email, '', '', true)
         Logger.log(`Creating new organization ${newOrganization.name}`)
         const organizationDb: Organization = await this.organizationsService.createOrganization(newOrganization)
 
@@ -91,7 +98,7 @@ export class UsersService extends AutowiredService {
 
         // Create user team
         const teamName: string = userDb.nickname.charAt(0).toUpperCase() + userDb.nickname.slice(1) + "'s Private"
-        const newUserTeam: Team = new Team(teamName, "", "", "", "", [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
+        const newUserTeam: Team = new Team(teamName, '', '', '', '', [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
         Logger.log(`Creating new team ${newUserTeam.name}...`)
         const userTeamDb: Team = await this.teamsService.createTeam(newUserTeam)
 
@@ -131,12 +138,21 @@ export class UsersService extends AutowiredService {
             await this.organizationsService.removeMemberFromOrganization(organization.id, user.id)
         }
 
-        await this.provider.deleteOne({ id: this.provider.toObjectId(id) })
+        // Delete starred reports
+        await this.reportsService.deleteStarredReportsByUser(user.id)
+
+        // Delete pinned reports
+        await this.reportsService.deletePinnedReportsByUser(user.id)
+
+        // Delete comments
+        await this.commentsService.deleteUserComments(user.id)
+
+        await this.provider.deleteOne({ _id: this.provider.toObjectId(id) })
         return true
     }
 
     public async addAccount(id: string, userAccount: UserAccount): Promise<boolean> {
-        const user = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
+        const user: User = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
 
         if (!user) {
             throw new PreconditionFailedException(null, `Can't add account to user as does not exists`)

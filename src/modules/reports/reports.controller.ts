@@ -30,8 +30,6 @@ import { UsersService } from '../users/users.service'
 import { ReportsService } from './reports.service'
 import { ReportPermissionsEnum } from './security/report-permissions.enum'
 
-const UPDATABLE_FIELDS = ['stars', 'tags', 'title', 'description', 'request_private', 'name']
-
 const DEFAULT_GET_REPORT_FILTERS = {
     state: { $ne: 'DELETED' },
     hidden: { $ne: 'true' },
@@ -180,20 +178,12 @@ export class ReportsController extends GenericController<Report> {
     })
     @ApiBody({ type: UpdateReportRequestDTO })
     @Permission([ReportPermissionsEnum.EDIT])
-    async updateReport(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Body() body: any): Promise<NormalizedResponseDTO<ReportDTO>> {
-        const fields = Object.fromEntries(Object.entries(body).filter((entry) => UPDATABLE_FIELDS.includes(entry[0])))
-
-        const { stars, ...rest } = fields
-        const updatePayload = {
-            $set: rest,
-            $inc: { stars: Math.sign(stars as any) },
-        }
-
-        const report: Report =
-            Object.keys(fields).length === 0
-                ? await this.reportsService.getReportById(reportId)
-                : await this.reportsService.updateReport(reportId, updatePayload)
-
+    async updateReport(
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @Body() updateReportRequestDTO: UpdateReportRequestDTO,
+    ): Promise<NormalizedResponseDTO<ReportDTO>> {
+        const report: Report = await this.reportsService.updateReport(reportId, updateReportRequestDTO)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(reportDto, 'report')
         return new NormalizedResponseDTO(report, relations)
@@ -215,30 +205,6 @@ export class ReportsController extends GenericController<Report> {
     async deleteReport(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.deleteReport(reportId)
         return new NormalizedResponseDTO(report)
-    }
-
-    @Patch('/:reportId/pin')
-    @ApiOperation({
-        summary: `Toggles the pin of the specified report`,
-        description: `Allows pinning of the specified report, unpins any other pinned report for owner`,
-    })
-    @ApiNormalizedResponse({
-        status: 200,
-        description: `Specified report data`,
-        type: Report,
-    })
-    @ApiParam({
-        name: 'reportId',
-        required: true,
-        description: 'Id of the report to pin',
-        schema: { type: 'string' },
-    })
-    @Permission([ReportPermissionsEnum.EDIT])
-    async pinReport(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
-        const report: Report = await this.reportsService.pinReport(token.id, reportId)
-        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(reportDto, 'report')
-        return new NormalizedResponseDTO(report, relations)
     }
 
     @Patch('/:reportId/user-pin')
