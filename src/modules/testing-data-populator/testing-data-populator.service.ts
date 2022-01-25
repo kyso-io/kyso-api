@@ -41,6 +41,7 @@ export class TestingDataPopulatorService {
     private KyloThoughtsReport: Report
     private DarkStarEngineeringReport: Report
     private RebelScumCounterAttackReport: Report
+    private BestPokemonReport: Report
 
     private TestComment: Comment
     private TestChildComment1: Comment
@@ -199,12 +200,21 @@ export class TestingDataPopulatorService {
     private async createTestingReports() {
         const reportKylosThoughts = new CreateReportDTO(
             'kylos-thoughts', 
-            RepositoryProvider.KYSO, null, 'main', '.', this.PrivateTeam.id, 
+            RepositoryProvider.KYSO, null, 'main', '.', this.ProtectedTeamWithCustomRole.id, 
             `Kylo's thoughts about to switch from darkside to lightside`, 
-            'Sometimes the anger flows throught me and I want to be at the darkside. But on the other hand, when I see Rey I get doubts and want to be in the lightside!'
+            'Sometimes the anger flows through me and I want to be at the darkside. But on the other hand, when I see Rey I get doubts and want to be in the lightside!'
         )
         
         this.KyloThoughtsReport = await this._createReport(this.Kylo_TeamContributorUser, reportKylosThoughts)
+
+        const reportMoffGideonPokemonReport = new CreateReportDTO(
+            'best-pokemon-ever', 
+            RepositoryProvider.KYSO, null, 'main', '.', this.PrivateTeam.id, 
+            `The Best Pokemon Report by Moff Gideon`, 
+            `Do you think Pokemon is not suitable for Lord Siths? You're wrong! See my report to know who is the best pokemon ever!`
+        )
+        
+        this.BestPokemonReport = await this._createReport(this.Kylo_TeamContributorUser, reportMoffGideonPokemonReport)
 
         const reportDeathStarEngineering = new CreateReportDTO(
             'death-star-engineering', 
