@@ -110,6 +110,7 @@ export class AuthService extends AutowiredService {
                     name: team.name,
                     id: team.id,
                     permissions: [...new Set(computedPermissions)], // Remove duplicated permissions
+                    organization_id: team.organization_id,
                 })
             }
         }

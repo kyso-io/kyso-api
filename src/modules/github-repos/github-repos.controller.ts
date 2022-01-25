@@ -1,10 +1,13 @@
-import { GithubAccount, NormalizedResponseDTO, Repository } from '@kyso-io/kyso-model'
+import { GithubAccount, NormalizedResponseDTO, Repository, Token, User } from '@kyso-io/kyso-model'
 import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
+import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { UsersService } from '../users/users.service'
 import { GithubReposService } from './github-repos.service'
 import { GithubRepoPermissionsEnum } from './security/github-repos-permissions.enum'
 
@@ -14,7 +17,10 @@ import { GithubRepoPermissionsEnum } from './security/github-repos-permissions.e
 @ApiBearerAuth()
 @Controller('repos/github')
 export class GithubReposController extends GenericController<Repository> {
-    constructor(private readonly reposService: GithubReposService) {
+    @Autowired({ typeName: 'UsersService' })
+    private usersService: UsersService
+
+    constructor(private readonly githubReposService: GithubReposService) {
         super()
     }
 
@@ -33,18 +39,16 @@ export class GithubReposController extends GenericController<Repository> {
         type: Repository,
     })
     @Permission([GithubRepoPermissionsEnum.READ])
-    async getRepos(@Query('filter') filter, @Query('page') page, @Query('per_page') perPage, @Req() req) {
-        // LOGIN??
-
-        const repos = await this.reposService.getRepos({
+    async getRepos(@CurrentToken() token: Token, @Query('filter') filter, @Query('page') page, @Query('per_page') perPage, @Req() req) {
+        const user: User = await this.usersService.getUserById(token.id)
+        this.githubReposService.login(user.accessToken)
+        const repos = await this.githubReposService.getRepos({
             user: req.user,
             filter,
             page,
             perPage,
         })
-
         repos.forEach((x) => this.assignReferences(x))
-
         return new NormalizedResponseDTO(repos)
     }
 
@@ -72,7 +76,7 @@ export class GithubReposController extends GenericController<Repository> {
     })
     @Permission([GithubRepoPermissionsEnum.READ])
     async getRepo(@Param('repoOwner') repoOwner: string, @Param('repoName') repoName: string, @Req() req): Promise<NormalizedResponseDTO<any>> {
-        const repository: any = await this.reposService.getGithubRepository(repoOwner, repoName)
+        const repository: any = await this.githubReposService.getGithubRepository(repoOwner, repoName)
         // this.assignReferences(repo)
         return new NormalizedResponseDTO(repository)
     }
@@ -128,7 +132,7 @@ export class GithubReposController extends GenericController<Repository> {
     async getAuthenticatedUser() {
         // LOGIN??
 
-        const user = await this.reposService.getUser()
+        const user = await this.githubReposService.getUser()
 
         return new NormalizedResponseDTO(user)
     }
@@ -151,7 +155,7 @@ export class GithubReposController extends GenericController<Repository> {
     })
     @Permission([GithubRepoPermissionsEnum.READ])
     async getUserByAccessToken(@Param('accessToken') accessToken: string) {
-        const user = await this.reposService.getUserByAccessToken(accessToken)
+        const user = await this.githubReposService.getUserByAccessToken(accessToken)
 
         return new NormalizedResponseDTO(user)
     }
@@ -174,7 +178,7 @@ export class GithubReposController extends GenericController<Repository> {
     })
     @Permission([GithubRepoPermissionsEnum.READ])
     async getUserEmailByAccessToken(@Param('accessToken') accessToken: string) {
-        const email = await this.reposService.getEmailByAccessToken(accessToken)
+        const email = await this.githubReposService.getEmailByAccessToken(accessToken)
 
         return new NormalizedResponseDTO(email)
     }
