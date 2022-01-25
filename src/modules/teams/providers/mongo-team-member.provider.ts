@@ -4,7 +4,7 @@ import { db } from '../../../main'
 import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
-export class TeamMemberMongoProvider extends MongoProvider<any> {
+export class TeamMemberMongoProvider extends MongoProvider<TeamMemberJoin> {
     constructor() {
         super('TeamMember', db)
     }

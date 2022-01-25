@@ -64,7 +64,7 @@ export class OrganizationsService extends AutowiredService {
         await this.teamsService.deleteGivenOrganization(organization.id)
 
         // Delete all members of this organization
-        await this.organizationMemberProvider.deleteMany({ filter: { organization_id: organization.id } })
+        await this.organizationMemberProvider.deleteMany({ organization_id: organization.id })
 
         // Delete the organization
         await this.provider.deleteOne({ _id: this.provider.toObjectId(organization.id) })
@@ -128,7 +128,7 @@ export class OrganizationsService extends AutowiredService {
                 return { ...u, roles: thisMember.role_names }
             })
 
-            return usersAndRoles.map((x) => new OrganizationMember(x.id.toString(), x.nickname, x.username, x.roles, x.bio, x.avatar_url, x.email))
+            return usersAndRoles.map((x) => new OrganizationMember(x.id.toString(), x.nickname, x.name, x.roles, x.bio, x.avatar_url, x.email))
         } else {
             return []
         }

@@ -1,3 +1,4 @@
+import { GithubFileHash } from '@kyso-io/kyso-model'
 import { Injectable, Provider } from '@nestjs/common'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { FilesMongoProvider } from './providers/mongo-files.provider'
@@ -37,7 +38,7 @@ export class LocalReportsService extends AutowiredService {
         }))
     }
 
-    async getFileHash(reportId, version) {
+    async getFileHash(reportId, version): Promise<GithubFileHash[]> {
         const { filesArray } = await this.versionsProvider.getReportVersion(reportId, version)
         const filesId = filesArray.map((file) => file.objectId)
 
@@ -48,6 +49,7 @@ export class LocalReportsService extends AutowiredService {
             type: 'file',
             path: file.name,
             hash: file.sha,
+            htmlUrl: '',
         }))
     }
 

@@ -72,7 +72,7 @@ export class GithubReposController extends GenericController<Repository> {
     })
     @Permission([GithubRepoPermissionsEnum.READ])
     async getRepo(@Param('repoOwner') repoOwner: string, @Param('repoName') repoName: string, @Req() req): Promise<NormalizedResponseDTO<any>> {
-        const repository: any = await this.reposService.getRepo(req.user, repoOwner, repoName)
+        const repository: any = await this.reposService.getGithubRepository(repoOwner, repoName)
         // this.assignReferences(repo)
         return new NormalizedResponseDTO(repository)
     }

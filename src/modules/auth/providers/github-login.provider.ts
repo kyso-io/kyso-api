@@ -74,7 +74,7 @@ export class GithubLoginProvider {
                 filter: { email: user.email },
             })
         } catch (ex) {
-            Logger.log(`User ${user.username} does not exist at Kyso, creating it`)
+            Logger.log(`User ${user.name} does not exist at Kyso, creating it`)
         }
 
         if (userInDb) {
@@ -86,7 +86,7 @@ export class GithubLoginProvider {
 
         // Build all the permissions for this user
         const permissions = await AuthService.buildFinalPermissionsForUser(
-            user.username,
+            user.name,
             this.usersService,
             this.teamsService,
             this.organizationsService,
@@ -99,9 +99,8 @@ export class GithubLoginProvider {
 
         const token = this.jwtService.sign(
             {
-                username: user.username,
+                username: user.name,
                 nickname: user.nickname,
-                // plan: user.plan,
                 id: userInDb.id,
                 email: user.email,
                 permissions,

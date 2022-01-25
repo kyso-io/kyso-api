@@ -1,3 +1,4 @@
+import { GithubBranch, GithubCommit, GithubFileHash, GithubRepository, KysoConfigFile } from '@kyso-io/kyso-model'
 import { Injectable, Provider } from '@nestjs/common'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { NotFoundError } from '../../helpers/errorHandling'
@@ -12,13 +13,12 @@ const formatters = {
     yaml: safeLoad,
 }
 
-function parseConfig(format, data) {
+function parseConfig(format, data): KysoConfigFile {
     let config = {}
     if (formatters[format]) {
         config = formatters[format](data)
     }
-
-    return config
+    return config as KysoConfigFile
 }
 
 function factory(service: GithubReposService) {
@@ -44,16 +44,12 @@ export class GithubReposService extends AutowiredService {
         this.provider.login(access_token)
     }
 
-    async getBranches(repoOwner, repoName) {
-        const branches = await this.provider.getBranches(repoOwner, repoName)
-
-        return branches
+    async getBranches(githubUsername: string, repositoryName: string): Promise<GithubBranch[]> {
+        return this.provider.getBranches(githubUsername, repositoryName)
     }
 
-    async getCommits(repoOwner, repoName, branch) {
-        const commits = await this.provider.getCommits(repoOwner, repoName, branch)
-
-        return commits
+    async getCommits(githubUsername: string, repositoryName: string, branch: string): Promise<GithubCommit[]> {
+        return this.provider.getCommits(githubUsername, repositoryName, branch)
     }
 
     /*
@@ -79,16 +75,14 @@ export class GithubReposService extends AutowiredService {
         return repos
     }
 
-    async getRepo(user, owner, name) {
-        const repo = await this.provider.getRepo(owner, name)
-        if (!repo)
+    public async getGithubRepository(githubUsername: string, repositoryName: string): Promise<GithubRepository> {
+        const githubRepository: GithubRepository = await this.provider.getRepository(githubUsername, repositoryName)
+        if (!githubRepository) {
             throw new NotFoundError({
                 message: "The specified repository couldn't be found",
             })
-
-        //    await this._assignReports(user)(repo)
-
-        return repo
+        }
+        return githubRepository
     }
 
     async getUserByAccessToken(access_token: string) {
@@ -114,33 +108,29 @@ export class GithubReposService extends AutowiredService {
     }
 
     async getRepoTree(owner, repo, branch) {
-        const tree = await this.provider.getFileHash('.', owner, repo, branch)
-        return tree.filter((file) => file.type === 'dir')
+        const tree: GithubFileHash | GithubFileHash[] = await this.provider.getFileHash('.', owner, repo, branch)
+        return Array.isArray(tree) ? tree.filter((file) => file.type === 'dir') : []
     }
 
-    async getFileHash(filePath, owner, repo, branch) {
-        const hash = await this.provider.getFileHash(filePath, owner, repo, branch)
-        return hash
+    async getFileHash(path: string, githubUsername: string, repositoryName: string, branch: string): Promise<GithubFileHash | GithubFileHash[]> {
+        return this.provider.getFileHash(path, githubUsername, repositoryName, branch)
     }
 
-    async getFileContent(hash, owner, repo) {
-        const content = await this.provider.getFileContent(hash, owner, repo)
-        return content
+    async getFileContent(hash: string, githubUsername: string, repositoryName: string): Promise<Buffer> {
+        return this.provider.getFileContent(hash, githubUsername, repositoryName)
     }
 
-    async getConfigFile(path, owner, repo, branch) {
+    async getConfigFile(path: string, githubUsername: string, repositoryName: string, branch: string): Promise<KysoConfigFile> {
         let regexPath = path.replace(/^\//, '').replace(/\/$/, '').replace(/\//, '\\/')
         regexPath = regexPath.length ? `${regexPath}/` : ''
         const regex = new RegExp(`^${regexPath}${KYSO_FILE_REGEX}$`)
-
-        const files = await this.getFileHash(path, owner, repo, branch)
-        const kysoFile = files.find((file) => file.path.match(regex))
-        if (!kysoFile) return {}
-
-        const data = await this.getFileContent(kysoFile.hash, owner, repo)
-        const format = kysoFile.path.split('.').pop()
-        const config = parseConfig(format, data)
-
-        return config
+        const files: GithubFileHash[] = (await this.getFileHash(path, githubUsername, repositoryName, branch)) as GithubFileHash[]
+        const kysoFile: GithubFileHash = files.find((file: GithubFileHash) => file.path.match(regex))
+        if (!kysoFile) {
+            return null
+        }
+        const format: string = kysoFile.path.split('.').pop()
+        const data: Buffer = await this.getFileContent(kysoFile.hash, githubUsername, repositoryName)
+        return parseConfig(format, data)
     }
 }

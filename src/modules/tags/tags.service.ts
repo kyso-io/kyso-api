@@ -97,4 +97,13 @@ export class TagsService extends AutowiredService {
         await this.tagsAssignMongoProvider.deleteOne({ _id: this.provider.toObjectId(tagAssign.id) })
         return tagAssign
     }
+
+    public async getTagIdsOfEntity(entityId: string, entityType: EntityEnum): Promise<string[]> {
+        const tagAssigns: TagAssign[] = await this.tagsAssignMongoProvider.read({ entity_id: entityId, type: entityType })
+        return tagAssigns.map((tag) => tag.tag_id)
+    }
+
+    public async removeTagRelationsOfEntity(entityId: string): Promise<void> {
+        await this.tagsAssignMongoProvider.deleteMany({ entity_id: entityId })
+    }
 }

@@ -1,12 +1,12 @@
-import { Report } from '@kyso-io/kyso-model'
+import { PinnedReport } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { db } from '../../../main'
 import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
-export class ReportsMongoProvider extends MongoProvider<Report> {
+export class PinnedReportsMongoProvider extends MongoProvider<PinnedReport> {
     constructor() {
-        super('Report', db)
+        super('PinnedReport', db)
     }
 
     populateMinimalData() {
