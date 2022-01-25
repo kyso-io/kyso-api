@@ -108,6 +108,7 @@ export class TestingDataPopulatorService {
         const rey_TestTeamAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
             'rey@kyso.io',
             'rey@kyso.io',
+            'rey@kyso.io',
             'rey',
             LoginProviderEnum.KYSO,
             '[Team Admin] Rey is a Team Admin',
@@ -119,6 +120,7 @@ export class TestingDataPopulatorService {
         )
 
         const kylo_TestTeamContributorUser: CreateUserRequestDTO = new CreateUserRequestDTO(
+            'kylo@kyso.io',
             'kylo@kyso.io',
             'kylo@kyso.io',
             'kyloren',
@@ -134,6 +136,7 @@ export class TestingDataPopulatorService {
         const chewbacca_TestTeamReaderUser: CreateUserRequestDTO = new CreateUserRequestDTO(
             'chewbacca@kyso.io',
             'chewbacca@kyso.io',
+            'chewbacca@kyso.io',
             'chewbacca',
             LoginProviderEnum.KYSO,
             '[Team Reader] Chewbacca is a Team Reader',
@@ -147,6 +150,7 @@ export class TestingDataPopulatorService {
         const gideon_TestOrganizationAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
             'gideon@kyso.io',
             'gideon@kyso.io',
+            'gideon@kyso.io',
             'moffgideon',
             LoginProviderEnum.KYSO,
             '[Organization Admin] Moff Gideon is an Organization Admin',
@@ -158,6 +162,7 @@ export class TestingDataPopulatorService {
         )
 
         const palpatine_TestPlatformAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
+            'palpatine@kyso.io',
             'palpatine@kyso.io',
             'palpatine@kyso.io',
             'palpatine',

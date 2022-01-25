@@ -1,12 +1,13 @@
 import { GlobalPermissionsEnum, LoginProviderEnum, User } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
+import * as mongo from 'mongodb'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '../../../main'
-import * as mongo from 'mongodb';
 import { MongoProvider } from '../../../providers/mongo.provider'
 import { AuthService } from '../../auth/auth.service'
 
 const DEFAULT_GLOBAL_ADMIN_USER = new User(
+    'default-admin@kyso.io',
     'default-admin@kyso.io',
     'default-admin@kyso.io',
     'default-admin',
@@ -18,8 +19,8 @@ const DEFAULT_GLOBAL_ADMIN_USER = new User(
     [GlobalPermissionsEnum.GLOBAL_ADMIN],
     '',
     '',
-    new mongo.ObjectId('61a8ae8f9c2bc3c5a2144000').toString()
-  );
+    new mongo.ObjectId('61a8ae8f9c2bc3c5a2144000').toString(),
+)
 
 @Injectable()
 export class UsersMongoProvider extends MongoProvider<User> {
@@ -46,7 +47,7 @@ export class UsersMongoProvider extends MongoProvider<User> {
                 "Y8888888888P"
         `)
 
-        let copycat: User = DEFAULT_GLOBAL_ADMIN_USER
+        const copycat: User = Object.assign({}, DEFAULT_GLOBAL_ADMIN_USER)
         copycat.hashed_password = AuthService.hashPassword(randomPassword)
 
         await this.create(copycat)
