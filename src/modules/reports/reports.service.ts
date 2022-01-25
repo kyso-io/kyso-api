@@ -76,57 +76,7 @@ export class ReportsService extends AutowiredService {
     }
 
     public async getReports(query): Promise<Report[]> {
-        if (query.filter && query.filter.owner) {
-            const results = await Promise.allSettled([
-                this.usersService.getUser({
-                    filter: { nickname: query.filter.owner },
-                }),
-                this.teamsService.getTeam({
-                    filter: { name: query.filter.owner },
-                }),
-            ])
-
-            delete query.filter.owner
-            if (results[0].status === 'fulfilled') {
-                query.filter.user_id = results[0].value.id
-            } else if (results[1].status === 'fulfilled') {
-                query.filter.team_id = results[1].value.id
-            } else {
-                return []
-            }
-        }
-
-        if (query.filter && query.filter.hasOwnProperty('pinned')) {
-            if (query.filter.pinned === false) {
-                // If a report has no pin property, we count it as pin=false
-                query.filter.pin = { $ne: 'true' }
-            } else {
-                query.filter.pin = true
-            }
-
-            delete query.filter.pinned
-        }
-
-        const reports = await this.provider.getReportsWithOwner(query)
-        return reports as Report[]
-    }
-
-    public async getReport(reportOwner, reportName): Promise<Report> {
-        const reports = await this.getReports({
-            filter: {
-                owner: reportOwner,
-                name: reportName,
-            },
-            limit: 1,
-        })
-
-        if (reports.length === 0) {
-            throw new NotFoundError({
-                message: "The specified report couldn't be found",
-            })
-        }
-
-        return reports[0]
+        return this.provider.read(query)
     }
 
     public async getReportById(reportId: string): Promise<Report> {
@@ -142,14 +92,6 @@ export class ReportsService extends AutowiredService {
         }
 
         const user: User = await this.usersService.getUserById(userId)
-        if (user.accessToken == null || user.accessToken.length === 0) {
-            throw new PreconditionFailedException(`User ${user.nickname} has no access token`)
-        }
-
-        // Try to get github repository
-        this.githubReposService.login(user.accessToken)
-        const githubRepository: GithubRepository = await this.githubReposService.getGithubRepository(createReportDto.username_provider, createReportDto.name)
-        Logger.log(`Got github repository ${githubRepository.name}`, ReportsService.name)
 
         // Check if team exists
         const team: Team = await this.teamsService.getTeamById(createReportDto.team_id)
@@ -170,14 +112,24 @@ export class ReportsService extends AutowiredService {
         }
 
         createReportDto.path = (createReportDto.path || '').replace(/^[.]\//, '')
-        const kysoConfigFile: KysoConfigFile = await this.githubReposService.getConfigFile(
-            createReportDto.path,
-            createReportDto.username_provider,
-            createReportDto.name,
-            createReportDto.default_branch,
-        )
-        if (!kysoConfigFile) {
-            throw new PreconditionFailedException(`The specified repository doesn't contain a Kyso config file`)
+        let kysoConfigFile: KysoConfigFile = null
+        if (user?.accessToken && user.accessToken.length > 0) {
+            // Try to get github repository
+            this.githubReposService.login(user.accessToken)
+            const githubRepository: GithubRepository = await this.githubReposService.getGithubRepository(
+                createReportDto.username_provider,
+                createReportDto.name,
+            )
+            Logger.log(`Got github repository ${githubRepository.name}`, ReportsService.name)
+            kysoConfigFile = await this.githubReposService.getConfigFile(
+                createReportDto.path,
+                createReportDto.username_provider,
+                createReportDto.name,
+                createReportDto.default_branch,
+            )
+            if (!kysoConfigFile) {
+                throw new PreconditionFailedException(`The specified repository doesn't contain a Kyso config file`)
+            }
         }
 
         const report: Report = new Report(
@@ -186,11 +138,12 @@ export class ReportsService extends AutowiredService {
             createReportDto.username_provider,
             createReportDto.default_branch,
             createReportDto.path,
-            0,
+            1,
             false,
-            kysoConfigFile.description,
+            kysoConfigFile ? kysoConfigFile.description : null,
             user.id,
             team.id,
+            createReportDto.name,
         )
         return this.provider.create(report)
     }
@@ -370,23 +323,19 @@ export class ReportsService extends AutowiredService {
             report.user_id,
             comments.map((comment: Comment) => comment.id),
             report.team_id,
+            report.title,
         )
     }
 
-    public async getReportDtos(userId: string, query: any): Promise<ReportDTO[]> {
-        const reports: Report[] = await this.getReports(query)
-        return Promise.all(reports.map((report: Report) => this.reportModelToReportDTO(report, userId)))
-    }
-
-    public async getPinnedReportsForUser(userId: string): Promise<ReportDTO[]> {
+    public async getPinnedReportsForUser(userId: string): Promise<Report[]> {
         const pinnedReports: PinnedReport[] = await this.pinnedReportsMongoProvider.read({
             filter: {
                 user_id: userId,
             },
         })
-        const reportIds: string[] = pinnedReports.map((pinnedReport: PinnedReport) => pinnedReport.report_id)
-        const reports: Report[] = await this.getReports({ filter: { id: { $in: reportIds } } })
-        return Promise.all(reports.map((report: Report) => this.reportModelToReportDTO(report, userId)))
+        return this.getReports({
+            filter: { _id: { $in: pinnedReports.map((pinnedReport: PinnedReport) => this.provider.toObjectId(pinnedReport.report_id)) } },
+        })
     }
 
     public async deleteStarredReportsByUser(userId: string): Promise<void> {
@@ -395,5 +344,9 @@ export class ReportsService extends AutowiredService {
 
     public async deletePinnedReportsByUser(userId: string): Promise<void> {
         await this.pinnedReportsMongoProvider.deleteMany({ user_id: userId })
+    }
+
+    public async increaseViews(filter: any): Promise<void> {
+        await this.provider.update(filter, { $inc: { views: 1 } })
     }
 }

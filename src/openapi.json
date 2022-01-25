@@ -4342,6 +4342,142 @@
         ]
       }
     },
+    "/v1/reports/pinned": {
+      "get": {
+        "operationId": "ReportsController_getPinnedReportsForUser",
+        "summary": "Get pinned reports for a user",
+        "description": "Allows fetching pinned reports of a specific user passing its id",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "description": "Id of the owner of the report to fetch",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All the pinned reports of a user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ReportDTO"
+                    },
+                    "relations": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "$ref": "#/components/schemas/User"
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "$ref": "#/components/schemas/Report"
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "$ref": "#/components/schemas/Comment"
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "$ref": "#/components/schemas/Team"
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "$ref": "#/components/schemas/Organization"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Input is not correct",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "You need to be authenticated to execute this action",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "You are not allowed to perform this action",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The resource you are trying to acces can't be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Precondition failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "reports"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/v1/reports/{reportId}": {
       "get": {
         "operationId": "ReportsController_getReport",
@@ -4639,142 +4775,6 @@
         "responses": {
           "204": {
             "description": "Report deleted"
-          },
-          "400": {
-            "description": "Input is not correct",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "You need to be authenticated to execute this action",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "You are not allowed to perform this action",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The resource you are trying to acces can't be found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "412": {
-            "description": "Precondition failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "reports"
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
-      }
-    },
-    "/v1/reports/user/{userId}/pinned": {
-      "get": {
-        "operationId": "ReportsController_getPinnedReportsForUser",
-        "summary": "Get pinned reports for a user",
-        "description": "Allows fetching pinned reports of a specific user passing its id",
-        "parameters": [
-          {
-            "name": "userId",
-            "required": true,
-            "in": "path",
-            "description": "Id of the owner of the report to fetch",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "All the pinned reports of a user",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ReportDTO"
-                    },
-                    "relations": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/User"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/Report"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/Comment"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/Team"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/Organization"
-                          }
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
           },
           "400": {
             "description": "Input is not correct",

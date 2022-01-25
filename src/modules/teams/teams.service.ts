@@ -72,7 +72,7 @@ export class TeamsService extends AutowiredService {
      *
      * @param user
      */
-    async getTeamsVisibleForUser(userId: string): Promise<Team[]> {
+    public async getTeamsVisibleForUser(userId: string): Promise<Team[]> {
         // All public teams
         const userTeamsResult: Team[] = await this.getTeams({ filter: { visibility: TeamVisibilityEnum.PUBLIC } })
 
@@ -151,7 +151,7 @@ export class TeamsService extends AutowiredService {
                 return { ...u, roles: thisMember.role_names }
             })
 
-            return usersAndRoles.map((x) => new TeamMember(x.id.toString(), x.nickname, x.username, x.roles, x.bio, x.avatar_url, x.email))
+            return usersAndRoles.map((x) => new TeamMember(x.id.toString(), x.nickname, x.name, x.roles, x.bio, x.avatar_url, x.email))
         } else {
             return []
         }

@@ -9,12 +9,13 @@ import {
     NormalizedResponseDTO,
     Report,
     ReportDTO,
+    Team,
     Token,
     UpdateReportRequestDTO,
-    User,
 } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
+import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
@@ -26,14 +27,9 @@ import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CommentsService } from '../comments/comments.service'
 import { RelationsService } from '../relations/relations.service'
-import { UsersService } from '../users/users.service'
+import { TeamsService } from '../teams/teams.service'
 import { ReportsService } from './reports.service'
 import { ReportPermissionsEnum } from './security/report-permissions.enum'
-
-const DEFAULT_GET_REPORT_FILTERS = {
-    state: { $ne: 'DELETED' },
-    hidden: { $ne: 'true' },
-}
 
 @ApiExtraModels(Report, NormalizedResponseDTO)
 @ApiTags('reports')
@@ -44,14 +40,14 @@ export class ReportsController extends GenericController<Report> {
     @Autowired({ typeName: 'CommentsService' })
     private commentsService: CommentsService
 
-    @Autowired({ typeName: 'UsersService' })
-    private usersService: UsersService
-
     @Autowired({ typeName: 'ReportsService' })
     private reportsService: ReportsService
 
     @Autowired({ typeName: 'RelationsService' })
     private relationsService: RelationsService
+
+    @Autowired({ typeName: 'TeamsService' })
+    private teamsService: TeamsService
 
     constructor() {
         super()
@@ -71,16 +67,53 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.READ])
     async getReports(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<ReportDTO[]>> {
-        // Object paginationQuery is there for documentation purposes. A refactor of this method should be done in the future
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) query.sort = { _created_at: -1 }
         if (!query.filter) query.filter = {}
-        Object.entries(DEFAULT_GET_REPORT_FILTERS).forEach(([key, value]) => {
-            if (!query.filter[key]) query.filter[key] = value
+        const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+        query.filter.team_id = { $in: teams.map((team: Team) => team.id) }
+        const reports: Report[] = await this.reportsService.getReports(query)
+        let reportsDtos: ReportDTO[] = []
+        if (reports.length > 0) {
+            reportsDtos = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token.id)))
+            await this.reportsService.increaseViews({ _id: { $in: reportsDtos.map((reportDto: ReportDTO) => new ObjectId(reportDto.id)) } })
+        }
+        reportsDtos.forEach((reportDto: ReportDTO) => {
+            reportDto.views++
         })
-        const reportDtos: ReportDTO[] = await this.reportsService.getReportDtos(token.id, query)
-        const relations = await this.relationsService.getRelations(reportDtos, 'report')
-        return new NormalizedResponseDTO(reportDtos, relations)
+        const relations = await this.relationsService.getRelations(reports, 'report')
+        return new NormalizedResponseDTO(reportsDtos, relations)
+    }
+
+    @Get('/pinned')
+    @ApiOperation({
+        summary: `Get pinned reports for a user`,
+        description: `Allows fetching pinned reports of a specific user passing its id`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `All the pinned reports of a user`,
+        type: ReportDTO,
+    })
+    @ApiParam({
+        name: 'userId',
+        required: true,
+        description: 'Id of the owner of the report to fetch',
+        schema: { type: 'string' },
+    })
+    @Permission([ReportPermissionsEnum.READ])
+    async getPinnedReportsForUser(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<ReportDTO[]>> {
+        const reports: Report[] = await this.reportsService.getPinnedReportsForUser(token.id)
+        let reportsDtos: ReportDTO[] = []
+        if (reports.length > 0) {
+            reportsDtos = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token.id)))
+            await this.reportsService.increaseViews({ _id: { $in: reports.map((report: Report) => new ObjectId(report.id)) } })
+        }
+        reportsDtos.forEach((reportDto: ReportDTO) => {
+            reportDto.views++
+        })
+        const relations = await this.relationsService.getRelations(reports, 'report')
+        return new NormalizedResponseDTO(reportsDtos, relations)
     }
 
     @Get('/:reportId')
@@ -101,6 +134,7 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.READ])
     async getReport(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
+        await this.reportsService.increaseViews({ _id: new ObjectId(reportId) })
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
             throw new InvalidInputError('Report not found')
@@ -108,33 +142,6 @@ export class ReportsController extends GenericController<Report> {
         const relations = await this.relationsService.getRelations(report, 'report')
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         return new NormalizedResponseDTO(reportDto, relations)
-    }
-
-    @Get('/user/:userId/pinned')
-    @ApiOperation({
-        summary: `Get pinned reports for a user`,
-        description: `Allows fetching pinned reports of a specific user passing its id`,
-    })
-    @ApiNormalizedResponse({
-        status: 200,
-        description: `All the pinned reports of a user`,
-        type: ReportDTO,
-    })
-    @ApiParam({
-        name: 'userId',
-        required: true,
-        description: 'Id of the owner of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @Permission([ReportPermissionsEnum.READ])
-    async getPinnedReportsForUser(@Param('userId') userId: string): Promise<NormalizedResponseDTO<ReportDTO[]>> {
-        const user: User = await this.usersService.getUserById(userId)
-        if (!user) {
-            throw new InvalidInputError('User not found')
-        }
-        const reportDtos: ReportDTO[] = await this.reportsService.getPinnedReportsForUser(user.id)
-        const relations = await this.relationsService.getRelations(reportDtos, 'report')
-        return new NormalizedResponseDTO(reportDtos, relations)
     }
 
     @Post()
@@ -155,9 +162,10 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.CREATE])
     async createReport(@CurrentToken() token: Token, @Body() createReportDto: CreateReportDTO): Promise<NormalizedResponseDTO<Report>> {
-        const report = await this.reportsService.createReport(token.id, createReportDto)
+        const report: Report = await this.reportsService.createReport(token.id, createReportDto)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report')
-        return new NormalizedResponseDTO(report, relations)
+        return new NormalizedResponseDTO(reportDto, relations)
     }
 
     @Patch('/:reportId')
@@ -227,8 +235,8 @@ export class ReportsController extends GenericController<Report> {
     async toggleUserPin(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.toggleUserPin(token.id, reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(reportDto, 'report')
-        return new NormalizedResponseDTO(report, relations)
+        const relations = await this.relationsService.getRelations(report, 'report')
+        return new NormalizedResponseDTO(reportDto, relations)
     }
 
     @Patch('/:reportId/user-star')
@@ -251,8 +259,8 @@ export class ReportsController extends GenericController<Report> {
     async toggleUserStar(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.toggleUserStar(token.id, reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(reportDto, 'report')
-        return new NormalizedResponseDTO(report, relations)
+        const relations = await this.relationsService.getRelations(report, 'report')
+        return new NormalizedResponseDTO(reportDto, relations)
     }
 
     @Get('/:reportId/comments')

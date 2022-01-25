@@ -128,7 +128,7 @@ export class OrganizationsService extends AutowiredService {
                 return { ...u, roles: thisMember.role_names }
             })
 
-            return usersAndRoles.map((x) => new OrganizationMember(x.id.toString(), x.nickname, x.username, x.roles, x.bio, x.avatar_url, x.email))
+            return usersAndRoles.map((x) => new OrganizationMember(x.id.toString(), x.nickname, x.name, x.roles, x.bio, x.avatar_url, x.email))
         } else {
             return []
         }

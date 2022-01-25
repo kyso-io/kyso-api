@@ -188,7 +188,7 @@ export class TestingDataPopulatorService {
     }
 
     private async createTestingReports() {
-        const testReport = new CreateReportDTO('kylos-report', RepositoryProvider.KYSO, null, 'main', '.', this.PrivateTeam.id)
+        const testReport = new CreateReportDTO('kylos-report', RepositoryProvider.KYSO, null, 'main', '.', this.PrivateTeam.id, 'kylos-report', '')
         this.TestReport = await this._createReport(this.Kylo_TeamContributorUser, testReport)
     }
 

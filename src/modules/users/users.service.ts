@@ -130,7 +130,7 @@ export class UsersService extends AutowiredService {
 
         const teams: Team[] = await this.teamsService.getUserTeams(user.id)
         for (const team of teams) {
-            await this.teamsService.removeMemberFromTeam(team.name, user.username)
+            await this.teamsService.removeMemberFromTeam(team.id, user.id)
         }
 
         const organizations: Organization[] = await this.organizationsService.getUserOrganizations(user.id)
