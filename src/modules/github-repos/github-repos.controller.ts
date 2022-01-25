@@ -95,7 +95,7 @@ export class GithubReposController extends GenericController<Repository> {
         type: Repository,
     })
     @Permission([GithubRepoPermissionsEnum.READ])
-    async getRepo(@CurrentToken() token: Token, @Param('repoName') repoName: string): Promise<NormalizedResponseDTO<any>> {
+    async getRepo(@CurrentToken() token: Token, @Param('repoName') repoName: string): Promise<NormalizedResponseDTO<GithubRepository>> {
         try {
             const user: User = await this.usersService.getUserById(token.id)
             this.githubReposService.login(user.accessToken)
@@ -167,7 +167,7 @@ export class GithubReposController extends GenericController<Repository> {
         return new NormalizedResponseDTO(user)
     }
 
-    @Get('/user/email/access-token/:accessToken')
+    @Get('/user/emails/access-token/:accessToken')
     @ApiOperation({
         summary: `Get email user info by access token`,
         description: `Get email data about the git provider account that belongs to the provided access token`,

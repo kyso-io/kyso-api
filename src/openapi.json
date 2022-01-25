@@ -2670,7 +2670,7 @@
         ]
       }
     },
-    "/v1/repos/github/user/email/access-token/{accessToken}": {
+    "/v1/repos/github/user/emails/access-token/{accessToken}": {
       "get": {
         "operationId": "GithubReposController_getUserEmailsByAccessToken",
         "summary": "Get email user info by access token",
