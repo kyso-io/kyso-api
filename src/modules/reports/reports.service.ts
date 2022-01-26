@@ -145,11 +145,7 @@ export class ReportsService extends AutowiredService {
             user.id,
             team.id,
             createReportDto.title,
-<<<<<<< HEAD
-            []
-=======
             [],
->>>>>>> f9cee2fada9abeb5094be922662f3d580b07a95e
         )
         return this.provider.create(report)
     }
@@ -334,7 +330,7 @@ export class ReportsService extends AutowiredService {
             comments.map((comment: Comment) => comment.id),
             report.team_id,
             report.title,
-            report.author_ids
+            report.author_ids,
         )
     }
 

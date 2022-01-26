@@ -70,7 +70,7 @@ export class PermissionsGuard implements CanActivate {
                     if (!userPermissionsInThatTeam.hasOwnProperty('organization_inherited') || userPermissionsInThatTeam.organization_inherited === false) {
                         allUserPermissions = [...userPermissionsInThatTeam.permissions]
                     } else {
-                        // Inherit permissions from organization
+                        // TODO: review inherit permissions from organization?
                     }
                 }
 

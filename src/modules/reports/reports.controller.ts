@@ -66,7 +66,6 @@ export class ReportsController extends GenericController<Report> {
         type: ReportDTO,
         isArray: true,
     })
-    @Permission([ReportPermissionsEnum.READ])
     async getReports(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<ReportDTO[]>> {
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) query.sort = { _created_at: -1 }
