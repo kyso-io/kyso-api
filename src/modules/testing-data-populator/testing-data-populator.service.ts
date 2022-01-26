@@ -14,7 +14,6 @@ import {
     User,
 } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
-import { threadId } from 'worker_threads'
 import { Autowired } from '../../decorators/autowired'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
 import { PlatformRole } from '../../security/platform-roles'
@@ -199,37 +198,53 @@ export class TestingDataPopulatorService {
 
     private async createTestingReports() {
         const reportKylosThoughts = new CreateReportDTO(
-            'kylos-thoughts', 
-            RepositoryProvider.KYSO, null, 'main', '.', this.ProtectedTeamWithCustomRole.id, 
-            `Kylo's thoughts about to switch from darkside to lightside`, 
-            'Sometimes the anger flows through me and I want to be at the darkside. But on the other hand, when I see Rey I get doubts and want to be in the lightside!'
+            'kylos-thoughts',
+            RepositoryProvider.KYSO,
+            null,
+            'main',
+            '.',
+            this.ProtectedTeamWithCustomRole.id,
+            `Kylo's thoughts about to switch from darkside to lightside`,
+            'Sometimes the anger flows through me and I want to be at the darkside. But on the other hand, when I see Rey I get doubts and want to be in the lightside!',
         )
-        
+
         this.KyloThoughtsReport = await this._createReport(this.Kylo_TeamContributorUser, reportKylosThoughts)
 
         const reportMoffGideonPokemonReport = new CreateReportDTO(
-            'best-pokemon-ever', 
-            RepositoryProvider.KYSO, null, 'main', '.', this.PrivateTeam.id, 
-            `The Best Pokemon Report by Moff Gideon`, 
-            `Do you think Pokemon is not suitable for Lord Siths? You're wrong! See my report to know who is the best pokemon ever!`
+            'best-pokemon-ever',
+            RepositoryProvider.KYSO,
+            null,
+            'main',
+            '.',
+            this.PrivateTeam.id,
+            `The Best Pokemon Report by Moff Gideon`,
+            `Do you think Pokemon is not suitable for Lord Siths? You're wrong! See my report to know who is the best pokemon ever!`,
         )
-        
+
         this.BestPokemonReport = await this._createReport(this.Kylo_TeamContributorUser, reportMoffGideonPokemonReport)
 
         const reportDeathStarEngineering = new CreateReportDTO(
-            'death-star-engineering', 
-            'fran-kyso', RepositoryProvider.GITHUB, 'main', 'kronig-penney-exploration', this.PublicTeam.id, 
-            `Engineering details about the construction of the Dark Star for the Imperium`, 
-            'Make sure that this details dont get leaked as the lightside can really fuck us with that information'
+            'death-star-engineering',
+            'fran-kyso',
+            RepositoryProvider.GITHUB,
+            'main',
+            'kronig-penney-exploration',
+            this.PublicTeam.id,
+            `Engineering details about the construction of the Dark Star for the Imperium`,
+            'Make sure that this details dont get leaked as the lightside can really fuck us with that information',
         )
 
         this.DarkStarEngineeringReport = await this._createReport(this.Gideon_OrganizationAdminUser, reportDeathStarEngineering)
 
         const reportRebelScumCounterAttack = new CreateReportDTO(
-            'rebel-scum-counterattack', 
-            'fran-kyso', RepositoryProvider.GITHUB, 'main', 'kronig-penney-exploration', this.ProtectedTeamWithCustomRole.id, 
-            `Counterattack plan's to destroy Death Star`, 
-            `Using the information that Moff Gideon leaked absurdly, in this report we detail how we're going to destroy the Empire`
+            'rebel-scum-counterattack',
+            'fran-kyso',
+            RepositoryProvider.GITHUB,
+            'main',
+            'kronig-penney-exploration',
+            this.ProtectedTeamWithCustomRole.id,
+            `Counterattack plan's to destroy Death Star`,
+            `Using the information that Moff Gideon leaked absurdly, in this report we detail how we're going to destroy the Empire`,
         )
 
         this.RebelScumCounterAttackReport = await this._createReport(this.Rey_TeamAdminUser, reportRebelScumCounterAttack)
@@ -247,8 +262,12 @@ export class TestingDataPopulatorService {
     private async createTestingComments() {
         const testComment = new Comment('test text', this.Rey_TeamAdminUser.id, this.KyloThoughtsReport.id, null)
         this.TestComment = await this._createComment(testComment)
-        this.TestChildComment1 = await this._createComment(new Comment('child test text', this.Rey_TeamAdminUser.id, this.KyloThoughtsReport.id, this.TestComment.id))
-        this.TestChildComment2 = await this._createComment(new Comment('child 2 test text', this.Rey_TeamAdminUser.id, this.KyloThoughtsReport.id, this.TestComment.id))
+        this.TestChildComment1 = await this._createComment(
+            new Comment('child test text', this.Rey_TeamAdminUser.id, this.KyloThoughtsReport.id, this.TestComment.id),
+        )
+        this.TestChildComment2 = await this._createComment(
+            new Comment('child 2 test text', this.Rey_TeamAdminUser.id, this.KyloThoughtsReport.id, this.TestComment.id),
+        )
     }
 
     private async _createComment(comment: Comment): Promise<Comment> {
