@@ -85,7 +85,7 @@ export class ReportsController extends GenericController<Report> {
         reportsDtos.forEach((reportDto: ReportDTO) => {
             reportDto.views++
         })
-        const relations = await this.relationsService.getRelations(reports, 'report')
+        const relations = await this.relationsService.getRelations(reports, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportsDtos, relations)
     }
 
@@ -195,7 +195,7 @@ export class ReportsController extends GenericController<Report> {
         @Param('reportId') reportId: string,
         @Body() updateReportRequestDTO: UpdateReportRequestDTO,
     ): Promise<NormalizedResponseDTO<ReportDTO>> {
-        const report: Report = await this.reportsService.updateReport(reportId, updateReportRequestDTO)
+        const report: Report = await this.reportsService.updateReport(token.id, reportId, updateReportRequestDTO)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(reportDto, 'report')
         return new NormalizedResponseDTO(report, relations)
