@@ -195,7 +195,7 @@ export class ReportsController extends GenericController<Report> {
         @Param('reportId') reportId: string,
         @Body() updateReportRequestDTO: UpdateReportRequestDTO,
     ): Promise<NormalizedResponseDTO<ReportDTO>> {
-        const report: Report = await this.reportsService.updateReport(reportId, updateReportRequestDTO)
+        const report: Report = await this.reportsService.updateReport(token.id, reportId, updateReportRequestDTO)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(reportDto, 'report')
         return new NormalizedResponseDTO(report, relations)

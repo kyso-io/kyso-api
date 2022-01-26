@@ -12,6 +12,7 @@ import {
     RepositoryProvider,
     StarredReport,
     Team,
+    UpdateReportRequestDTO,
     User,
 } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
@@ -149,12 +150,16 @@ export class ReportsService extends AutowiredService {
         return this.provider.create(report)
     }
 
-    public async updateReport(reportId: string, data: any): Promise<Report> {
+    public async updateReport(userId: string, reportId: string, updateReportRequestDTO: UpdateReportRequestDTO): Promise<Report> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
         }
-        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: data })
+        const author_ids: string[] = [...report.author_ids]
+        if (author_ids.indexOf(userId) === -1) {
+            author_ids.push(userId)
+        }
+        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { ...updateReportRequestDTO, author_ids } })
     }
 
     public async deleteReport(reportId: string): Promise<Report> {
