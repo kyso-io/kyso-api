@@ -85,7 +85,7 @@ export class ReportsController extends GenericController<Report> {
         reportsDtos.forEach((reportDto: ReportDTO) => {
             reportDto.views++
         })
-        const relations = await this.relationsService.getRelations(reports, 'report')
+        const relations = await this.relationsService.getRelations(reports, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportsDtos, relations)
     }
 

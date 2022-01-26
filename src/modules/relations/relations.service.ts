@@ -31,33 +31,48 @@ export class RelationsService extends AutowiredService {
         super()
     }
 
-    scanEntityForRelation(data: object) {
+    scanEntityForRelation(data: object, mappings: { [key: string]: string }) {
         const foreignKeys = Object.keys(data).filter((key) => key.endsWith('_id') || key.endsWith('_ids'))
 
         const relations = foreignKeys
             .map((key) => {
-                const collection = capitalize(key.split('_id')[0])
+                let collection = capitalize(key.split('_id')[0])
+                if (mappings.hasOwnProperty(collection)) {
+                    collection = mappings[collection]
+                }
                 return { collection, id: data[key] }
             })
-            .filter((item) => item.id !== null)
+            .filter((item) => item.id !== null && item.id.length > 0)
 
-        return relations
+        const result = []
+        relations.forEach((relation) => {
+            if (Array.isArray(relation.id)) {
+                relation.id.forEach((id) => {
+                    result.push({ collection: relation.collection, id })
+                })
+            } else {
+                result.push(relation)
+            }
+        })
+        return result
     }
 
-    scanForRelations(list) {
-        const relations = flatten(list.map((d) => this.scanEntityForRelation(d)))
-
+    scanForRelations(list, mappings: { [key: string]: string }) {
+        const relations = flatten(list.map((d) => this.scanEntityForRelation(d, mappings)))
         return relations.reduce((grouped, relation) => {
             if (!grouped[relation.collection]) grouped[relation.collection] = []
-            grouped[relation.collection].push(relation.id)
+            const index: number = grouped[relation.collection].findIndex((item) => item === relation.id)
+            if (index === -1) {
+                grouped[relation.collection].push(relation.id)
+            }
             return grouped
         }, {})
     }
 
-    async getRelations(entities: object | [object], entityType: string) {
+    async getRelations(entities: object | [object], entityType: string, mappings: { [key: string]: string } = {}) {
         if (!Array.isArray(entities)) entities = [entities]
 
-        const groupedRelations = this.scanForRelations(entities)
+        const groupedRelations = this.scanForRelations(entities, mappings)
 
         const relations = await Object.keys(groupedRelations).reduce(async (previousPromise, collection) => {
             const accumulator = await previousPromise
