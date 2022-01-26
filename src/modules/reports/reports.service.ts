@@ -135,6 +135,8 @@ export class ReportsService extends AutowiredService {
 
         const report: Report = new Report(
             createReportDto.name,
+            null,
+            null,
             createReportDto.provider,
             createReportDto.username_provider,
             createReportDto.default_branch,

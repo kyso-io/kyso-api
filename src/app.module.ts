@@ -7,6 +7,7 @@ import { BitbucketReposModule } from './modules/bitbucket-repos/bitbucket-repos.
 import { CommentsModule } from './modules/comments/comments.module'
 import { DiscussionsModule } from './modules/discussions/discussions.module'
 import { GithubReposModule } from './modules/github-repos/github-repos.module'
+import { HooksModule } from './modules/hooks/hooks.module'
 import { OrganizationsModule } from './modules/organizations/organizations.module'
 import { RelationsModule } from './modules/relations/relations.module'
 import { ReportsModule } from './modules/reports/reports.module'
@@ -22,6 +23,7 @@ import { UsersModule } from './modules/users/users.module'
         CommentsModule.forRoot(),
         DiscussionsModule.forRoot(),
         GithubReposModule.forRoot(),
+        HooksModule,
         MailerModule.forRootAsync({
             useFactory: () => {
                 return {
