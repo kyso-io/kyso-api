@@ -13,6 +13,7 @@
         "dev": "npm run start:dev",
         "build:docs": "npx widdershins src/openapi.json -o Readme.md --language_tabs false --omitHeader --code false --omitBody --user_templates src/documentation/templates",
         "start:dev": "NODE_ENV=development nest start --watch",
+        "smee": "smee -u https://smee.io/kyso-github-hook-test -p 4000 -P /v1/hooks/github",
         "start:test": "NODE_ENV=testing nest start",
         "start:debug": "NODE_ENV=development nest start --debug --watch",
         "start:prod": "NODE_ENV=production node dist/main",
@@ -24,7 +25,7 @@
         "test:e2e": "NODE_ENV=testing jest --detectOpenHandles --testTimeout=60000 --config ./test/jest-e2e.json"
     },
     "dependencies": {
-        "@kyso-io/kyso-model": "0.0.32",
+        "@kyso-io/kyso-model": "0.0.33",
         "@nestjs-modules/mailer": "^1.6.1",
         "@nestjs/common": "^8.0.0",
         "@nestjs/config": "^1.1.0",
@@ -54,6 +55,7 @@
         "reflect-metadata": "^0.1.13",
         "rimraf": "^3.0.2",
         "rxjs": "^7.2.0",
+        "smee-client": "^1.2.2",
         "swagger-ui-express": "^4.1.6",
         "typedoc": "^0.22.10",
         "uuid": "^8.3.2"

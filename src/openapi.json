@@ -2809,6 +2809,17 @@
         ]
       }
     },
+    "/v1/hooks/github": {
+      "post": {
+        "operationId": "HooksController_githubHook",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/v1/organizations/{organizationId}": {
       "get": {
         "operationId": "OrganizationsController_getOrganization",
