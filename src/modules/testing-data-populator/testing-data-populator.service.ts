@@ -415,9 +415,6 @@ export class TestingDataPopulatorService {
 
             Logger.log(`Adding ${this.Rey_TeamAdminUser.nickname} to team ${this.PrivateTeam.name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}`)
             await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Rey_TeamAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
-
-            Logger.log(`Adding ${this.Kylo_TeamContributorUser.nickname} to team ${this.PrivateTeam.name} with role ${PlatformRole.TEAM_CONTRIBUTOR_ROLE.name}`)
-            await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Kylo_TeamContributorUser.id], [PlatformRole.TEAM_CONTRIBUTOR_ROLE.name])
         } catch (ex) {
             // silent it
         }
