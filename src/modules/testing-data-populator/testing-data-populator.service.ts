@@ -321,7 +321,7 @@ export class TestingDataPopulatorService {
     private async createTeams() {
         try {
             const publicTeam = new Team(
-                'public-team',
+                'Public Team',
                 'https://bit.ly/3J49GUO',
                 'A public team',
                 '',
@@ -334,7 +334,7 @@ export class TestingDataPopulatorService {
             this.CustomTeamRole = new KysoRole('custom-team-random-role', [ReportPermissionsEnum.READ])
 
             const protectedTeam = new Team(
-                'protected-team',
+                'Protected TEAM',
                 'https://bit.ly/3e9mDOZ',
                 'A protected team with custom roles',
                 '',
@@ -345,7 +345,7 @@ export class TestingDataPopulatorService {
             )
 
             const privateTeam = new Team(
-                'private-team',
+                'PRIVATE TeaM',
                 'https://bit.ly/3sr8x45',
                 'A private team',
                 '',
