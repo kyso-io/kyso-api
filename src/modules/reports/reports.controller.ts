@@ -18,6 +18,7 @@ import {
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FilesInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
+import { IsDefined } from 'class-validator'
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -33,6 +34,11 @@ import { RelationsService } from '../relations/relations.service'
 import { TeamsService } from '../teams/teams.service'
 import { ReportsService } from './reports.service'
 import { ReportPermissionsEnum } from './security/report-permissions.enum'
+
+class Hola {
+    @IsDefined()
+    dummy: string | null
+}
 
 @ApiExtraModels(Report, NormalizedResponseDTO)
 @ApiTags('reports')
@@ -54,6 +60,11 @@ export class ReportsController extends GenericController<Report> {
 
     constructor() {
         super()
+    }
+
+    @Post('/prueba')
+    public prueba(@Body() hola: Hola): any {
+        return 1
     }
 
     @Get()

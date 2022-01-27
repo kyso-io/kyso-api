@@ -1,8 +1,8 @@
+import { Comment, Organization, Relations, Report, Team, User } from '@kyso-io/kyso-model'
 import { Injectable, Provider } from '@nestjs/common'
+import { plainToInstance } from 'class-transformer'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { RelationsMongoProvider } from './providers/mongo-relations.provider'
-import { plainToInstance } from 'class-transformer'
-import { Relations, User, Team, Report, Comment, Organization } from '@kyso-io/kyso-model'
 
 const capitalize = (s) => s && s[0].toUpperCase() + s.slice(1)
 
@@ -80,13 +80,16 @@ export class RelationsService extends AutowiredService {
             const relations: Relations = await previousPromise
             const models = await this.provider.readFromCollectionByIds(collection, groupedRelations[collection])
             relations[collection.toLowerCase()] = models.reduce((acc, model) => {
+                if (!model) {
+                    return
+                }
                 if (collection === 'User') acc[model.id] = plainToInstance(User, model)
                 if (collection === 'Report') acc[model.id] = plainToInstance(Report, model)
                 if (collection === 'Comment') acc[model.id] = plainToInstance(Comment, model)
                 if (collection === 'Team') acc[model.id] = plainToInstance(Team, model)
                 if (collection === 'Organization') acc[model.id] = plainToInstance(Organization, model)
                 return acc
-          }, {})
+            }, {})
             return relations
         }
 
