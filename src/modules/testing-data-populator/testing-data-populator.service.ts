@@ -25,7 +25,7 @@ import { ReportPermissionsEnum } from '../reports/security/report-permissions.en
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
-
+const { exec } = require('child_process');
 @Injectable()
 export class TestingDataPopulatorService {
     private Rey_TeamAdminUser: User
@@ -248,6 +248,49 @@ export class TestingDataPopulatorService {
         )
 
         this.RebelScumCounterAttackReport = await this._createReport(this.Rey_TeamAdminUser, reportRebelScumCounterAttack)
+
+        // Create reports using kyso-cli
+        // Check that kyso-cli is available
+        Logger.log(
+            `
+            _  __    _  _                             ___     _       ___   
+            | |/ /   | || |   ___     ___      o O O  / __|   | |     |_ _|  
+            | ' <     \_, |  (_-<    / _ \    o      | (__    | |__    | |   
+            |_|\_\   _|__/   /__/_   \___/   TS__[O]  \___|   |____|  |___|  
+           _|"""""|_| """"|_|"""""|_|"""""| {======|_|"""""|_|"""""|_|"""""| 
+           "\`-0-0-'"\`-0-0-'"\`-0-0-'"\`-0-0-'./o--000'"\`-0-0-'"\`-0-0-'"\`-0-0-' 
+            
+            Checking that Kyso-CLI is installed in this local machine
+        `)
+        exec('pwd', (err, stdout, stderr) => {
+            console.log(stdout)
+        })
+
+        exec('kyso-cli', (err, stdout, stderr) => {
+            if(!err) {
+                Logger.log("Kyso CLI is available in this machine... logging as user kylo")
+                
+                // LOGIN vs this server
+                exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli login --username kylo@kyso.io --password n0tiene --provider kyso`, (err, stdout, stderr) => {
+                    Logger.log(stdout)
+                    if(!err) {
+                        // Create new Kronig-Penney report
+                        exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/kronig-penney-exploration`, (err, stdout, stderr) => {
+                            Logger.log(stdout)
+
+                            if(!err) {
+                                Logger.log("Uploaded kronig-penney-exploration")
+                            }
+                        })
+
+                    } else {
+                        Logger.warn("Can't login as Kylo. Testing reports based on CLI will not be created.")
+                    }
+                })
+            } else {
+                Logger.warn("Kyso CLI is not installed in this machine. Testing reports based on CLI will not be created")
+            }
+        });
     }
 
     private async _createReport(user: User, report: CreateReportDTO) {
