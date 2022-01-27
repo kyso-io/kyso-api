@@ -1,9 +1,10 @@
+import { File } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { NotFoundError } from '../../../helpers/errorHandling'
 import { db } from '../../../main'
 import { MongoProvider } from '../../../providers/mongo.provider'
 @Injectable()
-export class FilesMongoProvider extends MongoProvider<any> {
+export class FilesMongoProvider extends MongoProvider<File> {
     constructor() {
         super('File', db)
     }
@@ -12,7 +13,7 @@ export class FilesMongoProvider extends MongoProvider<any> {
         Logger.log(`${this.baseCollection} has no minimal data to populate`)
     }
 
-    async getFile(fileSha) {
+    public async getFile(fileSha: string): Promise<File> {
         const files = await this.read({
             filter: { sha: fileSha },
             limit: 1,

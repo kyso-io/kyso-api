@@ -1,11 +1,17 @@
+import { PutObjectCommand, PutObjectCommandOutput, S3Client } from '@aws-sdk/client-s3'
 import {
     Comment,
+    CreateKysoReportDTO,
     CreateReportDTO,
+    File,
     GithubBranch,
     GithubCommit,
     GithubFileHash,
     GithubRepository,
+    GlobalPermissionsEnum,
     KysoConfigFile,
+    Organization,
+    OrganizationMemberJoin,
     PinnedReport,
     Report,
     ReportDTO,
@@ -17,16 +23,19 @@ import {
 } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { NotFoundError } from '../../helpers/errorHandling'
 import { Validators } from '../../helpers/validators'
 import { CommentsService } from '../comments/comments.service'
 import { GithubReposService } from '../github-repos/github-repos.service'
+import { OrganizationsService } from '../organizations/organizations.service'
 import { TagsService } from '../tags/tags.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { LocalReportsService } from './local-reports.service'
+import { FilesMongoProvider } from './providers/mongo-files.provider'
 import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider'
 import { ReportsMongoProvider } from './providers/mongo-reports.provider'
 import { StarredReportsMongoProvider } from './providers/mongo-starred-reports.provider'
@@ -68,10 +77,14 @@ export class ReportsService extends AutowiredService {
     @Autowired({ typeName: 'TagsService' })
     private tagsService: TagsService
 
+    @Autowired({ typeName: 'OrganizationsService' })
+    private organizationsService: OrganizationsService
+
     constructor(
         private readonly provider: ReportsMongoProvider,
         private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider,
         private readonly starredReportsMongoProvider: StarredReportsMongoProvider,
+        private readonly filesMongoProvider: FilesMongoProvider,
     ) {
         super()
     }
@@ -81,7 +94,7 @@ export class ReportsService extends AutowiredService {
     }
 
     public async getReportById(reportId: string): Promise<Report> {
-        const reports: Report[] = await this.provider.read({ _id: this.provider.toObjectId(reportId) })
+        const reports: Report[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(reportId) } })
         return reports.length === 1 ? reports[0] : null
     }
 
@@ -181,6 +194,9 @@ export class ReportsService extends AutowiredService {
 
         // Delete relations with starred reports
         await this.starredReportsMongoProvider.deleteMany({ report_id: reportId })
+
+        // Delete files
+        await this.filesMongoProvider.deleteMany({ report_id: reportId })
 
         await this.provider.deleteOne({ _id: this.provider.toObjectId(reportId) })
         return report
@@ -357,5 +373,85 @@ export class ReportsService extends AutowiredService {
 
     public async increaseViews(filter: any): Promise<void> {
         await this.provider.update(filter, { $inc: { views: 1 } })
+    }
+
+    public async createKysoReport(userId: string, createKysoReportDTO: CreateKysoReportDTO, files: Express.Multer.File[]): Promise<Report> {
+        const user: User = await this.usersService.getUserById(userId)
+        const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
+
+        const organization: Organization = await this.organizationsService.getOrganization({ filter: { name: createKysoReportDTO.organization } })
+        if (!organization) {
+            throw new PreconditionFailedException(`Organization ${createKysoReportDTO.organization} does not exist`)
+        }
+
+        const organizationMembersJoin: OrganizationMemberJoin[] = await this.organizationsService.isUserInOrganization(user, organization)
+        if (!isGlobalAdmin && organizationMembersJoin.length === 0) {
+            throw new PreconditionFailedException(`User ${user.nickname} is not a member of organization ${createKysoReportDTO.organization}`)
+        }
+
+        const team: Team = await this.teamsService.getTeam({ filter: { name: createKysoReportDTO.team } })
+        if (!team) {
+            throw new PreconditionFailedException(`Team ${createKysoReportDTO.team} does not exist`)
+        }
+        if (team.organization_id !== organization.id) {
+            throw new PreconditionFailedException(`Team ${createKysoReportDTO.team} does not belong to organization ${createKysoReportDTO.organization}`)
+        }
+        const belongsToTeam: boolean = await this.teamsService.userBelongsToTeam(team.id, user.id)
+        if (!isGlobalAdmin && !belongsToTeam) {
+            throw new PreconditionFailedException(`User ${user.nickname} is not a member of team ${createKysoReportDTO.team}`)
+        }
+
+        const name: string = encodeURIComponent(createKysoReportDTO.title.replace(/ /g, '-'))
+        const reports: Report[] = await this.provider.read({ filter: { name, team_id: team.id } })
+        if (reports.length > 0) {
+            throw new PreconditionFailedException(`Report with name ${createKysoReportDTO.title} already exists`)
+        }
+
+        let report: Report = new Report(
+            name,
+            null,
+            null,
+            RepositoryProvider.KYSO_CLI,
+            null,
+            null,
+            null,
+            0,
+            false,
+            createKysoReportDTO.description,
+            userId,
+            team.id,
+            createKysoReportDTO.title,
+            [],
+        )
+        report.report_type = 'kyso-cli'
+        report = await this.provider.create(report)
+
+        const s3Client: S3Client = new S3Client({
+            region: process.env.AWS_REGION,
+            credentials: {
+                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+            },
+        })
+
+        for (let i = 0; i < files.length; i++) {
+            const sha: string = createKysoReportDTO.original_shas[i]
+            const size: number = parseInt(createKysoReportDTO.original_sizes[i], 10)
+            const originalName: string = createKysoReportDTO.original_names[i]
+            const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
+            let file: File = new File(report.id, originalName, path_s3, size, sha, 1)
+            file = await this.filesMongoProvider.create(file)
+            Logger.log(`Report '${report.name}': uploading file '${file.name}' to S3...`, ReportsService.name)
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const data: PutObjectCommandOutput = await s3Client.send(
+                new PutObjectCommand({
+                    Bucket: process.env.AWS_S3_BUCKET,
+                    Key: path_s3,
+                }),
+            )
+            Logger.log(`Report '${report.name}': uploaded file '${file.name}' to S3 with key '${file.path_s3}'`, ReportsService.name)
+        }
+
+        return report
     }
 }

@@ -4843,6 +4843,104 @@
         ]
       }
     },
+    "/v1/reports/kyso": {
+      "post": {
+        "operationId": "ReportsController_createKysoReport",
+        "summary": "Create a new report sending the files",
+        "description": "By passing the appropiate parameters you can create a new report referencing a git repository",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateKysoReportDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportDTO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Input is not correct",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "You need to be authenticated to execute this action",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "You are not allowed to perform this action",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The resource you are trying to acces can't be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Precondition failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "reports"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/v1/reports/{reportId}/user-pin": {
       "patch": {
         "operationId": "ReportsController_toggleUserPin",
@@ -10354,6 +10452,14 @@
         "properties": {}
       },
       "CreateReportRequestDTO": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateKysoReportDTO": {
+        "type": "object",
+        "properties": {}
+      },
+      "ReportDTO": {
         "type": "object",
         "properties": {}
       },

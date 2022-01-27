@@ -1,12 +1,12 @@
 import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common'
 import { NestFactory, Reflector } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
+import * as bodyParser from 'body-parser'
 import * as dotenv from 'dotenv'
 import * as fs from 'fs'
 import * as helmet from 'helmet'
 import { MongoClient } from 'mongodb'
 import { RedocModule, RedocOptions } from 'nestjs-redoc'
-import * as path from 'path'
 import { AppModule } from './app.module'
 import { getSingletons, registerSingleton } from './decorators/autowired'
 import { TransformInterceptor } from './interceptors/exclude.interceptor'
@@ -26,6 +26,9 @@ async function bootstrap() {
 
     await connectToDatabase(process.env.DATABASE_NAME || 'kyso-initial')
     const app = await NestFactory.create(AppModule)
+
+    app.use(bodyParser.json({ limit: '200mb' }))
+    app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }))
 
     const globalPrefix = 'v1'
     // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately

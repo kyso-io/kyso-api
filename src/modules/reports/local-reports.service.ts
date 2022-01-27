@@ -54,7 +54,6 @@ export class LocalReportsService extends AutowiredService {
     }
 
     public async getFileContent(hash: string): Promise<any> {
-        const file = await this.fileDataProvider.getFile(hash)
-        return this.fileProvider.getFile(file.file)
+        return null
     }
 }

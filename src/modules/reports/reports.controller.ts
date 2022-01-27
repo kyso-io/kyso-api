@@ -1,6 +1,7 @@
 import {
     BatchReportCreationDTO,
     Comment,
+    CreateKysoReportDTO,
     CreateReportDTO,
     CreateReportRequestDTO,
     GithubBranch,
@@ -14,7 +15,8 @@ import {
     Token,
     UpdateReportRequestDTO,
 } from '@kyso-io/kyso-model'
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common'
+import { FilesInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -166,6 +168,29 @@ export class ReportsController extends GenericController<Report> {
     @Permission([ReportPermissionsEnum.CREATE])
     async createReport(@CurrentToken() token: Token, @Body() createReportDto: CreateReportDTO): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.createReport(token.id, createReportDto)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(report, 'report')
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
+    @Post('/kyso')
+    @ApiOperation({
+        summary: `Create a new report sending the files`,
+        description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
+    })
+    @ApiResponse({
+        status: 201,
+        description: `Created report`,
+        type: ReportDTO,
+    })
+    @UseInterceptors(FilesInterceptor('files'))
+    @Permission([ReportPermissionsEnum.CREATE])
+    async createKysoReport(
+        @CurrentToken() token: Token,
+        @Body() createKysoReportDTO: CreateKysoReportDTO,
+        @UploadedFiles() files: Array<Express.Multer.File>,
+    ): Promise<NormalizedResponseDTO<Report>> {
+        const report: Report = await this.reportsService.createKysoReport(token.id, createKysoReportDTO, files)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report')
         return new NormalizedResponseDTO(reportDto, relations)
