@@ -1,4 +1,4 @@
-import { PutObjectCommand, PutObjectCommandOutput, S3Client } from '@aws-sdk/client-s3'
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
     Comment,
     CreateKysoReportDTO,
@@ -403,28 +403,64 @@ export class ReportsService extends AutowiredService {
 
         const name: string = encodeURIComponent(createKysoReportDTO.title.replace(/ /g, '-'))
         const reports: Report[] = await this.provider.read({ filter: { name, team_id: team.id } })
+        let reportFiles: File[] = []
+        let report: Report = null
         if (reports.length > 0) {
-            throw new PreconditionFailedException(`Report with name ${createKysoReportDTO.title} already exists`)
+            // Existing report
+            report = reports[0]
+            Logger.log(`Checking files of report existing report '${report.name}'`, ReportsService.name)
+            // Get all files of the report
+            reportFiles = await this.filesMongoProvider.read({ filter: { report_id: report.id } })
+            for (let i = 0; i < files.length; i++) {
+                const originalName: string = createKysoReportDTO.original_names[i]
+                const sha: string = createKysoReportDTO.original_shas[i]
+                const size: number = parseInt(createKysoReportDTO.original_sizes[i], 10)
+                const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
+                let reportFile: File = reportFiles.find((reportFile: File) => reportFile.name === originalName)
+                if (reportFile) {
+                    reportFiles[i] = await this.filesMongoProvider.update(
+                        { _id: this.provider.toObjectId(reportFile.id) },
+                        { $set: { sha, size, version: reportFile.version + 1 } },
+                    )
+                    Logger.log(`Report '${report.name}': updating file ${reportFiles[i].name} to version ${reportFiles[i].version}`, ReportsService.name)
+                } else {
+                    reportFile = new File(report.id, originalName, path_s3, size, sha, 1)
+                    reportFile = await this.filesMongoProvider.create(reportFile)
+                    reportFiles.push(reportFile)
+                    Logger.log(`Report '${report.name}': new file ${reportFile.name}`, ReportsService.name)
+                }
+            }
+        } else {
+            Logger.log(`Creating new report '${name}'`, ReportsService.name)
+            // New report
+            report = new Report(
+                name,
+                null,
+                null,
+                RepositoryProvider.KYSO_CLI,
+                null,
+                null,
+                null,
+                0,
+                false,
+                createKysoReportDTO.description,
+                userId,
+                team.id,
+                createKysoReportDTO.title,
+                [],
+            )
+            report.report_type = 'kyso-cli'
+            report = await this.provider.create(report)
+            for (let i = 0; i < files.length; i++) {
+                const originalName: string = createKysoReportDTO.original_names[i]
+                const sha: string = createKysoReportDTO.original_shas[i]
+                const size: number = parseInt(createKysoReportDTO.original_sizes[i], 10)
+                const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
+                let file: File = new File(report.id, originalName, path_s3, size, sha, 1)
+                file = await this.filesMongoProvider.create(file)
+                reportFiles.push(file)
+            }
         }
-
-        let report: Report = new Report(
-            name,
-            null,
-            null,
-            RepositoryProvider.KYSO_CLI,
-            null,
-            null,
-            null,
-            0,
-            false,
-            createKysoReportDTO.description,
-            userId,
-            team.id,
-            createKysoReportDTO.title,
-            [],
-        )
-        report.report_type = 'kyso-cli'
-        report = await this.provider.create(report)
 
         const s3Client: S3Client = new S3Client({
             region: process.env.AWS_REGION,
@@ -435,21 +471,16 @@ export class ReportsService extends AutowiredService {
         })
 
         for (let i = 0; i < files.length; i++) {
-            const sha: string = createKysoReportDTO.original_shas[i]
-            const size: number = parseInt(createKysoReportDTO.original_sizes[i], 10)
-            const originalName: string = createKysoReportDTO.original_names[i]
-            const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-            let file: File = new File(report.id, originalName, path_s3, size, sha, 1)
-            file = await this.filesMongoProvider.create(file)
-            Logger.log(`Report '${report.name}': uploading file '${file.name}' to S3...`, ReportsService.name)
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const data: PutObjectCommandOutput = await s3Client.send(
+            const reportFile: File = reportFiles.find((reportFile: File) => reportFile.name === createKysoReportDTO.original_names[i])
+            Logger.log(`Report '${report.name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
+            await s3Client.send(
                 new PutObjectCommand({
                     Bucket: process.env.AWS_S3_BUCKET,
-                    Key: path_s3,
+                    Key: reportFile.path_s3,
+                    Body: files[i].buffer,
                 }),
             )
-            Logger.log(`Report '${report.name}': uploaded file '${file.name}' to S3 with key '${file.path_s3}'`, ReportsService.name)
+            Logger.log(`Report '${report.name}': uploaded file '${reportFile.name}' to S3 with key '${reportFile.path_s3}'`, ReportsService.name)
         }
 
         return report
