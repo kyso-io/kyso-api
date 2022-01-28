@@ -4,9 +4,11 @@ import { plainToInstance } from 'class-transformer'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { RelationsMongoProvider } from './providers/mongo-relations.provider'
 
-const capitalize = (s) => s && s[0].toUpperCase() + s.slice(1)
+const capitalize = (s: string) => s && s[0].toUpperCase() + s.slice(1)
 
 const flatten = (list) => list.reduce((a, b) => a.concat(Array.isArray(b) ? flatten(b) : b), [])
+
+const VALID_COLLECTIONS: string[] = ['User', 'Organization', 'Team', 'Report', 'Comment']
 
 const listKeyToVal = (data: any) => {
     return data.reduce((prev: any, curr: any) => {
@@ -61,7 +63,7 @@ export class RelationsService extends AutowiredService {
 
     scanForRelations(list, mappings: { [key: string]: string }) {
         const relations = flatten(list.map((d) => this.scanEntityForRelation(d, mappings)))
-        return relations.reduce((grouped, relation) => {
+        const result: { [collectionName: string]: string[] } = relations.reduce((grouped, relation) => {
             if (!grouped[relation.collection]) grouped[relation.collection] = []
             const index: number = grouped[relation.collection].findIndex((item) => item === relation.id)
             if (index === -1) {
@@ -69,6 +71,13 @@ export class RelationsService extends AutowiredService {
             }
             return grouped
         }, {})
+        const validCollections: { [collectionName: string]: string[] } = {}
+        for (const collectionName in result) {
+            if (VALID_COLLECTIONS.includes(collectionName)) {
+                validCollections[collectionName] = result[collectionName]
+            }
+        }
+        return validCollections
     }
 
     async getRelations(entities: object | [object], entityType: string, mappings: { [key: string]: string } = {}): Promise<Relations> {
