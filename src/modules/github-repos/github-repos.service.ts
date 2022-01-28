@@ -40,7 +40,7 @@ export class GithubReposService extends AutowiredService {
         super()
     }
 
-    public login(access_token): void {
+    public login(access_token: string): void {
         this.provider.login(access_token)
     }
 
@@ -86,7 +86,7 @@ export class GithubReposService extends AutowiredService {
         }
     }
 
-    public async getRepoTree(owner, repo, branch): Promise<GithubFileHash[]> {
+    public async getRepoTree(owner: string, repo: string, branch: string): Promise<GithubFileHash[]> {
         const tree: GithubFileHash | GithubFileHash[] = await this.provider.getFileHash('.', owner, repo, branch)
         return Array.isArray(tree) ? tree.filter((file) => file.type === 'dir') : []
     }

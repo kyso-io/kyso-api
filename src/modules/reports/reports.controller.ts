@@ -18,7 +18,6 @@ import {
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FilesInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
-import { IsDefined } from 'class-validator'
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -34,11 +33,6 @@ import { RelationsService } from '../relations/relations.service'
 import { TeamsService } from '../teams/teams.service'
 import { ReportsService } from './reports.service'
 import { ReportPermissionsEnum } from './security/report-permissions.enum'
-
-class Hola {
-    @IsDefined()
-    dummy: string | null
-}
 
 @ApiExtraModels(Report, NormalizedResponseDTO)
 @ApiTags('reports')
@@ -60,11 +54,6 @@ export class ReportsController extends GenericController<Report> {
 
     constructor() {
         super()
-    }
-
-    @Post('/prueba')
-    public prueba(@Body() hola: Hola): any {
-        return 1
     }
 
     @Get()
@@ -202,6 +191,27 @@ export class ReportsController extends GenericController<Report> {
         @UploadedFiles() files: Array<Express.Multer.File>,
     ): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.createKysoReport(token.id, createKysoReportDTO, files)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(report, 'report')
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
+    @Post('/github/:repositoryName')
+    @ApiOperation({
+        summary: `Create a new report based on github repository`,
+        description: `By passing the appropiate parameters you can create a new report referencing a github repository`,
+    })
+    @ApiResponse({
+        status: 201,
+        description: `Created report`,
+        type: ReportDTO,
+    })
+    @Permission([ReportPermissionsEnum.CREATE])
+    async createReportFromGithubRepository(
+        @CurrentToken() token: Token,
+        @Param('repositoryName') repositoryName: string,
+    ): Promise<NormalizedResponseDTO<Report>> {
+        const report: Report = await this.reportsService.createReportFromGithubRepository(token.id, repositoryName)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report')
         return new NormalizedResponseDTO(reportDto, relations)
