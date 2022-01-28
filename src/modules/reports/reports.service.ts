@@ -18,6 +18,7 @@ import {
     ReportDTO,
     RepositoryProvider,
     StarredReport,
+    Tag,
     Team,
     UpdateReportRequestDTO,
     User,
@@ -30,6 +31,7 @@ import * as AdmZip from 'adm-zip'
 import axios, { AxiosResponse } from 'axios'
 import { lstatSync, readFileSync, rmSync, statSync, unlinkSync } from 'fs'
 import * as glob from 'glob'
+import * as jsYaml from 'js-yaml'
 import * as sha256File from 'sha256-file'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
@@ -462,6 +464,8 @@ export class ReportsService extends AutowiredService {
             }
         }
 
+        await this.checkReportTags(report.id, createKysoReportDTO.tags)
+
         const s3Client: S3Client = new S3Client({
             region: process.env.AWS_REGION,
             credentials: {
@@ -545,6 +549,7 @@ export class ReportsService extends AutowiredService {
         const files: { name: string; filePath: string }[] = []
         let kysoConfigFile: KysoConfigFile = null
         const directoriesToRemove: string[] = []
+        // Search kyso config file and annotate directories to remove at the end of the process
         for (let i = 2; i < filePaths.length; i++) {
             const filePath: string = filePaths[i]
             if (lstatSync(filePath).isDirectory()) {
@@ -561,11 +566,20 @@ export class ReportsService extends AutowiredService {
                 } catch (e) {
                     throw new PreconditionFailedException(`Could not parse kyso.json file`, ReportsService.name)
                 }
+            } else if (fileName === 'kyso.yml') {
+                try {
+                    kysoConfigFile = jsYaml.load(readFileSync(filePath, 'utf8')) as KysoConfigFile
+                    if (!KysoConfigFile.isValid(kysoConfigFile)) {
+                        throw new PreconditionFailedException(`Kyso config file is not valid`)
+                    }
+                } catch (e) {
+                    throw new PreconditionFailedException(`Could not parse kyso.yml file`, ReportsService.name)
+                }
+                files.push({ name: fileName, filePath: filePath })
             }
-            files.push({ name: fileName, filePath: filePath })
         }
         if (!kysoConfigFile) {
-            throw new PreconditionFailedException(`Repository ${repositoryName} does not contain a kyso.json file`, ReportsService.name)
+            throw new PreconditionFailedException(`Repository ${repositoryName} does not contain a kyso.{json,yml} config file`, ReportsService.name)
         }
         Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${sha}'`, ReportsService.name)
 
@@ -606,6 +620,8 @@ export class ReportsService extends AutowiredService {
             report = await this.provider.create(report)
             Logger.log(`New report '${report.name}'`, ReportsService.name)
         }
+
+        await this.checkReportTags(report.id, kysoConfigFile.tags)
 
         const s3Client: S3Client = new S3Client({
             region: process.env.AWS_REGION,
@@ -726,5 +742,27 @@ export class ReportsService extends AutowiredService {
                 }
             })
         })
+    }
+
+    private async checkReportTags(reportId: string, tags: string[]): Promise<Tag[]> {
+        const reportTags: Tag[] = []
+        await this.tagsService.removeTagRelationsOfEntity(reportId)
+        if (!tags || tags.length === 0) {
+            return reportTags
+        }
+        // Normalize tags
+        const normalizedTags: string[] = tags.map((tag: string) => tag.trim().toLocaleLowerCase())
+        const tagsDb: Tag[] = await this.tagsService.getTags({ filter: { name: { $in: normalizedTags } } })
+        for (const tagName of normalizedTags) {
+            let tag: Tag = tagsDb.find((tag: Tag) => tag.name === tagName)
+            if (!tag) {
+                // Create tag
+                tag = new Tag(tagName)
+                tag = await this.tagsService.createTag(tag)
+            }
+            await this.tagsService.assignTagToEntity(tag.id, reportId, EntityEnum.REPORT)
+            reportTags.push(tag)
+        }
+        return reportTags
     }
 }
