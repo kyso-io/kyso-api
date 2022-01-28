@@ -251,44 +251,75 @@ export class TestingDataPopulatorService {
 
         // Create reports using kyso-cli
         // Check that kyso-cli is available
-        Logger.log(
-            `
+        console.log(
+        `
             _  __    _  _                             ___     _       ___   
             | |/ /   | || |   ___     ___      o O O  / __|   | |     |_ _|  
-            | ' <     \_, |  (_-<    / _ \    o      | (__    | |__    | |   
-            |_|\_\   _|__/   /__/_   \___/   TS__[O]  \___|   |____|  |___|  
+            | ' <     \\_, |  (_-<    / _ \\    o      | (__    | |__    | |   
+            |_|\\_\\   _|__/   /__/_   \\___/   TS__[O]  \\___|   |____|  |___|  
            _|"""""|_| """"|_|"""""|_|"""""| {======|_|"""""|_|"""""|_|"""""| 
            "\`-0-0-'"\`-0-0-'"\`-0-0-'"\`-0-0-'./o--000'"\`-0-0-'"\`-0-0-'"\`-0-0-' 
             
             Checking that Kyso-CLI is installed in this local machine
         `)
-        exec('pwd', (err, stdout, stderr) => {
-            console.log(stdout)
-        })
-
+        
         exec('kyso-cli', (err, stdout, stderr) => {
             if(!err) {
-                Logger.log("Kyso CLI is available in this machine... logging as user kylo")
+                Logger.log("Kyso CLI is available in this machine... logging as user palpatine")
                 
                 // LOGIN vs this server
-                exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli login --username kylo@kyso.io --password n0tiene --provider kyso`, (err, stdout, stderr) => {
+                exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli login --username palpatine@kyso.io --password n0tiene --provider kyso`, (err, stdout, stderr) => {
                     Logger.log(stdout)
+
                     if(!err) {
                         // Create new Kronig-Penney report
                         exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/kronig-penney-exploration`, (err, stdout, stderr) => {
+                            Logger.log("Creating Kronig-Penney report")
                             Logger.log(stdout)
 
                             if(!err) {
                                 Logger.log("Uploaded kronig-penney-exploration")
+                            } else {
+                                Logger.error("Push of Kronig-Penney report failed")
+                            }
+                        })
+
+                        // Create new MultiQ report
+                        exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/multiq-report`, (err, stdout, stderr) => {
+                            Logger.log("Creating MultiQ report")
+                            Logger.log(stdout)
+
+                            if(!err) {
+                                Logger.log("Uploaded MultiQ")
+                            } else {
+                                Logger.error("Push of MultiQ report failed")
+                            }
+                        })
+
+                        // Create new Markdown report
+                        exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/markdown-report`, (err, stdout, stderr) => {
+                            Logger.log("Creating Markdown report")
+                            Logger.log(stdout)
+
+                            if(!err) {
+                                Logger.log("Uploaded Markdown")
+                            } else {
+                                Logger.error("Push of Markdown report failed")
                             }
                         })
 
                     } else {
-                        Logger.warn("Can't login as Kylo. Testing reports based on CLI will not be created.")
+                        Logger.error("Can't login as Palpatine. Testing reports based on CLI will not be created.")
                     }
                 })
             } else {
-                Logger.warn("Kyso CLI is not installed in this machine. Testing reports based on CLI will not be created")
+                Logger.error("Kyso CLI is not installed in this machine. Testing reports based on CLI will not be created")
+                Logger.log(
+                `Installation instructions:
+                    sudo npm install -g @kyso-io/kyso-cli
+                
+                To populate these reports without deleting the entire database, please execute populate-reports-by-kyso-cli.sh script
+                `)
             }
         });
     }
