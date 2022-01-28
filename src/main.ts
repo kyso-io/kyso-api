@@ -30,19 +30,27 @@ registerInstrumentations({
 });
 
 async function bootstrap() {
-    Logger.log(`Loading .env-${process.env.NODE_ENV}`)
+    let app_mount_dir = ''
+    let dotenv_path = '.env'
+    if (process.env.DOTENV_FILE) {
+        dotenv_path = process.env.DOTENV_FILE
+    }
+    Logger.log(`Loading ${dotenv_path}`)
 
     await dotenv.config({
-        path: `.env-${process.env.NODE_ENV}`,
+        path: dotenv_path,
     })
 
+    if (process.env.APP_MOUNT_DIR) {
+        app_mount_dir = process.env.APP_MOUNT_DIR
+    }
     await connectToDatabase(process.env.DATABASE_NAME || 'kyso')
     const app = await NestFactory.create(AppModule)
 
     app.use(bodyParser.json({ limit: '200mb' }))
     app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }))
 
-    const globalPrefix = 'v1'
+    const globalPrefix = app_mount_dir + '/v1'
     // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately
     let helmetOpts = {}
     if (process.env.NODE_ENV === 'development') {
@@ -78,10 +86,9 @@ async function bootstrap() {
     Logger.log(`Writing openapi.json to ${jsonFile}`)
     fs.writeFileSync(jsonFile, JSON.stringify(document, null, 2))
 
-    if (process.env.NODE_ENV === 'development') {
-        // Only publish in development / staging mode, remove for production - or discuss it...
-        SwaggerModule.setup(globalPrefix, app, document)
-    }
+    // Publish swagger documentation under /docs (in production is not
+    // accessible unless the ingress service publishes it)
+    SwaggerModule.setup(app_mount_dir + '/docs', app, document)
 
     const redocOptions: RedocOptions = {
         title: 'Kyso API',
@@ -118,7 +125,7 @@ async function bootstrap() {
         },
     ]
 
-    await RedocModule.setup('/redoc', app, redocDocument, redocOptions)
+    await RedocModule.setup(app_mount_dir + '/redoc', app, redocDocument, redocOptions)
     app.enableCors()
     await app.listen(process.env.PORT || 4000)
 
