@@ -123,7 +123,7 @@ export class UsersService extends AutowiredService {
     }
 
     async deleteUser(id: string): Promise<boolean> {
-        const user: User = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
+        const user: User = await this.getUser({ filter: { _id: this.provider.toObjectId(id) } })
         if (!user) {
             throw new PreconditionFailedException(null, `Can't delete user as does not exists`)
         }
@@ -152,7 +152,9 @@ export class UsersService extends AutowiredService {
     }
 
     public async addAccount(id: string, userAccount: UserAccount): Promise<boolean> {
-        const user: User = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
+        const user: User = await this.getUser(
+            { filter: { _id: this.provider.toObjectId(id) }
+        })
 
         if (!user) {
             throw new PreconditionFailedException(null, `Can't add account to user as does not exists`)
@@ -167,13 +169,13 @@ export class UsersService extends AutowiredService {
             throw new PreconditionFailedException(null, `The user has already registered this account`)
         } else {
             const userAccounts: UserAccount[] = [...user.accounts, userAccount]
-            await this.updateUser({ id: this.provider.toObjectId(id) }, { $set: { accounts: userAccounts } })
+            await this.updateUser({ _id: this.provider.toObjectId(id) }, { $set: { accounts: userAccounts } })
         }
         return true
     }
 
     public async removeAccount(id: string, provider: string, accountId: string): Promise<boolean> {
-        const user = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
+        const user = await this.getUser({ filter: { _id: this.provider.toObjectId(id) } })
 
         if (!user) {
             throw new PreconditionFailedException(null, `Can't remove account to user as does not exists`)
@@ -184,7 +186,7 @@ export class UsersService extends AutowiredService {
         const index: number = user.accounts.findIndex((account: UserAccount) => account.accountId === accountId && account.type === provider)
         if (index !== -1) {
             const userAccounts: UserAccount[] = [...user.accounts.slice(0, index), ...user.accounts.slice(index + 1)]
-            await this.updateUser({ id: this.provider.toObjectId(id) }, { $set: { accounts: userAccounts } })
+            await this.updateUser({ _id: this.provider.toObjectId(id) }, { $set: { accounts: userAccounts } })
         } else {
             throw new PreconditionFailedException(null, `The user has not registered this account`)
         }
@@ -192,11 +194,11 @@ export class UsersService extends AutowiredService {
     }
 
     public async updateUserData(id: string, data: UpdateUserRequestDTO): Promise<User> {
-        const user: User = await this.getUser({ filter: { id: this.provider.toObjectId(id) } })
+        const user: User = await this.getUser({ filter: { _id: this.provider.toObjectId(id) } })
         if (!user) {
             throw new PreconditionFailedException(null, `Can't update user as does not exists`)
         }
-        return this.updateUser({ id: this.provider.toObjectId(id) }, { $set: data })
+        return this.updateUser({ _id: this.provider.toObjectId(id) }, { $set: data })
     }
 
     // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
@@ -216,7 +218,7 @@ export class UsersService extends AutowiredService {
     }
 
     public async deleteProfilePicture(token: Token): Promise<User> {
-        const user: User = await this.getUser({ filter: { id: this.provider.toObjectId(token.id) } })
+        const user: User = await this.getUser({ filter: { _id: this.provider.toObjectId(token.id) } })
         if (!user) {
             throw new PreconditionFailedException('User not found')
         }

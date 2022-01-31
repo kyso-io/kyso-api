@@ -12,6 +12,7 @@ import {
     Team,
     TeamVisibilityEnum,
     User,
+    UserAccount,
 } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
@@ -92,10 +93,12 @@ export class TestingDataPopulatorService {
             await this.createTeams()
             await this.assignUsersToOrganizations()
             await this.assignUsersToTeams()
+            await this._updateUserAccounts()
 
             await this.createTestingReports()
             await this.createTestingComments()
             await this.createDiscussions()
+            
         }
     }
 
@@ -184,6 +187,23 @@ export class TestingDataPopulatorService {
         this.Chewbacca_TeamReaderUser = await this._createUser(chewbacca_TestTeamReaderUser)
         this.Gideon_OrganizationAdminUser = await this._createUser(gideon_TestOrganizationAdminUser)
         this.Palpatine_PlatformAdminUser = await this._createUser(palpatine_TestPlatformAdminUser)
+
+        
+    }
+
+    private async _updateUserAccounts() {
+        const githubUserAccount: UserAccount = new UserAccount()
+        githubUserAccount.accessToken = "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"
+        githubUserAccount.accountId = "98749909"
+        githubUserAccount.payload = {}
+        githubUserAccount.type = LoginProviderEnum.GITHUB
+        githubUserAccount.username = "mozartmae"
+
+        await this.usersService.addAccount(this.Rey_TeamAdminUser.id, githubUserAccount)
+        await this.usersService.addAccount(this.Kylo_TeamContributorUser.id, githubUserAccount)
+        await this.usersService.addAccount(this.Chewbacca_TeamReaderUser.id, githubUserAccount)
+        await this.usersService.addAccount(this.Gideon_OrganizationAdminUser.id, githubUserAccount)
+        await this.usersService.addAccount(this.Palpatine_PlatformAdminUser.id, githubUserAccount)
     }
 
     private async _createUser(user: CreateUserRequestDTO) {
@@ -305,6 +325,30 @@ export class TestingDataPopulatorService {
                                 Logger.log("Uploaded Markdown")
                             } else {
                                 Logger.error("Push of Markdown report failed")
+                            }
+                        })
+
+                        // Import a report from Github using kyso-cli
+                        exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name jupyter-samples`, (err, stdout, stderr) => {
+                            Logger.log("Importing jupyter-samples report from Github using kyso-cli")
+                            Logger.log(stdout)
+
+                            if(!err) {
+                                Logger.log("Uploaded jupyter-samples")
+                            } else {
+                                Logger.error("Push of jupyter-samples report failed")
+                            }
+                        })
+
+                        // Import a report from Github using kyso-cli
+                        exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name Kalman-and-Bayesian-Filters-in-Python`, (err, stdout, stderr) => {
+                            Logger.log("Importing Kalman-and-Bayesian-Filters-in-Python report from Github using kyso-cli")
+                            Logger.log(stdout)
+
+                            if(!err) {
+                                Logger.log("Uploaded Kalman-and-Bayesian-Filters-in-Python")
+                            } else {
+                                Logger.error("Push of Kalman-and-Bayesian-Filters-in-Python report failed")
                             }
                         })
 

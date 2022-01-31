@@ -22,19 +22,23 @@ export class MongoProvider<T> {
 
         const existsCollectionPromise = this.existsMongoDBCollection(this.baseCollection)
 
-        existsCollectionPromise.then((existsCollection) => {
-            if (!existsCollection) {
-                try {
-                    Logger.log(`Collection ${this.baseCollection} does not exists, creating it`)
-                    this.db.createCollection(this.baseCollection)
+        existsCollectionPromise
+            .then((existsCollection) => {
+                if (!existsCollection) {
+                    try {
+                        Logger.log(`Collection ${this.baseCollection} does not exists, creating it`)
+                        this.db.createCollection(this.baseCollection)
 
-                    Logger.log(`Populating minimal data for ${this.baseCollection} collection`)
-                    this.populateMinimalData()
-                } catch (ex) {
-                    Logger.log(`Collection ${this.baseCollection} already exists`, ex)
+                        Logger.log(`Populating minimal data for ${this.baseCollection} collection`)
+                        this.populateMinimalData()
+                    } catch (ex) {
+                        Logger.log(`Collection ${this.baseCollection} already exists`, ex)
+                    }
                 }
-            }
-        })
+            })
+            .catch((ex) => {
+                console.log("HEY THERE THIS IS AN EXP")
+            })
     }
 
     // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -43,6 +47,10 @@ export class MongoProvider<T> {
     getCollection(name?) {
         const collectionName = name || this.baseCollection
         return this.db.collection(collectionName)
+    }
+
+    static toObjectId(id: string): mongo.ObjectId {
+        return new ObjectId(id)
     }
 
     toObjectId(id: string): mongo.ObjectId {
@@ -85,7 +93,8 @@ export class MongoProvider<T> {
         obj.created_at = new Date()
         await this.getCollection().insertOne(obj)
         obj.id = obj._id.toString()
-
+        await this.update({ _id: obj._id }, { $set: { id: obj._id.toString() } })
+        
         return obj
     }
 
@@ -133,27 +142,30 @@ export class MongoProvider<T> {
 }
 
 function parseForeignKeys(obj) {
-    const result = obj
+    if(obj) {
+        const result = obj
 
-    Object.entries(obj).forEach(([key, value]) => {
-        let match = FK_NAME_REGEX.exec(key)
-        if (match) {
-            match = FK_VALUE_REGEX.exec(value as string)
+        Object.entries(obj).forEach(([key, value]) => {
+            let match = FK_NAME_REGEX.exec(key)
             if (match) {
-                const id = match[1]
-                result[key] = id
-            }
-        } else if (key.startsWith('_')) {
-            if (key === '_id') result.id = value.toString()
-            else if (key === '_created_at') result.created_at = value
-            else if (key === '_updated_at') result.updated_at = value
-            // Exception to the rule, is not a security issue as the hash is unique and can't be dehashed, and we need it
-            // to compare it in the login process
-            else if (key === '_hashed_password') result.hashed_password = value
-            delete result[key]
-        } else if (Object.prototype.toString.call(value) === '[object Object]') result[key] = parseForeignKeys(value)
-        else if (Array.isArray(value)) result[key] = result[key].map(parseForeignKeys)
-    })
-
-    return result
+                match = FK_VALUE_REGEX.exec(value as string)
+                if (match) {
+                    const id = match[1]
+                    result[key] = id
+                }
+            } else if (key.startsWith('_')) {
+                if (key === '_id') result.id = value.toString()
+                else if (key === '_created_at') result.created_at = value
+                else if (key === '_updated_at') result.updated_at = value
+                // Exception to the rule, is not a security issue as the hash is unique and can't be dehashed, and we need it
+                // to compare it in the login process
+                else if (key === '_hashed_password') result.hashed_password = value
+                delete result[key]
+            } else if (Object.prototype.toString.call(value) === '[object Object]') result[key] = parseForeignKeys(value)
+            else if (Array.isArray(value)) result[key] = result[key].map(parseForeignKeys)
+        })
+    
+        return result
+    }
+    
 }
