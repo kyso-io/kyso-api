@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
     Comment,
     CreateKysoReportDTO,
@@ -20,6 +20,7 @@ import {
     StarredReport,
     Tag,
     Team,
+    Token,
     UpdateReportRequestDTO,
     User,
     UserAccount,
@@ -33,10 +34,12 @@ import { lstatSync, readFileSync, rmSync, statSync, unlinkSync } from 'fs'
 import * as glob from 'glob'
 import * as jsYaml from 'js-yaml'
 import * as sha256File from 'sha256-file'
+import { Readable } from 'stream'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { NotFoundError } from '../../helpers/errorHandling'
+import slugify from '../../helpers/slugify'
 import { Validators } from '../../helpers/validators'
 import { CommentsService } from '../comments/comments.service'
 import { GithubReposService } from '../github-repos/github-repos.service'
@@ -92,6 +95,7 @@ export class ReportsService extends AutowiredService {
         private readonly filesMongoProvider: FilesMongoProvider,
     ) {
         super()
+        // setTimeout(() => this.pullReport('61f3fc7e1f35752b661ddd3c'), 500)
     }
 
     public async getReports(query): Promise<Report[]> {
@@ -117,6 +121,8 @@ export class ReportsService extends AutowiredService {
         if (!team) {
             throw new PreconditionFailedException("The specified team couldn't be found")
         }
+
+        createReportDto.name = slugify(createReportDto.name)
 
         // Check if exists a report with this name
         const reports: Report[] = await this.getReports({
@@ -406,7 +412,7 @@ export class ReportsService extends AutowiredService {
             throw new PreconditionFailedException(`User ${user.nickname} is not a member of team ${createKysoReportDTO.team}`)
         }
 
-        const name: string = encodeURIComponent(createKysoReportDTO.title.replace(/ /g, '-'))
+        const name: string = slugify(createKysoReportDTO.title)
         const reports: Report[] = await this.provider.read({ filter: { name, team_id: team.id } })
         const reportFiles: File[] = []
         let report: Report = null
@@ -764,5 +770,92 @@ export class ReportsService extends AutowiredService {
             reportTags.push(tag)
         }
         return reportTags
+    }
+
+    private streamToBuffer(stream: Readable): Promise<Buffer> {
+        return new Promise((resolve, reject) => {
+            const chunks = []
+            stream.on('data', (chunk: any) => chunks.push(chunk))
+            stream.on('error', reject)
+            stream.on('end', () => resolve(Buffer.concat(chunks)))
+        })
+    }
+
+    public async pullReport(token: Token, reportName: string, teamName: string, response: any): Promise<void> {
+        let isGlobalAdmin = false
+        if (token.permissions.global?.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)) {
+            isGlobalAdmin = true
+        }
+
+        const team: Team = await this.teamsService.getTeam({ filter: { name: teamName } })
+        if (!team) {
+            response.status(404).send(`Team '${teamName}' not found`)
+            return
+        }
+
+        const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+        const index: number = teams.findIndex((t: Team) => t.id === team.id)
+        if (!isGlobalAdmin && index === -1) {
+            response.status(401).send(`User does not have permission to pull report ${reportName}`)
+            return
+        }
+
+        const reports: Report[] = await this.provider.read({ filter: { name: reportName, team_id: team.id } })
+        if (reports.length === 0) {
+            response.status(404).send(`Report ${reportName} of team ${teamName} not found`)
+            return
+        }
+        const report: Report = reports[0]
+
+        let reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id } })
+        // Download only the last version of each file
+        const map: Map<string, File> = new Map<string, File>()
+        for (const file of reportFiles) {
+            if (!map.has(file.name)) {
+                map.set(file.name, file)
+            }
+            if (map.get(file.name).version < file.version) {
+                map.set(file.name, file)
+            }
+        }
+        reportFiles = Array.from(map.values())
+
+        const s3Client: S3Client = new S3Client({
+            region: process.env.AWS_REGION,
+            credentials: {
+                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+            },
+        })
+
+        const zip: AdmZip = new AdmZip()
+        Logger.log(`Report '${report.name}': downloading ${reportFiles.length} files from S3...`, ReportsService.name)
+        for (const reportFile of reportFiles) {
+            try {
+                Logger.log(`Report '${report.name}': downloading file ${reportFile.name}...`, ReportsService.name)
+                const getObjectCommand: GetObjectCommand = new GetObjectCommand({
+                    Bucket: process.env.AWS_S3_BUCKET,
+                    Key: reportFile.path_s3,
+                })
+                const result = await s3Client.send(getObjectCommand)
+                if (!result || !result.hasOwnProperty('Body') || result.Body == null) {
+                    Logger.error(`Error downloading file '${reportFile.name}' from S3`, ReportsService.name)
+                    continue
+                }
+                const buffer: Buffer = await this.streamToBuffer(result.Body as Readable)
+                const reportFileZip: AdmZip = new AdmZip(buffer)
+                const zipEntries: AdmZip.IZipEntry[] = reportFileZip.getEntries()
+                for (const zipEntry of zipEntries) {
+                    Logger.log(`Report '${report.name}': adding file '${zipEntry.entryName}' to zip...`, ReportsService.name)
+                    zip.addFile(zipEntry.entryName, reportFileZip.readFile(zipEntry))
+                }
+            } catch (e) {
+                Logger.error(`An error occurred downloading file '${reportFile.name}' from S3`, e, ReportsService.name)
+            }
+        }
+
+        response.set('Content-Disposition', `attachment; filename=${report.id}.zip`)
+        response.set('Content-Type', 'application/zip')
+        response.send(zip.toBuffer())
     }
 }
