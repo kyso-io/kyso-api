@@ -11,10 +11,13 @@ import {
     NormalizedResponseDTO,
     Report,
     ReportDTO,
+    Tag,
+    TagAssign,
     Team,
     Token,
     UpdateReportRequestDTO,
 } from '@kyso-io/kyso-model'
+import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, Res, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FilesInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
@@ -31,6 +34,7 @@ import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CommentsService } from '../comments/comments.service'
 import { RelationsService } from '../relations/relations.service'
+import { TagsService } from '../tags/tags.service'
 import { TeamsService } from '../teams/teams.service'
 import { ReportsService } from './reports.service'
 import { ReportPermissionsEnum } from './security/report-permissions.enum'
@@ -52,6 +56,9 @@ export class ReportsController extends GenericController<Report> {
 
     @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
+
+    @Autowired({ typeName: 'TagsService' })
+    private tagsService: TagsService
 
     constructor() {
         super()
@@ -78,6 +85,26 @@ export class ReportsController extends GenericController<Report> {
         if (token.permissions?.global && token.permissions.global.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)) {
             delete query.filter.team_id
         }
+
+        if (query?.filter?.$text) {
+            const tags: Tag[] = await this.tagsService.getTags({ filter: { ...query.filter } })
+            const tagAssigns: TagAssign[] = await this.tagsService.getTagAssignsOfTags(
+                tags.map((tag: Tag) => tag.id),
+                EntityEnum.REPORT,
+            )
+            const newFilter = { ...query.filter }
+            newFilter.$or = [
+                {
+                    $text: newFilter.$text,
+                },
+                {
+                    _id: { $in: tagAssigns.map((tagAssign: TagAssign) => new ObjectId(tagAssign.entity_id)) },
+                },
+            ]
+            delete newFilter.$text
+            query.filter = newFilter
+        }
+
         const reports: Report[] = await this.reportsService.getReports(query)
         let reportsDtos: ReportDTO[] = []
         if (reports.length > 0) {
@@ -368,7 +395,7 @@ export class ReportsController extends GenericController<Report> {
         if (!report) {
             throw new InvalidInputError('Report not found')
         }
-        const comments: Comment[] = await this.commentsService.getComments({ report_id: reportId })
+        const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: reportId } })
         const relations = await this.relationsService.getRelations(comments, 'comment')
         return new NormalizedResponseDTO(
             comments.filter((comment: Comment) => !comment.comment_id),

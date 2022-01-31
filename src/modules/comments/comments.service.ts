@@ -115,10 +115,7 @@ export class CommentsService extends AutowiredService {
     }
 
     async getComments(query): Promise<Comment[]> {
-        return this.provider.read({
-            filter: query,
-            sort: { _created_at: -1 },
-        })
+        return this.provider.read(query)
     }
 
     async getCommentWithChildren(commentId): Promise<Comment> {

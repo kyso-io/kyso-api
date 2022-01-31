@@ -89,7 +89,7 @@ export class TagsService extends AutowiredService {
         if (!tag) {
             throw new PreconditionFailedException('Tag not found')
         }
-        const tagAssigns: TagAssign[] = await this.tagsAssignMongoProvider.read({ tag_id: tagId, entity_id: entityId })
+        const tagAssigns: TagAssign[] = await this.tagsAssignMongoProvider.read({ filter: { tag_id: tagId, entity_id: entityId } })
         if (!tagAssigns) {
             throw new PreconditionFailedException('Tag relation not found')
         }
@@ -98,9 +98,18 @@ export class TagsService extends AutowiredService {
         return tagAssign
     }
 
-    public async getTagIdsOfEntity(entityId: string, entityType: EntityEnum): Promise<string[]> {
-        const tagAssigns: TagAssign[] = await this.tagsAssignMongoProvider.read({ entity_id: entityId, type: entityType })
-        return tagAssigns.map((tag) => tag.tag_id)
+    public async getTagsOfEntity(entityId: string, entityType: EntityEnum): Promise<Tag[]> {
+        const tagAssigns: TagAssign[] = await this.tagsAssignMongoProvider.read({ filter: { entity_id: entityId, type: entityType } })
+        return this.getTags({ filter: { _id: { $in: tagAssigns.map((tagAssign) => this.provider.toObjectId(tagAssign.tag_id)) } } })
+    }
+
+    public async getTagAssignsOfTags(tagIds: string[], entityType: EntityEnum): Promise<TagAssign[]> {
+        return this.tagsAssignMongoProvider.read({
+            filter: {
+                tag_id: { $in: tagIds },
+                type: entityType,
+            },
+        })
     }
 
     public async removeTagRelationsOfEntity(entityId: string): Promise<void> {

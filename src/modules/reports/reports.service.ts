@@ -363,7 +363,7 @@ export class ReportsService extends AutowiredService {
         })
         const markAsStar: boolean = starredReport.length > 0
         const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: report.id } })
-        const tagIds: string[] = await this.tagsService.getTagIdsOfEntity(report.id, EntityEnum.REPORT)
+        const tags: Tag[] = await this.tagsService.getTagsOfEntity(report.id, EntityEnum.REPORT)
         return new ReportDTO(
             report.id,
             report.created_at,
@@ -378,10 +378,10 @@ export class ReportsService extends AutowiredService {
             numberOfStars,
             markAsStar,
             comments.length,
-            tagIds,
+            tags.map((tag: Tag) => tag.name),
             report.description,
             report.user_id,
-            comments.map((comment: Comment) => comment.id),
+            comments,
             report.team_id,
             report.title,
             report.author_ids,
