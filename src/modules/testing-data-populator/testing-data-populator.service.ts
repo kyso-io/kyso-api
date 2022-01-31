@@ -464,7 +464,11 @@ export class TestingDataPopulatorService {
             )
 
             /*** Lightside organization ***/
-            await this.organizationsService.addMembersById(this.LightsideOrganization.id, [this.Rey_TeamAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
+            await this.organizationsService.addMembersById(
+                this.LightsideOrganization.id, 
+                [this.Rey_TeamAdminUser.id], 
+                [PlatformRole.TEAM_ADMIN_ROLE.name]
+            )
 
             await this.organizationsService.addMembersById(
                 this.LightsideOrganization.id,

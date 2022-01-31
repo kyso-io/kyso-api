@@ -93,11 +93,18 @@ export class AuthService extends AutowiredService {
                 teamMembership.role_names.map((element) => {
                     let existsRole: KysoRole[]
 
+                    // Check if the role exists in platformRoles
+                    existsRole = platformRoles.filter((y) => y.name === element)
+
                     if (teamRoles && teamRoles.length > 0) {
-                        existsRole = teamRoles.filter((y) => y.name === element)
-                    } else {
-                        // No team roles, try to apply platform roles
-                        existsRole = platformRoles.filter((y) => y.name === element)
+                         // If there are specific teamRoles, search for them as well
+                        let existsCustomRole = teamRoles.filter((y) => y.name === element)
+
+                        // If there are collision between platform role and organization role, the 
+                        // organization role will prevail
+                        if(existsCustomRole && existsCustomRole.length > 0) {
+                            existsRole = existsCustomRole
+                        }
                     }
 
                     // If the role exists, add all the permissions to the computedPermissionsArray
@@ -135,11 +142,18 @@ export class AuthService extends AutowiredService {
                 organizationMembership.role_names.map((element) => {
                     let existsRole: KysoRole[]
 
+                    // Check if the role exists in platformRoles
+                    existsRole = platformRoles.filter((y) => y.name === element)
+
                     if (organizationRoles && organizationRoles.length > 0) {
-                        existsRole = organizationRoles.filter((y) => y.name === element)
-                    } else {
-                        // If there are not specific organization roles, try with platform roles
-                        existsRole = platformRoles.filter((y) => y.name === element)
+                        // If there are specific organizationRoles, search for them as well
+                        let existsCustomRole = organizationRoles.filter((y) => y.name === element)
+
+                        // If there are collision between platform role and organization role, the 
+                        // organization role will prevail
+                        if(existsCustomRole && existsCustomRole.length > 0) {
+                            existsRole = existsCustomRole
+                        }
                     }
 
                     // If the role exists, add all the permissions to the computedPermissionsArray

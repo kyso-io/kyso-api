@@ -67,10 +67,14 @@ export class PermissionsGuard implements CanActivate {
                 let allUserPermissions = []
 
                 if (userPermissionsInThatTeam && userPermissionsInThatTeam?.permissions && userPermissionsInThatTeam.permissions.length > 0) {
-                    if (!userPermissionsInThatTeam.hasOwnProperty('organization_inherited') || userPermissionsInThatTeam.organization_inherited === false) {
-                        allUserPermissions = [...userPermissionsInThatTeam.permissions]
-                    } else {
-                        // TODO: review inherit permissions from organization?
+                    /** makes no sense, if has organization_inherited, don't have permissions property */
+                    // if (!userPermissionsInThatTeam.hasOwnProperty('organization_inherited') || userPermissionsInThatTeam.organization_inherited === false) {
+                    allUserPermissions = [...userPermissionsInThatTeam.permissions]
+                    //}
+                } else {
+                    if(userPermissionsInThatTeam && userPermissionsInThatTeam.organization_inherited) {
+                        // TODO: get organization role of that user and retrieve their permissions
+                        allUserPermissions = [...userPermissionsInThatOrganization.permissions]
                     }
                 }
 
