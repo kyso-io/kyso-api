@@ -311,6 +311,18 @@ export class TestingDataPopulatorService {
 
                             if(!err) {
                                 Logger.log("Uploaded MultiQ")
+
+                                // Create a new version of MultiQ report
+                                exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/multiq-report`, (err, stdout, stderr) => {
+                                    Logger.log("Creating a new version of MultiQ report")
+                                    Logger.log(stdout)
+
+                                    if(!err) {
+                                        Logger.log("Uploaded new version of MultiQ report")
+                                    } else {
+                                        Logger.error("Push of new version of MultiQ report failed")
+                                    }
+                                })
                             } else {
                                 Logger.error("Push of MultiQ report failed")
                             }
