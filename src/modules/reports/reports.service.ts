@@ -1,4 +1,4 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
     Comment,
     CreateKysoReportDTO,
@@ -96,6 +96,16 @@ export class ReportsService extends AutowiredService {
     ) {
         super()
         // setTimeout(() => this.pullReport('61f3fc7e1f35752b661ddd3c'), 500)
+    }
+
+    private getS3Client(): S3Client {
+        return new S3Client({
+            region: process.env.AWS_REGION,
+            credentials: {
+                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+            },
+        })
     }
 
     public async getReports(query): Promise<Report[]> {
@@ -205,6 +215,21 @@ export class ReportsService extends AutowiredService {
 
         // Delete relations with starred reports
         await this.starredReportsMongoProvider.deleteMany({ report_id: reportId })
+
+        const s3Client: S3Client = this.getS3Client()
+
+        // Delete report files in S3
+        const reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id } })
+        for (const file of reportFiles) {
+            if (file?.path_s3 && file.path_s3.length > 0) {
+                Logger.log(`Report '${report.name}': deleting file ${file.name} in S3...`, ReportsService.name)
+                const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
+                    Bucket: process.env.AWS_S3_BUCKET,
+                    Key: file.path_s3,
+                })
+                await s3Client.send(deleteObjectCommand)
+            }
+        }
 
         // Delete files
         await this.filesMongoProvider.deleteMany({ report_id: reportId })
@@ -472,14 +497,7 @@ export class ReportsService extends AutowiredService {
 
         await this.checkReportTags(report.id, createKysoReportDTO.tags)
 
-        const s3Client: S3Client = new S3Client({
-            region: process.env.AWS_REGION,
-            credentials: {
-                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-            },
-        })
-
+        const s3Client: S3Client = this.getS3Client()
         for (let i = 0; i < files.length; i++) {
             const reportFile: File = reportFiles.find((reportFile: File) => reportFile.name === createKysoReportDTO.original_names[i])
             Logger.log(`Report '${report.name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
@@ -629,13 +647,7 @@ export class ReportsService extends AutowiredService {
 
         await this.checkReportTags(report.id, kysoConfigFile.tags)
 
-        const s3Client: S3Client = new S3Client({
-            region: process.env.AWS_REGION,
-            credentials: {
-                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-            },
-        })
+        const s3Client: S3Client = this.getS3Client()
 
         // Get all report files
         reportFiles = await this.filesMongoProvider.read({ filter: { report_id: report.id }, sort: { version: -1 } })
@@ -820,13 +832,7 @@ export class ReportsService extends AutowiredService {
         }
         reportFiles = Array.from(map.values())
 
-        const s3Client: S3Client = new S3Client({
-            region: process.env.AWS_REGION,
-            credentials: {
-                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-            },
-        })
+        const s3Client: S3Client = this.getS3Client()
 
         const zip: AdmZip = new AdmZip()
         Logger.log(`Report '${report.name}': downloading ${reportFiles.length} files from S3...`, ReportsService.name)
