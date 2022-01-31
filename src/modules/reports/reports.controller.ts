@@ -15,7 +15,7 @@ import {
     Token,
     UpdateReportRequestDTO,
 } from '@kyso-io/kyso-model'
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, Res, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FilesInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
@@ -24,6 +24,7 @@ import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
 import { InvalidInputError } from '../../helpers/errorHandling'
 import { QueryParser } from '../../helpers/queryParser'
+import slugify from '../../helpers/slugify'
 import { Validators } from '../../helpers/validators'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
@@ -310,6 +311,38 @@ export class ReportsController extends GenericController<Report> {
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report')
         return new NormalizedResponseDTO(reportDto, relations)
+    }
+
+    @Get('/:reportName/:teamName/pull')
+    @ApiOperation({
+        summary: `Pull a report from S3`,
+        description: `Pull a report from S3. This will download all files from S3 in zip format.`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Zip file containing all files of the report`,
+        type: Buffer,
+    })
+    @ApiParam({
+        name: 'reportName',
+        required: true,
+        description: 'Id of the report to pull',
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'teamName',
+        required: true,
+        description: 'Id of the team to pull',
+        schema: { type: 'string' },
+    })
+    @Permission([ReportPermissionsEnum.READ])
+    async pullReport(
+        @CurrentToken() token: Token,
+        @Param('reportName') reportName: string,
+        @Param('teamName') teamName: string,
+        @Res() response: any,
+    ): Promise<any> {
+        this.reportsService.pullReport(token, slugify(reportName), teamName, response)
     }
 
     @Get('/:reportId/comments')
