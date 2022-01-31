@@ -25,6 +25,11 @@ export class QueryParser {
             result.skip = (result.skip - 1) * result.limit
         }
 
+        if (result.filter?.search) {
+            result.filter['$text'] = { $search: result.filter.search }
+            delete result.filter.search
+        }
+
         return result
     }
 

@@ -6,7 +6,15 @@ import { MongoProvider } from '../../../providers/mongo.provider'
 @Injectable()
 export class ReportsMongoProvider extends MongoProvider<Report> {
     constructor() {
-        super('Report', db)
+        super('Report', db, [
+            {
+                keys: {
+                    name: 'text',
+                    title: 'text',
+                    description: 'text',
+                },
+            },
+        ])
     }
 
     populateMinimalData() {

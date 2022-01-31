@@ -1,4 +1,4 @@
-import { Comment, Organization, Relations, Report, Team, User } from '@kyso-io/kyso-model'
+import { Comment, Organization, Relations, Report, Tag, Team, User } from '@kyso-io/kyso-model'
 import { Injectable, Provider } from '@nestjs/common'
 import { plainToInstance } from 'class-transformer'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -8,7 +8,7 @@ const capitalize = (s: string) => s && s[0].toUpperCase() + s.slice(1)
 
 const flatten = (list) => list.reduce((a, b) => a.concat(Array.isArray(b) ? flatten(b) : b), [])
 
-const VALID_COLLECTIONS: string[] = ['User', 'Organization', 'Team', 'Report', 'Comment']
+const VALID_COLLECTIONS: string[] = ['User', 'Organization', 'Team', 'Report', 'Comment', 'Tag']
 
 const listKeyToVal = (data: any) => {
     return data.reduce((prev: any, curr: any) => {
@@ -97,6 +97,7 @@ export class RelationsService extends AutowiredService {
                 if (collection === 'Comment') acc[model.id] = plainToInstance(Comment, model)
                 if (collection === 'Team') acc[model.id] = plainToInstance(Team, model)
                 if (collection === 'Organization') acc[model.id] = plainToInstance(Organization, model)
+                if (collection === 'Tag') acc[model.id] = plainToInstance(Tag, model)
                 return acc
             }, {})
             return relations

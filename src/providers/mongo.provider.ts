@@ -15,26 +15,46 @@ const QUERY_TO_PIPELINE = {
 export class MongoProvider<T> {
     baseCollection: any
     private db: any
+    private indices: any[]
 
-    constructor(collection, mongoDB) {
+    constructor(collection, mongoDB, indices?: any[]) {
         this.db = mongoDB
         this.baseCollection = collection
+        this.indices = indices || []
 
         const existsCollectionPromise = this.existsMongoDBCollection(this.baseCollection)
 
-        existsCollectionPromise.then((existsCollection) => {
+        existsCollectionPromise.then(async (existsCollection) => {
             if (!existsCollection) {
                 try {
-                    Logger.log(`Collection ${this.baseCollection} does not exists, creating it`)
+                    Logger.log(`Collection '${this.baseCollection}' does not exists, creating it`)
                     this.db.createCollection(this.baseCollection)
 
-                    Logger.log(`Populating minimal data for ${this.baseCollection} collection`)
+                    Logger.log(`Populating minimal data for '${this.baseCollection}' collection`)
                     this.populateMinimalData()
+
+                    await this.checkIndices()
                 } catch (ex) {
-                    Logger.log(`Collection ${this.baseCollection} already exists`, ex)
+                    Logger.log(`Collection '${this.baseCollection}' already exists`, ex)
                 }
+            } else {
+                await this.checkIndices()
             }
         })
+    }
+
+    private async checkIndices(): Promise<void> {
+        if (this.indices.length === 0) {
+            return
+        }
+        Logger.log(`Checking indices for '${this.baseCollection}' collection`, MongoProvider.name)
+        for (const element of this.indices) {
+            try {
+                await this.getCollection().createIndex(element.keys, element.options)
+            } catch (e) {
+                Logger.error(`Error checking indices for '${this.baseCollection}' collection`, e, MongoProvider.name)
+            }
+        }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-empty-function

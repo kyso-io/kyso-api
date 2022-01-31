@@ -1,4 +1,4 @@
-import { CreateDiscussionRequestDTO, Discussion, NormalizedResponseDTO, UpdateDiscussionRequestDTO, Comment } from '@kyso-io/kyso-model'
+import { Comment, CreateDiscussionRequestDTO, Discussion, NormalizedResponseDTO, UpdateDiscussionRequestDTO } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, PreconditionFailedException, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -16,7 +16,7 @@ import { DiscussionPermissionsEnum } from './security/discussion-permissions.enu
 @ApiBearerAuth()
 @Controller('discussions')
 export class DiscussionsController extends GenericController<Discussion> {
-    @Autowired({ typeName: 'CommentsService'})
+    @Autowired({ typeName: 'CommentsService' })
     private readonly commentsService: CommentsService
 
     constructor(private readonly discussionsService: DiscussionsService) {
@@ -70,13 +70,11 @@ export class DiscussionsController extends GenericController<Discussion> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
     @Permission([DiscussionPermissionsEnum.READ])
-    public async getDiscussionGivenTeamIdAndDiscussionNumber(
-        @Param('discussionId') discussionId: string
-    ): Promise<NormalizedResponseDTO<Discussion>> {
+    public async getDiscussionGivenTeamIdAndDiscussionNumber(@Param('discussionId') discussionId: string): Promise<NormalizedResponseDTO<Discussion>> {
         const discussion: Discussion = await this.discussionsService.getDiscussion({
             filter: { discussion_id: discussionId, mark_delete_at: { $ne: null } },
         })
-        
+
         if (!discussion) {
             throw new PreconditionFailedException('Discussion not found')
         }
@@ -98,16 +96,14 @@ export class DiscussionsController extends GenericController<Discussion> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Comments related to that discussion`, type: Comment, isArray: true })
     @Permission([DiscussionPermissionsEnum.READ])
-    public async getDiscussionCommentsGivenTeamIdAndDiscussionNumber(
-        @Param('discussionId') discussionId: string
-    ): Promise<NormalizedResponseDTO<Comment[]>> {
+    public async getDiscussionCommentsGivenTeamIdAndDiscussionNumber(@Param('discussionId') discussionId: string): Promise<NormalizedResponseDTO<Comment[]>> {
         const discussionComments: Comment[] = await this.commentsService.getComments({
             filter: {
-                discussion_id: discussionId
+                discussion_id: discussionId,
             },
             sort: {
-                created_at: -1
-            }
+                created_at: -1,
+            },
         })
 
         return new NormalizedResponseDTO(discussionComments)
