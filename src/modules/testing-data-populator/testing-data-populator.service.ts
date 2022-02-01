@@ -382,6 +382,21 @@ export class TestingDataPopulatorService {
                                     }
                                 },
                             )
+
+                            // Import a report from Github using kyso-cli
+                            exec(
+                                `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name notebook-examples`,
+                                (err, stdout, stderr) => {
+                                    Logger.log('Importing notebook-examples report from Github using kyso-cli')
+                                    Logger.log(stdout)
+
+                                    if (!err) {
+                                        Logger.log('Uploaded notebook-examples')
+                                    } else {
+                                        Logger.error('Push of notebook-examples report failed')
+                                    }
+                                },
+                            )
                         } else {
                             Logger.error("Can't login as Palpatine. Testing reports based on CLI will not be created.")
                         }
