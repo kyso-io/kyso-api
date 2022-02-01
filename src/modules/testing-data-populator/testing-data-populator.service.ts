@@ -288,14 +288,14 @@ export class TestingDataPopulatorService {
 
                 // LOGIN vs this server
                 exec(
-                    `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso-cli login --username palpatine@kyso.io --password n0tiene --provider kyso`,
+                    `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli login --username palpatine@kyso.io --password n0tiene --provider kyso`,
                     (err, stdout, stderr) => {
                         Logger.log(stdout)
 
                         if (!err) {
                             // Create new Kronig-Penney report
                             exec(
-                                `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/kronig-penney-exploration`,
+                                `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/kronig-penney-exploration`,
                                 (err, stdout, stderr) => {
                                     Logger.log('Creating Kronig-Penney report')
                                     Logger.log(stdout)
@@ -310,7 +310,7 @@ export class TestingDataPopulatorService {
 
                             // Create new MultiQ report
                             exec(
-                                `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/multiq-report`,
+                                `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/multiq-report`,
                                 (err, stdout, stderr) => {
                                     Logger.log('Creating MultiQ report')
                                     Logger.log(stdout)
@@ -320,7 +320,7 @@ export class TestingDataPopulatorService {
 
                                         // Create a new version of MultiQ report
                                         exec(
-                                            `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/multiq-report`,
+                                            `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/multiq-report`,
                                             (err, stdout, stderr) => {
                                                 Logger.log('Creating a new version of MultiQ report')
                                                 Logger.log(stdout)
@@ -340,7 +340,7 @@ export class TestingDataPopulatorService {
 
                             // Create new Markdown report
                             exec(
-                                `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/markdown-report`,
+                                `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/markdown-report`,
                                 (err, stdout, stderr) => {
                                     Logger.log('Creating Markdown report')
                                     Logger.log(stdout)
@@ -355,7 +355,7 @@ export class TestingDataPopulatorService {
 
                             // Import a report from Github using kyso-cli
                             exec(
-                                `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name jupyter-samples`,
+                                `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name jupyter-samples`,
                                 (err, stdout, stderr) => {
                                     Logger.log('Importing jupyter-samples report from Github using kyso-cli')
                                     Logger.log(stdout)
@@ -370,7 +370,7 @@ export class TestingDataPopulatorService {
 
                             // Import a report from Github using kyso-cli
                             exec(
-                                `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name Kalman-and-Bayesian-Filters-in-Python`,
+                                `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name Kalman-and-Bayesian-Filters-in-Python`,
                                 (err, stdout, stderr) => {
                                     Logger.log('Importing Kalman-and-Bayesian-Filters-in-Python report from Github using kyso-cli')
                                     Logger.log(stdout)
@@ -385,7 +385,7 @@ export class TestingDataPopulatorService {
 
                             // Import a report from Github using kyso-cli
                             exec(
-                                `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name notebook-examples`,
+                                `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name notebook-examples`,
                                 (err, stdout, stderr) => {
                                     Logger.log('Importing notebook-examples report from Github using kyso-cli')
                                     Logger.log(stdout)
