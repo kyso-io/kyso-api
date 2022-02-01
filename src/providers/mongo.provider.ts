@@ -28,10 +28,10 @@ export class MongoProvider<T> {
             if (!existsCollection) {
                 try {
                     Logger.log(`Collection '${this.baseCollection}' does not exists, creating it`)
-                    this.db.createCollection(this.baseCollection)
+                    await this.db.createCollection(this.baseCollection)
 
                     Logger.log(`Populating minimal data for '${this.baseCollection}' collection`)
-                    this.populateMinimalData()
+                    await this.populateMinimalData()
 
                     await this.checkIndices()
                 } catch (ex) {
@@ -147,7 +147,12 @@ export class MongoProvider<T> {
     }
 
     public async existsMongoDBCollection(name: string): Promise<boolean> {
-        return (await (await this.db.listCollections().toArray()).findIndex((item) => item.name === name)) !== -1
+        const allCollections: any[] = await this.db.listCollections().toArray()
+        const found = allCollections.findIndex(item => {
+            return item.name === name
+        })
+
+        return found === -1 ? false : true
     }
 
     public async count(query): Promise<number> {
