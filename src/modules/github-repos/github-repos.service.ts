@@ -40,24 +40,20 @@ export class GithubReposService extends AutowiredService {
         super()
     }
 
-    public login(access_token: string): void {
-        this.provider.login(access_token)
+    async getBranches(accessToken: string, githubUsername: string, repositoryName: string): Promise<GithubBranch[]> {
+        return this.provider.getBranches(accessToken, githubUsername, repositoryName)
     }
 
-    async getBranches(githubUsername: string, repositoryName: string): Promise<GithubBranch[]> {
-        return this.provider.getBranches(githubUsername, repositoryName)
+    public async getCommits(accessToken: string, githubUsername: string, repositoryName: string, branch: string): Promise<GithubCommit[]> {
+        return this.provider.getCommits(accessToken, githubUsername, repositoryName, branch)
     }
 
-    public async getCommits(githubUsername: string, repositoryName: string, branch: string): Promise<GithubCommit[]> {
-        return this.provider.getCommits(githubUsername, repositoryName, branch)
+    public async getRepos(accessToken: string, { filter, page = 1, perPage = DEFAULT_REPOS_PER_PAGE }) {
+        return filter ? this.provider.searchRepos(accessToken, filter, page, perPage) : this.provider.getRepos(accessToken, page, perPage)
     }
 
-    public async getRepos({ filter, page = 1, perPage = DEFAULT_REPOS_PER_PAGE }) {
-        return filter ? this.provider.searchRepos(filter, page, perPage) : this.provider.getRepos(page, perPage)
-    }
-
-    public async getGithubRepository(githubUsername: string, repositoryName: string): Promise<GithubRepository> {
-        const githubRepository: GithubRepository = await this.provider.getRepository(githubUsername, repositoryName)
+    public async getGithubRepository(accessToken: string, githubUsername: string, repositoryName: string): Promise<GithubRepository> {
+        const githubRepository: GithubRepository = await this.provider.getRepository(accessToken, githubUsername, repositoryName)
         if (!githubRepository) {
             throw new NotFoundError({
                 message: "The specified repository couldn't be found",
@@ -74,8 +70,8 @@ export class GithubReposService extends AutowiredService {
         return this.provider.getEmailsByAccessToken(access_token)
     }
 
-    public async getUser(): Promise<GithubAccount> {
-        const [user, orgs] = await Promise.all([this.provider.getUser(), this.provider.getOrganizations()])
+    public async getUser(accessToken: string): Promise<GithubAccount> {
+        const [user, orgs] = await Promise.all([this.provider.getUser(accessToken), this.provider.getOrganizations(accessToken)])
         return {
             id: user.id,
             login: user.login,
@@ -86,30 +82,36 @@ export class GithubReposService extends AutowiredService {
         }
     }
 
-    public async getRepoTree(owner: string, repo: string, branch: string): Promise<GithubFileHash[]> {
-        const tree: GithubFileHash | GithubFileHash[] = await this.provider.getFileHash('.', owner, repo, branch)
+    public async getRepoTree(accessToken: string, owner: string, repo: string, branch: string): Promise<GithubFileHash[]> {
+        const tree: GithubFileHash | GithubFileHash[] = await this.provider.getFileHash(accessToken, '.', owner, repo, branch)
         return Array.isArray(tree) ? tree.filter((file) => file.type === 'dir') : []
     }
 
-    public async getFileHash(path: string, githubUsername: string, repositoryName: string, branch: string): Promise<GithubFileHash | GithubFileHash[]> {
-        return this.provider.getFileHash(path, githubUsername, repositoryName, branch)
+    public async getFileHash(
+        accessToken: string,
+        path: string,
+        githubUsername: string,
+        repositoryName: string,
+        branch: string,
+    ): Promise<GithubFileHash | GithubFileHash[]> {
+        return this.provider.getFileHash(accessToken, path, githubUsername, repositoryName, branch)
     }
 
-    public async getFileContent(hash: string, githubUsername: string, repositoryName: string): Promise<Buffer> {
-        return this.provider.getFileContent(hash, githubUsername, repositoryName)
+    public async getFileContent(accessToken: string, hash: string, githubUsername: string, repositoryName: string): Promise<Buffer> {
+        return this.provider.getFileContent(accessToken, hash, githubUsername, repositoryName)
     }
 
-    public async getConfigFile(path: string, githubUsername: string, repositoryName: string, branch: string): Promise<KysoConfigFile> {
+    public async getConfigFile(accessToken: string, path: string, githubUsername: string, repositoryName: string, branch: string): Promise<KysoConfigFile> {
         let regexPath = path.replace(/^\//, '').replace(/\/$/, '').replace(/\//, '\\/')
         regexPath = regexPath.length ? `${regexPath}/` : ''
         const regex = new RegExp(`^${regexPath}${KYSO_FILE_REGEX}$`)
-        const files: GithubFileHash[] = (await this.getFileHash(path, githubUsername, repositoryName, branch)) as GithubFileHash[]
+        const files: GithubFileHash[] = (await this.getFileHash(accessToken, path, githubUsername, repositoryName, branch)) as GithubFileHash[]
         const kysoFile: GithubFileHash = files.find((file: GithubFileHash) => file.path.match(regex))
         if (!kysoFile) {
             return null
         }
         const format: string = kysoFile.path.split('.').pop()
-        const data: Buffer = await this.getFileContent(kysoFile.hash, githubUsername, repositoryName)
+        const data: Buffer = await this.getFileContent(accessToken, kysoFile.hash, githubUsername, repositoryName)
         return parseConfig(format, data)
     }
 }

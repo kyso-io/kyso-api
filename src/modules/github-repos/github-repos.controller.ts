@@ -1,5 +1,16 @@
-import { GithubAccount, GithubEmail, GithubFileHash, GithubRepository, NormalizedResponseDTO, Repository, Token, User } from '@kyso-io/kyso-model'
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common'
+import {
+    GithubAccount,
+    GithubEmail,
+    GithubFileHash,
+    GithubRepository,
+    LoginProviderEnum,
+    NormalizedResponseDTO,
+    Repository,
+    Token,
+    User,
+    UserAccount,
+} from '@kyso-io/kyso-model'
+import { Controller, Get, Param, PreconditionFailedException, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -46,8 +57,11 @@ export class GithubReposController extends GenericController<Repository> {
         @Query('per_page') perPage,
     ): Promise<NormalizedResponseDTO<GithubRepository[]>> {
         const user: User = await this.usersService.getUserById(token.id)
-        this.githubReposService.login(user.accessToken)
-        const repos: GithubRepository[] = await this.githubReposService.getRepos({
+        const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+        if (!userAccount) {
+            throw new PreconditionFailedException('User does not have a github account')
+        }
+        const repos: GithubRepository[] = await this.githubReposService.getRepos(userAccount.accessToken, {
             filter,
             page,
             perPage,
@@ -69,8 +83,11 @@ export class GithubReposController extends GenericController<Repository> {
     public async getAuthenticatedUser(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<GithubAccount>> {
         try {
             const user: User = await this.usersService.getUserById(token.id)
-            this.githubReposService.login(user.accessToken)
-            const githubUser: GithubAccount = await this.githubReposService.getUser()
+            const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+            if (!userAccount) {
+                throw new PreconditionFailedException('User does not have a github account')
+            }
+            const githubUser: GithubAccount = await this.githubReposService.getUser(userAccount.accessToken)
             return new NormalizedResponseDTO(githubUser)
         } catch (e) {
             console.log(e)
@@ -98,8 +115,11 @@ export class GithubReposController extends GenericController<Repository> {
     async getRepo(@CurrentToken() token: Token, @Param('repoName') repoName: string): Promise<NormalizedResponseDTO<GithubRepository>> {
         try {
             const user: User = await this.usersService.getUserById(token.id)
-            this.githubReposService.login(user.accessToken)
-            const repository: any = await this.githubReposService.getGithubRepository(user.username, repoName)
+            const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+            if (!userAccount) {
+                throw new PreconditionFailedException('User does not have a github account')
+            }
+            const repository: GithubRepository = await this.githubReposService.getGithubRepository(userAccount.accessToken, userAccount.username, repoName)
             return new NormalizedResponseDTO(repository)
         } catch (e) {
             return new NormalizedResponseDTO(null)
@@ -136,8 +156,11 @@ export class GithubReposController extends GenericController<Repository> {
     ): Promise<NormalizedResponseDTO<GithubFileHash[]>> {
         try {
             const user: User = await this.usersService.getUserById(token.id)
-            this.githubReposService.login(user.accessToken)
-            const tree = await this.githubReposService.getRepoTree(user.username, repoName, branch)
+            const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+            if (!userAccount) {
+                throw new PreconditionFailedException('User does not have a github account')
+            }
+            const tree = await this.githubReposService.getRepoTree(userAccount.accessToken, userAccount.username, repoName, branch)
             return new NormalizedResponseDTO(tree)
         } catch (e) {
             console.log(e)
@@ -145,29 +168,7 @@ export class GithubReposController extends GenericController<Repository> {
         }
     }
 
-    @Get('/user/access-token/:accessToken')
-    @ApiOperation({
-        summary: `Get git user info by access token`,
-        description: `Get data about the git provider account that belongs to the provided access token`,
-    })
-    @ApiParam({
-        name: 'accessToken',
-        required: true,
-        description: `Github's access token related to the user you want to fetch data`,
-        schema: { type: 'string' },
-    })
-    @ApiNormalizedResponse({
-        status: 200,
-        description: `The data of the specified repository`,
-        type: GithubAccount,
-    })
-    @Permission([GithubRepoPermissionsEnum.READ])
-    async getUserByAccessToken(@Param('accessToken') accessToken: string): Promise<NormalizedResponseDTO<any>> {
-        const user = await this.githubReposService.getUserByAccessToken(accessToken)
-        return new NormalizedResponseDTO(user)
-    }
-
-    @Get('/user/emails/access-token/:accessToken')
+    @Get('/user/emails/:accessToken')
     @ApiOperation({
         summary: `Get email user info by access token`,
         description: `Get email data about the git provider account that belongs to the provided access token`,
@@ -188,5 +189,27 @@ export class GithubReposController extends GenericController<Repository> {
     async getUserEmailsByAccessToken(@Param('accessToken') accessToken: string): Promise<NormalizedResponseDTO<GithubEmail[]>> {
         const email = await this.githubReposService.getEmailsByAccessToken(accessToken)
         return new NormalizedResponseDTO(email)
+    }
+
+    @Get('/user/access-token/:accessToken')
+    @ApiOperation({
+        summary: `Get github user info by access token`,
+        description: `Get data about the git provider account that was linked with the requesting user account.`,
+    })
+    @ApiParam({
+        name: 'accessToken',
+        required: true,
+        description: `Github's access token related to the user you want to fetch data`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `The data of the specified repository`,
+        type: GithubAccount,
+    })
+    @Permission([GithubRepoPermissionsEnum.READ])
+    async getUserByAccessToken(@Param('accessToken') accessToken: string): Promise<NormalizedResponseDTO<any>> {
+        const user = await this.githubReposService.getUserByAccessToken(accessToken)
+        return new NormalizedResponseDTO(user)
     }
 }

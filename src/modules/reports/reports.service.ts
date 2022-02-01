@@ -148,17 +148,21 @@ export class ReportsService extends AutowiredService {
 
         createReportDto.path = (createReportDto.path || '').replace(/^[.]\//, '')
         let kysoConfigFile: KysoConfigFile = null
-        if (user?.accessToken && user.accessToken.length > 0) {
-            // Try to get github repository
-            this.githubReposService.login(user.accessToken)
+        if (createReportDto.provider === RepositoryProvider.GITHUB) {
+            const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+            if (!userAccount) {
+                throw new PreconditionFailedException('User does not have a github account')
+            }
             const githubRepository: GithubRepository = await this.githubReposService.getGithubRepository(
-                createReportDto.username_provider,
+                userAccount.accessToken,
+                userAccount.username,
                 createReportDto.name,
             )
             Logger.log(`Got github repository ${githubRepository.name}`, ReportsService.name)
             kysoConfigFile = await this.githubReposService.getConfigFile(
+                userAccount.accessToken,
                 createReportDto.path,
-                createReportDto.username_provider,
+                userAccount.username,
                 createReportDto.name,
                 createReportDto.default_branch,
             )
@@ -247,11 +251,11 @@ export class ReportsService extends AutowiredService {
             return this.localReportsService.getReportVersions(report.id)
         } else {
             const user: User = await this.usersService.getUserById(userId)
-            if (user.accessToken == null || user.accessToken.length === 0) {
-                throw new PreconditionFailedException(`User ${user.nickname} has no access token`)
+            const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+            if (!userAccount) {
+                throw new PreconditionFailedException('User does not have a github account')
             }
-            this.githubReposService.login(user.accessToken)
-            return this.githubReposService.getBranches(user.id, report.name)
+            return this.githubReposService.getBranches(userAccount.accessToken, userAccount.username, report.name)
         }
     }
 
@@ -266,11 +270,11 @@ export class ReportsService extends AutowiredService {
             })
         }
         const user: User = await this.usersService.getUserById(userId)
-        if (user.accessToken == null || user.accessToken.length === 0) {
-            throw new PreconditionFailedException(`User ${user.nickname} has no access token`)
+        const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+        if (!userAccount) {
+            throw new PreconditionFailedException('User does not have a github account')
         }
-        this.githubReposService.login(user.accessToken)
-        return this.githubReposService.getCommits(userId, report.id, branch)
+        return this.githubReposService.getCommits(userAccount.accessToken, userAccount.username, report.name, branch)
     }
 
     public async getFileHash(userId: string, reportId: string, branch: string, path: string): Promise<GithubFileHash | GithubFileHash[]> {
@@ -282,12 +286,12 @@ export class ReportsService extends AutowiredService {
             return this.localReportsService.getFileHash(report.id, branch)
         } else {
             const user: User = await this.usersService.getUserById(userId)
-            if (user.accessToken == null || user.accessToken.length === 0) {
-                throw new PreconditionFailedException(`User ${user.nickname} has no access token`)
+            const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+            if (!userAccount) {
+                throw new PreconditionFailedException('User does not have a github account')
             }
             const fullPath = `${report.path}${path}`
-            this.githubReposService.login(user.accessToken)
-            return this.githubReposService.getFileHash(fullPath, report.username_provider, report.name, branch)
+            return this.githubReposService.getFileHash(userAccount.accessToken, fullPath, userAccount.username, report.name, branch)
         }
     }
 
@@ -300,11 +304,11 @@ export class ReportsService extends AutowiredService {
             return this.localReportsService.getFileContent(hash)
         } else {
             const user: User = await this.usersService.getUserById(userId)
-            if (user.accessToken == null || user.accessToken.length === 0) {
-                throw new PreconditionFailedException(`User ${user.nickname} has no access token`)
+            const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+            if (!userAccount) {
+                throw new PreconditionFailedException('User does not have a github account')
             }
-            this.githubReposService.login(user.accessToken)
-            return this.githubReposService.getFileContent(hash, userId, report.name)
+            return this.githubReposService.getFileContent(userAccount.accessToken, hash, userAccount.username, report.name)
         }
     }
 
