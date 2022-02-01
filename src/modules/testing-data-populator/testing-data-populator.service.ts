@@ -26,7 +26,8 @@ import { ReportPermissionsEnum } from '../reports/security/report-permissions.en
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
-const { exec } = require('child_process');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { exec } = require('child_process')
 @Injectable()
 export class TestingDataPopulatorService {
     private Rey_TeamAdminUser: User
@@ -98,7 +99,6 @@ export class TestingDataPopulatorService {
             await this.createTestingReports()
             await this.createTestingComments()
             await this.createDiscussions()
-            
         }
     }
 
@@ -187,17 +187,15 @@ export class TestingDataPopulatorService {
         this.Chewbacca_TeamReaderUser = await this._createUser(chewbacca_TestTeamReaderUser)
         this.Gideon_OrganizationAdminUser = await this._createUser(gideon_TestOrganizationAdminUser)
         this.Palpatine_PlatformAdminUser = await this._createUser(palpatine_TestPlatformAdminUser)
-
-        
     }
 
     private async _updateUserAccounts() {
         const githubUserAccount: UserAccount = new UserAccount()
-        githubUserAccount.accessToken = "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"
-        githubUserAccount.accountId = "98749909"
+        githubUserAccount.accessToken = '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'
+        githubUserAccount.accountId = '98749909'
         githubUserAccount.payload = {}
         githubUserAccount.type = LoginProviderEnum.GITHUB
-        githubUserAccount.username = "mozartmae"
+        githubUserAccount.username = 'mozartmae'
 
         await this.usersService.addAccount(this.Rey_TeamAdminUser.id, githubUserAccount)
         await this.usersService.addAccount(this.Kylo_TeamContributorUser.id, githubUserAccount)
@@ -272,7 +270,7 @@ export class TestingDataPopulatorService {
         // Create reports using kyso-cli
         // Check that kyso-cli is available
         console.log(
-        `
+            `
             _  __    _  _                             ___     _       ___   
             | |/ /   | || |   ___     ___      o O O  / __|   | |     |_ _|  
             | ' <     \\_, |  (_-<    / _ \\    o      | (__    | |__    | |   
@@ -281,103 +279,125 @@ export class TestingDataPopulatorService {
            "\`-0-0-'"\`-0-0-'"\`-0-0-'"\`-0-0-'./o--000'"\`-0-0-'"\`-0-0-'"\`-0-0-' 
             
             Checking that Kyso-CLI is installed in this local machine
-        `)
-        
+        `,
+        )
+
         exec('kyso-cli', (err, stdout, stderr) => {
-            if(!err) {
-                Logger.log("Kyso CLI is available in this machine... logging as user palpatine")
-                
+            if (!err) {
+                Logger.log('Kyso CLI is available in this machine... logging as user palpatine')
+
                 // LOGIN vs this server
-                exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli login --username palpatine@kyso.io --password n0tiene --provider kyso`, (err, stdout, stderr) => {
-                    Logger.log(stdout)
+                exec(
+                    `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli login --username palpatine@kyso.io --password n0tiene --provider kyso`,
+                    (err, stdout, stderr) => {
+                        Logger.log(stdout)
 
-                    if(!err) {
-                        // Create new Kronig-Penney report
-                        exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/kronig-penney-exploration`, (err, stdout, stderr) => {
-                            Logger.log("Creating Kronig-Penney report")
-                            Logger.log(stdout)
-
-                            if(!err) {
-                                Logger.log("Uploaded kronig-penney-exploration")
-                            } else {
-                                Logger.error("Push of Kronig-Penney report failed")
-                            }
-                        })
-
-                        // Create new MultiQ report
-                        exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/multiq-report`, (err, stdout, stderr) => {
-                            Logger.log("Creating MultiQ report")
-                            Logger.log(stdout)
-
-                            if(!err) {
-                                Logger.log("Uploaded MultiQ")
-
-                                // Create a new version of MultiQ report
-                                exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/multiq-report`, (err, stdout, stderr) => {
-                                    Logger.log("Creating a new version of MultiQ report")
+                        if (!err) {
+                            // Create new Kronig-Penney report
+                            exec(
+                                `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/kronig-penney-exploration`,
+                                (err, stdout, stderr) => {
+                                    Logger.log('Creating Kronig-Penney report')
                                     Logger.log(stdout)
 
-                                    if(!err) {
-                                        Logger.log("Uploaded new version of MultiQ report")
+                                    if (!err) {
+                                        Logger.log('Uploaded kronig-penney-exploration')
                                     } else {
-                                        Logger.error("Push of new version of MultiQ report failed")
+                                        Logger.error('Push of Kronig-Penney report failed')
                                     }
-                                })
-                            } else {
-                                Logger.error("Push of MultiQ report failed")
-                            }
-                        })
+                                },
+                            )
 
-                        // Create new Markdown report
-                        exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/markdown-report`, (err, stdout, stderr) => {
-                            Logger.log("Creating Markdown report")
-                            Logger.log(stdout)
+                            // Create new MultiQ report
+                            exec(
+                                `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/multiq-report`,
+                                (err, stdout, stderr) => {
+                                    Logger.log('Creating MultiQ report')
+                                    Logger.log(stdout)
 
-                            if(!err) {
-                                Logger.log("Uploaded Markdown")
-                            } else {
-                                Logger.error("Push of Markdown report failed")
-                            }
-                        })
+                                    if (!err) {
+                                        Logger.log('Uploaded MultiQ')
 
-                        // Import a report from Github using kyso-cli
-                        exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name jupyter-samples`, (err, stdout, stderr) => {
-                            Logger.log("Importing jupyter-samples report from Github using kyso-cli")
-                            Logger.log(stdout)
+                                        // Create a new version of MultiQ report
+                                        exec(
+                                            `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/multiq-report`,
+                                            (err, stdout, stderr) => {
+                                                Logger.log('Creating a new version of MultiQ report')
+                                                Logger.log(stdout)
 
-                            if(!err) {
-                                Logger.log("Uploaded jupyter-samples")
-                            } else {
-                                Logger.error("Push of jupyter-samples report failed")
-                            }
-                        })
+                                                if (!err) {
+                                                    Logger.log('Uploaded new version of MultiQ report')
+                                                } else {
+                                                    Logger.error('Push of new version of MultiQ report failed')
+                                                }
+                                            },
+                                        )
+                                    } else {
+                                        Logger.error('Push of MultiQ report failed')
+                                    }
+                                },
+                            )
 
-                        // Import a report from Github using kyso-cli
-                        exec(`NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name Kalman-and-Bayesian-Filters-in-Python`, (err, stdout, stderr) => {
-                            Logger.log("Importing Kalman-and-Bayesian-Filters-in-Python report from Github using kyso-cli")
-                            Logger.log(stdout)
+                            // Create new Markdown report
+                            exec(
+                                `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/markdown-report`,
+                                (err, stdout, stderr) => {
+                                    Logger.log('Creating Markdown report')
+                                    Logger.log(stdout)
 
-                            if(!err) {
-                                Logger.log("Uploaded Kalman-and-Bayesian-Filters-in-Python")
-                            } else {
-                                Logger.error("Push of Kalman-and-Bayesian-Filters-in-Python report failed")
-                            }
-                        })
+                                    if (!err) {
+                                        Logger.log('Uploaded Markdown')
+                                    } else {
+                                        Logger.error('Push of Markdown report failed')
+                                    }
+                                },
+                            )
 
-                    } else {
-                        Logger.error("Can't login as Palpatine. Testing reports based on CLI will not be created.")
-                    }
-                })
+                            // Import a report from Github using kyso-cli
+                            exec(
+                                `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name jupyter-samples`,
+                                (err, stdout, stderr) => {
+                                    Logger.log('Importing jupyter-samples report from Github using kyso-cli')
+                                    Logger.log(stdout)
+
+                                    if (!err) {
+                                        Logger.log('Uploaded jupyter-samples')
+                                    } else {
+                                        Logger.error('Push of jupyter-samples report failed')
+                                    }
+                                },
+                            )
+
+                            // Import a report from Github using kyso-cli
+                            exec(
+                                `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name Kalman-and-Bayesian-Filters-in-Python`,
+                                (err, stdout, stderr) => {
+                                    Logger.log('Importing Kalman-and-Bayesian-Filters-in-Python report from Github using kyso-cli')
+                                    Logger.log(stdout)
+
+                                    if (!err) {
+                                        Logger.log('Uploaded Kalman-and-Bayesian-Filters-in-Python')
+                                    } else {
+                                        Logger.error('Push of Kalman-and-Bayesian-Filters-in-Python report failed')
+                                    }
+                                },
+                            )
+                        } else {
+                            Logger.error("Can't login as Palpatine. Testing reports based on CLI will not be created.")
+                        }
+                    },
+                )
             } else {
-                Logger.error("Kyso CLI is not installed in this machine. Testing reports based on CLI will not be created")
+                Logger.error('Kyso CLI is not installed in this machine. Testing reports based on CLI will not be created')
                 Logger.log(
-                `Installation instructions:
+                    `Installation instructions:
                     sudo npm install -g @kyso-io/kyso-cli
                 
                 To populate these reports without deleting the entire database, please execute populate-reports-by-kyso-cli.sh script
-                `)
+                `,
+                )
             }
-        });
+        })
     }
 
     private async _createReport(user: User, report: CreateReportDTO) {
@@ -520,17 +540,9 @@ export class TestingDataPopulatorService {
             )
 
             /*** Lightside organization ***/
-            await this.organizationsService.addMembersById(
-                this.LightsideOrganization.id, 
-                [this.Rey_TeamAdminUser.id], 
-                [PlatformRole.TEAM_ADMIN_ROLE.name]
-            )
+            await this.organizationsService.addMembersById(this.LightsideOrganization.id, [this.Rey_TeamAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
 
-            await this.organizationsService.addMembersById(
-                this.LightsideOrganization.id,
-                [this.Rey_TeamAdminUser.id],
-                [PlatformRole.TEAM_ADMIN_ROLE.name],
-            )
+            await this.organizationsService.addMembersById(this.LightsideOrganization.id, [this.Rey_TeamAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
 
             await this.organizationsService.addMembersById(
                 this.LightsideOrganization.id,

@@ -72,7 +72,7 @@ export class PermissionsGuard implements CanActivate {
                     allUserPermissions = [...userPermissionsInThatTeam.permissions]
                     //}
                 } else {
-                    if(userPermissionsInThatTeam && userPermissionsInThatTeam.organization_inherited) {
+                    if (userPermissionsInThatTeam && userPermissionsInThatTeam.organization_inherited) {
                         // TODO: get organization role of that user and retrieve their permissions
                         allUserPermissions = [...userPermissionsInThatOrganization.permissions]
                     }

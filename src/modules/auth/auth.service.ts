@@ -97,12 +97,12 @@ export class AuthService extends AutowiredService {
                     existsRole = platformRoles.filter((y) => y.name === element)
 
                     if (teamRoles && teamRoles.length > 0) {
-                         // If there are specific teamRoles, search for them as well
-                        let existsCustomRole = teamRoles.filter((y) => y.name === element)
+                        // If there are specific teamRoles, search for them as well
+                        const existsCustomRole = teamRoles.filter((y) => y.name === element)
 
-                        // If there are collision between platform role and organization role, the 
+                        // If there are collision between platform role and organization role, the
                         // organization role will prevail
-                        if(existsCustomRole && existsCustomRole.length > 0) {
+                        if (existsCustomRole && existsCustomRole.length > 0) {
                             existsRole = existsCustomRole
                         }
                     }
@@ -147,11 +147,11 @@ export class AuthService extends AutowiredService {
 
                     if (organizationRoles && organizationRoles.length > 0) {
                         // If there are specific organizationRoles, search for them as well
-                        let existsCustomRole = organizationRoles.filter((y) => y.name === element)
+                        const existsCustomRole = organizationRoles.filter((y) => y.name === element)
 
-                        // If there are collision between platform role and organization role, the 
+                        // If there are collision between platform role and organization role, the
                         // organization role will prevail
-                        if(existsCustomRole && existsCustomRole.length > 0) {
+                        if (existsCustomRole && existsCustomRole.length > 0) {
                             existsRole = existsCustomRole
                         }
                     }

@@ -152,9 +152,7 @@ export class UsersService extends AutowiredService {
     }
 
     public async addAccount(id: string, userAccount: UserAccount): Promise<boolean> {
-        const user: User = await this.getUser(
-            { filter: { _id: this.provider.toObjectId(id) }
-        })
+        const user: User = await this.getUser({ filter: { _id: this.provider.toObjectId(id) } })
 
         if (!user) {
             throw new PreconditionFailedException(null, `Can't add account to user as does not exists`)

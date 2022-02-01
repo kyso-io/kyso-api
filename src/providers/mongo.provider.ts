@@ -110,7 +110,7 @@ export class MongoProvider<T> {
         await this.getCollection().insertOne(obj)
         obj.id = obj._id.toString()
         await this.update({ _id: obj._id }, { $set: { id: obj._id.toString() } })
-        
+
         return obj
     }
 
@@ -158,7 +158,7 @@ export class MongoProvider<T> {
 }
 
 function parseForeignKeys(obj) {
-    if(obj) {
+    if (obj) {
         const result = obj
 
         Object.entries(obj).forEach(([key, value]) => {
@@ -180,8 +180,7 @@ function parseForeignKeys(obj) {
             } else if (Object.prototype.toString.call(value) === '[object Object]') result[key] = parseForeignKeys(value)
             else if (Array.isArray(value)) result[key] = result[key].map(parseForeignKeys)
         })
-    
+
         return result
     }
-    
 }
