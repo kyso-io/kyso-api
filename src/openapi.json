@@ -2534,17 +2534,17 @@
         ]
       }
     },
-    "/v1/repos/github/user/access-token/{accessToken}": {
+    "/v1/repos/github/user/emails/{accessToken}": {
       "get": {
-        "operationId": "GithubReposController_getUserByAccessToken",
-        "summary": "Get git user info by access token",
-        "description": "Get data about the git provider account that belongs to the provided access token",
+        "operationId": "GithubReposController_getUserEmailsByAccessToken",
+        "summary": "Get email user info by access token",
+        "description": "Get email data about the git provider account that belongs to the provided access token",
         "parameters": [
           {
             "name": "accessToken",
             "required": true,
             "in": "path",
-            "description": "Github's access token related to the user you want to fetch data",
+            "description": "Github's access token related to the user you want to fetch email data",
             "schema": {
               "type": "string"
             }
@@ -2558,7 +2558,10 @@
                 "schema": {
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/GithubAccount"
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/GithubEmail"
+                      }
                     },
                     "relations": {
                       "anyOf": [
@@ -2670,17 +2673,17 @@
         ]
       }
     },
-    "/v1/repos/github/user/emails/access-token/{accessToken}": {
+    "/v1/repos/github/user/access-token/{accessToken}": {
       "get": {
-        "operationId": "GithubReposController_getUserEmailsByAccessToken",
-        "summary": "Get email user info by access token",
-        "description": "Get email data about the git provider account that belongs to the provided access token",
+        "operationId": "GithubReposController_getUserByAccessToken",
+        "summary": "Get github user info by access token",
+        "description": "Get data about the git provider account that was linked with the requesting user account.",
         "parameters": [
           {
             "name": "accessToken",
             "required": true,
             "in": "path",
-            "description": "Github's access token related to the user you want to fetch email data",
+            "description": "Github's access token related to the user you want to fetch data",
             "schema": {
               "type": "string"
             }
@@ -2694,10 +2697,7 @@
                 "schema": {
                   "properties": {
                     "data": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/GithubEmail"
-                      }
+                      "$ref": "#/components/schemas/GithubAccount"
                     },
                     "relations": {
                       "anyOf": [
