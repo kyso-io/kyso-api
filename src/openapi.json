@@ -5881,9 +5881,9 @@
         ]
       }
     },
-    "/v1/reports/{reportId}/{branch}/tree/{filePath}": {
+    "/v1/reports/{reportId}/{branch}/tree": {
       "get": {
-        "operationId": "ReportsController_getReportFileHash",
+        "operationId": "ReportsController_getReportTree",
         "summary": "Explore a report tree",
         "description": "Get hash of a file for a given report. If the file is a folder, will get information about the files in it too (non-recursively). Path is currently ignored for local reports.",
         "parameters": [
@@ -5906,10 +5906,9 @@
             }
           },
           {
-            "name": "filePath",
+            "name": "path",
             "required": true,
-            "in": "path",
-            "description": "Path of the file to be consulted",
+            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -6062,52 +6061,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Content of the requested file",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/String"
-                    },
-                    "relations": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/User"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/Report"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/Comment"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/Team"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/components/schemas/Organization"
-                          }
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
+            "description": ""
           },
           "400": {
             "description": "Input is not correct",

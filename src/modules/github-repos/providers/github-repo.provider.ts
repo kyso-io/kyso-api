@@ -103,33 +103,34 @@ export class GithubReposProvider {
         To work around this, we launch two request simultaneously, one for the filePath specified and
         one for the folder were the requested file is located. If we catch a 403 error on the first
         request, we check the second one. */
-        let res
 
-        const sanitizedPath = filePath.length ? filePath.replace(/\/$/, '') : '.'
+        const sanitizedPath = filePath && filePath.length ? filePath.replace('./', '').replace(/\/$/, '') : ''
         const octokit: Octokit = new Octokit({
             auth: `token ${accessToken}`,
         })
-        const first = octokit.repos.getContent({
-            owner,
-            repo,
-            path: sanitizedPath,
-            ref: branch,
-        })
 
-        const newPath = filePath.substr(0, filePath.lastIndexOf('/'))
-        const second = octokit.repos.getContent({
-            owner,
-            repo,
-            path: newPath,
-            ref: branch,
-        })
-
+        let res
         try {
-            res = await first
+            res = await octokit.repos.getContent({
+                owner,
+                repo,
+                path: sanitizedPath,
+                ref: branch,
+            })
         } catch (err) {
             if (err.status === 403) {
-                res = await second
-                res.data = res.data.find((elem) => elem.path === filePath)
+                try {
+                    const newPath = filePath.substr(0, filePath.lastIndexOf('/'))
+                    res = await octokit.repos.getContent({
+                        owner,
+                        repo,
+                        path: newPath,
+                        ref: branch,
+                    })
+                    res.data = res.data.find((elem) => elem.path === filePath)
+                } catch (e) {
+                    throw err
+                }
             } else throw err
         }
 
@@ -142,7 +143,7 @@ export class GithubReposProvider {
         return res.data.sha ? filterData(res.data) : res.data.map(filterData)
     }
 
-    async getFileContent(accessToken: string, fileSha, owner, repo) {
+    async getFileContent(accessToken: string, fileSha: string, owner: string, repo: string) {
         try {
             const octokit: Octokit = new Octokit({
                 auth: `token ${accessToken}`,
@@ -152,7 +153,6 @@ export class GithubReposProvider {
                 repo,
                 file_sha: fileSha.toLowerCase(),
             })
-
             return Buffer.from(res.data.content, 'base64')
         } catch (err) {
             if (err.status === 404) {

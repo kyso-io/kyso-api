@@ -96,7 +96,6 @@ export class ReportsService extends AutowiredService {
         private readonly filesMongoProvider: FilesMongoProvider,
     ) {
         super()
-        // setTimeout(() => this.pullReport('61f3fc7e1f35752b661ddd3c'), 500)
     }
 
     private getS3Client(): S3Client {
@@ -278,21 +277,24 @@ export class ReportsService extends AutowiredService {
         return this.githubReposService.getCommits(userAccount.accessToken, userAccount.username, report.name, branch)
     }
 
-    public async getFileHash(userId: string, reportId: string, branch: string, path: string): Promise<GithubFileHash | GithubFileHash[]> {
+    public async getReportTree(userId: string, reportId: string, branch: string, path: string): Promise<GithubFileHash | GithubFileHash[]> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
         }
-        if (report.provider === RepositoryProvider.KYSO) {
-            return this.localReportsService.getFileHash(report.id, branch)
-        } else {
-            const user: User = await this.usersService.getUserById(userId)
-            const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
-            if (!userAccount) {
-                throw new PreconditionFailedException('User does not have a github account')
-            }
-            const fullPath = `${report.path}${path}`
-            return this.githubReposService.getFileHash(userAccount.accessToken, fullPath, userAccount.username, report.name, branch)
+        switch (report.provider) {
+            case RepositoryProvider.KYSO:
+            case RepositoryProvider.KYSO_CLI:
+                return this.getKysoReportTree(report.id, branch, path)
+            case RepositoryProvider.GITHUB:
+                const user: User = await this.usersService.getUserById(userId)
+                const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+                if (!userAccount) {
+                    throw new PreconditionFailedException('User does not have a github account')
+                }
+                return this.githubReposService.getFileHash(userAccount.accessToken, path, userAccount.username, report.name, branch)
+            default:
+                return null
         }
     }
 
@@ -301,15 +303,19 @@ export class ReportsService extends AutowiredService {
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
         }
-        if (report.provider === RepositoryProvider.KYSO) {
-            return this.localReportsService.getFileContent(hash)
-        } else {
-            const user: User = await this.usersService.getUserById(userId)
-            const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
-            if (!userAccount) {
-                throw new PreconditionFailedException('User does not have a github account')
-            }
-            return this.githubReposService.getFileContent(userAccount.accessToken, hash, userAccount.username, report.name)
+        switch (report.provider) {
+            case RepositoryProvider.KYSO:
+            case RepositoryProvider.KYSO_CLI:
+                return this.getKysoFileContent(report.id, hash)
+            case RepositoryProvider.GITHUB:
+                const user: User = await this.usersService.getUserById(userId)
+                const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+                if (!userAccount) {
+                    throw new PreconditionFailedException('User does not have a github account')
+                }
+                return this.githubReposService.getFileContent(userAccount.accessToken, hash, userAccount.username, report.name)
+            default:
+                return null
         }
     }
 
@@ -938,5 +944,102 @@ export class ReportsService extends AutowiredService {
         response.set('Content-Disposition', `attachment; filename=${report.id}.zip`)
         response.set('Content-Type', 'application/zip')
         response.send(zip.toBuffer())
+    }
+
+    private async getKysoReportTree(reportId: string, versionStr: string, path: string): Promise<GithubFileHash[]> {
+        const version: number = isNaN(versionStr as any) ? 1 : parseInt(versionStr, 10)
+        let files: File[] = await this.filesMongoProvider.read({
+            filter: {
+                report_id: reportId,
+                version,
+            },
+        })
+        let sanitizedPath = ''
+        if (path && (path == './' || path == '/' || path == '.' || path == '/.')) {
+            sanitizedPath = ''
+        } else if (path && path.length) {
+            sanitizedPath = path.replace('./', '').replace(/\/$/, '')
+        }
+
+        if (path !== '') {
+            files = files.filter((file: File) => file.name.startsWith(sanitizedPath))
+        }
+
+        let result = []
+        const level = { result }
+
+        files.forEach((file: File) => {
+            file.name.split('/').reduce((r, name: string) => {
+                if (!r[name]) {
+                    r[name] = { result: [] }
+                    r.result.push({ name, id: file.id, children: r[name].result })
+                }
+
+                return r[name]
+            }, level)
+        })
+
+        if (result.length === 0) {
+            return []
+        }
+        if (result.length === 1 && result[0].name === path) {
+            // We are inside a directory
+            result = result[0].children
+        }
+
+        const tree: GithubFileHash[] = []
+        result.forEach((element: any) => {
+            const file: File = files.find((f: File) => f.id === element.id)
+            if (element.children.length > 0) {
+                // Directory
+                tree.push({
+                    type: 'dir',
+                    path: element.name,
+                    hash: file.sha,
+                    htmlUrl: '',
+                })
+            } else {
+                // File
+                tree.push({
+                    type: 'file',
+                    path: file.name.replace(`${sanitizedPath}/`, ''),
+                    hash: file.sha,
+                    htmlUrl: '',
+                })
+            }
+        })
+        return tree
+    }
+
+    private async getKysoFileContent(reportId: string, hash: string): Promise<Buffer> {
+        const files: File[] = await this.filesMongoProvider.read({
+            filter: {
+                report_id: reportId,
+                sha: hash,
+            },
+        })
+        if (files.length === 0) {
+            return null
+        }
+        const reportFile: File = files[0]
+
+        const s3Client: S3Client = this.getS3Client()
+        const getObjectCommand: GetObjectCommand = new GetObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET,
+            Key: reportFile.path_s3,
+        })
+        const result = await s3Client.send(getObjectCommand)
+        if (!result || !result.hasOwnProperty('Body') || result.Body == null) {
+            Logger.error(`Error downloading file '${reportFile.name}' from S3`, ReportsService.name)
+            return null
+        }
+        // return this.streamToBuffer(result.Body as Readable)
+        const buffer: Buffer = await this.streamToBuffer(result.Body as Readable)
+        const reportFileZip: AdmZip = new AdmZip(buffer)
+        const zipEntries: AdmZip.IZipEntry[] = reportFileZip.getEntries()
+        if (zipEntries.length === 0) {
+            return null
+        }
+        return zipEntries[0].getData()
     }
 }
