@@ -24,7 +24,7 @@ async function bootstrap() {
         path: `.env-${process.env.NODE_ENV}`,
     })
 
-    await connectToDatabase(process.env.DATABASE_NAME || 'kyso-initial')
+    await connectToDatabase(process.env.DATABASE_NAME || 'kyso')
     const app = await NestFactory.create(AppModule)
 
     app.use(bodyParser.json({ limit: '200mb' }))
