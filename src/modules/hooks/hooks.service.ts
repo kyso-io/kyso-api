@@ -28,7 +28,7 @@ export class HooksService {
     //         auth: `token ${accessToken}`,
     //     })
     //     try {
-    //         let hookUrl = `${process.env.SELF_URL}/v1/hooks/github`
+    //         let hookUrl = `${process.env.BASE_URL}/v1/hooks/github`
     //         if (process.env.NODE_ENV === 'development') {
     //             hookUrl = 'https://smee.io/kyso-github-hook-test'
     //         }
