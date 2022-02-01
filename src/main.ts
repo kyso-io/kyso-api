@@ -62,7 +62,7 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config)
 
-    const jsonFile = './src/openapi.json'
+    const jsonFile = './dist/src/openapi.json'
     Logger.log(`Writing openapi.json to ${jsonFile}`)
     fs.writeFileSync(jsonFile, JSON.stringify(document, null, 2))
 
