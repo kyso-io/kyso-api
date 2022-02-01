@@ -244,7 +244,7 @@ export class TestingDataPopulatorService {
         const reportDeathStarEngineering = new CreateReportDTO(
             'death-star-engineering',
             'fran-kyso',
-            RepositoryProvider.GITHUB,
+            RepositoryProvider.KYSO,
             'main',
             'kronig-penney-exploration',
             this.PublicTeam.id,
@@ -257,7 +257,7 @@ export class TestingDataPopulatorService {
         const reportRebelScumCounterAttack = new CreateReportDTO(
             'rebel-scum-counterattack',
             'fran-kyso',
-            RepositoryProvider.GITHUB,
+            RepositoryProvider.KYSO,
             'main',
             'kronig-penney-exploration',
             this.ProtectedTeamWithCustomRole.id,
