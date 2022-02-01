@@ -15,6 +15,7 @@ import { TagsModule } from './modules/tags/tags.module'
 import { TeamsModule } from './modules/teams/teams.module'
 import { TestingDataPopulatorModule } from './modules/testing-data-populator/testing-data-populator.module'
 import { UsersModule } from './modules/users/users.module'
+import { PrometheusModule } from "@willsoto/nestjs-prometheus";
 
 @Module({
     imports: [
@@ -48,6 +49,7 @@ import { UsersModule } from './modules/users/users.module'
         TeamsModule.forRoot(),
         TestingDataPopulatorModule,
         UsersModule.forRoot(),
+        PrometheusModule.register()
     ],
 })
 export class AppModule {}
