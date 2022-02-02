@@ -285,7 +285,7 @@ export class ReportsService extends AutowiredService {
         switch (report.provider) {
             case RepositoryProvider.KYSO:
             case RepositoryProvider.KYSO_CLI:
-                return this.getKysoReportTree(report.id, branch, path)
+                return this.getKysoReportTree(report.id, path)
             case RepositoryProvider.GITHUB:
                 const user: User = await this.usersService.getUserById(userId)
                 const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
@@ -946,13 +946,12 @@ export class ReportsService extends AutowiredService {
         response.send(zip.toBuffer())
     }
 
-    private async getKysoReportTree(reportId: string, versionStr: string, path: string): Promise<GithubFileHash[]> {
-        const version: number = isNaN(versionStr as any) ? 1 : parseInt(versionStr, 10)
+    private async getKysoReportTree(reportId: string, path: string): Promise<GithubFileHash[]> {
         let files: File[] = await this.filesMongoProvider.read({
             filter: {
                 report_id: reportId,
-                version,
             },
+            sort: { version: 1 },
         })
         let sanitizedPath = ''
         if (path && (path == './' || path == '/' || path == '.' || path == '/.')) {
@@ -960,6 +959,13 @@ export class ReportsService extends AutowiredService {
         } else if (path && path.length) {
             sanitizedPath = path.replace('./', '').replace(/\/$/, '')
         }
+
+        // Get last version of each file
+        const map: Map<string, File> = new Map<string, File>()
+        for (const file of files) {
+            map.set(file.name, file)
+        }
+        files = Array.from(map.values())
 
         if (path !== '') {
             files = files.filter((file: File) => file.name.startsWith(sanitizedPath))
