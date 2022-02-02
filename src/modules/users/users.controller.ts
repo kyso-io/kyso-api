@@ -1,5 +1,5 @@
 import { BaseFilterQueryDTO, CreateUserRequestDTO, NormalizedResponseDTO, Token, UpdateUserRequestDTO, User, UserAccount } from '@kyso-io/kyso-model'
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { diskStorage } from 'multer'
@@ -39,19 +39,34 @@ export class UsersController extends GenericController<User> {
         type: User,
     })
     @Permission([UserPermissionsEnum.READ])
-    async getUsers(@Req() req, @Query() filters: BaseFilterQueryDTO): Promise<NormalizedResponseDTO<User[]>> {
-        // <-- Lack of documentation due to inconsistent stuff
-        // filters variable is just for documentation purposes. But a refactoring removing Req and Res would be great.
-        const query = QueryParser.toQueryObject(req.url)
-        if (!query.sort) {
-            query.sort = { _created_at: -1 }
-        }
-        if (!query.filter) {
-            query.filter = {} // ??? not documented
-        }
+    async getUsers(
+        @Query('user_id') userId: string[],
+        @Query('page', ParseIntPipe) page: number,
+        @Query('per_page', ParseIntPipe) per_page: number,
+        @Query('sort') sort: string): Promise<NormalizedResponseDTO<User[]>> {
 
-        if (!query.projection) {
-            query.projection = {} // ??? not documented
+        const query: any = {
+            filter: {
+
+            },
+            sort: {
+                created_at: -1,
+            },
+            limit: per_page,
+            skip: (page - 1) * per_page,
+        }
+        if (userId) {
+            const mapped = userId.map(x => {
+                console.log(x)
+                let result = { id: x }
+    
+                return result;
+            })
+
+            query.filter = { $or: mapped }
+        } 
+        if (sort && (sort === 'asc' || sort === 'desc')) {
+            query.sort.created_at = sort === 'asc' ? 1 : -1
         }
 
         const result: User[] = await this.usersService.getUsers(query)

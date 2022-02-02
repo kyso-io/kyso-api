@@ -26,17 +26,17 @@ export class DiscussionsController extends GenericController<Discussion> {
     @Get()
     @ApiOperation({ summary: 'Get all discussions' })
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion, isArray: true })
-    @Permission(DiscussionPermissionsEnum.READ)
+    @Permission([DiscussionPermissionsEnum.READ])
     public async getDiscussions(
-        @Query('teamId') teamId: string,
-        @Query('userId') userId: string,
+        @Query('team_id') teamId: string,
+        @Query('user_id') userId: string,
         @Query('page', ParseIntPipe) page: number,
         @Query('per_page', ParseIntPipe) per_page: number,
         @Query('sort') sort: string,
     ): Promise<NormalizedResponseDTO<Discussion[]>> {
         const data: any = {
             filter: {
-                mark_delete_at: { $ne: null },
+                mark_delete_at: { $eq: null },
             },
             sort: {
                 created_at: -1,
@@ -72,7 +72,7 @@ export class DiscussionsController extends GenericController<Discussion> {
     @Permission([DiscussionPermissionsEnum.READ])
     public async getDiscussionGivenTeamIdAndDiscussionNumber(@Param('discussionId') discussionId: string): Promise<NormalizedResponseDTO<Discussion>> {
         const discussion: Discussion = await this.discussionsService.getDiscussion({
-            filter: { discussion_id: discussionId, mark_delete_at: { $ne: null } },
+            filter: { discussion_id: discussionId, mark_delete_at: { $eq: null } },
         })
 
         if (!discussion) {
