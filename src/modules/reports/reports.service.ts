@@ -686,8 +686,8 @@ export class ReportsService extends AutowiredService {
                         // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Could not parse kyso.{yml,yaml} file`, ReportsService.name)
                         return
                     }
-                    files.push({ name: fileName, filePath: filePath })
                 }
+                files.push({ name: fileName, filePath: filePath })
             }
             if (!kysoConfigFile) {
                 report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
@@ -774,6 +774,131 @@ export class ReportsService extends AutowiredService {
         })
 
         return report
+    }
+
+    public async downloadGithubRepo(report: Report, repository: any, sha: string, userAccount: UserAccount): Promise<void> {
+        Logger.log(`Downloading and extrating repository ${report.name}' commit '${sha}'`, ReportsService.name)
+        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
+
+        const extractedDir = `/tmp/${uuidv4()}`
+        const downloaded: boolean = await this.downloadGithubFiles(sha, extractedDir, repository, userAccount.accessToken)
+        if (!downloaded) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report '${report.id} ${report.name}': Could not download commit ${sha}`, ReportsService.name)
+            // throw new PreconditionFailedException(`Could not download repository ${report.name} commit ${sha}`, ReportsService.name)
+            return
+        }
+        Logger.log(`Report '${report.id} ${report.name}': Downloaded commit '${sha}'`, ReportsService.name)
+
+        const filePaths: string[] = await this.getFilePaths(extractedDir)
+        if (filePaths.length < 2) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report ${report.id} ${report.name}: Repository does not contain any files`, ReportsService.name)
+            // throw new PreconditionFailedException(`Report ${report.id} ${report.name}: Repository does not contain any files`, ReportsService.name)
+            return
+        }
+
+        // Normalize file paths
+        const relativePath: string = filePaths[1]
+        const files: { name: string; filePath: string }[] = []
+        let kysoConfigFile: KysoConfigFile = null
+        const directoriesToRemove: string[] = []
+        // Search kyso config file and annotate directories to remove at the end of the process
+        for (let i = 2; i < filePaths.length; i++) {
+            const filePath: string = filePaths[i]
+            if (lstatSync(filePath).isDirectory()) {
+                directoriesToRemove.push(filePath)
+                continue
+            }
+            const fileName: string = filePath.replace(`${relativePath}/`, '')
+            if (fileName === 'kyso.json') {
+                try {
+                    kysoConfigFile = JSON.parse(readFileSync(filePath, 'utf8'))
+                    if (!KysoConfigFile.isValid(kysoConfigFile)) {
+                        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+                        Logger.error(`Report ${report.id} ${report.name}: kyso.json config file is not valid`, ReportsService.name)
+                        // throw new PreconditionFailedException(`Report ${report.id} ${report.name}: kyso.json config file is not valid`)
+                        return
+                    }
+                } catch (e) {
+                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+                    Logger.error(`Report ${report.id} ${report.name}: Could not parse kyso.json file`, ReportsService.name)
+                    // throw new PreconditionFailedException(`Report ${report.id} ${report.name}: Could not parse kyso.json file`, ReportsService.name)
+                    return
+                }
+            } else if (fileName === 'kyso.yml' || fileName === 'kyso.yaml') {
+                try {
+                    kysoConfigFile = jsYaml.load(readFileSync(filePath, 'utf8')) as KysoConfigFile
+                    if (!KysoConfigFile.isValid(kysoConfigFile)) {
+                        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+                        Logger.error(`Report ${report.id} ${report.name}: kyso.{yml,yaml} config file is not valid`, ReportsService.name)
+                        // throw new PreconditionFailedException(`Report ${report.id} ${report.name}: kyso.{yml,yaml} config file is not valid`)
+                        return
+                    }
+                } catch (e) {
+                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+                    Logger.error(`Report ${report.id} ${report.name}: Could not parse kyso.{yml,yaml} file`, ReportsService.name)
+                    // throw new PreconditionFailedException(`Report ${report.id} ${report.name}: Could not parse kyso.{yml,yaml} file`, ReportsService.name)
+                    return
+                }
+            }
+            files.push({ name: fileName, filePath: filePath })
+        }
+        if (!kysoConfigFile) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report ${report.id} ${report.name}: Repository does not contain a kyso.{json,yml,yaml} config file`, ReportsService.name)
+            // throw new PreconditionFailedException(`Repository ${report.name} does not contain a kyso.{json,yml,yaml} config file`, ReportsService.name)
+            return
+        }
+        Logger.log(`Downloaded ${files.length} files from repository ${report.name}' commit '${sha}'`, ReportsService.name)
+
+        const s3Client: S3Client = this.getS3Client()
+
+        // Get all report files
+        const reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id }, sort: { version: -1 } })
+        for (let i = 0; i < files.length; i++) {
+            const originalName: string = files[i].name
+            const sha: string = sha256File(files[i].filePath)
+            const size: number = statSync(files[i].filePath).size
+            const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
+            let reportFile: File = reportFiles.find((reportFile: File) => reportFile.name === originalName)
+            if (reportFile) {
+                reportFile = new File(report.id, originalName, path_s3, size, sha, reportFile.version + 1)
+                Logger.log(`Report '${report.name}': file ${reportFile.name} new version ${reportFile.version}`, ReportsService.name)
+            } else {
+                reportFile = new File(report.id, originalName, path_s3, size, sha, 1)
+                Logger.log(`Report '${report.name}': new file ${reportFile.name}`, ReportsService.name)
+            }
+            reportFile = await this.filesMongoProvider.create(reportFile)
+            reportFiles.push(reportFile)
+            const zip = new AdmZip()
+            const fileContent: Buffer = readFileSync(files[i].filePath)
+            zip.addFile(originalName, fileContent)
+            const outputFilePath = `/tmp/${uuidv4()}.zip`
+            zip.writeZip(outputFilePath)
+            Logger.log(`Report '${report.name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
+            await s3Client.send(
+                new PutObjectCommand({
+                    Bucket: process.env.AWS_S3_BUCKET,
+                    Key: reportFile.path_s3,
+                    Body: readFileSync(outputFilePath),
+                }),
+            )
+            Logger.log(`Report '${report.name}': uploaded file '${reportFile.name}' to S3 with key '${reportFile.path_s3}'`, ReportsService.name)
+            // Delete zip file
+            unlinkSync(outputFilePath)
+        }
+
+        // Delete directories
+        for (let i = 0; i < directoriesToRemove.length; i++) {
+            rmSync(directoriesToRemove[i], { recursive: true, force: true })
+        }
+        // Delete extracted directory of github project
+        rmSync(extractedDir, { recursive: true, force: true })
+
+        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
+        Logger.log(`Report '${report.id} ${report.name} ${sha}' imported`, ReportsService.name)
+        return
     }
 
     private async createWebhook(octokit: Octokit, username: string, repositoryName: string) {

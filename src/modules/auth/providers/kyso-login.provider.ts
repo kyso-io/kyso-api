@@ -49,7 +49,7 @@ export class KysoLoginProvider {
                 this.userRoleProvider,
             )
 
-            const payload: Token = new Token(user.id.toString(), user.name, user.nickname, user.email, user.plan, permissions, user.avatar_url)
+            const payload: Token = new Token(user.id.toString(), user.name, user.username, user.nickname, user.email, user.plan, permissions, user.avatar_url)
 
             // generate token
             const token = this.jwtService.sign(

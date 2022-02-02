@@ -1,4 +1,4 @@
-import { User } from '@kyso-io/kyso-model'
+import { Token, User } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
@@ -97,14 +97,9 @@ export class GithubLoginProvider {
         // In any case, generate JWT Token here
         // generate token
 
+        const payload: Token = new Token(user.id, user.name, user.username, user.nickname, user.email, user.plan, permissions, user.avatar_url)
         const token = this.jwtService.sign(
-            {
-                username: user.name,
-                nickname: user.nickname,
-                id: userInDb.id,
-                email: user.email,
-                permissions,
-            },
+            { payload },
             {
                 expiresIn: '2h',
                 issuer: 'kyso',
