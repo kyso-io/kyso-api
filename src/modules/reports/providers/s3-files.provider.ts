@@ -33,52 +33,8 @@ export class FilesS3Provider {
             baseUrl: process.env.KYSO_FILES_CLOUDFRONT_URL,
         }
 
-        let emailAdapter = {}
-
-        if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_EMAIL_DOMAIN) {
-            /*emailAdapter = MailgunAdapter({
-                fromAddress: 'support@kyso.io',
-                apiKey: process.env.MAILGUN_API_KEY,
-                domain: process.env.MAILGUN_EMAIL_DOMAIN,
-            })*/
-        } else {
-            emailAdapter = EmptyMailAdapter
-        }
-
         return {
-            databaseURI: process.env.DATABASE_URI,
-            appName: 'Kyso.io',
-            appId: process.env.PARSE_APP_ID || 'api-kyso-io',
-            masterKey: process.env.PARSE_MASTER_KEY,
-            serverURL: `${process.env.SELF_URL}/parse`,
-            maxUploadSize: '50000000mb',
-            filesAdapter: new S3Adapter(s3settings),
-            verifyUserEmails: true,
-            emailAdapter,
-            emailVerifyTokenValidityDuration: 24 * 60 * 60,
-            protectedFields: {
-                _User: {
-                    '*': ['email', 'accessToken'],
-                },
-            },
-            verbose: false,
-            s3settings,
-            bucket,
-            logLevel: 'error',
-            loggerAdapter: EmptyLoggerAdapter,
-            logsFolder: null,
-            silent: true,
-            publicServerURL: `${process.env.SELF_URL}/parse`,
+            s3settings
         }
     }
-}
-
-class EmptyLoggerAdapter {
-    constructor(options) {} // eslint-disable-line
-    log(level, message) {} // eslint-disable-line
-}
-
-class EmptyMailAdapter {
-    constructor(options) {} // eslint-disable-line
-    sendMail(options) {} // eslint-disable-line
 }

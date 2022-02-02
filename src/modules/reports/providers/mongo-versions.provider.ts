@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { NotFoundError } from '../../../helpers/errorHandling'
-import { QueryParser } from '../../../helpers/queryParser'
 import { db } from '../../../main'
 import { MongoProvider } from '../../../providers/mongo.provider'
 

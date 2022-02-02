@@ -244,7 +244,7 @@ export class TestingDataPopulatorService {
         const reportDeathStarEngineering = new CreateReportDTO(
             'death-star-engineering',
             'fran-kyso',
-            RepositoryProvider.GITHUB,
+            RepositoryProvider.KYSO,
             'main',
             'kronig-penney-exploration',
             this.PublicTeam.id,
@@ -257,7 +257,7 @@ export class TestingDataPopulatorService {
         const reportRebelScumCounterAttack = new CreateReportDTO(
             'rebel-scum-counterattack',
             'fran-kyso',
-            RepositoryProvider.GITHUB,
+            RepositoryProvider.KYSO,
             'main',
             'kronig-penney-exploration',
             this.ProtectedTeamWithCustomRole.id,
@@ -379,6 +379,21 @@ export class TestingDataPopulatorService {
                                         Logger.log('Uploaded Kalman-and-Bayesian-Filters-in-Python')
                                     } else {
                                         Logger.error('Push of Kalman-and-Bayesian-Filters-in-Python report failed')
+                                    }
+                                },
+                            )
+
+                            // Import a report from Github using kyso-cli
+                            exec(
+                                `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name notebook-examples`,
+                                (err, stdout, stderr) => {
+                                    Logger.log('Importing notebook-examples report from Github using kyso-cli')
+                                    Logger.log(stdout)
+
+                                    if (!err) {
+                                        Logger.log('Uploaded notebook-examples')
+                                    } else {
+                                        Logger.error('Push of notebook-examples report failed')
                                     }
                                 },
                             )

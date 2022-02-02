@@ -13,9 +13,21 @@ import { TransformInterceptor } from './interceptors/exclude.interceptor'
 import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service'
 export let client
 export let db
+const { NodeTracerProvider } = require('@opentelemetry/sdk-trace-node');
+const { NestInstrumentation } = require('@opentelemetry/instrumentation-nestjs-core');
+const { registerInstrumentations } = require('@opentelemetry/instrumentation');
 
 const cspDefaults = helmet.contentSecurityPolicy.getDefaultDirectives()
 delete cspDefaults['upgrade-insecure-requests']
+
+const provider = new NodeTracerProvider();
+provider.register();
+
+registerInstrumentations({
+  instrumentations: [
+    new NestInstrumentation(),
+  ],
+});
 
 async function bootstrap() {
     Logger.log(`Loading .env-${process.env.NODE_ENV}`)
@@ -24,7 +36,7 @@ async function bootstrap() {
         path: `.env-${process.env.NODE_ENV}`,
     })
 
-    await connectToDatabase(process.env.DATABASE_NAME || 'kyso-initial')
+    await connectToDatabase(process.env.DATABASE_NAME || 'kyso')
     const app = await NestFactory.create(AppModule)
 
     app.use(bodyParser.json({ limit: '200mb' }))
@@ -62,7 +74,7 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config)
 
-    const jsonFile = './src/openapi.json'
+    const jsonFile = './dist/src/openapi.json'
     Logger.log(`Writing openapi.json to ${jsonFile}`)
     fs.writeFileSync(jsonFile, JSON.stringify(document, null, 2))
 

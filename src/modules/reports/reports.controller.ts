@@ -18,7 +18,7 @@ import {
     UpdateReportRequestDTO,
 } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, Res, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FilesInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
@@ -460,7 +460,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     // todo: this function name is confusing?
-    @Get('/:reportId/:branch/tree/:filePath')
+    @Get('/:reportId/:branch/tree')
     @ApiOperation({
         summary: `Explore a report tree`,
         description: `Get hash of a file for a given report. If the file is a folder, will get information about the files in it too (non-recursively). Path is currently ignored for local reports.`,
@@ -482,20 +482,14 @@ export class ReportsController extends GenericController<Report> {
         description: 'GithubBranch of the repository to fetch data from. Accepts slashes.',
         schema: { type: 'string' },
     })
-    @ApiParam({
-        name: 'filePath',
-        required: true,
-        description: 'Path of the file to be consulted',
-        schema: { type: 'string' },
-    })
     @Permission([ReportPermissionsEnum.READ])
-    async getReportFileHash(
+    async getReportTree(
         @CurrentToken() token: Token,
         @Param('reportId') reportId: string,
         @Param('branch') branch: string,
-        @Param('filePath') filePath: string,
+        @Query('path') path: string,
     ): Promise<NormalizedResponseDTO<GithubFileHash | GithubFileHash[]>> {
-        const hash: GithubFileHash | GithubFileHash[] = await this.reportsService.getFileHash(token.id, reportId, branch, filePath)
+        const hash: GithubFileHash | GithubFileHash[] = await this.reportsService.getReportTree(token.id, reportId, branch, path)
         return new NormalizedResponseDTO(hash)
     }
 
@@ -503,11 +497,6 @@ export class ReportsController extends GenericController<Report> {
     @ApiOperation({
         summary: `Get content of a file`,
         description: `By passing the hash of a file, get its raw content directly from the source.`,
-    })
-    @ApiNormalizedResponse({
-        status: 200,
-        description: `Content of the requested file`,
-        type: String,
     })
     @ApiParam({
         name: 'reportId',
@@ -522,17 +511,12 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getReportFileContent(
-        @CurrentToken() token: Token,
-        @Param('reportId') reportId: string,
-        @Param('hash') hash: string,
-    ): Promise<NormalizedResponseDTO<Buffer>> {
+    async getReportFileContent(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Param('hash') hash: string): Promise<Buffer> {
         if (!Validators.isValidSha(hash)) {
             throw new InvalidInputError({
                 message: 'Hash is not a valid sha. Must have 40 hexadecimal characters.',
             })
         }
-        const content: Buffer = await this.reportsService.getReportFileContent(token.id, reportId, hash)
-        return new NormalizedResponseDTO(content)
+        return this.reportsService.getReportFileContent(token.id, reportId, hash)
     }
 }
