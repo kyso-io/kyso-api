@@ -1078,6 +1078,7 @@ export class ReportsService extends AutowiredService {
             },
             sort: { version: 1 },
         })
+
         let sanitizedPath = ''
         if (path && (path == './' || path == '/' || path == '.' || path == '/.')) {
             sanitizedPath = ''
@@ -1090,6 +1091,7 @@ export class ReportsService extends AutowiredService {
         for (const reportFile of reportFiles) {
             map.set(reportFile.name, reportFile)
         }
+
         reportFiles = Array.from(map.values())
         let filesInPath: any[] = [...reportFiles]
 
@@ -1118,8 +1120,18 @@ export class ReportsService extends AutowiredService {
         })
 
         if (result.length === 0) {
-            return []
+            const justFile = Array.from(map.values()).find((file: File) => file.name.startsWith(sanitizedPath))
+
+            return [
+                {
+                    type: 'file',
+                    path: justFile.name.replace(`${sanitizedPath}/`, ''),
+                    hash: justFile.sha,
+                    htmlUrl: '',
+                },
+            ]
         }
+
         if (result.length === 1 && result[0].name === path) {
             // We are inside a directory
             result = result[0].children
