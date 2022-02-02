@@ -1072,7 +1072,7 @@ export class ReportsService extends AutowiredService {
     }
 
     private async getKysoReportTree(reportId: string, path: string): Promise<GithubFileHash[]> {
-        let files: File[] = await this.filesMongoProvider.read({
+        let reportFiles: File[] = await this.filesMongoProvider.read({
             filter: {
                 report_id: reportId,
             },
@@ -1087,25 +1087,32 @@ export class ReportsService extends AutowiredService {
 
         // Get last version of each file
         const map: Map<string, File> = new Map<string, File>()
-        for (const file of files) {
-            map.set(file.name, file)
+        for (const reportFile of reportFiles) {
+            map.set(reportFile.name, reportFile)
         }
-        files = Array.from(map.values())
+        reportFiles = Array.from(map.values())
+        let filesInPath: any[] = [...reportFiles]
 
-        if (path !== '') {
-            files = files.filter((file: File) => file.name.startsWith(sanitizedPath))
+        if (sanitizedPath !== '') {
+            // Get the files that are in the path
+            reportFiles = reportFiles.filter((file: File) => file.name.startsWith(sanitizedPath + '/'))
+            filesInPath = reportFiles.map((file: File) => {
+                return {
+                    ...file,
+                    name: file.name.replace(sanitizedPath + '/', ''),
+                }
+            })
         }
 
         let result = []
         const level = { result }
 
-        files.forEach((file: File) => {
+        filesInPath.forEach((file: File) => {
             file.name.split('/').reduce((r, name: string) => {
                 if (!r[name]) {
                     r[name] = { result: [] }
                     r.result.push({ name, id: file.id, children: r[name].result })
                 }
-
                 return r[name]
             }, level)
         })
@@ -1120,7 +1127,7 @@ export class ReportsService extends AutowiredService {
 
         const tree: GithubFileHash[] = []
         result.forEach((element: any) => {
-            const file: File = files.find((f: File) => f.id === element.id)
+            const file: File = reportFiles.find((f: File) => f.id === element.id)
             if (element.children.length > 0) {
                 // Directory
                 tree.push({
