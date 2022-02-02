@@ -1,4 +1,4 @@
-import { BaseFilterQueryDTO, CreateUserRequestDTO, NormalizedResponseDTO, Token, UpdateUserRequestDTO, User, UserAccount } from '@kyso-io/kyso-model'
+import { BaseFilterQueryDTO, CreateUserRequestDTO, NormalizedResponseDTO, Token, UpdateUserRequestDTO, User, UserAccount, UserRoleDTO } from '@kyso-io/kyso-model'
 import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
@@ -43,7 +43,7 @@ export class UsersController extends GenericController<User> {
         @Query('user_id') userId: string[],
         @Query('page', ParseIntPipe) page: number,
         @Query('per_page', ParseIntPipe) per_page: number,
-        @Query('sort') sort: string): Promise<NormalizedResponseDTO<User[]>> {
+        @Query('sort') sort: string): Promise<NormalizedResponseDTO<UserDTO[]>> {
 
         const query: any = {
             filter: {
@@ -70,6 +70,8 @@ export class UsersController extends GenericController<User> {
         }
 
         const result: User[] = await this.usersService.getUsers(query)
+
+        
         return new NormalizedResponseDTO(result)
     }
 
