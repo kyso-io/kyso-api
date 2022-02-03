@@ -1,9 +1,8 @@
-import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, ResourcePermissions, Token } from '@kyso-io/kyso-model'
+import { GlobalPermissionsEnum, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, ResourcePermissions, Token } from '@kyso-io/kyso-model'
 import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { Observable } from 'rxjs'
 import { Autowired } from '../../../decorators/autowired'
-import { GlobalPermissionsEnum } from '../../../security/general-permissions.enum'
 import { PERMISSION_KEY } from '../annotations/permission.decorator'
 import { AuthService } from '../auth.service'
 
