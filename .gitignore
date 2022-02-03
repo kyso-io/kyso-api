@@ -2,8 +2,13 @@
 /dist
 /node_modules
 
-# Avoid to upload .env variables to git
-.env 
+# Avoid uploading .env-* & .env.* files to git
+/.env-*
+/.env.*
+
+# Avoid uploading .npmrc-* & .npmrc.* files to git
+/.npmrc-*
+/.npmrc.*
 
 # Logs
 logs
