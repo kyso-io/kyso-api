@@ -46,6 +46,10 @@ export class PlatformRole {
             UserPermissionsEnum.DELETE,
             UserPermissionsEnum.EDIT,
             UserPermissionsEnum.READ,
+            DiscussionPermissionsEnum.ADMIN,
+            DiscussionPermissionsEnum.READ,
+            DiscussionPermissionsEnum.EDIT,
+            DiscussionPermissionsEnum.DELETE
         ],
         new mongo.ObjectId('61a8ae8f9c2bc3c5a2144069').toString(),
     )
@@ -74,6 +78,10 @@ export class PlatformRole {
             TeamPermissionsEnum.READ,
             UserPermissionsEnum.EDIT,
             UserPermissionsEnum.READ,
+            DiscussionPermissionsEnum.ADMIN,
+            DiscussionPermissionsEnum.READ,
+            DiscussionPermissionsEnum.EDIT,
+            DiscussionPermissionsEnum.DELETE
         ],
         new mongo.ObjectId('61a8ae8f9c2bc3c5a2144070').toString(),
     )
@@ -96,6 +104,8 @@ export class PlatformRole {
             TeamPermissionsEnum.READ,
             UserPermissionsEnum.EDIT,
             UserPermissionsEnum.READ,
+            DiscussionPermissionsEnum.READ,
+            DiscussionPermissionsEnum.EDIT
         ],
         new mongo.ObjectId('61a8ae8f9c2bc3c5a2144071').toString(),
     )
@@ -110,6 +120,7 @@ export class PlatformRole {
             TeamPermissionsEnum.READ,
             UserPermissionsEnum.EDIT, // Always can edit his own profile
             UserPermissionsEnum.READ,
+            DiscussionPermissionsEnum.READ
         ],
         new mongo.ObjectId('61a8ae8f9c2bc3c5a2144072').toString(),
     )

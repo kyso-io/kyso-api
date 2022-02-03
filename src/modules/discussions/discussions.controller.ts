@@ -72,7 +72,7 @@ export class DiscussionsController extends GenericController<Discussion> {
     @Permission([DiscussionPermissionsEnum.READ])
     public async getDiscussionGivenTeamIdAndDiscussionNumber(@Param('discussionId') discussionId: string): Promise<NormalizedResponseDTO<Discussion>> {
         const discussion: Discussion = await this.discussionsService.getDiscussion({
-            filter: { discussion_id: discussionId, mark_delete_at: { $eq: null } },
+            filter: { id: discussionId, mark_delete_at: { $eq: null } },
         })
 
         if (!discussion) {
@@ -99,7 +99,7 @@ export class DiscussionsController extends GenericController<Discussion> {
     public async getDiscussionCommentsGivenTeamIdAndDiscussionNumber(@Param('discussionId') discussionId: string): Promise<NormalizedResponseDTO<Comment[]>> {
         const discussionComments: Comment[] = await this.commentsService.getComments({
             filter: {
-                discussion_id: discussionId,
+                id: discussionId,
             },
             sort: {
                 created_at: -1,
