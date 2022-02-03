@@ -86,6 +86,12 @@ export class ReportsController extends GenericController<Report> {
             delete query.filter.team_id
         }
 
+        if (query?.filter?.organization_id) {
+            const organizationTeams: Team[] = await this.teamsService.getTeams({ filter: { organization_id: query.filter.organization_id } })
+            query.filter.team_id = { $in: organizationTeams.map((team: Team) => team.id) }
+            delete query.filter.organization_id
+        }
+
         if (query?.filter?.$text) {
             const tags: Tag[] = await this.tagsService.getTags({ filter: { ...query.filter } })
             const tagAssigns: TagAssign[] = await this.tagsService.getTagAssignsOfTags(

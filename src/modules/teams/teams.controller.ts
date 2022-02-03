@@ -370,12 +370,6 @@ export class TeamsController extends GenericController<Team> {
 
     @UseInterceptors(
         FileInterceptor('file', {
-            storage: diskStorage({
-                destination: './public/teams-profile-pictures',
-                filename: (req, file, callback) => {
-                    callback(null, `${uuidv4()}${extname(file.originalname)}`)
-                },
-            }),
             fileFilter: (req, file, callback) => {
                 if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
                     return callback(new Error('Only image files are allowed!'), false)
@@ -397,8 +391,7 @@ export class TeamsController extends GenericController<Team> {
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated team`, type: Team })
     @Permission([TeamPermissionsEnum.EDIT])
-    // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
-    public async setProfilePicture(@Param('teamId') teamId: string, @UploadedFile() file: any /*Express.Multer.File*/): Promise<NormalizedResponseDTO<Team>> {
+    public async setProfilePicture(@Param('teamId') teamId: string, @UploadedFile() file: any): Promise<NormalizedResponseDTO<Team>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }

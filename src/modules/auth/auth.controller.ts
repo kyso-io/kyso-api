@@ -1,11 +1,14 @@
-import { CreateUserRequestDTO, Login, NormalizedResponseDTO, User } from '@kyso-io/kyso-model'
-import { Body, Controller, Post } from '@nestjs/common'
-import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { CreateUserRequestDTO, Login, NormalizedResponseDTO, Token, User } from '@kyso-io/kyso-model'
+import { Body, Controller, Post, UseGuards } from '@nestjs/common'
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
 import { UsersService } from '../users/users.service'
+import { CurrentToken } from './annotations/current-token.decorator'
+import { Permission } from './annotations/permission.decorator'
 import { AuthService } from './auth.service'
+import { PermissionsGuard } from './guards/permission.guard'
 
 @ApiTags('auth')
 @Controller('auth')
@@ -60,5 +63,23 @@ export class AuthController extends GenericController<string> {
     public async signUp(@Body() data: CreateUserRequestDTO): Promise<NormalizedResponseDTO<User>> {
         const user: User = await this.usersService.createUser(data)
         return new NormalizedResponseDTO(user)
+    }
+
+    @Post('/refresh-token')
+    @ApiBearerAuth()
+    @UseGuards(PermissionsGuard)
+    @ApiOperation({
+        summary: `Refresh token`,
+        description: `Refresh token`,
+    })
+    @ApiResponse({
+        status: 201,
+        description: `JWT token related to user`,
+        type: String,
+    })
+    @Permission([])
+    async refreshToken(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<string>> {
+        const jwt: string = await this.authService.refreshToken(token)
+        return new NormalizedResponseDTO(jwt)
     }
 }

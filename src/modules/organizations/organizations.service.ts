@@ -1,5 +1,16 @@
-import { KysoRole, Organization, OrganizationMember, OrganizationMemberJoin, UpdateOrganizationMembersDTO, User } from '@kyso-io/kyso-model'
-import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import {
+    KysoRole,
+    Organization,
+    OrganizationMember,
+    OrganizationMemberJoin,
+    UpdateOrganizationDTO,
+    UpdateOrganizationMembersDTO,
+    User,
+} from '@kyso-io/kyso-model'
+import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { extname } from 'path'
+import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { PlatformRole } from '../../security/platform-roles'
@@ -134,25 +145,21 @@ export class OrganizationsService extends AutowiredService {
         }
     }
 
-    public async updateOrganization(organizationId: string, organization: Organization): Promise<Organization> {
+    public async updateOrganization(organizationId: string, updateOrganizationDTO: UpdateOrganizationDTO): Promise<Organization> {
         const organizationDb: Organization = await this.getOrganizationById(organizationId)
-        if (!organization) {
+        if (!organizationDb) {
             throw new PreconditionFailedException('Organization does not exist')
         }
-
-        if (organizationDb.name !== organization.name) {
-            const existsAnotherOrganization: Organization[] = await this.provider.read({ filter: { name: organization.name } })
-            if (existsAnotherOrganization.length > 0) {
-                throw new PreconditionFailedException('Already exists an organization with this name')
-            }
-            organizationDb.name = organization.name
-        }
-
-        organizationDb.roles = organization.roles
-        organizationDb.billingEmail = organization.billingEmail
-        organizationDb.allowGoogleLogin = organization.allowGoogleLogin
-
-        return await this.provider.update({ _id: this.provider.toObjectId(organizationDb.id) }, { $set: organizationDb })
+        return await this.provider.update(
+            { _id: this.provider.toObjectId(organizationDb.id) },
+            {
+                $set: {
+                    location: updateOrganizationDTO.location,
+                    link: updateOrganizationDTO.link,
+                    bio: updateOrganizationDTO.bio,
+                },
+            },
+        )
     }
 
     public async getMembers(organizationId: string): Promise<OrganizationMemberJoin[]> {
@@ -270,5 +277,60 @@ export class OrganizationsService extends AutowiredService {
         return this.provider.read({
             filter: { _id: { $in: userInOrganizations.map((x: OrganizationMemberJoin) => this.provider.toObjectId(x.organization_id)) } },
         })
+    }
+
+    private getS3Client(): S3Client {
+        return new S3Client({
+            region: process.env.AWS_REGION,
+            credentials: {
+                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+            },
+        })
+    }
+
+    public async setProfilePicture(organizationId: string, file: any): Promise<Organization> {
+        const organization: Organization = await this.getOrganizationById(organizationId)
+        if (!organization) {
+            throw new PreconditionFailedException('Organization not found')
+        }
+        const s3Client: S3Client = this.getS3Client()
+        if (organization?.avatar_url && organization.avatar_url.length > 0) {
+            Logger.log(`Removing previous image of organization ${organization.name}`, OrganizationsService.name)
+            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
+                Bucket: process.env.AWS_S3_BUCKET,
+                Key: organization.avatar_url.split('/').slice(-1)[0],
+            })
+            await s3Client.send(deleteObjectCommand)
+        }
+        Logger.log(`Uploading image for organization ${organization.name}`, OrganizationsService.name)
+        const Key = `${uuidv4()}${extname(file.originalname)}`
+        await s3Client.send(
+            new PutObjectCommand({
+                Bucket: process.env.AWS_S3_BUCKET,
+                Key,
+                Body: file.buffer,
+            }),
+        )
+        Logger.log(`Uploaded image for organization ${organization.name}`, OrganizationsService.name)
+        const avatar_url = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${Key}`
+        return this.provider.update({ _id: this.provider.toObjectId(organization.id) }, { $set: { avatar_url } })
+    }
+
+    public async deleteProfilePicture(organizationId: string): Promise<Organization> {
+        const organization: Organization = await this.getOrganizationById(organizationId)
+        if (!organization) {
+            throw new PreconditionFailedException('Organization not found')
+        }
+        const s3Client: S3Client = this.getS3Client()
+        if (organization?.avatar_url && organization.avatar_url.length > 0) {
+            Logger.log(`Removing previous image of organization ${organization.name}`, OrganizationsService.name)
+            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
+                Bucket: process.env.AWS_S3_BUCKET,
+                Key: organization.avatar_url.split('/').slice(-1)[0],
+            })
+            await s3Client.send(deleteObjectCommand)
+        }
+        return this.provider.update({ _id: this.provider.toObjectId(organization.id) }, { $set: { avatar_url: null } })
     }
 }

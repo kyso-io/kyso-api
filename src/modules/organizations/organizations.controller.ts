@@ -1,11 +1,26 @@
-import { NormalizedResponseDTO, Organization, OrganizationMember, UpdateOrganizationMembersDTO } from '@kyso-io/kyso-model'
-import { Body, Controller, Delete, Get, Param, Patch, Post, PreconditionFailedException, UseGuards } from '@nestjs/common'
+import { NormalizedResponseDTO, Organization, OrganizationMember, UpdateOrganizationDTO, UpdateOrganizationMembersDTO } from '@kyso-io/kyso-model'
+import {
+    BadRequestException,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Patch,
+    Post,
+    PreconditionFailedException,
+    UploadedFile,
+    UseGuards,
+    UseInterceptors,
+} from '@nestjs/common'
+import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { OrganizationsService } from './organizations.service'
 import { OrganizationPermissionsEnum } from './security/organization-permissions.enum'
 
@@ -101,9 +116,9 @@ export class OrganizationsController extends GenericController<Organization> {
     @Permission([OrganizationPermissionsEnum.EDIT])
     public async updateOrganization(
         @Param('organizationId') organizationId: string,
-        @Body() organization: Organization,
+        @Body() updateOrganizationDTO: UpdateOrganizationDTO,
     ): Promise<NormalizedResponseDTO<Organization>> {
-        const updatedOrganization: Organization = await this.organizationService.updateOrganization(organizationId, organization)
+        const updatedOrganization: Organization = await this.organizationService.updateOrganization(organizationId, updateOrganizationDTO)
         return new NormalizedResponseDTO(updatedOrganization)
     }
 
@@ -214,5 +229,53 @@ export class OrganizationsController extends GenericController<Organization> {
     ): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
         const members: OrganizationMember[] = await this.organizationService.removeOrganizationMemberRole(organizationId, userId, role)
         return new NormalizedResponseDTO(members)
+    }
+
+    @UseInterceptors(
+        FileInterceptor('file', {
+            fileFilter: (req, file, callback) => {
+                if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+                    return callback(new Error('Only image files are allowed!'), false)
+                }
+                callback(null, true)
+            },
+        }),
+    )
+    @Post('/:organizationId/profile-picture')
+    @ApiOperation({
+        summary: `Upload a profile picture for a organization`,
+        description: `Allows uploading a profile picture for a organization passing its id and image`,
+    })
+    @ApiParam({
+        name: 'organizationId',
+        required: true,
+        description: `Id of the organization to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: Organization })
+    @Permission([TeamPermissionsEnum.EDIT])
+    public async setProfilePicture(@Param('organizationId') organizationId: string, @UploadedFile() file: any): Promise<NormalizedResponseDTO<Organization>> {
+        if (!file) {
+            throw new BadRequestException(`Missing file`)
+        }
+        const organization: Organization = await this.organizationService.setProfilePicture(organizationId, file)
+        return new NormalizedResponseDTO(organization)
+    }
+
+    @Delete('/:organizationId/profile-picture')
+    @ApiOperation({
+        summary: `Delete a profile picture for a organization`,
+        description: `Allows deleting a profile picture for a organization passing its id`,
+    })
+    @ApiParam({
+        name: 'organizationId',
+        required: true,
+        description: `Id of the organization to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Organization })
+    public async deleteBackgroundImage(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
+        const organization: Organization = await this.organizationService.deleteProfilePicture(organizationId)
+        return new NormalizedResponseDTO(organization)
     }
 }

@@ -3,6 +3,7 @@ import { Injectable, Logger, Provider } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcryptjs'
 import * as mongo from 'mongodb'
+import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { KysoPermissions } from '../../security/general-permissions.enum'
 import { OrganizationsService } from '../organizations/organizations.service'
@@ -27,11 +28,21 @@ export function createProvider(): Provider<AuthService> {
 
 @Injectable()
 export class AuthService extends AutowiredService {
+    @Autowired({ typeName: 'UsersService' })
+    private usersService: UsersService
+
+    @Autowired({ typeName: 'TeamsService' })
+    private teamsService: TeamsService
+
+    @Autowired({ typeName: 'OrganizationsService' })
+    private organizationsService: OrganizationsService
+
     constructor(
         private readonly kysoLoginProvider: KysoLoginProvider,
         private readonly githubLoginProvider: GithubLoginProvider,
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
+        private readonly userRoleProvider: UserRoleMongoProvider,
     ) {
         super()
     }
@@ -272,5 +283,37 @@ export class AuthService extends AutowiredService {
             // TOKEN IS NOT VALID
             return undefined
         }
+    }
+
+    public async refreshToken(token: Token): Promise<string> {
+        const user: User = await this.usersService.getUserById(token.id)
+        const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
+            user.username,
+            this.usersService,
+            this.teamsService,
+            this.organizationsService,
+            this.platformRoleProvider,
+            this.userRoleProvider,
+        )
+        const payload: Token = new Token(
+            user.id.toString(),
+            user.name,
+            user.username,
+            user.nickname,
+            user.email,
+            user.plan,
+            permissions,
+            user.avatar_url,
+            user.location,
+            user.link,
+            user.bio,
+        )
+        return this.jwtService.sign(
+            { payload },
+            {
+                expiresIn: '2h',
+                issuer: 'kyso',
+            },
+        )
     }
 }

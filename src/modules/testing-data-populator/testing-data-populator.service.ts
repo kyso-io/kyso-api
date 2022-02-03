@@ -119,6 +119,8 @@ export class TestingDataPopulatorService {
             'rey',
             LoginProviderEnum.KYSO,
             '[Team Admin] Rey is a Team Admin',
+            '',
+            '',
             'free',
             'https://bit.ly/3okf2mg',
             true,
@@ -133,6 +135,8 @@ export class TestingDataPopulatorService {
             'kyloren',
             LoginProviderEnum.KYSO,
             '[Team Contributor] Kylo Ren is a Team Contributor',
+            '',
+            '',
             'free',
             'https://bit.ly/3qfdNVo',
             true,
@@ -147,6 +151,8 @@ export class TestingDataPopulatorService {
             'chewbacca',
             LoginProviderEnum.KYSO,
             '[Team Reader] Chewbacca is a Team Reader',
+            '',
+            '',
             'free',
             'https://bit.ly/3slTUyI',
             true,
@@ -161,6 +167,8 @@ export class TestingDataPopulatorService {
             'moffgideon',
             LoginProviderEnum.KYSO,
             '[Organization Admin] Moff Gideon is an Organization Admin',
+            '',
+            '',
             'free',
             'https://bit.ly/3EWyNG6',
             true,
@@ -175,6 +183,8 @@ export class TestingDataPopulatorService {
             'palpatine',
             LoginProviderEnum.KYSO,
             '[Platform Admin] Palpatine is a platform admin',
+            '',
+            '',
             'free',
             'https://bit.ly/3IXAFki',
             true,
@@ -454,6 +464,10 @@ export class TestingDataPopulatorService {
             'random-stripe-id-with-no-use',
             'G891724',
             false,
+            '',
+            '',
+            '',
+            '',
         )
 
         this.DarksideOrganization = await this._createOrganization(darksideOrganization)
@@ -469,6 +483,10 @@ export class TestingDataPopulatorService {
             'another-random-stripe-id-with-no-use',
             'ES87961244T',
             false,
+            '',
+            '',
+            '',
+            '',
         )
 
         this.LightsideOrganization = await this._createOrganization(lightsideOrganization)

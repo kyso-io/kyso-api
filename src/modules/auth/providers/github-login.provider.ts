@@ -97,7 +97,19 @@ export class GithubLoginProvider {
         // In any case, generate JWT Token here
         // generate token
 
-        const payload: Token = new Token(user.id, user.name, user.username, user.nickname, user.email, user.plan, permissions, user.avatar_url)
+        const payload: Token = new Token(
+            user.id,
+            user.name,
+            user.username,
+            user.nickname,
+            user.email,
+            user.plan,
+            permissions,
+            user.avatar_url,
+            user.location,
+            user.link,
+            user.bio,
+        )
         const token = this.jwtService.sign(
             { payload },
             {

@@ -1,3 +1,4 @@
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
     KysoRole,
     Organization,
@@ -11,8 +12,9 @@ import {
     UpdateTeamMembersDTO,
     User,
 } from '@kyso-io/kyso-model'
-import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
-import { existsSync, unlinkSync } from 'fs'
+import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { extname } from 'path'
+import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
@@ -362,20 +364,42 @@ export class TeamsService extends AutowiredService {
         return this.getMembers(userId)
     }
 
-    // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
-    public async setProfilePicture(teamId: string, file: any /*Express.Multer.File*/): Promise<Team> {
+    private getS3Client(): S3Client {
+        return new S3Client({
+            region: process.env.AWS_REGION,
+            credentials: {
+                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+            },
+        })
+    }
+
+    public async setProfilePicture(teamId: string, file: any): Promise<Team> {
         const team: Team = await this.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
+        const s3Client: S3Client = this.getS3Client()
         if (team?.avatar_url && team.avatar_url.length > 0) {
-            const imagePath = `./public/${team.avatar_url}`
-            if (existsSync(imagePath)) {
-                unlinkSync(imagePath)
-            }
+            Logger.log(`Removing previous image of team ${team.name}`, OrganizationsService.name)
+            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
+                Bucket: process.env.AWS_S3_BUCKET,
+                Key: team.avatar_url.split('/').slice(-1)[0],
+            })
+            await s3Client.send(deleteObjectCommand)
         }
-        const profilePicturePath: string = file.path.replace('public/', '')
-        return this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url: profilePicturePath } })
+        Logger.log(`Uploading image for team ${team.name}`, OrganizationsService.name)
+        const Key = `${uuidv4()}${extname(file.originalname)}`
+        await s3Client.send(
+            new PutObjectCommand({
+                Bucket: process.env.AWS_S3_BUCKET,
+                Key,
+                Body: file.buffer,
+            }),
+        )
+        Logger.log(`Uploaded image for team ${team.name}`, OrganizationsService.name)
+        const avatar_url = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${Key}`
+        return this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url } })
     }
 
     public async deleteProfilePicture(teamId: string): Promise<Team> {
@@ -383,11 +407,14 @@ export class TeamsService extends AutowiredService {
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
+        const s3Client: S3Client = this.getS3Client()
         if (team?.avatar_url && team.avatar_url.length > 0) {
-            const imagePath = `./public/${team.avatar_url}`
-            if (existsSync(imagePath)) {
-                unlinkSync(imagePath)
-            }
+            Logger.log(`Removing previous image of team ${team.name}`, OrganizationsService.name)
+            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
+                Bucket: process.env.AWS_S3_BUCKET,
+                Key: team.avatar_url.split('/').slice(-1)[0],
+            })
+            await s3Client.send(deleteObjectCommand)
         }
         return this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url: null } })
     }

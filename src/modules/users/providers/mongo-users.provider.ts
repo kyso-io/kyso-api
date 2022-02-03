@@ -13,6 +13,8 @@ const DEFAULT_GLOBAL_ADMIN_USER = new User(
     'default-admin',
     LoginProviderEnum.KYSO,
     '',
+    '',
+    '',
     'free',
     'https://bit.ly/32hyGaj',
     false,
