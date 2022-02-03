@@ -62,7 +62,7 @@ cd_to_workdir() {
   _script="$(_readlinkf_posix "$0")"
   _script_dir="${_script%/*}"
   if [ "$RELPATH_TO_WORKDIR" ]; then
-    cd "$(_readlinkf_posix "_script_dir/$RELPATH_TO_WORKDIR")"
+    cd "$(_readlinkf_posix "$_script_dir/$RELPATH_TO_WORKDIR")"
   else
     cd "$_script_dir"
   fi
