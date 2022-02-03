@@ -4,6 +4,7 @@ import {
     CreateReportDTO,
     CreateUserRequestDTO,
     Discussion,
+    GlobalPermissionsEnum,
     KysoRole,
     LoginProviderEnum,
     Organization,
@@ -16,7 +17,6 @@ import {
 } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
-import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
 import { PlatformRole } from '../../security/platform-roles'
 import { CommentsService } from '../comments/comments.service'
 import { DiscussionsService } from '../discussions/discussions.service'

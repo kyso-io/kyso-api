@@ -1,5 +1,6 @@
 import {
     CommentPermissionsEnum,
+    DiscussionPermissionsEnum,
     GithubRepoPermissionsEnum,
     GlobalPermissionsEnum,
     KysoRole,
@@ -145,6 +146,10 @@ export class PlatformRole {
             UserPermissionsEnum.DELETE,
             UserPermissionsEnum.EDIT,
             UserPermissionsEnum.READ,
+            DiscussionPermissionsEnum.ADMIN,
+            DiscussionPermissionsEnum.READ,
+            DiscussionPermissionsEnum.EDIT,
+            DiscussionPermissionsEnum.DELETE
         ],
         new mongo.ObjectId('61a8ae8f9c2bc3c5a2144073').toString(),
     )

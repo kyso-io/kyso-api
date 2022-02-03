@@ -1,5 +1,4 @@
-import { Token } from '@kyso-io/kyso-model'
-import { KysoPermissions } from '../security/general-permissions.enum'
+import { KysoPermissions, Token } from '@kyso-io/kyso-model'
 
 export const userHasPermission = (token: Token, kysoPermission: KysoPermissions): boolean => {
     if (token.permissions.global) {

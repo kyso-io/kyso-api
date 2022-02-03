@@ -1,5 +1,6 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
+    GlobalPermissionsEnum,
     KysoRole,
     Organization,
     OrganizationMemberJoin,
@@ -19,7 +20,6 @@ import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
 import slugify from '../../helpers/slugify'
-import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
 import { PlatformRole } from '../../security/platform-roles'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'

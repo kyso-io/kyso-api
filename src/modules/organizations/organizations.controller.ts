@@ -1,4 +1,11 @@
-import { NormalizedResponseDTO, Organization, OrganizationMember, UpdateOrganizationDTO, UpdateOrganizationMembersDTO } from '@kyso-io/kyso-model'
+import {
+    GlobalPermissionsEnum,
+    NormalizedResponseDTO,
+    Organization,
+    OrganizationMember,
+    UpdateOrganizationDTO,
+    UpdateOrganizationMembersDTO,
+} from '@kyso-io/kyso-model'
 import {
     BadRequestException,
     Body,
@@ -17,7 +24,6 @@ import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
-import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
