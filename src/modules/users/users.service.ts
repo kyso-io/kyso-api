@@ -1,7 +1,9 @@
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { CreateUserRequestDTO, Organization, Team, TeamVisibilityEnum, Token, UpdateUserRequestDTO, User, UserAccount } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
-import { existsSync, unlinkSync } from 'fs'
+import { extname } from 'path'
+import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { PlatformRole } from '../../security/platform-roles'
@@ -88,7 +90,7 @@ export class UsersService extends AutowiredService {
 
         // Create user organization
         const organizationName: string = userDb.nickname.charAt(0).toUpperCase() + userDb.nickname.slice(1) + "'s Workspace"
-        const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], userDb.email, '', '', true)
+        const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], userDb.email, '', '', true, '', '', '', '')
         Logger.log(`Creating new organization ${newOrganization.name}`)
         const organizationDb: Organization = await this.organizationsService.createOrganization(newOrganization)
 
@@ -196,7 +198,26 @@ export class UsersService extends AutowiredService {
         if (!user) {
             throw new PreconditionFailedException(null, `Can't update user as does not exists`)
         }
-        return this.updateUser({ _id: this.provider.toObjectId(id) }, { $set: data })
+        return this.updateUser(
+            { _id: this.provider.toObjectId(id) },
+            {
+                $set: {
+                    location: data.location,
+                    link: data.link,
+                    bio: data.bio,
+                },
+            },
+        )
+    }
+
+    private getS3Client(): S3Client {
+        return new S3Client({
+            region: process.env.AWS_REGION,
+            credentials: {
+                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+            },
+        })
     }
 
     // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
@@ -205,14 +226,27 @@ export class UsersService extends AutowiredService {
         if (!user) {
             throw new PreconditionFailedException('User not found')
         }
+        const s3Client: S3Client = this.getS3Client()
         if (user?.avatar_url && user.avatar_url.length > 0) {
-            const imagePath = `./public/${user.avatar_url}`
-            if (existsSync(imagePath)) {
-                unlinkSync(imagePath)
-            }
+            Logger.log(`Removing previous image of user ${user.name}`, OrganizationsService.name)
+            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
+                Bucket: process.env.AWS_S3_BUCKET,
+                Key: user.avatar_url.split('/').slice(-1)[0],
+            })
+            await s3Client.send(deleteObjectCommand)
         }
-        const profilePicturePath: string = file.path.replace('public/', '')
-        return this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { avatar_url: profilePicturePath } })
+        Logger.log(`Uploading image for user ${user.name}`, OrganizationsService.name)
+        const Key = `${uuidv4()}${extname(file.originalname)}`
+        await s3Client.send(
+            new PutObjectCommand({
+                Bucket: process.env.AWS_S3_BUCKET,
+                Key,
+                Body: file.buffer,
+            }),
+        )
+        Logger.log(`Uploaded image for user ${user.name}`, OrganizationsService.name)
+        const avatar_url = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${Key}`
+        return this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { avatar_url } })
     }
 
     public async deleteProfilePicture(token: Token): Promise<User> {
@@ -220,11 +254,14 @@ export class UsersService extends AutowiredService {
         if (!user) {
             throw new PreconditionFailedException('User not found')
         }
+        const s3Client: S3Client = this.getS3Client()
         if (user?.avatar_url && user.avatar_url.length > 0) {
-            const imagePath = `./public/${user.avatar_url}`
-            if (existsSync(imagePath)) {
-                unlinkSync(imagePath)
-            }
+            Logger.log(`Removing previous image of user ${user.name}`, OrganizationsService.name)
+            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
+                Bucket: process.env.AWS_S3_BUCKET,
+                Key: user.avatar_url.split('/').slice(-1)[0],
+            })
+            await s3Client.send(deleteObjectCommand)
         }
         return this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { avatar_url: null } })
     }

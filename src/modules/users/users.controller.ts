@@ -1,13 +1,9 @@
-import { BaseFilterQueryDTO, CreateUserRequestDTO, NormalizedResponseDTO, Token, UpdateUserRequestDTO, User, UserAccount, UserDTO, UserRoleDTO } from '@kyso-io/kyso-model'
-import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
+import { CreateUserRequestDTO, NormalizedResponseDTO, Token, UpdateUserRequestDTO, User, UserAccount, UserDTO } from '@kyso-io/kyso-model'
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
-import { diskStorage } from 'multer'
-import { extname } from 'path'
-import { v4 as uuidv4 } from 'uuid'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
-import { QueryParser } from '../../helpers/queryParser'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
@@ -40,52 +36,50 @@ export class UsersController extends GenericController<User> {
     })
     @ApiQuery({
         required: false,
-        name: "user_id", 
-        type: String, 
-        isArray: true,
-        description: 'UserId to search for. Could be more than one user_id query strings and will search for everyone'
-    })
-    @ApiQuery({
-        required: false,
-        name: "page", 
-        type: Number, 
-        isArray: false,
-        description: 'Page to retrieve. Default value <b>1</b>'
-    })
-    @ApiQuery({
-        required: false,
-        name: "per_page", 
-        type: Number, 
-        isArray: false,
-        description: 'Number of elements per page. Default value <b>20</b>'
-    })
-    @ApiQuery({
-        required: false,
-        name: "sort", 
+        name: 'user_id',
         type: String,
-        example: "asc | desc", 
+        isArray: true,
+        description: 'UserId to search for. Could be more than one user_id query strings and will search for everyone',
+    })
+    @ApiQuery({
+        required: false,
+        name: 'page',
+        type: Number,
         isArray: false,
-        description: 'Sort by creation_date. Values allowed: asc or desc. Default. <b>desc</b>'
+        description: 'Page to retrieve. Default value <b>1</b>',
+    })
+    @ApiQuery({
+        required: false,
+        name: 'per_page',
+        type: Number,
+        isArray: false,
+        description: 'Number of elements per page. Default value <b>20</b>',
+    })
+    @ApiQuery({
+        required: false,
+        name: 'sort',
+        type: String,
+        example: 'asc | desc',
+        isArray: false,
+        description: 'Sort by creation_date. Values allowed: asc or desc. Default. <b>desc</b>',
     })
     @Permission([UserPermissionsEnum.READ])
     async getUsers(
         @Query('user_id') userId: string[],
         @Query('page') page: number,
         @Query('per_page') per_page: number,
-        @Query('sort') sort: string): Promise<NormalizedResponseDTO<UserDTO[]>> {
-
-        if(!page) {
+        @Query('sort') sort: string,
+    ): Promise<NormalizedResponseDTO<UserDTO[]>> {
+        if (!page) {
             page = 1
         }
 
-        if(!per_page) {
+        if (!per_page) {
             per_page = 20
         }
 
         const query: any = {
-            filter: {
-
-            },
+            filter: {},
             sort: {
                 created_at: -1,
             },
@@ -93,22 +87,21 @@ export class UsersController extends GenericController<User> {
             skip: (page - 1) * per_page,
         }
         if (userId) {
-            const mapped = userId.map(x => {
+            const mapped = userId.map((x) => {
                 console.log(x)
-                let result = { id: x }
-    
-                return result;
+                const result = { id: x }
+
+                return result
             })
 
             query.filter = { $or: mapped }
-        } 
+        }
         if (sort && (sort === 'asc' || sort === 'desc')) {
             query.sort.created_at = sort === 'asc' ? 1 : -1
         }
 
         const result: User[] = await this.usersService.getUsers(query)
 
-        
         return new NormalizedResponseDTO(UserDTO.fromUserArray(result))
     }
 
@@ -233,12 +226,6 @@ export class UsersController extends GenericController<User> {
 
     @UseInterceptors(
         FileInterceptor('file', {
-            storage: diskStorage({
-                destination: './public/users-profile-pictures',
-                filename: (req, file, callback) => {
-                    callback(null, `${uuidv4()}${extname(file.originalname)}`)
-                },
-            }),
             fileFilter: (req, file, callback) => {
                 if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
                     return callback(new Error('Only image files are allowed!'), false)
@@ -253,8 +240,7 @@ export class UsersController extends GenericController<User> {
         description: `Allows uploading a profile picture for a user the image`,
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated user`, type: UserDTO })
-    // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
-    public async setProfilePicture(@CurrentToken() token: Token, @UploadedFile() file: any /*Express.Multer.File*/): Promise<NormalizedResponseDTO<UserDTO>> {
+    public async setProfilePicture(@CurrentToken() token: Token, @UploadedFile() file: any): Promise<NormalizedResponseDTO<UserDTO>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }
