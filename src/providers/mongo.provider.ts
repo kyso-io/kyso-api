@@ -148,7 +148,7 @@ export class MongoProvider<T> {
 
     public async existsMongoDBCollection(name: string): Promise<boolean> {
         const allCollections: any[] = await this.db.listCollections().toArray()
-        const found = allCollections.findIndex(item => {
+        const found = allCollections.findIndex((item) => {
             return item.name === name
         })
 

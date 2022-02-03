@@ -39,6 +39,7 @@ import { AuthService } from '../auth/auth.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { TeamPermissionsEnum } from './security/team-permissions.enum'
 import { TeamsService } from './teams.service'
+import slugify from '../../helpers/slugify'
 
 @ApiTags('teams')
 @ApiExtraModels(Team)
@@ -114,8 +115,8 @@ export class TeamsController extends GenericController<Team> {
     @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Boolean })
     @Permission([TeamPermissionsEnum.READ])
     public async checkIfTeamNameIsUnique(@Param('name') name: string): Promise<NormalizedResponseDTO<boolean>> {
-        const team: Team = await this.teamsService.getTeam({ filter: { name } })
-        return new NormalizedResponseDTO<boolean>(team !== null)
+        const team: Team = await this.teamsService.getTeam({ filter: { name: slugify(name) } })
+        return new NormalizedResponseDTO<boolean>(team === null)
     }
 
     @Get('/:id/members')
@@ -265,8 +266,8 @@ export class TeamsController extends GenericController<Team> {
         type: Team,
     })
     @Permission([TeamPermissionsEnum.CREATE])
-    async createTeam(@Body() team: Team): Promise<NormalizedResponseDTO<Team>> {
-        const newTeam: Team = await this.teamsService.createTeam(team)
+    async createTeam(@CurrentToken() token: Token, @Body() team: Team): Promise<NormalizedResponseDTO<Team>> {
+        const newTeam: Team = await this.teamsService.createTeam(team, token.id)
         return new NormalizedResponseDTO(newTeam)
     }
 

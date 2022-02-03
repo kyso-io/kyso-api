@@ -16,7 +16,9 @@ import { existsSync, unlinkSync } from 'fs'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
+import slugify from '../../helpers/slugify'
 import { GlobalPermissionsEnum } from '../../security/general-permissions.enum'
+import { PlatformRole } from '../../security/platform-roles'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
@@ -161,8 +163,9 @@ export class TeamsService extends AutowiredService {
         return this.provider.update(filterQuery, updateQuery)
     }
 
-    async createTeam(team: Team) {
+    async createTeam(team: Team, userId?: string) {
         try {
+            team.name = slugify(team.nickname)
             // The name of this team exists?
             const teams: Team[] = await this.provider.read({ filter: { name: team.name } })
             if (teams.length > 0) {
@@ -180,7 +183,11 @@ export class TeamsService extends AutowiredService {
                 throw new PreconditionFailedException('There is already a user with this nickname')
             }
 
-            return this.provider.create(team)
+            const newTeam: Team = await this.provider.create(team)
+            if (userId) {
+                await this.addMembersById(newTeam.id, [userId], [PlatformRole.TEAM_ADMIN_ROLE.name])
+            }
+            return newTeam
         } catch (e) {
             console.log(e)
         }
