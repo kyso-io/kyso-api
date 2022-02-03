@@ -1,7 +1,7 @@
-import { BaseFilterQueryDTO, CreateUserRequestDTO, NormalizedResponseDTO, Token, UpdateUserRequestDTO, User, UserAccount, UserRoleDTO } from '@kyso-io/kyso-model'
+import { BaseFilterQueryDTO, CreateUserRequestDTO, NormalizedResponseDTO, Token, UpdateUserRequestDTO, User, UserAccount, UserDTO, UserRoleDTO } from '@kyso-io/kyso-model'
 import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { diskStorage } from 'multer'
 import { extname } from 'path'
 import { v4 as uuidv4 } from 'uuid'
@@ -38,12 +38,49 @@ export class UsersController extends GenericController<User> {
         description: `Users matching criteria`,
         type: User,
     })
+    @ApiQuery({
+        required: false,
+        name: "user_id", 
+        type: String, 
+        isArray: true,
+        description: 'UserId to search for. Could be more than one user_id query strings and will search for everyone'
+    })
+    @ApiQuery({
+        required: false,
+        name: "page", 
+        type: Number, 
+        isArray: false,
+        description: 'Page to retrieve. Default value <b>1</b>'
+    })
+    @ApiQuery({
+        required: false,
+        name: "per_page", 
+        type: Number, 
+        isArray: false,
+        description: 'Number of elements per page. Default value <b>20</b>'
+    })
+    @ApiQuery({
+        required: false,
+        name: "sort", 
+        type: String,
+        example: "asc | desc", 
+        isArray: false,
+        description: 'Sort by creation_date. Values allowed: asc or desc. Default. <b>desc</b>'
+    })
     @Permission([UserPermissionsEnum.READ])
     async getUsers(
         @Query('user_id') userId: string[],
-        @Query('page', ParseIntPipe) page: number,
-        @Query('per_page', ParseIntPipe) per_page: number,
+        @Query('page') page: number,
+        @Query('per_page') per_page: number,
         @Query('sort') sort: string): Promise<NormalizedResponseDTO<UserDTO[]>> {
+
+        if(!page) {
+            page = 1
+        }
+
+        if(!per_page) {
+            per_page = 20
+        }
 
         const query: any = {
             filter: {
@@ -72,7 +109,7 @@ export class UsersController extends GenericController<User> {
         const result: User[] = await this.usersService.getUsers(query)
 
         
-        return new NormalizedResponseDTO(result)
+        return new NormalizedResponseDTO(UserDTO.fromUserArray(result))
     }
 
     @Get('/:userId')
@@ -88,13 +125,13 @@ export class UsersController extends GenericController<User> {
     })
     @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
     @Permission([UserPermissionsEnum.READ])
-    async getUserById(@Param('userId') userId: string): Promise<NormalizedResponseDTO<User>> {
+    async getUserById(@Param('userId') userId: string): Promise<NormalizedResponseDTO<UserDTO>> {
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new BadRequestException(`User with id ${userId} not found`)
         }
         this.assignReferences(user)
-        return new NormalizedResponseDTO(user)
+        return new NormalizedResponseDTO(UserDTO.fromUser(user))
     }
 
     @Post()
@@ -104,8 +141,8 @@ export class UsersController extends GenericController<User> {
     })
     @ApiNormalizedResponse({ status: 201, description: `User creation gone well`, type: User })
     @Permission([UserPermissionsEnum.CREATE])
-    async createUser(@Body() user: CreateUserRequestDTO): Promise<NormalizedResponseDTO<User>> {
-        return new NormalizedResponseDTO(await this.usersService.createUser(user))
+    async createUser(@Body() user: CreateUserRequestDTO): Promise<NormalizedResponseDTO<UserDTO>> {
+        return new NormalizedResponseDTO(UserDTO.fromUser(await this.usersService.createUser(user)))
     }
 
     @Patch('/:userId')
@@ -124,9 +161,9 @@ export class UsersController extends GenericController<User> {
         description: `Authenticated user data`,
         type: User,
     })
-    public async updateUserData(@Param('userId') userId: string, @Body() data: UpdateUserRequestDTO): Promise<NormalizedResponseDTO<User>> {
+    public async updateUserData(@Param('userId') userId: string, @Body() data: UpdateUserRequestDTO): Promise<NormalizedResponseDTO<UserDTO>> {
         const user: User = await this.usersService.updateUserData(userId, data)
-        return new NormalizedResponseDTO(user)
+        return new NormalizedResponseDTO(UserDTO.fromUser(user))
     }
 
     @Delete('/:id')
@@ -215,14 +252,14 @@ export class UsersController extends GenericController<User> {
         summary: `Upload a profile picture for a team`,
         description: `Allows uploading a profile picture for a user the image`,
     })
-    @ApiNormalizedResponse({ status: 201, description: `Updated user`, type: User })
+    @ApiNormalizedResponse({ status: 201, description: `Updated user`, type: UserDTO })
     // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
-    public async setProfilePicture(@CurrentToken() token: Token, @UploadedFile() file: any /*Express.Multer.File*/): Promise<NormalizedResponseDTO<User>> {
+    public async setProfilePicture(@CurrentToken() token: Token, @UploadedFile() file: any /*Express.Multer.File*/): Promise<NormalizedResponseDTO<UserDTO>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }
         const user: User = await this.usersService.setProfilePicture(token, file)
-        return new NormalizedResponseDTO(user)
+        return new NormalizedResponseDTO(UserDTO.fromUser(user))
     }
 
     @Delete('/profile-picture')
@@ -230,9 +267,9 @@ export class UsersController extends GenericController<User> {
         summary: `Delete a profile picture for a team`,
         description: `Allows deleting a profile picture for a user`,
     })
-    @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: User })
-    public async deleteBackgroundImage(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<User>> {
+    @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: UserDTO })
+    public async deleteBackgroundImage(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<UserDTO>> {
         const user: User = await this.usersService.deleteProfilePicture(token)
-        return new NormalizedResponseDTO(user)
+        return new NormalizedResponseDTO(UserDTO.fromUser(user))
     }
 }

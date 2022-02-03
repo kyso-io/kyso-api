@@ -1,6 +1,6 @@
 import { CreateUserRequestDTO, Login, NormalizedResponseDTO, User } from '@kyso-io/kyso-model'
 import { Body, Controller, Post } from '@nestjs/common'
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
@@ -24,12 +24,28 @@ export class AuthController extends GenericController<string> {
     @Post('/login')
     @ApiOperation({
         summary: `Logs an user into Kyso`,
-        description: `Allows existing users to log-in into Kyso`,
+        description: `Allows existing users to log-in into Kyso`
     })
     @ApiResponse({
         status: 200,
         description: `JWT token related to user`,
         type: String,
+    })
+    @ApiBody({
+        description: "Login credentials and provider",
+        required: true,
+        type: Login, 
+        examples: {
+            "Login as palpatine": {
+                summary: "Palpatine is a global administrator", 
+                value: {
+                    username: "palpatine@kyso.io", 
+                    password: "n0tiene", 
+                    provider: "kyso"
+                }
+            }
+        }
+        
     })
     async login(@Body() login: Login): Promise<NormalizedResponseDTO<string>> {
         const jwt: string = await this.authService.login(login.password, login.provider, login.username)
