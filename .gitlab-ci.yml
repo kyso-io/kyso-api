@@ -2,3 +2,6 @@ include:
   - project: 'common/gitlab-ci'
     ref: v0.3.4
     file: '/templates/npm-dockerfile-build.yml'
+
+variables:
+  DOCKER_BUILDKIT: 1
