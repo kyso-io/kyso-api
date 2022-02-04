@@ -1,8 +1,9 @@
-import { CreateInvitationDto, Invitation, NormalizedResponseDTO } from '@kyso-io/kyso-model'
+import { CreateInvitationDto, Invitation, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model'
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
+import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { InvitationsService } from './invitations.service'
 
@@ -43,8 +44,8 @@ export class InvitationsController extends GenericController<Invitation> {
         description: `Invitation created`,
         type: Invitation,
     })
-    public async createInvitation(@Body() createInvitationDto: CreateInvitationDto): Promise<NormalizedResponseDTO<Invitation>> {
-        const createdInvitation: Invitation = await this.invitationsService.createInvitation(createInvitationDto)
+    public async createInvitation(@CurrentToken() token: Token, @Body() createInvitationDto: CreateInvitationDto): Promise<NormalizedResponseDTO<Invitation>> {
+        const createdInvitation: Invitation = await this.invitationsService.createInvitation(token.id, createInvitationDto)
         return new NormalizedResponseDTO(createdInvitation)
     }
 
