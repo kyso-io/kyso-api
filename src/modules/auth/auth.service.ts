@@ -93,7 +93,9 @@ export class AuthService extends AutowiredService {
             for (const teamMembership of userTeamMembership) {
                 // For every team, retrieve the base object
                 const team: Team = await teamService.getTeam({ filter: { _id: new mongo.ObjectId(teamMembership.team_id) } })
-
+                if (!team) {
+                    continue
+                }
                 // These are the specific roles built for that team
                 const teamRoles: KysoRole[] = team.roles
 
