@@ -106,7 +106,7 @@ export class InvitationsService extends AutowiredService {
         return invitation
     }
 
-    public async acceptInvitation(id: string): Promise<boolean> {
+    public async acceptInvitation(id: string): Promise<Invitation> {
         const invitation: Invitation = await this.getInvitationById(id)
         if (!invitation) {
             throw new PreconditionFailedException('Invitation not found')
@@ -126,16 +126,14 @@ export class InvitationsService extends AutowiredService {
             case InvitationType.Organization:
                 break
         }
-        await this.provider.update({ _id: this.provider.toObjectId(invitation.id) }, { $set: { status: InvitationStatus.Accepted } })
-        return true
+        return this.provider.update({ _id: this.provider.toObjectId(invitation.id) }, { $set: { status: InvitationStatus.Accepted } })
     }
 
-    public async rejectInvitation(id: string): Promise<boolean> {
+    public async rejectInvitation(id: string): Promise<Invitation> {
         const invitation: Invitation = await this.getInvitationById(id)
         if (!invitation) {
             throw new PreconditionFailedException('Invitation not found')
         }
-        await this.provider.update({ _id: this.provider.toObjectId(invitation.id) }, { $set: { status: InvitationStatus.Rejected } })
-        return true
+        return this.provider.update({ _id: this.provider.toObjectId(invitation.id) }, { $set: { status: InvitationStatus.Rejected } })
     }
 }
