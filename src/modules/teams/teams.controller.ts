@@ -308,7 +308,7 @@ export class TeamsController extends GenericController<Team> {
     @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: TeamMember })
     @Permission([TeamPermissionsEnum.EDIT])
     public async UpdateTeamMembersDTORoles(@Param('teamId') teamId: string, @Body() data: UpdateTeamMembersDTO): Promise<NormalizedResponseDTO<TeamMember[]>> {
-        const teamMembers: TeamMember[] = await this.teamsService.UpdateTeamMembersDTORoles(teamId, data)
+        const teamMembers: TeamMember[] = await this.teamsService.updateTeamMembersDTORoles(teamId, data)
         return new NormalizedResponseDTO(teamMembers)
     }
 

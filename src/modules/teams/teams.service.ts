@@ -310,14 +310,12 @@ export class TeamsService extends AutowiredService {
         return this.getMembers(team.id)
     }
 
-    public async UpdateTeamMembersDTORoles(teamName: string, data: UpdateTeamMembersDTO): Promise<TeamMember[]> {
-        const team: Team = await this.getTeam({ filter: { name: teamName } })
+    public async updateTeamMembersDTORoles(teamId: string, data: UpdateTeamMembersDTO): Promise<TeamMember[]> {
+        const team: Team = await this.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
-
-        const validRoles: string[] = team.roles.map((role: KysoRole) => role.name)
-
+        // const validRoles: string[] = team.roles.map((role: KysoRole) => role.name)
         const members: TeamMemberJoin[] = await this.teamMemberProvider.getMembers(team.id)
         for (const element of data.members) {
             const user: User = await this.usersService.getUserById(element.userId)
@@ -330,16 +328,17 @@ export class TeamsService extends AutowiredService {
             }
             const role: string = member.role_names.find((x: string) => x === element.role)
             if (!role) {
-                if (!validRoles.includes(element.role)) {
-                    throw new PreconditionFailedException(`Role ${element.role} is not valid`)
-                }
-                await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $push: { role_names: element.role } })
+                // if (!validRoles.includes(element.role)) {
+                //     throw new PreconditionFailedException(`Role ${element.role} is not valid`)
+                // }
+                // await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $push: { role_names: element.role } })
+                // TODO: just for J&J demo
+                await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
             } else {
                 throw new PreconditionFailedException('User already has this role')
             }
         }
-
-        return this.getMembers(teamName)
+        return this.getMembers(team.id)
     }
 
     public async removeTeamMemberRole(teamId: string, userId: string, role: string): Promise<TeamMember[]> {
