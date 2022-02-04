@@ -1,4 +1,4 @@
-import { CreateInvitationDto, Invitation, InvitationStatus, InvitationType, Team, User } from '@kyso-io/kyso-model'
+import { CreateInvitationDto, Invitation, InvitationStatus, InvitationType, Organization, Team, User } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
@@ -73,11 +73,12 @@ export class InvitationsService extends AutowiredService {
             case InvitationType.Team:
                 const user: User = await this.usersService.getUserById(invitation.creator_id)
                 const team: Team = await this.teamsService.getTeamById(invitation.entity_id)
+                const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
                 subject = `Kyso: New invitation to join team ${team.name}`
                 html = `User ${user.nickname} has invited you to join the team ${team.name} with the role ${invitation.payload.roles
                     .map((role: string) => role.replace('-', ' '))
                     .join(',')
-                    .toUpperCase()}`
+                    .toUpperCase()}. <a href="http://localhost:3000/${organization.name}/${team.name}/invitations/${invitation.id}">Open invitation</a>`
                 break
             case InvitationType.Organization:
                 break
