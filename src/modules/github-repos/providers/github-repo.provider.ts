@@ -140,7 +140,7 @@ export class GithubReposProvider {
             hash: obj.sha,
             htmlUrl: obj.html_url,
         })
-        return res.data.sha ? filterData(res.data) : res.data.map(filterData)
+        return res.data.sha ? [filterData(res.data)] : res.data.map(filterData)
     }
 
     async getFileContent(accessToken: string, fileSha: string, owner: string, repo: string) {
