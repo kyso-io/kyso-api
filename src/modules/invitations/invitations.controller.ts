@@ -12,7 +12,7 @@ import { InvitationsService } from './invitations.service'
 @ApiExtraModels(Invitation)
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
-@Controller('invitation')
+@Controller('invitations')
 export class InvitationsController extends GenericController<Invitation> {
     constructor(private readonly invitationsService: InvitationsService) {
         super()
