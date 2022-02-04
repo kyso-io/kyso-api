@@ -27,19 +27,16 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
-import { diskStorage } from 'multer'
-import { extname } from 'path'
-import { v4 as uuidv4 } from 'uuid'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
+import slugify from '../../helpers/slugify'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { AuthService } from '../auth/auth.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { TeamPermissionsEnum } from './security/team-permissions.enum'
 import { TeamsService } from './teams.service'
-import slugify from '../../helpers/slugify'
 
 @ApiTags('teams')
 @ApiExtraModels(Team)

@@ -1,6 +1,7 @@
 import { MailerModule } from '@nestjs-modules/mailer'
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter'
 import { Module } from '@nestjs/common'
+import { PrometheusModule } from '@willsoto/nestjs-prometheus'
 import { join } from 'path'
 import { AuthModule } from './modules/auth/auth.module'
 import { BitbucketReposModule } from './modules/bitbucket-repos/bitbucket-repos.module'
@@ -8,6 +9,7 @@ import { CommentsModule } from './modules/comments/comments.module'
 import { DiscussionsModule } from './modules/discussions/discussions.module'
 import { GithubReposModule } from './modules/github-repos/github-repos.module'
 import { HooksModule } from './modules/hooks/hooks.module'
+import { InvitationsModule } from './modules/invitations/invitations.module'
 import { OrganizationsModule } from './modules/organizations/organizations.module'
 import { RelationsModule } from './modules/relations/relations.module'
 import { ReportsModule } from './modules/reports/reports.module'
@@ -15,7 +17,6 @@ import { TagsModule } from './modules/tags/tags.module'
 import { TeamsModule } from './modules/teams/teams.module'
 import { TestingDataPopulatorModule } from './modules/testing-data-populator/testing-data-populator.module'
 import { UsersModule } from './modules/users/users.module'
-import { PrometheusModule } from "@willsoto/nestjs-prometheus";
 
 @Module({
     imports: [
@@ -25,6 +26,7 @@ import { PrometheusModule } from "@willsoto/nestjs-prometheus";
         DiscussionsModule.forRoot(),
         GithubReposModule.forRoot(),
         HooksModule,
+        InvitationsModule.forRoot(),
         MailerModule.forRootAsync({
             useFactory: () => {
                 return {
@@ -43,13 +45,13 @@ import { PrometheusModule } from "@willsoto/nestjs-prometheus";
             },
         }),
         OrganizationsModule.forRoot(),
+        PrometheusModule.register(),
         RelationsModule.forRoot(),
         ReportsModule.forRoot(),
         TagsModule.forRoot(),
         TeamsModule.forRoot(),
         TestingDataPopulatorModule,
         UsersModule.forRoot(),
-        PrometheusModule.register()
     ],
 })
 export class AppModule {}
