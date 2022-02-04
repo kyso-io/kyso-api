@@ -48,7 +48,7 @@ export class InvitationsController extends GenericController<Invitation> {
         description: `Invitation created`,
         type: Invitation,
     })
-    public async createInvitation(@CurrentToken() token: Token, @Body() createInvitationDto: CreateInvitationDto): Promise<NormalizedResponseDTO<Invitation>> {
+    public async createInvitation(@CurrentToken() token: Token, @Body() createInvitationDto): Promise<NormalizedResponseDTO<Invitation>> {
         const createdInvitation: Invitation = await this.invitationsService.createInvitation(token.id, createInvitationDto)
         return new NormalizedResponseDTO(createdInvitation)
     }
