@@ -49,8 +49,8 @@ export class DiscussionsService extends AutowiredService {
             throw new PreconditionFailedException('Author not found')
         }
 
-        for (const participan_id of data.participants) {
-            const participant: User = await this.usersService.getUserById(participan_id)
+        for (const participant_id of data.participants) {
+            const participant: User = await this.usersService.getUserById(participant_id)
             if (!participant) {
                 throw new PreconditionFailedException('Participant not found')
             }
@@ -80,7 +80,7 @@ export class DiscussionsService extends AutowiredService {
     }
 
     public async updateDiscussion(id: string, data: UpdateDiscussionRequestDTO): Promise<Discussion> {
-        const discussion: Discussion = await this.getDiscussion({ filer: { id: this.provider.toObjectId(id), mark_delete_at: { $ne: null } } })
+        const discussion: Discussion = await this.getDiscussion({ filter: { id: id, mark_delete_at: { $eq: null } } })
         if (!discussion) {
             throw new PreconditionFailedException('Discussion not found')
         }
