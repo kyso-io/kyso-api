@@ -1,4 +1,4 @@
-import { CreateInvitationDto, Invitation, InvitationStatus, InvitationType, Organization, Team, User } from '@kyso-io/kyso-model'
+import { CreateInvitationDto, Invitation, InvitationStatus, InvitationType, Organization, Team, TeamMember, User } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
@@ -61,12 +61,13 @@ export class InvitationsService extends AutowiredService {
                 email: createInvitationDto.email,
                 entity: createInvitationDto.entity,
                 entity_id: createInvitationDto.entity_id,
+                status: InvitationStatus.Pending,
             },
         })
         if (invitations.length > 0) {
             throw new PreconditionFailedException(`Invitation for ${createInvitationDto.email} of type ${createInvitationDto.entity} already exists`)
         }
-        const invitation: Invitation = await this.provider.create({ creator_id: userId, ...createInvitationDto })
+        const invitation: Invitation = await this.provider.create({ creator_id: userId, status: InvitationStatus.Pending, ...createInvitationDto })
         let subject = null
         let html = null
         switch (invitation.entity) {
@@ -75,10 +76,12 @@ export class InvitationsService extends AutowiredService {
                 const team: Team = await this.teamsService.getTeamById(invitation.entity_id)
                 const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
                 subject = `Kyso: New invitation to join team ${team.name}`
-                html = `User ${user.nickname} has invited you to join the team ${team.name} with the role ${invitation.payload.roles
+                html = `User ${user.nickname} has invited you to join the team <strong>${team.name}</strong> with the role <strong>${invitation.payload.roles
                     .map((role: string) => role.replace('-', ' '))
                     .join(',')
-                    .toUpperCase()}. <a href="http://localhost:3000/${organization.name}/${team.name}/invitations/${invitation.id}">Open invitation</a>`
+                    .toUpperCase()}</strong>. <a href="${process.env.FRONTEND_URL}/${organization.name}/team/${team.name}/invitation/${
+                    invitation.id
+                }">Open invitation</a>`
                 break
             case InvitationType.Organization:
                 break
@@ -89,8 +92,8 @@ export class InvitationsService extends AutowiredService {
                 subject,
                 html,
             })
-            .then(() => {
-                Logger.log(`Invitation mail sent to ${invitation.email}`, UsersService.name)
+            .then((messageInfo) => {
+                Logger.log(`Invitation mail ${messageInfo.messageId} sent to ${invitation.email}`, UsersService.name)
             })
             .catch((err) => {
                 Logger.error(`An error occurrend sending invitation welcome mail to ${invitation.email}`, err, UsersService.name)
@@ -107,20 +110,31 @@ export class InvitationsService extends AutowiredService {
         return invitation
     }
 
-    public async acceptInvitation(id: string): Promise<Invitation> {
+    public async acceptInvitation(userId: string, id: string): Promise<Invitation> {
         const invitation: Invitation = await this.getInvitationById(id)
         if (!invitation) {
             throw new PreconditionFailedException('Invitation not found')
         }
-        const user: User = await this.usersService.getUser({ filter: { email: invitation.email } })
+        const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new PreconditionFailedException('User not registered found')
+        }
+        if (user.email !== invitation.email) {
+            throw new PreconditionFailedException('User email does not match invitation email')
+        }
+        if (invitation.status !== InvitationStatus.Pending) {
+            throw new PreconditionFailedException('Invitation is not pending')
         }
         switch (invitation.entity) {
             case InvitationType.Team:
                 const team: Team = await this.teamsService.getTeamById(invitation.entity_id)
                 if (!team) {
                     throw new PreconditionFailedException('Team not found')
+                }
+                const teamMembers: TeamMember[] = await this.teamsService.getMembers(team.id)
+                const index: number = teamMembers.findIndex((member: TeamMember) => member.id === user.id)
+                if (index > -1) {
+                    throw new PreconditionFailedException('User is already member of team')
                 }
                 await this.teamsService.addMembersById(team.id, [user.id], [...invitation.payload.roles])
                 break
@@ -130,11 +144,41 @@ export class InvitationsService extends AutowiredService {
         return this.provider.update({ _id: this.provider.toObjectId(invitation.id) }, { $set: { status: InvitationStatus.Accepted } })
     }
 
-    public async rejectInvitation(id: string): Promise<Invitation> {
+    public async rejectInvitation(userId: string, id: string): Promise<Invitation> {
         const invitation: Invitation = await this.getInvitationById(id)
         if (!invitation) {
             throw new PreconditionFailedException('Invitation not found')
         }
+        const user: User = await this.usersService.getUserById(userId)
+        if (!user) {
+            throw new PreconditionFailedException('User not found')
+        }
+        if (user.email !== invitation.email) {
+            throw new PreconditionFailedException('User email does not match invitation email')
+        }
+        if (invitation.status !== InvitationStatus.Pending) {
+            throw new PreconditionFailedException('Invitation is not pending')
+        }
         return this.provider.update({ _id: this.provider.toObjectId(invitation.id) }, { $set: { status: InvitationStatus.Rejected } })
+    }
+
+    public async getInvitationOfUser(userId: string, invitationId: string): Promise<Invitation> {
+        const user: User = await this.usersService.getUserById(userId)
+        if (!user) {
+            throw new PreconditionFailedException('User not found')
+        }
+        const invitation: Invitation = await this.getInvitationById(invitationId)
+        if (!invitation) {
+            throw new PreconditionFailedException('Invitation not found')
+        }
+        if (invitation.email !== user.email) {
+            throw new PreconditionFailedException('The invitation does not belong to this user')
+        }
+        if (invitation.status !== InvitationStatus.Pending) {
+            throw new PreconditionFailedException(
+                `The invitation has already been ${invitation.status === InvitationStatus.Accepted ? 'accepted' : 'rejected'}`,
+            )
+        }
+        return invitation
     }
 }

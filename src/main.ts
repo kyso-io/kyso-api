@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common'
 import { NestFactory, Reflector } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
@@ -13,21 +14,21 @@ import { TransformInterceptor } from './interceptors/exclude.interceptor'
 import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service'
 export let client
 export let db
-const { NodeTracerProvider } = require('@opentelemetry/sdk-trace-node');
-const { NestInstrumentation } = require('@opentelemetry/instrumentation-nestjs-core');
-const { registerInstrumentations } = require('@opentelemetry/instrumentation');
+export let mailTransport
+export let mailFrom
+const { NodeTracerProvider } = require('@opentelemetry/sdk-trace-node')
+const { NestInstrumentation } = require('@opentelemetry/instrumentation-nestjs-core')
+const { registerInstrumentations } = require('@opentelemetry/instrumentation')
 
 const cspDefaults = helmet.contentSecurityPolicy.getDefaultDirectives()
 delete cspDefaults['upgrade-insecure-requests']
 
-const provider = new NodeTracerProvider();
-provider.register();
+const provider = new NodeTracerProvider()
+provider.register()
 
 registerInstrumentations({
-  instrumentations: [
-    new NestInstrumentation(),
-  ],
-});
+    instrumentations: [new NestInstrumentation()],
+})
 
 async function bootstrap() {
     let app_mount_dir = ''
@@ -40,6 +41,9 @@ async function bootstrap() {
     await dotenv.config({
         path: dotenv_path,
     })
+
+    mailTransport = process.env.MAIL_TRANSPORT
+    mailFrom = process.env.MAIL_FROM
 
     if (process.env.APP_MOUNT_DIR) {
         app_mount_dir = process.env.APP_MOUNT_DIR
