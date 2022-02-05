@@ -49,7 +49,8 @@ export class PlatformRole {
             DiscussionPermissionsEnum.ADMIN,
             DiscussionPermissionsEnum.READ,
             DiscussionPermissionsEnum.EDIT,
-            DiscussionPermissionsEnum.DELETE
+            DiscussionPermissionsEnum.DELETE,
+            DiscussionPermissionsEnum.CREATE
         ],
         new mongo.ObjectId('61a8ae8f9c2bc3c5a2144069').toString(),
     )
@@ -79,6 +80,7 @@ export class PlatformRole {
             UserPermissionsEnum.EDIT,
             UserPermissionsEnum.READ,
             DiscussionPermissionsEnum.ADMIN,
+            DiscussionPermissionsEnum.CREATE,
             DiscussionPermissionsEnum.READ,
             DiscussionPermissionsEnum.EDIT,
             DiscussionPermissionsEnum.DELETE
@@ -105,7 +107,8 @@ export class PlatformRole {
             UserPermissionsEnum.EDIT,
             UserPermissionsEnum.READ,
             DiscussionPermissionsEnum.READ,
-            DiscussionPermissionsEnum.EDIT
+            DiscussionPermissionsEnum.EDIT,
+            DiscussionPermissionsEnum.CREATE
         ],
         new mongo.ObjectId('61a8ae8f9c2bc3c5a2144071').toString(),
     )
@@ -160,7 +163,8 @@ export class PlatformRole {
             DiscussionPermissionsEnum.ADMIN,
             DiscussionPermissionsEnum.READ,
             DiscussionPermissionsEnum.EDIT,
-            DiscussionPermissionsEnum.DELETE
+            DiscussionPermissionsEnum.DELETE,
+            DiscussionPermissionsEnum.CREATE
         ],
         new mongo.ObjectId('61a8ae8f9c2bc3c5a2144073').toString(),
     )
