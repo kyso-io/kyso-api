@@ -1,4 +1,15 @@
-import { KysoPermissions, KysoRole, LoginProviderEnum, Organization, OrganizationMemberJoin, Team, TeamMemberJoin, Token, TokenPermissions, User } from '@kyso-io/kyso-model'
+import {
+    KysoPermissions,
+    KysoRole,
+    LoginProviderEnum,
+    Organization,
+    OrganizationMemberJoin,
+    Team,
+    TeamMemberJoin,
+    Token,
+    TokenPermissions,
+    User,
+} from '@kyso-io/kyso-model'
 import { Injectable, Logger, Provider } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcryptjs'

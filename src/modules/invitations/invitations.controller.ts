@@ -1,4 +1,4 @@
-import { CreateInvitationDto, Invitation, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model'
+import { Invitation, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -38,6 +38,24 @@ export class InvitationsController extends GenericController<Invitation> {
         return new NormalizedResponseDTO(invitations)
     }
 
+    @Get('/:invitationId')
+    @ApiOperation({ summary: 'Get an invitation' })
+    @ApiParam({
+        name: 'invitationId',
+        required: true,
+        description: 'Id of the invitation to fetch',
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Invigation of a team`,
+        type: Invitation,
+    })
+    public async getInvitation(@CurrentToken() token: Token, @Param('invitationId') invitationId: string): Promise<NormalizedResponseDTO<Invitation>> {
+        const invitation: Invitation = await this.invitationsService.getInvitationOfUser(token.id, invitationId)
+        return new NormalizedResponseDTO(invitation)
+    }
+
     @Post()
     @ApiOperation({
         summary: `Create an invitation`,
@@ -53,13 +71,13 @@ export class InvitationsController extends GenericController<Invitation> {
         return new NormalizedResponseDTO(createdInvitation)
     }
 
-    @Patch('/accept-invitation/:id')
+    @Patch('/accept-invitation/:invitationId')
     @ApiOperation({
         summary: `Accept an invitation`,
         description: `Accept an invitation`,
     })
     @ApiParam({
-        name: 'id',
+        name: 'invitationId',
         required: true,
         description: 'Id of the invitation to accept',
         schema: { type: 'string' },
@@ -69,18 +87,18 @@ export class InvitationsController extends GenericController<Invitation> {
         description: `Invitation accepted`,
         type: Invitation,
     })
-    public async acceptInvitation(@Param('id') id: string): Promise<NormalizedResponseDTO<Invitation>> {
-        const invitation: Invitation = await this.invitationsService.acceptInvitation(id)
+    public async acceptInvitation(@CurrentToken() token: Token, @Param('invitationId') invitationId: string): Promise<NormalizedResponseDTO<Invitation>> {
+        const invitation: Invitation = await this.invitationsService.acceptInvitation(token.id, invitationId)
         return new NormalizedResponseDTO(invitation)
     }
 
-    @Patch('/reject-invitation/:id')
+    @Patch('/reject-invitation/:invitationId')
     @ApiOperation({
         summary: `Reject an invitation`,
         description: `Reject an invitation`,
     })
     @ApiParam({
-        name: 'id',
+        name: 'invitationId',
         required: true,
         description: 'Id of the invitation to reject',
         schema: { type: 'string' },
@@ -90,8 +108,8 @@ export class InvitationsController extends GenericController<Invitation> {
         description: `Invitation rejected`,
         type: Invitation,
     })
-    public async rejectInvitation(@Param('id') id: string): Promise<NormalizedResponseDTO<Invitation>> {
-        const invitation: Invitation = await this.invitationsService.rejectInvitation(id)
+    public async rejectInvitation(@CurrentToken() token: Token, @Param('invitationId') invitationId: string): Promise<NormalizedResponseDTO<Invitation>> {
+        const invitation: Invitation = await this.invitationsService.rejectInvitation(token.id, invitationId)
         return new NormalizedResponseDTO(invitation)
     }
 

@@ -12,7 +12,6 @@ import {
     KysoConfigFile,
     LoginProviderEnum,
     Organization,
-    OrganizationMemberJoin,
     PinnedReport,
     Report,
     ReportDTO,
@@ -440,8 +439,8 @@ export class ReportsService extends AutowiredService {
             throw new PreconditionFailedException(`Organization ${createKysoReportDTO.organization} does not exist`)
         }
 
-        const organizationMembersJoin: OrganizationMemberJoin[] = await this.organizationsService.isUserInOrganization(user, organization)
-        if (!isGlobalAdmin && organizationMembersJoin.length === 0) {
+        const userBelongsToOrganization: boolean = await this.organizationsService.userBelongsToOrganization(user.id, organization.id)
+        if (!isGlobalAdmin && !userBelongsToOrganization) {
             throw new PreconditionFailedException(`User ${user.nickname} is not a member of organization ${createKysoReportDTO.organization}`)
         }
 

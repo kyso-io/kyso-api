@@ -3,6 +3,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
 import { Module } from '@nestjs/common'
 import { PrometheusModule } from '@willsoto/nestjs-prometheus'
 import { join } from 'path'
+import { mailFrom, mailTransport } from './main'
 import { AuthModule } from './modules/auth/auth.module'
 import { BitbucketReposModule } from './modules/bitbucket-repos/bitbucket-repos.module'
 import { CommentsModule } from './modules/comments/comments.module'
@@ -30,9 +31,9 @@ import { UsersModule } from './modules/users/users.module'
         MailerModule.forRootAsync({
             useFactory: () => {
                 return {
-                    transport: process.env.MAIL_TRANSPORT,
+                    transport: mailTransport,
                     defaults: {
-                        from: process.env.MAIL_FROM,
+                        from: mailFrom,
                     },
                     template: {
                         dir: join(__dirname, '../../templates'),
