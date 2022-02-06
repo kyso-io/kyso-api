@@ -109,6 +109,7 @@ export class RelationsService extends AutowiredService {
             ...listKeyToVal(entities),
         }
 
-        return plainToInstance(Relations, await Object.keys(groupedRelations).reduce(reducer, {}))
+        const typedRelations = plainToInstance(Relations, relations)
+        return typedRelations
     }
 }
