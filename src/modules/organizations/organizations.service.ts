@@ -95,17 +95,36 @@ export class OrganizationsService extends AutowiredService {
 
     public async addMembersById(organizationId: string, memberIds: string[], rolesToApply: string[]): Promise<void> {
         for (const memberId of memberIds) {
+            const belongs: boolean = await this.userBelongsToOrganization(memberId, organizationId)
+            if (belongs) {
+                continue
+            }
             const member: OrganizationMemberJoin = new OrganizationMemberJoin(organizationId, memberId, rolesToApply, true)
             await this.organizationMemberProvider.create(member)
         }
     }
 
-    public async isUserInOrganization(user: User, organization: Organization): Promise<OrganizationMemberJoin[]> {
-        return this.searchMembersJoin({ filter: { $and: [{ member_id: user.id }, { organization_id: organization.id }] } })
+    public async userBelongsToOrganization(userId: string, organizationId: string): Promise<boolean> {
+        const members: OrganizationMemberJoin[] = await this.searchMembersJoin({
+            filter: { $and: [{ member_id: userId }, { organization_id: organizationId }] },
+        })
+        return members.length > 0
     }
 
     public async searchMembersJoin(query: any): Promise<OrganizationMemberJoin[]> {
-        return this.organizationMemberProvider.read(query) as Promise<OrganizationMemberJoin[]>
+        // return this.organizationMemberProvider.read(query)
+        const userOrganizationMembership: OrganizationMemberJoin[] = await this.organizationMemberProvider.read(query)
+        const map: Map<string, OrganizationMemberJoin> = new Map<string, OrganizationMemberJoin>()
+        for (const userOrganizationMember of userOrganizationMembership) {
+            const key = `${userOrganizationMember.organization_id}-${userOrganizationMember.member_id}`
+            if (map.has(key)) {
+                // User is in organization twice
+                await this.organizationMemberProvider.deleteOne({ _id: this.provider.toObjectId(userOrganizationMember.id) })
+                continue
+            }
+            map.set(key, userOrganizationMember)
+        }
+        return Array.from(userOrganizationMembership.values())
     }
 
     /**

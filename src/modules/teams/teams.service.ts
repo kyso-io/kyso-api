@@ -108,7 +108,19 @@ export class TeamsService extends AutowiredService {
     }
 
     async searchMembers(query: any): Promise<TeamMemberJoin[]> {
-        return this.teamMemberProvider.read(query) as Promise<TeamMemberJoin[]>
+        // return this.teamMemberProvider.read(query)
+        const userTeamMembership: TeamMemberJoin[] = await this.teamMemberProvider.read(query)
+        const map: Map<string, TeamMemberJoin> = new Map<string, TeamMemberJoin>()
+        for (const userTeam of userTeamMembership) {
+            const key = `${userTeam.team_id}-${userTeam.member_id}`
+            if (map.has(key)) {
+                // User is in team twice
+                await this.teamMemberProvider.deleteOne({ _id: this.provider.toObjectId(userTeam.id) })
+                continue
+            }
+            map.set(key, userTeam)
+        }
+        return Array.from(userTeamMembership.values())
     }
 
     async addMembers(teamName: string, members: User[], roles: KysoRole[]) {
@@ -121,6 +133,10 @@ export class TeamsService extends AutowiredService {
 
     async addMembersById(teamId: string, memberIds: string[], rolesToApply: string[]): Promise<void> {
         for (const userId of memberIds) {
+            const belongs: boolean = await this.userBelongsToTeam(teamId, userId)
+            if (belongs) {
+                continue
+            }
             const member: TeamMemberJoin = new TeamMemberJoin(teamId, userId, rolesToApply, true)
             await this.teamMemberProvider.create(member)
         }
