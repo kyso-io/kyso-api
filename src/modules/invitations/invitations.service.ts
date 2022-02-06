@@ -6,7 +6,8 @@ import { AutowiredService } from '../../generic/autowired.generic'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
-import { InvitationsMongoProvider } from './providers/Invitations-mongo.provider'
+import { InvitationsMongoProvider } from './providers/invitations-mongo.provider'
+
 
 function factory(service: InvitationsService) {
     return service
