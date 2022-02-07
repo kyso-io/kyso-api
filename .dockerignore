@@ -1,0 +1,4 @@
+/build.env
+/.git
+/node_modules
+/.npmrc*
