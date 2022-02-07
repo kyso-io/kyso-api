@@ -93,15 +93,24 @@ export class ReportsController extends GenericController<Report> {
         }
 
         if (query?.filter?.$text) {
-            const tags: Tag[] = await this.tagsService.getTags({ filter: { ...query.filter } })
+            const tags: Tag[] = await this.tagsService.getTags({ filter: { $text: query.filter.$text } })
             const tagAssigns: TagAssign[] = await this.tagsService.getTagAssignsOfTags(
                 tags.map((tag: Tag) => tag.id),
                 EntityEnum.REPORT,
             )
             const newFilter = { ...query.filter }
             newFilter.$or = [
+                // {
+                //     $text: newFilter.$text,
+                // },
                 {
-                    $text: newFilter.$text,
+                    name: { $regex: query.filter.$text.$search, $options: 'i' },
+                },
+                {
+                    title: { $regex: query.filter.$text.$search, $options: 'i' },
+                },
+                {
+                    description: { $regex: query.filter.$text.$search, $options: 'i' },
                 },
                 {
                     _id: { $in: tagAssigns.map((tagAssign: TagAssign) => new ObjectId(tagAssign.entity_id)) },

@@ -10,11 +10,14 @@ import {
     Organization,
     Report,
     RepositoryProvider,
+    Tag,
+    TagRequestDTO,
     Team,
     TeamVisibilityEnum,
     User,
     UserAccount,
 } from '@kyso-io/kyso-model'
+import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import { Injectable, Logger } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { PlatformRole } from '../../security/platform-roles'
@@ -23,6 +26,7 @@ import { DiscussionsService } from '../discussions/discussions.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
 import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
+import { TagsService } from '../tags/tags.service'
 import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
@@ -40,7 +44,7 @@ export class TestingDataPopulatorService {
     private LightsideOrganization: Organization
 
     private KyloThoughtsReport: Report
-    private DarkStarEngineeringReport: Report
+    private DeathStarEngineeringReport: Report
     private RebelScumCounterAttackReport: Report
     private BestPokemonReport: Report
 
@@ -53,6 +57,18 @@ export class TestingDataPopulatorService {
     private PublicTeam: Team
     private ProtectedTeamWithCustomRole: Team
     private PrivateTeam: Team
+
+    private KylorenTag: Tag
+    private AngerTag: Tag
+    private DoubtsTag: Tag
+    private PokemonTag: Tag
+    private PikachuTag: Tag
+    private SecretTag: Tag
+    private DeathTag: Tag
+    private ImperiumTag: Tag
+    private DeathStarTag: Tag
+    private FreedomTag: Tag
+    private JediTag: Tag
 
     @Autowired({ typeName: 'CommentsService' })
     private commentsService: CommentsService
@@ -71,6 +87,9 @@ export class TestingDataPopulatorService {
 
     @Autowired({ typeName: 'DiscussionsService' })
     private discussionsService: DiscussionsService
+
+    @Autowired({ typeName: 'TagsService' })
+    private tagsService: TagsService
 
     public async populateTestData() {
         if (process.env.POPULATE_TEST_DATA && process.env.POPULATE_TEST_DATA === 'true') {
@@ -99,6 +118,8 @@ export class TestingDataPopulatorService {
             await this.createTestingReports()
             await this.createTestingComments()
             await this.createDiscussions()
+            await this.createTags()
+            await this.assignTagsToReports()
         }
     }
 
@@ -262,7 +283,7 @@ export class TestingDataPopulatorService {
             'Make sure that this details dont get leaked as the lightside can really fuck us with that information',
         )
 
-        this.DarkStarEngineeringReport = await this._createReport(this.Gideon_OrganizationAdminUser, reportDeathStarEngineering)
+        this.DeathStarEngineeringReport = await this._createReport(this.Gideon_OrganizationAdminUser, reportDeathStarEngineering)
 
         const reportRebelScumCounterAttack = new CreateReportDTO(
             'rebel-scum-counterattack',
@@ -721,5 +742,40 @@ export class TestingDataPopulatorService {
 
         d3_c1.discussion_id = entityD3.id
         await this.commentsService.createComment(d3_c1)
+    }
+
+    private async createTags(): Promise<void> {
+        this.KylorenTag = await this.tagsService.createTag(new TagRequestDTO('kyloren'))
+        this.AngerTag = await this.tagsService.createTag(new TagRequestDTO('anger'))
+        this.DoubtsTag = await this.tagsService.createTag(new TagRequestDTO('doubts'))
+        this.PokemonTag = await this.tagsService.createTag(new TagRequestDTO('pokemon'))
+        this.PikachuTag = await this.tagsService.createTag(new TagRequestDTO('pikachu'))
+        this.SecretTag = await this.tagsService.createTag(new TagRequestDTO('secret'))
+        this.DeathTag = await this.tagsService.createTag(new TagRequestDTO('death'))
+        this.ImperiumTag = await this.tagsService.createTag(new TagRequestDTO('imperium'))
+        this.DeathStarTag = await this.tagsService.createTag(new TagRequestDTO('death star'))
+        this.FreedomTag = await this.tagsService.createTag(new TagRequestDTO('freedom'))
+        this.JediTag = await this.tagsService.createTag(new TagRequestDTO('jedi'))
+    }
+
+    private async assignTagsToReports(): Promise<void> {
+        await this.tagsService.assignTagToEntity(this.KylorenTag.id, this.KyloThoughtsReport.id, EntityEnum.REPORT)
+        await this.tagsService.assignTagToEntity(this.AngerTag.id, this.KyloThoughtsReport.id, EntityEnum.REPORT)
+        await this.tagsService.assignTagToEntity(this.DoubtsTag.id, this.KyloThoughtsReport.id, EntityEnum.REPORT)
+
+        await this.tagsService.assignTagToEntity(this.PokemonTag.id, this.BestPokemonReport.id, EntityEnum.REPORT)
+        await this.tagsService.assignTagToEntity(this.AngerTag.id, this.BestPokemonReport.id, EntityEnum.REPORT)
+        await this.tagsService.assignTagToEntity(this.PikachuTag.id, this.BestPokemonReport.id, EntityEnum.REPORT)
+
+        await this.tagsService.assignTagToEntity(this.AngerTag.id, this.DeathStarEngineeringReport.id, EntityEnum.REPORT)
+        await this.tagsService.assignTagToEntity(this.SecretTag.id, this.DeathStarEngineeringReport.id, EntityEnum.REPORT)
+        await this.tagsService.assignTagToEntity(this.DeathTag.id, this.DeathStarEngineeringReport.id, EntityEnum.REPORT)
+        await this.tagsService.assignTagToEntity(this.ImperiumTag.id, this.DeathStarEngineeringReport.id, EntityEnum.REPORT)
+        await this.tagsService.assignTagToEntity(this.DeathStarTag.id, this.DeathStarEngineeringReport.id, EntityEnum.REPORT)
+
+        await this.tagsService.assignTagToEntity(this.FreedomTag.id, this.RebelScumCounterAttackReport.id, EntityEnum.REPORT)
+        await this.tagsService.assignTagToEntity(this.JediTag.id, this.RebelScumCounterAttackReport.id, EntityEnum.REPORT)
+        await this.tagsService.assignTagToEntity(this.DeathStarTag.id, this.RebelScumCounterAttackReport.id, EntityEnum.REPORT)
+        await this.tagsService.assignTagToEntity(this.ImperiumTag.id, this.RebelScumCounterAttackReport.id, EntityEnum.REPORT)
     }
 }
