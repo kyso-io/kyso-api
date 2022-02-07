@@ -38,6 +38,7 @@ export class DiscussionsController extends GenericController<Discussion> {
         @Query('page', ParseIntPipe) page: number,
         @Query('per_page', ParseIntPipe) per_page: number,
         @Query('sort') sort: string,
+        @Query('search') search: string,
     ): Promise<NormalizedResponseDTO<Discussion[]>> {
         const data: any = {
             filter: {
@@ -56,6 +57,13 @@ export class DiscussionsController extends GenericController<Discussion> {
         }
         if (sort && (sort === 'asc' || sort === 'desc')) {
             data.sort.created_at = sort === 'asc' ? 1 : -1
+        }
+        if (search && search.length > 0) {
+            data.filter.$or = [
+                { title: { $regex: search, $options: 'i' } },
+                { main: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } },
+            ]
         }
         const discussions: Discussion[] = await this.discussionsService.getDiscussions(data)
         return new NormalizedResponseDTO(discussions)
