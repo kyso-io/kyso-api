@@ -80,16 +80,18 @@ export class ReportsController extends GenericController<Report> {
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) query.sort = { _created_at: -1 }
         if (!query.filter) query.filter = {}
-        const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
-        query.filter.team_id = { $in: teams.map((team: Team) => team.id) }
-        if (token.permissions?.global && token.permissions.global.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)) {
-            delete query.filter.team_id
-        }
 
-        if (query?.filter?.organization_id) {
-            const organizationTeams: Team[] = await this.teamsService.getTeams({ filter: { organization_id: query.filter.organization_id } })
-            query.filter.team_id = { $in: organizationTeams.map((team: Team) => team.id) }
-            delete query.filter.organization_id
+        if (!query.filter.hasOwnProperty('team_id') || query.filter.team_id == null || query.filter.team_id === '') {
+            const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+            query.filter.team_id = { $in: teams.map((team: Team) => team.id) }
+            if (token.permissions?.global && token.permissions.global.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)) {
+                delete query.filter.team_id
+            }
+            if (query?.filter?.organization_id) {
+                const organizationTeams: Team[] = await this.teamsService.getTeams({ filter: { organization_id: query.filter.organization_id } })
+                query.filter.team_id = { $in: organizationTeams.map((team: Team) => team.id) }
+                delete query.filter.organization_id
+            }
         }
 
         if (query?.filter?.$text) {
