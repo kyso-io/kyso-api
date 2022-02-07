@@ -1,9 +1,10 @@
-import { Comment, GlobalPermissionsEnum, Report, Team, Token } from '@kyso-io/kyso-model'
+import { Comment, GlobalPermissionsEnum, Report, Team, Token, Discussion } from '@kyso-io/kyso-model'
 import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
 import { ReportsService } from '../reports/reports.service'
+import { DiscussionsService } from '../discussions/discussions.service'
 import { TeamsService } from '../teams/teams.service'
 import { CommentsMongoProvider } from './providers/mongo-comments.provider'
 import { CommentPermissionsEnum } from './security/comment-permissions.enum'
@@ -28,6 +29,9 @@ export class CommentsService extends AutowiredService {
     @Autowired({ typeName: 'ReportsService' })
     private reportsService: ReportsService
 
+    @Autowired({ typeName: 'DiscussionsService' })
+    private discussionsService: DiscussionsService
+
     constructor(private readonly provider: CommentsMongoProvider) {
         super()
     }
@@ -41,14 +45,30 @@ export class CommentsService extends AutowiredService {
                 throw new PreconditionFailedException('The specified related comment could not be found')
             }
         }
+
         const report: Report = await this.reportsService.getReportById(comment.report_id)
-        if (!report) {
-            throw new PreconditionFailedException('The specified report could not be found')
+        const discussion: Discussion = await this.discussionsService.getDiscussion({
+            filter: { id: comment.discussion_id, mark_delete_at: { $eq: null } },
+        })
+
+        if (!report && !discussion) {
+            throw new PreconditionFailedException('The specified report or discussion could not be found')
         }
-        if (!report.team_id || report.team_id == null || report.team_id === '') {
+
+        if (!discussion && (!report.team_id || report.team_id == null || report.team_id === '')) {
             throw new PreconditionFailedException('The specified report does not have a team associated')
         }
-        const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
+
+        if (!report && (!discussion.team_id || discussion.team_id == null || discussion.team_id === '')) {
+            throw new PreconditionFailedException('The specified discussion does not have a team associated')
+        }
+
+        const team: Team = await this.teamsService.getTeam({
+            filter: {
+                _id: this.provider.toObjectId(report ? report.team_id : discussion.team_id),
+            },
+        })
+
         if (!team) {
             throw new PreconditionFailedException('The specified team could not be found')
         }

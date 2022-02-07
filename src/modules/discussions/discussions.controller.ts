@@ -1,6 +1,7 @@
 import { Comment, CreateDiscussionRequestDTO, Discussion, NormalizedResponseDTO, UpdateDiscussionRequestDTO } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, PreconditionFailedException, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
+import { InvalidInputError } from 'src/helpers/errorHandling'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
@@ -9,6 +10,7 @@ import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CommentsService } from '../comments/comments.service'
 import { DiscussionsService } from './discussions.service'
 import { DiscussionPermissionsEnum } from './security/discussion-permissions.enum'
+import { RelationsService } from '../relations/relations.service'
 
 @ApiTags('discussions')
 @ApiExtraModels(Discussion)
@@ -18,6 +20,9 @@ import { DiscussionPermissionsEnum } from './security/discussion-permissions.enu
 export class DiscussionsController extends GenericController<Discussion> {
     @Autowired({ typeName: 'CommentsService' })
     private readonly commentsService: CommentsService
+
+    @Autowired({ typeName: 'RelationsService' })
+    private relationsService: RelationsService
 
     constructor(private readonly discussionsService: DiscussionsService) {
         super()
@@ -97,16 +102,20 @@ export class DiscussionsController extends GenericController<Discussion> {
     @ApiNormalizedResponse({ status: 200, description: `Comments related to that discussion`, type: Comment, isArray: true })
     @Permission([DiscussionPermissionsEnum.READ])
     public async getDiscussionCommentsGivenTeamIdAndDiscussionNumber(@Param('discussionId') discussionId: string): Promise<NormalizedResponseDTO<Comment[]>> {
-        const discussionComments: Comment[] = await this.commentsService.getComments({
-            filter: {
-                id: discussionId,
-            },
-            sort: {
-                created_at: -1,
-            },
+        const discussion: Discussion = await this.discussionsService.getDiscussion({
+            id: discussionId
         })
 
-        return new NormalizedResponseDTO(discussionComments)
+        if (!discussion) {
+            throw new InvalidInputError('Discussion not found')
+        }
+
+        const comments: Comment[] = await this.commentsService.getComments({ filter: { discussion_id: discussionId } })
+        const relations = await this.relationsService.getRelations(comments, 'comment')
+        return new NormalizedResponseDTO(
+            comments.filter((comment: Comment) => !comment.comment_id),
+            relations,
+        )
     }
 
     @Post()
