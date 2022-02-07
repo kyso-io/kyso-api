@@ -189,7 +189,7 @@ export class ReportsController extends GenericController<Report> {
         if (!report) {
             throw new InvalidInputError('Report not found')
         }
-        const relations = await this.relationsService.getRelations(report, 'report')
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         return new NormalizedResponseDTO(reportDto, relations)
     }
