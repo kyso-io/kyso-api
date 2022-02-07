@@ -1,6 +1,6 @@
 # Global Dockerfile Arguments (in our CI can be overriden in ./.build-args)
-ARG BUILDER_IMG=registry.kyso.io/docker/node-builder
-ARG BUILDER_TAG=latest
+ARG BUILDER_IMG=registry.kyso.io/kyso-io/kyso-api
+ARG BUILDER_TAG=builder
 ARG SERVICE_IMG=registry.kyso.io/docker/node
 ARG SERVICE_TAG=latest
 
@@ -18,6 +18,9 @@ RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,required npm ci
 COPY --chown=node:node src ./src/
 # Build the application (leaves result on ./dist)
 RUN npm run build
+# Execute `npm ci` (not install) for production with an externally mounted npmrc
+RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,required\
+ npm ci --only=production
 
 # Production image
 FROM ${SERVICE_IMG}:${SERVICE_TAG} AS service
@@ -29,11 +32,6 @@ ENV NODE_ENV=${NODE_ENV}
 USER node
 # Change the working directory to /app
 WORKDIR /app
-# Copy the files required to call `npm ci` to the working directory
-COPY --chown=node:node package*.json ./
-# Execute `npm ci` (not install) for production with an externally mounted npmrc
-RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,required\
- npm ci --only=production
 # Copy the dist folder from the builder
 COPY --chown=node:node --from=builder /app/dist ./dist
 # Copy the sources ... FIXME(sto): this should not be needed!!!
