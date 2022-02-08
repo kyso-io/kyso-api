@@ -34,6 +34,7 @@ import axios, { AxiosResponse } from 'axios'
 import { lstatSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'fs'
 import * as glob from 'glob'
 import * as jsYaml from 'js-yaml'
+import { extname } from 'path'
 import * as sha256File from 'sha256-file'
 import { Readable } from 'stream'
 import { v4 as uuidv4 } from 'uuid'
@@ -186,6 +187,7 @@ export class ReportsService extends AutowiredService {
             team.id,
             createReportDto.title,
             [],
+            null,
         )
         return this.provider.create(report)
     }
@@ -397,6 +399,7 @@ export class ReportsService extends AutowiredService {
             report.title,
             report.author_ids,
             report.status,
+            report.preview_picture,
         )
     }
 
@@ -501,6 +504,7 @@ export class ReportsService extends AutowiredService {
                 team.id,
                 createKysoReportDTO.title,
                 [],
+                null,
             )
             report.report_type = 'kyso-cli'
             report = await this.provider.create(report)
@@ -623,6 +627,7 @@ export class ReportsService extends AutowiredService {
                 team.id,
                 createUIReportDTO.title,
                 [],
+                null,
             )
             report.report_type = 'kyso'
             report = await this.provider.create(report)
@@ -724,6 +729,7 @@ export class ReportsService extends AutowiredService {
                 null,
                 repository.full_name,
                 [],
+                null,
             )
             report = await this.provider.create(report)
             Logger.log(`New report '${report.id} ${report.name}'`, ReportsService.name)
@@ -1311,5 +1317,50 @@ export class ReportsService extends AutowiredService {
             return null
         }
         return zipEntries[0].getData()
+    }
+
+    public async setPreviewPicture(reportId: string, file: any): Promise<Report> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const s3Client: S3Client = this.getS3Client()
+        if (report?.preview_picture && report.preview_picture.length > 0) {
+            Logger.log(`Removing previous image of report ${report.name}`, ReportsService.name)
+            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
+                Bucket: process.env.AWS_S3_BUCKET,
+                Key: report.preview_picture.split('/').slice(-1)[0],
+            })
+            await s3Client.send(deleteObjectCommand)
+        }
+        Logger.log(`Uploading image for report ${report.name}`, ReportsService.name)
+        const Key = `${uuidv4()}${extname(file.originalname)}`
+        await s3Client.send(
+            new PutObjectCommand({
+                Bucket: process.env.AWS_S3_BUCKET,
+                Key,
+                Body: file.buffer,
+            }),
+        )
+        Logger.log(`Uploaded image for report ${report.name}`, ReportsService.name)
+        const preview_picture = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${Key}`
+        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture } })
+    }
+
+    public async deletePreviewPicture(reportId: string): Promise<Report> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const s3Client: S3Client = this.getS3Client()
+        if (report?.preview_picture && report.preview_picture.length > 0) {
+            Logger.log(`Removing previous image of report ${report.name}`, OrganizationsService.name)
+            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
+                Bucket: process.env.AWS_S3_BUCKET,
+                Key: report.preview_picture.split('/').slice(-1)[0],
+            })
+            await s3Client.send(deleteObjectCommand)
+        }
+        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: null } })
     }
 }

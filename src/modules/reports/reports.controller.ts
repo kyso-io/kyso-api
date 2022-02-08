@@ -19,8 +19,24 @@ import {
     UpdateReportRequestDTO,
 } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common'
-import { FilesInterceptor } from '@nestjs/platform-express'
+import {
+    BadRequestException,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Patch,
+    Post,
+    Query,
+    Req,
+    Res,
+    UploadedFile,
+    UploadedFiles,
+    UseGuards,
+    UseInterceptors,
+} from '@nestjs/common'
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -234,7 +250,7 @@ export class ReportsController extends GenericController<Report> {
     async createKysoReport(
         @CurrentToken() token: Token,
         @Body() createKysoReportDTO: CreateKysoReportDTO,
-        @UploadedFiles() files: Array<Express.Multer.File>,
+        @UploadedFiles() files: any[],
     ): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.createKysoReport(token.id, createKysoReportDTO, files)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
@@ -257,7 +273,7 @@ export class ReportsController extends GenericController<Report> {
     async createUIReport(
         @CurrentToken() token: Token,
         @Body() createUIReportDTO: CreateUIReportDTO,
-        @UploadedFiles() files: Array<Express.Multer.File>,
+        @UploadedFiles() files: any[],
     ): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.createUIReport(token.id, createUIReportDTO, files)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
@@ -559,5 +575,62 @@ export class ReportsController extends GenericController<Report> {
             })
         }
         return this.reportsService.getReportFileContent(token.id, reportId, hash)
+    }
+
+    @UseInterceptors(
+        FileInterceptor('file', {
+            fileFilter: (req, file, callback) => {
+                if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+                    return callback(new Error('Only image files are allowed!'), false)
+                }
+                callback(null, true)
+            },
+        }),
+    )
+    @Post('/:reportId/preview-picture')
+    @ApiOperation({
+        summary: `Upload a profile picture for a report`,
+        description: `Allows uploading a profile picture for a report passing its id and image`,
+    })
+    @ApiParam({
+        name: 'reportId',
+        required: true,
+        description: `Id of the report to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({ status: 201, description: `Updated report`, type: ReportDTO })
+    @Permission([ReportPermissionsEnum.EDIT])
+    public async setProfilePicture(
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @UploadedFile() file: any,
+    ): Promise<NormalizedResponseDTO<ReportDTO>> {
+        if (!file) {
+            throw new BadRequestException(`Missing file`)
+        }
+        const report: Report = await this.reportsService.setPreviewPicture(reportId, file)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(report, 'report')
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
+    @Delete('/:reportId/preview-picture')
+    @ApiOperation({
+        summary: `Delete a profile picture for a report`,
+        description: `Allows deleting a profile picture for a report passing its id`,
+    })
+    @ApiParam({
+        name: 'reportId',
+        required: true,
+        description: `Id of the report to fetch`,
+        schema: { type: 'string' },
+    })
+    @Permission([ReportPermissionsEnum.EDIT])
+    @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: ReportDTO })
+    public async deleteBackgroundImage(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
+        const report: Report = await this.reportsService.deletePreviewPicture(reportId)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(report, 'report')
+        return new NormalizedResponseDTO(reportDto, relations)
     }
 }
