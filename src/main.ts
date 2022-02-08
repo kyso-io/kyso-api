@@ -51,8 +51,8 @@ async function bootstrap() {
     await connectToDatabase(process.env.DATABASE_NAME || 'kyso')
     const app = await NestFactory.create(AppModule)
 
-    app.use(bodyParser.json({ limit: '200mb' }))
-    app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }))
+    app.use(bodyParser.json({ limit: '500mb' }))
+    app.use(bodyParser.urlencoded({ limit: '500mb', extended: true }))
 
     const globalPrefix = app_mount_dir + '/v1'
     // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately
