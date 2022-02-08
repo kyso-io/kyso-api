@@ -68,7 +68,6 @@ export class AuthController extends GenericController<string> {
 
     @Post('/refresh-token')
     @ApiBearerAuth()
-    @UseGuards(PermissionsGuard)
     @ApiOperation({
         summary: `Refresh token`,
         description: `Refresh token`,
@@ -82,15 +81,19 @@ export class AuthController extends GenericController<string> {
         status: 403,
         description: `Token is invalid or expired`,
     })
-    @Permission([])
     async refreshToken(@Headers('authorization') jwtToken: string): Promise<NormalizedResponseDTO<string>> {
-        const decodedToken = this.authService.evaluateAndDecodeToken(jwtToken)
-        if(decodedToken) {
-            const jwt: string = await this.authService.refreshToken(decodedToken)
-            return new NormalizedResponseDTO(jwt)
-        } else {
+        try {
+            const splittedToken = jwtToken.split("Bearer ")
+            const decodedToken = this.authService.evaluateAndDecodeToken(splittedToken[1])
+            
+            if(decodedToken) {
+                const jwt: string = await this.authService.refreshToken(decodedToken)
+                return new NormalizedResponseDTO(jwt)
+            } else {
+                throw new ForbiddenException()
+            }
+        } catch(ex) {
             throw new ForbiddenException()
         }
-        
     }
 }
