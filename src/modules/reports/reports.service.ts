@@ -427,36 +427,51 @@ export class ReportsService extends AutowiredService {
     }
 
     public async createKysoReport(userId: string, createKysoReportDTO: CreateKysoReportDTO, files: Express.Multer.File[]): Promise<Report> {
+        Logger.log("Creating report")
         const user: User = await this.usersService.getUserById(userId)
+        Logger.log(`By user: ${user.email}`)
         const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
+        Logger.log(`is global admin?: ${isGlobalAdmin}`)
 
         const kysoFiles: Express.Multer.File[] = files.filter(
             (file: Express.Multer.File) =>
                 file.originalname.endsWith('kyso.json') || file.originalname.endsWith('kyso.yaml') || file.originalname.endsWith('kyso.yml'),
         )
+        Logger.log(`Kyso files: ${JSON.stringify(kysoFiles)}`)
+        
         if (kysoFiles.length === 0) {
+            Logger.error(`No kyso file provided`)
             throw new PreconditionFailedException('No kyso file provided')
         }
 
         const organization: Organization = await this.organizationsService.getOrganization({ filter: { name: createKysoReportDTO.organization } })
+        Logger.log(`Organization: ${organization.name}`)
         if (!organization) {
+            Logger.error(`Organization ${createKysoReportDTO.organization} does not exist`)
             throw new PreconditionFailedException(`Organization ${createKysoReportDTO.organization} does not exist`)
         }
 
         const userBelongsToOrganization: boolean = await this.organizationsService.userBelongsToOrganization(user.id, organization.id)
+        Logger.log(`user belongs to organization?: ${userBelongsToOrganization}`)
         if (!isGlobalAdmin && !userBelongsToOrganization) {
+            Logger.error(`User ${user.nickname} is not a member of organization ${createKysoReportDTO.organization}`)
             throw new PreconditionFailedException(`User ${user.nickname} is not a member of organization ${createKysoReportDTO.organization}`)
         }
 
         const team: Team = await this.teamsService.getTeam({ filter: { name: createKysoReportDTO.team } })
+        Logger.log(`Team: ${team.name}`)
         if (!team) {
+            Logger.error(`Team ${createKysoReportDTO.team} does not exist`)
             throw new PreconditionFailedException(`Team ${createKysoReportDTO.team} does not exist`)
         }
         if (team.organization_id !== organization.id) {
+            Logger.error(`Team ${createKysoReportDTO.team} does not exist`)
             throw new PreconditionFailedException(`Team ${createKysoReportDTO.team} does not belong to organization ${createKysoReportDTO.organization}`)
         }
         const belongsToTeam: boolean = await this.teamsService.userBelongsToTeam(team.id, user.id)
+        Logger.log(`user belongs to team?: ${belongsToTeam}`)
         if (!isGlobalAdmin && !belongsToTeam && !userBelongsToOrganization) {
+            Logger.error(`User ${user.nickname} is not a member of team ${createKysoReportDTO.team} nor the organization ${createKysoReportDTO.organization}`)
             throw new PreconditionFailedException(`User ${user.nickname} is not a member of team ${createKysoReportDTO.team} nor the organization ${createKysoReportDTO.organization}`)
         }
 
