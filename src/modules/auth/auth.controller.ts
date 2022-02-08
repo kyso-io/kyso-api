@@ -1,5 +1,5 @@
 import { CreateUserRequestDTO, Login, NormalizedResponseDTO, Token, User } from '@kyso-io/kyso-model'
-import { Body, Controller, ForbiddenException, Headers, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, ForbiddenException, Get, Headers, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -23,6 +23,11 @@ export class AuthController extends GenericController<string> {
 
     assignReferences(item: string) {
         // Nothing to do here
+    }
+
+    @Get('/version')
+    version(): string {
+        return "0.0.1"
     }
 
     @Post('/login')
