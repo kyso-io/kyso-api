@@ -5,7 +5,7 @@ import { Autowired } from '../../../decorators/autowired'
 import { OrganizationsService } from '../../organizations/organizations.service'
 import { TeamsService } from '../../teams/teams.service'
 import { UsersService } from '../../users/users.service'
-import { AuthService } from '../auth.service'
+import { AuthService, TOKEN_EXPIRATION_TIME } from '../auth.service'
 import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
@@ -67,7 +67,7 @@ export class KysoLoginProvider {
             const token = this.jwtService.sign(
                 { payload },
                 {
-                    expiresIn: '2h',
+                    expiresIn: TOKEN_EXPIRATION_TIME,
                     issuer: 'kyso',
                 },
             )

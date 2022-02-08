@@ -24,6 +24,8 @@ import { KysoLoginProvider } from './providers/kyso-login.provider'
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
 
+export const TOKEN_EXPIRATION_TIME = '8h'
+
 function factory(service: AuthService) {
     return service
 }
@@ -323,7 +325,7 @@ export class AuthService extends AutowiredService {
         return this.jwtService.sign(
             { payload },
             {
-                expiresIn: '2h',
+                expiresIn: TOKEN_EXPIRATION_TIME,
                 issuer: 'kyso',
             },
         )
