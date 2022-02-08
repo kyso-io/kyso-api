@@ -1,6 +1,6 @@
-import { Comment, GlobalPermissionsEnum, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model'
+import { Comment, GlobalPermissionsEnum, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
-import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
@@ -14,6 +14,16 @@ import { CommentPermissionsEnum } from './security/comment-permissions.enum'
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('comments')
+@ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+})
+@ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+})
 export class CommentsController extends GenericController<Comment> {
     constructor(private readonly commentsService: CommentsService) {
         super()

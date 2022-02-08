@@ -1,5 +1,7 @@
 import {
     GlobalPermissionsEnum,
+    HEADER_X_KYSO_ORGANIZATION,
+    HEADER_X_KYSO_TEAM,
     NormalizedResponseDTO,
     Organization,
     OrganizationMember,
@@ -21,7 +23,7 @@ import {
     UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
-import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
 import { Permission } from '../auth/annotations/permission.decorator'
@@ -35,6 +37,16 @@ import { OrganizationPermissionsEnum } from './security/organization-permissions
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('organizations')
+@ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+})
+@ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+})
 export class OrganizationsController extends GenericController<Organization> {
     constructor(private readonly organizationService: OrganizationsService) {
         super()

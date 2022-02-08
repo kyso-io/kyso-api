@@ -3,6 +3,8 @@ import {
     GithubEmail,
     GithubFileHash,
     GithubRepository,
+    HEADER_X_KYSO_ORGANIZATION,
+    HEADER_X_KYSO_TEAM,
     LoginProviderEnum,
     NormalizedResponseDTO,
     Repository,
@@ -11,7 +13,7 @@ import {
     UserAccount,
 } from '@kyso-io/kyso-model'
 import { Controller, Get, Param, PreconditionFailedException, Query, UseGuards } from '@nestjs/common'
-import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
@@ -27,6 +29,16 @@ import { GithubRepoPermissionsEnum } from './security/github-repos-permissions.e
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('repos/github')
+@ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+})
+@ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+})
 export class GithubReposController extends GenericController<Repository> {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService

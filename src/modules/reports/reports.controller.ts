@@ -9,6 +9,8 @@ import {
     GithubCommit,
     GithubFileHash,
     GlobalPermissionsEnum,
+    HEADER_X_KYSO_ORGANIZATION,
+    HEADER_X_KYSO_TEAM,
     NormalizedResponseDTO,
     Report,
     ReportDTO,
@@ -37,7 +39,7 @@ import {
     UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express'
-import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -61,6 +63,16 @@ import { ReportPermissionsEnum } from './security/report-permissions.enum'
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('reports')
+@ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+})
+@ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+})
 export class ReportsController extends GenericController<Report> {
     @Autowired({ typeName: 'CommentsService' })
     private commentsService: CommentsService

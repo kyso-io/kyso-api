@@ -43,6 +43,16 @@ import { TeamsService } from './teams.service'
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('teams')
+@ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+})
+@ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+})
 export class TeamsController extends GenericController<Team> {
     @Autowired({ typeName: 'AuthService' })
     private readonly authService: AuthService
