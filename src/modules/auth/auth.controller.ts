@@ -1,9 +1,10 @@
 import { CreateUserRequestDTO, Login, NormalizedResponseDTO, Token, User } from '@kyso-io/kyso-model'
-import { Body, Controller, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, ForbiddenException, Headers, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
+import { ForbiddenError } from '../../helpers/errorHandling'
 import { UsersService } from '../users/users.service'
 import { CurrentToken } from './annotations/current-token.decorator'
 import { Permission } from './annotations/permission.decorator'
@@ -74,12 +75,22 @@ export class AuthController extends GenericController<string> {
     })
     @ApiResponse({
         status: 201,
-        description: `JWT token related to user`,
-        type: String,
+        description: `Updated token related to user`,
+        type: Token,
+    })
+    @ApiResponse({
+        status: 403,
+        description: `Token is invalid or expired`,
     })
     @Permission([])
-    async refreshToken(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<string>> {
-        const jwt: string = await this.authService.refreshToken(token)
-        return new NormalizedResponseDTO(jwt)
+    async refreshToken(@Headers('authorization') jwtToken: string): Promise<NormalizedResponseDTO<string>> {
+        const decodedToken = this.authService.evaluateAndDecodeToken(jwtToken)
+        if(decodedToken) {
+            const jwt: string = await this.authService.refreshToken(decodedToken)
+            return new NormalizedResponseDTO(jwt)
+        } else {
+            throw new ForbiddenException()
+        }
+        
     }
 }

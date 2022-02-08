@@ -37,16 +37,6 @@ import { OrganizationPermissionsEnum } from './security/organization-permissions
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('organizations')
-@ApiHeader({
-    name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'active organization (i.e: lightside)',
-    required: true,
-})
-@ApiHeader({
-    name: HEADER_X_KYSO_TEAM,
-    description: 'active team (i.e: protected-team)',
-    required: true,
-})
 export class OrganizationsController extends GenericController<Organization> {
     constructor(private readonly organizationService: OrganizationsService) {
         super()
@@ -68,7 +58,6 @@ export class OrganizationsController extends GenericController<Organization> {
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Organization matching id`, type: Organization })
-    @Permission([OrganizationPermissionsEnum.READ])
     async getOrganization(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
         const organization: Organization = await this.organizationService.getOrganizationById(organizationId)
         if (!organization) {
