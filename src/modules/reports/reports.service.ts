@@ -456,8 +456,8 @@ export class ReportsService extends AutowiredService {
             throw new PreconditionFailedException(`Team ${createKysoReportDTO.team} does not belong to organization ${createKysoReportDTO.organization}`)
         }
         const belongsToTeam: boolean = await this.teamsService.userBelongsToTeam(team.id, user.id)
-        if (!isGlobalAdmin && !belongsToTeam) {
-            throw new PreconditionFailedException(`User ${user.nickname} is not a member of team ${createKysoReportDTO.team}`)
+        if (!isGlobalAdmin && !belongsToTeam && !userBelongsToOrganization) {
+            throw new PreconditionFailedException(`User ${user.nickname} is not a member of team ${createKysoReportDTO.team} nor the organization ${createKysoReportDTO.organization}`)
         }
 
         const name: string = slugify(createKysoReportDTO.title)
