@@ -3,6 +3,7 @@ import {
     Comment,
     CreateKysoReportDTO,
     CreateReportDTO,
+    CreateUIReportDTO,
     File,
     GithubBranch,
     GithubCommit,
@@ -30,7 +31,7 @@ import { Injectable, Logger, NotFoundException, PreconditionFailedException, Pro
 import { Octokit } from '@octokit/rest'
 import * as AdmZip from 'adm-zip'
 import axios, { AxiosResponse } from 'axios'
-import { lstatSync, readFileSync, rmSync, statSync, unlinkSync } from 'fs'
+import { lstatSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'fs'
 import * as glob from 'glob'
 import * as jsYaml from 'js-yaml'
 import * as sha256File from 'sha256-file'
@@ -534,6 +535,126 @@ export class ReportsService extends AutowiredService {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
             Logger.log(`Report '${report.id} ${report.name}' imported`, ReportsService.name)
         })
+
+        return report
+    }
+
+    public async createUIReport(userId: string, createUIReportDTO: CreateUIReportDTO, files: any[]): Promise<Report> {
+        const user: User = await this.usersService.getUserById(userId)
+        const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
+
+        const organization: Organization = await this.organizationsService.getOrganization({ filter: { name: createUIReportDTO.organization } })
+        if (!organization) {
+            throw new PreconditionFailedException(`Organization ${createUIReportDTO.organization} does not exist`)
+        }
+
+        const userBelongsToOrganization: boolean = await this.organizationsService.userBelongsToOrganization(user.id, organization.id)
+        if (!isGlobalAdmin && !userBelongsToOrganization) {
+            throw new PreconditionFailedException(`User ${user.nickname} is not a member of organization ${createUIReportDTO.organization}`)
+        }
+
+        const team: Team = await this.teamsService.getTeam({ filter: { name: createUIReportDTO.team } })
+        if (!team) {
+            throw new PreconditionFailedException(`Team ${createUIReportDTO.team} does not exist`)
+        }
+        if (team.organization_id !== organization.id) {
+            throw new PreconditionFailedException(`Team ${createUIReportDTO.team} does not belong to organization ${createUIReportDTO.organization}`)
+        }
+
+        const name: string = slugify(createUIReportDTO.title)
+        const reports: Report[] = await this.provider.read({ filter: { name, team_id: team.id } })
+        const s3Client: S3Client = this.getS3Client()
+        let report: Report = null
+        if (reports.length > 0) {
+            // Existing report
+            report = reports[0]
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
+            Logger.log(`Report '${report.id} ${report.name}': Checking files...`, ReportsService.name)
+            new Promise<void>(async () => {
+                // Get all files of the report
+                const reportFilesDb: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id }, sort: { version: -1 } })
+                for (let i = 0; i < files.length; i++) {
+                    const zip = new AdmZip()
+                    const originalName: string = files[i].originalname
+                    zip.addFile(originalName, files[i].buffer)
+                    const localFilePath = `/tmp/${report.id}_${originalName}`
+                    writeFileSync(localFilePath, files[i].buffer)
+                    const sha: string = sha256File(localFilePath)
+                    unlinkSync(localFilePath)
+                    const size: number = files[i].size
+                    const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
+                    let reportFile: File = reportFilesDb.find((reportFile: File) => reportFile.name === originalName)
+                    if (reportFile) {
+                        reportFile = new File(report.id, originalName, path_s3, size, sha, reportFile.version + 1)
+                        Logger.log(`Report '${report.name}': file ${reportFile.name} new version ${reportFile.version}`, ReportsService.name)
+                    } else {
+                        reportFile = new File(report.id, originalName, path_s3, size, sha, 1)
+                        Logger.log(`Report '${report.name}': new file ${reportFile.name}`, ReportsService.name)
+                    }
+                    reportFile = await this.filesMongoProvider.create(reportFile)
+                    Logger.log(`Report '${report.name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
+                    await s3Client.send(
+                        new PutObjectCommand({
+                            Bucket: process.env.AWS_S3_BUCKET,
+                            Key: path_s3,
+                            Body: zip.toBuffer(),
+                        }),
+                    )
+                    Logger.log(`Report '${report.name}': uploaded file '${report.name}' to S3 with key '${reportFile.path_s3}'`, ReportsService.name)
+                }
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
+                Logger.log(`Report '${report.id} ${report.name}' imported`, ReportsService.name)
+            })
+        } else {
+            Logger.log(`Creating new report '${name}'`, ReportsService.name)
+            // New report
+            report = new Report(
+                name,
+                null,
+                null,
+                RepositoryProvider.KYSO,
+                null,
+                null,
+                null,
+                0,
+                false,
+                createUIReportDTO.description,
+                userId,
+                team.id,
+                createUIReportDTO.title,
+                [],
+            )
+            report.report_type = 'kyso'
+            report = await this.provider.create(report)
+            new Promise<void>(async () => {
+                for (let i = 0; i < files.length; i++) {
+                    const zip = new AdmZip()
+                    const originalName: string = files[i].originalname
+                    zip.addFile(originalName, files[i].buffer)
+                    const localFilePath = `/tmp/${report.id}_${originalName}`
+                    writeFileSync(localFilePath, files[i].buffer)
+                    const sha: string = sha256File(localFilePath)
+                    unlinkSync(localFilePath)
+                    const size: number = files[i].size
+                    const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
+                    let file: File = new File(report.id, originalName, path_s3, size, sha, 1)
+                    file = await this.filesMongoProvider.create(file)
+                    Logger.log(`Report '${report.name}': uploading file '${file.name}' to S3...`, ReportsService.name)
+                    await s3Client.send(
+                        new PutObjectCommand({
+                            Bucket: process.env.AWS_S3_BUCKET,
+                            Key: path_s3,
+                            Body: zip.toBuffer(),
+                        }),
+                    )
+                    Logger.log(`Report '${report.name}': uploaded file '${report.name}' to S3 with key '${file.path_s3}'`, ReportsService.name)
+                }
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
+                Logger.log(`Report '${report.id} ${report.name}' imported`, ReportsService.name)
+            })
+        }
+
+        await this.checkReportTags(report.id, createUIReportDTO.tags)
 
         return report
     }

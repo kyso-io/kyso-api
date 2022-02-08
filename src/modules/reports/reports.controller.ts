@@ -4,6 +4,7 @@ import {
     CreateKysoReportDTO,
     CreateReportDTO,
     CreateReportRequestDTO,
+    CreateUIReportDTO,
     GithubBranch,
     GithubCommit,
     GithubFileHash,
@@ -236,6 +237,29 @@ export class ReportsController extends GenericController<Report> {
         @UploadedFiles() files: Array<Express.Multer.File>,
     ): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.createKysoReport(token.id, createKysoReportDTO, files)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(report, 'report')
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
+    @Post('/ui')
+    @ApiOperation({
+        summary: `Create a new report sending the files`,
+        description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
+    })
+    @ApiResponse({
+        status: 201,
+        description: `Created report`,
+        type: ReportDTO,
+    })
+    @UseInterceptors(FilesInterceptor('files'))
+    @Permission([ReportPermissionsEnum.CREATE])
+    async createUIReport(
+        @CurrentToken() token: Token,
+        @Body() createUIReportDTO: CreateUIReportDTO,
+        @UploadedFiles() files: Array<Express.Multer.File>,
+    ): Promise<NormalizedResponseDTO<Report>> {
+        const report: Report = await this.reportsService.createUIReport(token.id, createUIReportDTO, files)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report')
         return new NormalizedResponseDTO(reportDto, relations)

@@ -612,8 +612,6 @@ export class TestingDataPopulatorService {
                 [PlatformRole.TEAM_CONTRIBUTOR_ROLE.name],
             )
 
-            
-
             /*** Lightside organization ***/
             await this.organizationsService.addMembersById(
                 this.LightsideOrganization.id,
@@ -710,7 +708,8 @@ export class TestingDataPopulatorService {
             "We can't satisfy the deadline, I suggest to add a small gate and push to production. The probability to receive an attack there is ridiculous",
             this.Gideon_OrganizationAdminUser.id,
             this.DeathStarEngineeringReport.id,
-            null, null
+            null,
+            null,
         )
 
         d1_c1.discussion_id = entityD1.id
@@ -720,7 +719,8 @@ export class TestingDataPopulatorService {
             "Are you sure Gideon? I don't want to lose the war for that...",
             this.Palpatine_PlatformAdminUser.id,
             this.DeathStarEngineeringReport.id,
-            entityD1C1.comment_id, null
+            entityD1C1.comment_id,
+            null,
         )
 
         d1_c2.discussion_id = entityD1.id
@@ -730,7 +730,8 @@ export class TestingDataPopulatorService {
             "It's a good idea, if not you'll have delays and enter in a debt with Jabba",
             this.Rey_TeamAdminUser.id,
             this.DeathStarEngineeringReport.id,
-            null, null
+            null,
+            null,
         )
         d1_c2.discussion_id = entityD1.id
 
@@ -742,7 +743,8 @@ export class TestingDataPopulatorService {
             "Folks, I just drop a message to Dark Star engineering discussion enforcing shitty Gideon argument, hopefully they'll do it and we can win hahahaha",
             this.Rey_TeamAdminUser.id,
             this.RebelScumCounterAttackReport.id,
-            null, null
+            null,
+            null,
         )
 
         d2_c1.discussion_id = entityD2.id
@@ -764,7 +766,8 @@ export class TestingDataPopulatorService {
             "I'm in a hurry, I want the power that the dark side brings to me, but I also like to be near Rey, I don't know why :S",
             this.Kylo_TeamContributorUser.id,
             this.KyloThoughtsReport.id,
-            null, null
+            null,
+            null,
         )
 
         d3_c1.discussion_id = entityD3.id
