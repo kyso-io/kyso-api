@@ -39,6 +39,7 @@ export class TestingDataPopulatorService {
     private Chewbacca_TeamReaderUser: User
     private Gideon_OrganizationAdminUser: User
     private Palpatine_PlatformAdminUser: User
+    private BabyYoda_OrganizationAdminUser: User
 
     private DarksideOrganization: Organization
     private LightsideOrganization: Organization
@@ -213,10 +214,27 @@ export class TestingDataPopulatorService {
             'n0tiene',
         )
 
+        const babyYoda_TestOrganizationAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
+            'baby_yoda@kyso.io',
+            'baby_yoda@kyso.io',
+            'baby_yoda@kyso.io',
+            'Baby Yoda',
+            LoginProviderEnum.KYSO,
+            '[Organization Admin] Baby Yoda is an Organization Admin',
+            '',
+            '',
+            'free',
+            'https://bit.ly/34q5SxQ',
+            true,
+            [],
+            'n0tiene',
+        )
+
         this.Rey_TeamAdminUser = await this._createUser(rey_TestTeamAdminUser)
         this.Kylo_TeamContributorUser = await this._createUser(kylo_TestTeamContributorUser)
         this.Chewbacca_TeamReaderUser = await this._createUser(chewbacca_TestTeamReaderUser)
         this.Gideon_OrganizationAdminUser = await this._createUser(gideon_TestOrganizationAdminUser)
+        this.BabyYoda_OrganizationAdminUser = await this._createUser(babyYoda_TestOrganizationAdminUser)
         this.Palpatine_PlatformAdminUser = await this._createUser(palpatine_TestPlatformAdminUser)
     }
 
@@ -232,6 +250,7 @@ export class TestingDataPopulatorService {
         await this.usersService.addAccount(this.Kylo_TeamContributorUser.id, githubUserAccount)
         await this.usersService.addAccount(this.Chewbacca_TeamReaderUser.id, githubUserAccount)
         await this.usersService.addAccount(this.Gideon_OrganizationAdminUser.id, githubUserAccount)
+        await this.usersService.addAccount(this.BabyYoda_OrganizationAdminUser.id, githubUserAccount)
         await this.usersService.addAccount(this.Palpatine_PlatformAdminUser.id, githubUserAccount)
     }
 
@@ -456,13 +475,13 @@ export class TestingDataPopulatorService {
     }
 
     private async createTestingComments() {
-        const testComment = new Comment('test text', this.Rey_TeamAdminUser.id, this.KyloThoughtsReport.id, null)
+        const testComment = new Comment('Best pokemon is Charmander', this.Rey_TeamAdminUser.id, this.BestPokemonReport.id, null, null)
         this.TestComment = await this._createComment(testComment)
         this.TestChildComment1 = await this._createComment(
-            new Comment('child test text', this.Rey_TeamAdminUser.id, this.KyloThoughtsReport.id, this.TestComment.id),
+            new Comment('Are you mad? Obviously Pikachu', this.Gideon_OrganizationAdminUser.id, this.BestPokemonReport.id, null, this.TestComment.id),
         )
         this.TestChildComment2 = await this._createComment(
-            new Comment('child 2 test text', this.Rey_TeamAdminUser.id, this.KyloThoughtsReport.id, this.TestComment.id),
+            new Comment('WTF Gideon, you deserve to be arrested', this.Rey_TeamAdminUser.id, this.BestPokemonReport.id, null, this.TestComment.id),
         )
     }
 
@@ -593,7 +612,15 @@ export class TestingDataPopulatorService {
                 [PlatformRole.TEAM_CONTRIBUTOR_ROLE.name],
             )
 
+            
+
             /*** Lightside organization ***/
+            await this.organizationsService.addMembersById(
+                this.LightsideOrganization.id,
+                [this.BabyYoda_OrganizationAdminUser.id.toString()],
+                [PlatformRole.ORGANIZATION_ADMIN_ROLE.name],
+            )
+
             await this.organizationsService.addMembersById(this.LightsideOrganization.id, [this.Rey_TeamAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
 
             await this.organizationsService.addMembersById(this.LightsideOrganization.id, [this.Rey_TeamAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
@@ -682,8 +709,8 @@ export class TestingDataPopulatorService {
         const d1_c1 = new Comment(
             "We can't satisfy the deadline, I suggest to add a small gate and push to production. The probability to receive an attack there is ridiculous",
             this.Gideon_OrganizationAdminUser.id,
-            this.KyloThoughtsReport.id,
-            null,
+            this.DeathStarEngineeringReport.id,
+            null, null
         )
 
         d1_c1.discussion_id = entityD1.id
@@ -692,8 +719,8 @@ export class TestingDataPopulatorService {
         const d1_c2 = new Comment(
             "Are you sure Gideon? I don't want to lose the war for that...",
             this.Palpatine_PlatformAdminUser.id,
-            this.KyloThoughtsReport.id,
-            entityD1C1.comment_id,
+            this.DeathStarEngineeringReport.id,
+            entityD1C1.comment_id, null
         )
 
         d1_c2.discussion_id = entityD1.id
@@ -702,8 +729,8 @@ export class TestingDataPopulatorService {
         const d1_c3 = new Comment(
             "It's a good idea, if not you'll have delays and enter in a debt with Jabba",
             this.Rey_TeamAdminUser.id,
-            this.KyloThoughtsReport.id,
-            null,
+            this.DeathStarEngineeringReport.id,
+            null, null
         )
         d1_c2.discussion_id = entityD1.id
 
@@ -714,19 +741,19 @@ export class TestingDataPopulatorService {
         const d2_c1 = new Comment(
             "Folks, I just drop a message to Dark Star engineering discussion enforcing shitty Gideon argument, hopefully they'll do it and we can win hahahaha",
             this.Rey_TeamAdminUser.id,
-            this.KyloThoughtsReport.id,
-            null,
+            this.RebelScumCounterAttackReport.id,
+            null, null
         )
 
         d2_c1.discussion_id = entityD2.id
         await this.commentsService.createComment(d2_c1)
 
-        const d2_c2 = new Comment('RRWWWGG GGWWWRGHH RAWRGWAWGGR', this.Chewbacca_TeamReaderUser.id, this.KyloThoughtsReport.id, null)
+        const d2_c2 = new Comment('RRWWWGG GGWWWRGHH RAWRGWAWGGR', this.Chewbacca_TeamReaderUser.id, this.RebelScumCounterAttackReport.id, null, null)
 
         d2_c2.discussion_id = entityD2.id
         await this.commentsService.createComment(d2_c2)
 
-        const d2_c3 = new Comment('Hahahahaha good one Chewy', this.Kylo_TeamContributorUser.id, this.KyloThoughtsReport.id, null)
+        const d2_c3 = new Comment('Hahahahaha good one Chewy', this.Kylo_TeamContributorUser.id, this.RebelScumCounterAttackReport.id, null, null)
 
         d2_c3.discussion_id = entityD2.id
         await this.commentsService.createComment(d2_c3)
@@ -737,7 +764,7 @@ export class TestingDataPopulatorService {
             "I'm in a hurry, I want the power that the dark side brings to me, but I also like to be near Rey, I don't know why :S",
             this.Kylo_TeamContributorUser.id,
             this.KyloThoughtsReport.id,
-            null,
+            null, null
         )
 
         d3_c1.discussion_id = entityD3.id
