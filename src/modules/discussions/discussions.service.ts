@@ -106,7 +106,7 @@ export class DiscussionsService extends AutowiredService {
     }
 
     public async deleteDiscussion(id: string): Promise<Discussion> {
-        const discussion: Discussion = await this.getDiscussion({ filer: { id: this.provider.toObjectId(id) } })
+        const discussion: Discussion = await this.getDiscussion({ filter: { _id: this.provider.toObjectId(id) } })
         if (!discussion) {
             throw new PreconditionFailedException('Discussion not found')
         }
@@ -116,7 +116,7 @@ export class DiscussionsService extends AutowiredService {
         return this.provider.update(
             { _id: this.provider.toObjectId(discussion.id) },
             {
-                mark_delete_at: new Date(),
+                $set: {mark_delete_at: new Date()},
             },
         )
     }
