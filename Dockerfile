@@ -31,6 +31,8 @@ ENV NODE_ENV=${NODE_ENV}
 USER node
 # Change the working directory to /app
 WORKDIR /app
+# Copy files required to run the application
+COPY --chown=node:node --from=builder /app/node_modules ./node_modules
 # Copy the dist folder from the builder
 COPY --chown=node:node --from=builder /app/dist ./dist
 # Copy the sources ... FIXME(sto): this should not be needed!!!
