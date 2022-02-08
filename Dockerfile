@@ -6,20 +6,19 @@ ARG SERVICE_TAG=latest
 
 # Builder image
 FROM ${BUILDER_IMG}:${BUILDER_TAG} AS builder
-# For security reasons don't run as root
-USER node
 # Change the working directory to /app
 WORKDIR /app
 # Copy files required to build the application
-COPY --chown=node:node package*.json tsconfig.* ./
+COPY package*.json tsconfig.* ./
 # Execute `npm ci` (not install) with an externally mounted npmrc
-RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,required npm ci
+RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,gid=1000,required\
+  npm ci
 # Copy the sources
-COPY --chown=node:node src ./src/
+COPY src ./src/
 # Build the application (leaves result on ./dist)
 RUN npm run build
 # Execute `npm ci` (not install) for production with an externally mounted npmrc
-RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,required\
+RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,gid=1000,required\
  npm ci --only=production
 
 # Production image
