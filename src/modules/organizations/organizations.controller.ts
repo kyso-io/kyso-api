@@ -1,7 +1,5 @@
 import {
     GlobalPermissionsEnum,
-    HEADER_X_KYSO_ORGANIZATION,
-    HEADER_X_KYSO_TEAM,
     NormalizedResponseDTO,
     Organization,
     OrganizationMember,
@@ -23,7 +21,7 @@ import {
     UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
-import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
 import { Permission } from '../auth/annotations/permission.decorator'

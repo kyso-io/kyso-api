@@ -169,14 +169,23 @@ export class OrganizationsService extends AutowiredService {
         if (!organizationDb) {
             throw new PreconditionFailedException('Organization does not exist')
         }
+        const data: any = {}
+        if (updateOrganizationDTO.location) {
+            data.location = updateOrganizationDTO.location
+        }
+        if (updateOrganizationDTO.link) {
+            data.link = updateOrganizationDTO.link
+        }
+        if (updateOrganizationDTO.bio) {
+            data.bio = updateOrganizationDTO.bio
+        }
+        if (updateOrganizationDTO.allowed_access_domains) {
+            data.allowed_access_domains = updateOrganizationDTO.allowed_access_domains
+        }
         return await this.provider.update(
             { _id: this.provider.toObjectId(organizationDb.id) },
             {
-                $set: {
-                    location: updateOrganizationDTO.location,
-                    link: updateOrganizationDTO.link,
-                    bio: updateOrganizationDTO.bio,
-                },
+                $set: data,
             },
         )
     }
