@@ -15,7 +15,7 @@ export class PermissionsGuard implements CanActivate {
 
     canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
         // FOR JNJ DEMO, REMOVE LATER
-        return true
+        // return true
         
         try {
             const request = context.switchToHttp().getRequest()
@@ -54,13 +54,13 @@ export class PermissionsGuard implements CanActivate {
                 // Check if user has the required permissions in the team
                 let userPermissionsInThatTeam: ResourcePermissions
                 if (team) {
-                    userPermissionsInThatTeam = tokenPayload.permissions.teams.find((x) => x.name === team)
+                    userPermissionsInThatTeam = tokenPayload.permissions.teams.find((x) => x.name.toLowerCase() === team.toLowerCase())
                 }
 
                 // Check if user has the required permissions in the organization
                 let userPermissionsInThatOrganization: ResourcePermissions
                 if (organization) {
-                    userPermissionsInThatOrganization = tokenPayload.permissions.organizations.find((x) => x.name === organization)
+                    userPermissionsInThatOrganization = tokenPayload.permissions.organizations.find((x) => x.name.toLowerCase() === organization.toLowerCase())
                 }
 
                 // Finally, check the global permissions
