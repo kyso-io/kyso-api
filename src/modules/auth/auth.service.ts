@@ -260,6 +260,7 @@ export class AuthService extends AutowiredService {
     }
 
     async login(password: string, provider: LoginProviderEnum, username?: string): Promise<string> {
+        Logger.log(`Logging user ${username}`)
         switch (provider) {
             case LoginProviderEnum.KYSO:
             default:
