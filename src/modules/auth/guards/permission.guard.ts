@@ -15,7 +15,7 @@ export class PermissionsGuard implements CanActivate {
 
     canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
         // FOR JNJ DEMO, REMOVE LATER
-        // return true
+        return true
         
         try {
             const request = context.switchToHttp().getRequest()
