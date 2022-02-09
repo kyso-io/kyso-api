@@ -107,6 +107,7 @@ export class ReportsController extends GenericController<Report> {
         isArray: true,
     })
     async getReports(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<ReportDTO[]>> {
+        console.log(token)
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) query.sort = { _created_at: -1 }
         if (!query.filter) query.filter = {}
