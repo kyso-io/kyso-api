@@ -66,7 +66,8 @@ export class DiscussionsController extends GenericController<Discussion> {
             ]
         }
         const discussions: Discussion[] = await this.discussionsService.getDiscussions(data)
-        return new NormalizedResponseDTO(discussions)
+        const relations = await this.relationsService.getRelations(discussions, 'discussion', { participants: 'User', assignees: 'User' })
+        return new NormalizedResponseDTO(discussions, relations)
     }
 
     @Get('/:discussionId')
@@ -92,7 +93,8 @@ export class DiscussionsController extends GenericController<Discussion> {
             throw new PreconditionFailedException('Discussion not found')
         }
 
-        return new NormalizedResponseDTO(discussion)
+        const relations = await this.relationsService.getRelations(discussion, 'discussion', { participants: 'User', assignees: 'User' })
+        return new NormalizedResponseDTO(discussion, relations)
     }
 
     @Get('/:discussionId/comments')
@@ -135,7 +137,8 @@ export class DiscussionsController extends GenericController<Discussion> {
     @ApiNormalizedResponse({ status: 201, description: `Discussion`, type: Discussion })
     public async createDiscussion(@Body() data: CreateDiscussionRequestDTO): Promise<NormalizedResponseDTO<Discussion>> {
         const updatedDiscussion: Discussion = await this.discussionsService.createDiscussion(data)
-        return new NormalizedResponseDTO(updatedDiscussion)
+        const relations = await this.relationsService.getRelations(updatedDiscussion, 'discussion', { participants: 'User', assignees: 'User' })
+        return new NormalizedResponseDTO(updatedDiscussion, relations)
     }
 
     @Patch('/:discussionId')
@@ -157,7 +160,8 @@ export class DiscussionsController extends GenericController<Discussion> {
         @Body() data: UpdateDiscussionRequestDTO,
     ): Promise<NormalizedResponseDTO<Discussion>> {
         const updatedDiscussion: Discussion = await this.discussionsService.updateDiscussion(discussionId, data)
-        return new NormalizedResponseDTO(updatedDiscussion)
+        const relations = await this.relationsService.getRelations(updatedDiscussion, 'discussion', { participants: 'User', assignees: 'User' })
+        return new NormalizedResponseDTO(updatedDiscussion, relations)
     }
 
     @Delete('/:discussionId')

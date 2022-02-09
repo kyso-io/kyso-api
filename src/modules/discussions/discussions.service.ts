@@ -61,6 +61,10 @@ export class DiscussionsService extends AutowiredService {
             throw new PreconditionFailedException('Team not found')
         }
 
+        if (!data.assignees || data.assignees.length === 0) {
+            data.assignees = [data.user_id]
+        }
+
         const discussion: Discussion = new Discussion(
             data.answered,
             data.assignees,

@@ -1,4 +1,4 @@
-import { Comment, Organization, Relations, Report, Tag, Team, User } from '@kyso-io/kyso-model'
+import { Comment, Discussion, Organization, Relations, Report, Tag, Team, User } from '@kyso-io/kyso-model'
 import { Injectable, Provider } from '@nestjs/common'
 import { plainToInstance } from 'class-transformer'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -36,13 +36,15 @@ export class RelationsService extends AutowiredService {
     }
 
     scanEntityForRelation(data: object, mappings: { [key: string]: string }) {
-        const foreignKeys = Object.keys(data).filter((key) => key.endsWith('_id') || key.endsWith('_ids'))
+        const foreignKeys = Object.keys(data).filter((key) => key.endsWith('_id') || key.endsWith('_ids') || mappings.hasOwnProperty(key))
 
         const relations = foreignKeys
             .map((key) => {
                 let collection = capitalize(key.split('_id')[0])
                 if (mappings.hasOwnProperty(collection)) {
                     collection = mappings[collection]
+                } else if (mappings.hasOwnProperty(key)) {
+                    collection = mappings[key]
                 }
                 return { collection, id: data[key] }
             })
@@ -98,6 +100,7 @@ export class RelationsService extends AutowiredService {
                 if (collection === 'Team') acc[model.id] = plainToInstance(Team, model)
                 if (collection === 'Organization') acc[model.id] = plainToInstance(Organization, model)
                 if (collection === 'Tag') acc[model.id] = plainToInstance(Tag, model)
+                if (collection === 'Discussion') acc[model.id] = plainToInstance(Discussion, model)
                 return acc
             }, {})
             return relations
