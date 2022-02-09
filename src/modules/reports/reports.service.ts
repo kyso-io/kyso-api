@@ -1129,7 +1129,11 @@ export class ReportsService extends AutowiredService {
             return reportTags
         }
         // Normalize tags
-        const normalizedTags: string[] = tags.map((tag: string) => tag.trim().toLocaleLowerCase())
+        let checkedTags = tags
+        if (!Array.isArray(tags)) {
+            checkedTags = [tags]
+        }
+        const normalizedTags: string[] = checkedTags.map((tag: string) => tag.trim().toLocaleLowerCase())
         const tagsDb: Tag[] = await this.tagsService.getTags({ filter: { name: { $in: normalizedTags } } })
         for (const tagName of normalizedTags) {
             let tag: Tag = tagsDb.find((tag: Tag) => tag.name === tagName)
