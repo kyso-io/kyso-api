@@ -299,7 +299,7 @@ export class AuthService extends AutowiredService {
             return undefined
         }
     }
-
+    
     public async refreshToken(token: Token): Promise<string> {
         const user: User = await this.usersService.getUserById(token.id)
         const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
