@@ -428,6 +428,7 @@ export class ReportsService extends AutowiredService {
 
     public async createKysoReport(userId: string, createKysoReportDTO: CreateKysoReportDTO, files: Express.Multer.File[]): Promise<Report> {
         Logger.log("Creating report")
+        console.log("Creating report")
         const user: User = await this.usersService.getUserById(userId)
         Logger.log(`By user: ${user.email}`)
         const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
