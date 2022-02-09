@@ -152,6 +152,10 @@ export class ReportsController extends GenericController<Report> {
             query.filter = newFilter
         }
 
+        if (query?.filter?.name && !isNaN(query.filter.name)) {
+            query.filter.name = query.filter.name.toString()
+        }
+
         const reports: Report[] = await this.reportsService.getReports(query)
         let reportsDtos: ReportDTO[] = []
         if (reports.length > 0) {
