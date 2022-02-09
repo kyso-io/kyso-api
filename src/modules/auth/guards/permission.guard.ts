@@ -90,6 +90,7 @@ export class PermissionsGuard implements CanActivate {
                 if (hasAllThePermissions) {
                     return true
                 } else {
+                    Logger.log(`User ${tokenPayload.username} has no permissions`)
                     return false
                 }
             }

@@ -242,6 +242,7 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.CREATE])
     async createReport(@CurrentToken() token: Token, @Body() createReportDto: CreateReportDTO): Promise<NormalizedResponseDTO<Report>> {
+        Logger.log(`Called createReport`)
         const report: Report = await this.reportsService.createReport(token.id, createReportDto)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report')
@@ -289,6 +290,7 @@ export class ReportsController extends GenericController<Report> {
         @Body() createUIReportDTO: CreateUIReportDTO,
         @UploadedFiles() files: any[],
     ): Promise<NormalizedResponseDTO<Report>> {
+        Logger.log(`Called createUIReport`)
         const report: Report = await this.reportsService.createUIReport(token.id, createUIReportDTO, files)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report')
@@ -310,6 +312,7 @@ export class ReportsController extends GenericController<Report> {
         @CurrentToken() token: Token,
         @Param('repositoryName') repositoryName: string,
     ): Promise<NormalizedResponseDTO<Report>> {
+        Logger.log(`Called createReportFromGithubRepository`)
         const report: Report = await this.reportsService.createReportFromGithubRepository(token.id, repositoryName)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report')
@@ -339,6 +342,7 @@ export class ReportsController extends GenericController<Report> {
         @Param('reportId') reportId: string,
         @Body() updateReportRequestDTO: UpdateReportRequestDTO,
     ): Promise<NormalizedResponseDTO<ReportDTO>> {
+        Logger.log(`Called updateReport`)
         const report: Report = await this.reportsService.updateReport(token.id, reportId, updateReportRequestDTO)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(reportDto, 'report')

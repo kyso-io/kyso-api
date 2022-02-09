@@ -4,12 +4,8 @@ import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nes
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
-import { ForbiddenError } from '../../helpers/errorHandling'
 import { UsersService } from '../users/users.service'
-import { CurrentToken } from './annotations/current-token.decorator'
-import { Permission } from './annotations/permission.decorator'
 import { AuthService } from './auth.service'
-import { PermissionsGuard } from './guards/permission.guard'
 
 @ApiTags('auth')
 @Controller('auth')
