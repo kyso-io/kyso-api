@@ -14,6 +14,9 @@ export class PermissionsGuard implements CanActivate {
     constructor(private readonly reflector: Reflector) {}
 
     canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
+        // FOR JNJ DEMO, REMOVE LATER
+        return true
+        
         try {
             const request = context.switchToHttp().getRequest()
 
