@@ -107,9 +107,7 @@ export class ReportsController extends GenericController<Report> {
         isArray: true,
     })
     async getReports(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<ReportDTO[]>> {
-        console.log(token)
         const query = QueryParser.toQueryObject(req.url)
-        console.log(query)
         if (!query.sort) query.sort = { _created_at: -1 }
         if (!query.filter) query.filter = {}
 
@@ -160,8 +158,8 @@ export class ReportsController extends GenericController<Report> {
             reportsDtos = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token.id)))
             try {
                 await this.reportsService.increaseViews({ _id: { $in: reportsDtos.map((reportDto: ReportDTO) => new ObjectId(reportDto.id)) } })
-            } catch(ex) {
-                console.log("Error increasing views")
+            } catch (ex) {
+                console.log('Error increasing views')
             }
         }
         reportsDtos.forEach((reportDto: ReportDTO) => {

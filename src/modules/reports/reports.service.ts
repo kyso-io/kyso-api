@@ -146,7 +146,7 @@ export class ReportsService extends AutowiredService {
                 name: createReportDto.name,
             },
         })
-        
+
         if (reports.length !== 0) {
             Logger.error('The specified name is already used by another report')
             throw new PreconditionFailedException({
@@ -438,7 +438,7 @@ export class ReportsService extends AutowiredService {
     }
 
     public async createKysoReport(userId: string, createKysoReportDTO: CreateKysoReportDTO, files: Express.Multer.File[]): Promise<Report> {
-        Logger.log("Creating report")
+        Logger.log('Creating report')
         const user: User = await this.usersService.getUserById(userId)
         Logger.log(`By user: ${user.email}`)
         const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
@@ -449,7 +449,7 @@ export class ReportsService extends AutowiredService {
                 file.originalname.endsWith('kyso.json') || file.originalname.endsWith('kyso.yaml') || file.originalname.endsWith('kyso.yml'),
         )
         Logger.log(`Kyso files: ${JSON.stringify(kysoFiles)}`)
-        
+
         if (kysoFiles.length === 0) {
             Logger.error(`No kyso file provided`)
             throw new PreconditionFailedException('No kyso file provided')
@@ -483,7 +483,9 @@ export class ReportsService extends AutowiredService {
         Logger.log(`user belongs to team?: ${belongsToTeam}`)
         if (!isGlobalAdmin && !belongsToTeam && !userBelongsToOrganization) {
             Logger.error(`User ${user.nickname} is not a member of team ${createKysoReportDTO.team} nor the organization ${createKysoReportDTO.organization}`)
-            throw new PreconditionFailedException(`User ${user.nickname} is not a member of team ${createKysoReportDTO.team} nor the organization ${createKysoReportDTO.organization}`)
+            throw new PreconditionFailedException(
+                `User ${user.nickname} is not a member of team ${createKysoReportDTO.team} nor the organization ${createKysoReportDTO.organization}`,
+            )
         }
 
         const name: string = slugify(createKysoReportDTO.title)

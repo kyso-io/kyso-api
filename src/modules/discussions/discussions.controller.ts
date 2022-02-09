@@ -1,6 +1,6 @@
-import { Comment, CreateDiscussionRequestDTO, Discussion, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, NormalizedResponseDTO, UpdateDiscussionRequestDTO } from '@kyso-io/kyso-model'
+import { Comment, CreateDiscussionRequestDTO, Discussion, NormalizedResponseDTO, UpdateDiscussionRequestDTO } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, PreconditionFailedException, Query, UseGuards } from '@nestjs/common'
-import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { InvalidInputError } from 'src/helpers/errorHandling'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -8,9 +8,9 @@ import { GenericController } from '../../generic/controller.generic'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CommentsService } from '../comments/comments.service'
+import { RelationsService } from '../relations/relations.service'
 import { DiscussionsService } from './discussions.service'
 import { DiscussionPermissionsEnum } from './security/discussion-permissions.enum'
-import { RelationsService } from '../relations/relations.service'
 
 @ApiTags('discussions')
 @ApiExtraModels(Discussion)
@@ -81,7 +81,6 @@ export class DiscussionsController extends GenericController<Discussion> {
         schema: { type: 'string' },
         example: 'K1bOzHjEmN',
     })
-    
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
     @Permission([DiscussionPermissionsEnum.READ])
     public async getDiscussionGivenTeamIdAndDiscussionNumber(@Param('discussionId') discussionId: string): Promise<NormalizedResponseDTO<Discussion>> {
@@ -112,7 +111,7 @@ export class DiscussionsController extends GenericController<Discussion> {
     @Permission([DiscussionPermissionsEnum.READ])
     public async getDiscussionCommentsGivenTeamIdAndDiscussionNumber(@Param('discussionId') discussionId: string): Promise<NormalizedResponseDTO<Comment[]>> {
         const discussion: Discussion = await this.discussionsService.getDiscussion({
-            id: discussionId
+            id: discussionId,
         })
 
         if (!discussion) {
