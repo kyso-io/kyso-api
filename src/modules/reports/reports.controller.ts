@@ -132,6 +132,7 @@ export class ReportsController extends GenericController<Report> {
             )
             const newFilter = { ...query.filter }
             console.log(`${query.filter.$text.$search}`)
+
             newFilter.$or = [
                 // {
                 //     $text: newFilter.$text,
@@ -143,7 +144,7 @@ export class ReportsController extends GenericController<Report> {
                     title: { $regex: `/${query.filter.$text.$search}/`, $options: 'i' },
                 },
                 {
-                    description: { $regex: `/${query.filter.$text.$search/}`, $options: 'i' },
+                    description: { $regex: `/${query.filter.$text.$search}/`, $options: 'i' },
                 },
                 {
                     _id: { $in: tagAssigns.map((tagAssign: TagAssign) => new ObjectId(tagAssign.entity_id)) },
