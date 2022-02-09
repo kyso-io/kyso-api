@@ -72,12 +72,17 @@ export class CommentsService extends AutowiredService {
         if (!team) {
             throw new PreconditionFailedException('The specified team could not be found')
         }
-        const userTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(comment.user_id)
-        const hasGlobalPermissionAdmin: boolean = userHasPermission(token, GlobalPermissionsEnum.GLOBAL_ADMIN)
+        // THis is checked in the guard
+        /*const userTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(comment.user_id)
+        
+        /*const hasGlobalPermissionAdmin: boolean = userHasPermission(token, GlobalPermissionsEnum.GLOBAL_ADMIN)
         const userBelongsToTheTeam: boolean = userTeams.find((t: Team) => t.id === team.id) !== undefined
-        if (!hasGlobalPermissionAdmin && !userBelongsToTheTeam) {
+        
+
+        /*if (!hasGlobalPermissionAdmin && !userBelongsToTheTeam) {
             throw new PreconditionFailedException('The specified user does not belong to the team of the specified report')
-        }
+        }*/
+
         return this.createComment(comment)
     }
 
