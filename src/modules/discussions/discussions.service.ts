@@ -79,6 +79,28 @@ export class DiscussionsService extends AutowiredService {
         return this.provider.create(discussion)
     }
 
+    public async addParticipantToDiscussion(reportId: string, userId: string): Promise<Discussion> {
+        return this.provider.update(
+            { _id: this.provider.toObjectId(reportId) },
+            {
+                $push: {
+                    participants: userId,
+                },
+            },
+        )
+    }
+
+    public async removeParticipantFromDiscussion(reportId: string, userId: string): Promise<Discussion> {
+        return this.provider.update(
+            { _id: this.provider.toObjectId(reportId) },
+            {
+                $pull: {
+                    participants: userId,
+                },
+            },
+        )
+    }
+
     public async updateDiscussion(id: string, data: UpdateDiscussionRequestDTO): Promise<Discussion> {
         const discussion: Discussion = await this.getDiscussion({ filter: { id: id, mark_delete_at: { $eq: null } } })
         if (!discussion) {
@@ -116,7 +138,7 @@ export class DiscussionsService extends AutowiredService {
         return this.provider.update(
             { _id: this.provider.toObjectId(discussion.id) },
             {
-                $set: {mark_delete_at: new Date()},
+                $set: { mark_delete_at: new Date() },
             },
         )
     }

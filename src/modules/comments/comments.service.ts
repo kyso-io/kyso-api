@@ -1,10 +1,10 @@
-import { Comment, GlobalPermissionsEnum, Report, Team, Token, Discussion } from '@kyso-io/kyso-model'
+import { Comment, Discussion, GlobalPermissionsEnum, Report, Team, Token } from '@kyso-io/kyso-model'
 import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
-import { ReportsService } from '../reports/reports.service'
 import { DiscussionsService } from '../discussions/discussions.service'
+import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
 import { CommentsMongoProvider } from './providers/mongo-comments.provider'
 import { CommentPermissionsEnum } from './security/comment-permissions.enum'
@@ -83,7 +83,16 @@ export class CommentsService extends AutowiredService {
             throw new PreconditionFailedException('The specified user does not belong to the team of the specified report')
         }*/
 
-        return this.createComment(comment)
+        const newComment: Comment = await this.createComment(comment)
+
+        if (discussion) {
+            const index: number = discussion.participants.findIndex((participant: string) => participant === comment.user_id)
+            if (index === -1) {
+                await this.discussionsService.addParticipantToDiscussion(discussion.id, comment.user_id)
+            }
+        }
+
+        return newComment
     }
 
     async createComment(comment: Comment): Promise<Comment> {
