@@ -119,17 +119,22 @@ export class ReportsService extends AutowiredService {
     }
 
     public async createReport(userId: string, createReportDto: CreateReportDTO): Promise<Report> {
+        Logger.log(`Creating report ${createReportDto.name} by user ${userId}`)
         if (!Validators.isValidReportName(createReportDto.name)) {
+            Logger.error(`Report name can only consist of letters, numbers, '_' and '-'.`)
             throw new PreconditionFailedException({
                 message: `Report name can only consist of letters, numbers, '_' and '-'.`,
             })
         }
 
         const user: User = await this.usersService.getUserById(userId)
-
+        Logger.log(`Fetched user ${user.username}`)
         // Check if team exists
         const team: Team = await this.teamsService.getTeamById(createReportDto.team_id)
+        Logger.log(`Fetched team ${team.name}`)
+
         if (!team) {
+            Logger.error("The specified team couldn't be found")
             throw new PreconditionFailedException("The specified team couldn't be found")
         }
 
@@ -141,7 +146,9 @@ export class ReportsService extends AutowiredService {
                 name: createReportDto.name,
             },
         })
+        
         if (reports.length !== 0) {
+            Logger.error('The specified name is already used by another report')
             throw new PreconditionFailedException({
                 message: 'The specified name is already used by another report',
             })
@@ -152,6 +159,7 @@ export class ReportsService extends AutowiredService {
         if (createReportDto.provider === RepositoryProvider.GITHUB) {
             const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
             if (!userAccount) {
+                Logger.error('User does not have a github account')
                 throw new PreconditionFailedException('User does not have a github account')
             }
             const githubRepository: GithubRepository = await this.githubReposService.getGithubRepository(
@@ -189,10 +197,13 @@ export class ReportsService extends AutowiredService {
             [],
             null,
         )
+        Logger.log('Creating report')
         return this.provider.create(report)
     }
 
     public async updateReport(userId: string, reportId: string, updateReportRequestDTO: UpdateReportRequestDTO): Promise<Report> {
+        Logger.log(`Updating report ${reportId}`)
+
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
@@ -428,7 +439,6 @@ export class ReportsService extends AutowiredService {
 
     public async createKysoReport(userId: string, createKysoReportDTO: CreateKysoReportDTO, files: Express.Multer.File[]): Promise<Report> {
         Logger.log("Creating report")
-        console.log("Creating report")
         const user: User = await this.usersService.getUserById(userId)
         Logger.log(`By user: ${user.email}`)
         const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)

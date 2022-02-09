@@ -27,7 +27,7 @@ export class AuthController extends GenericController<string> {
 
     @Get('/version')
     version(): string {
-        return "0.0.1"
+        return "0.0.2"
     }
 
     @Post('/login')

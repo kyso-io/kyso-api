@@ -27,6 +27,7 @@ import {
     Controller,
     Delete,
     Get,
+    Logger,
     Param,
     Patch,
     Post,
@@ -264,6 +265,7 @@ export class ReportsController extends GenericController<Report> {
         @Body() createKysoReportDTO: CreateKysoReportDTO,
         @UploadedFiles() files: any[],
     ): Promise<NormalizedResponseDTO<Report>> {
+        Logger.log(`Called createKysoReport`)
         const report: Report = await this.reportsService.createKysoReport(token.id, createKysoReportDTO, files)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report')
