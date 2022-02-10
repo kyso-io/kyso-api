@@ -5,6 +5,7 @@ import {
     Report,
     Team,
     TeamMember,
+    TeamPermissionsEnum,
     Token,
     UpdateTeamMembersDTO,
     UpdateTeamRequest,
@@ -35,7 +36,6 @@ import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { AuthService } from '../auth/auth.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
-import { TeamPermissionsEnum } from './security/team-permissions.enum'
 import { TeamsService } from './teams.service'
 
 @ApiTags('teams')

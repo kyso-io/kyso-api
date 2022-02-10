@@ -1,4 +1,11 @@
-import { Comment, CreateDiscussionRequestDTO, Discussion, NormalizedResponseDTO, UpdateDiscussionRequestDTO } from '@kyso-io/kyso-model'
+import {
+    Comment,
+    CreateDiscussionRequestDTO,
+    Discussion,
+    DiscussionPermissionsEnum,
+    NormalizedResponseDTO,
+    UpdateDiscussionRequestDTO,
+} from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, PreconditionFailedException, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { InvalidInputError } from 'src/helpers/errorHandling'
@@ -10,7 +17,6 @@ import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CommentsService } from '../comments/comments.service'
 import { RelationsService } from '../relations/relations.service'
 import { DiscussionsService } from './discussions.service'
-import { DiscussionPermissionsEnum } from './security/discussion-permissions.enum'
 
 @ApiTags('discussions')
 @ApiExtraModels(Discussion)

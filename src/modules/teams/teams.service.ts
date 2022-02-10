@@ -5,6 +5,7 @@ import {
     Organization,
     OrganizationMemberJoin,
     Report,
+    ReportPermissionsEnum,
     Team,
     TeamMember,
     TeamMemberJoin,
@@ -23,7 +24,6 @@ import slugify from '../../helpers/slugify'
 import { PlatformRole } from '../../security/platform-roles'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
-import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
 import { UsersService } from '../users/users.service'
 import { TeamMemberMongoProvider } from './providers/mongo-team-member.provider'
 import { TeamsMongoProvider } from './providers/mongo-teams.provider'

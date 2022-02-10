@@ -3,6 +3,8 @@ import {
     NormalizedResponseDTO,
     Organization,
     OrganizationMember,
+    OrganizationPermissionsEnum,
+    TeamPermissionsEnum,
     UpdateOrganizationDTO,
     UpdateOrganizationMembersDTO,
 } from '@kyso-io/kyso-model'
@@ -26,9 +28,7 @@ import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
-import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { OrganizationsService } from './organizations.service'
-import { OrganizationPermissionsEnum } from './security/organization-permissions.enum'
 
 @ApiTags('organizations')
 @ApiExtraModels(Organization)

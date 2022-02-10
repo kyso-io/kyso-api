@@ -332,6 +332,14 @@ export class ReportsService extends AutowiredService {
         }
     }
 
+    public async toggleGlobalPin(reportId: string): Promise<Report> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new NotFoundError({ message: 'The specified report could not be found' })
+        }
+        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { pin: !report.pin } })
+    }
+
     public async toggleUserPin(userId: string, reportId: string): Promise<Report> {
         const pinnedReports: PinnedReport[] = await this.pinnedReportsMongoProvider.read({
             filter: {

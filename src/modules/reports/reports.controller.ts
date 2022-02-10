@@ -14,13 +14,11 @@ import {
     NormalizedResponseDTO,
     Report,
     ReportDTO,
-    Tag,
-    TagAssign,
+    ReportPermissionsEnum,
     Team,
     Token,
     UpdateReportRequestDTO,
 } from '@kyso-io/kyso-model'
-import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import {
     BadRequestException,
     Body,
@@ -57,7 +55,6 @@ import { RelationsService } from '../relations/relations.service'
 import { TagsService } from '../tags/tags.service'
 import { TeamsService } from '../teams/teams.service'
 import { ReportsService } from './reports.service'
-import { ReportPermissionsEnum } from './security/report-permissions.enum'
 
 @ApiExtraModels(Report, NormalizedResponseDTO)
 @ApiTags('reports')
@@ -145,10 +142,10 @@ export class ReportsController extends GenericController<Report> {
                 },
                 {
                     description: { $regex: `${query.filter.$text.$search}`, $options: 'i' },
-                }/*,
+                } /*,
                 {
                     _id: { $in: tagAssigns.map((tagAssign: TagAssign) => new ObjectId(tagAssign.entity_id)) },
-                },*/
+                },*/,
             ]
             delete newFilter.$text
             query.filter = newFilter
@@ -202,7 +199,7 @@ export class ReportsController extends GenericController<Report> {
         reportsDtos.forEach((reportDto: ReportDTO) => {
             reportDto.views++
         })
-        const relations = await this.relationsService.getRelations(reports, 'report')
+        const relations = await this.relationsService.getRelations(reports, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportsDtos, relations)
     }
 
@@ -255,7 +252,7 @@ export class ReportsController extends GenericController<Report> {
         Logger.log(`Called createReport`)
         const report: Report = await this.reportsService.createReport(token.id, createReportDto)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(report, 'report')
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
@@ -279,7 +276,7 @@ export class ReportsController extends GenericController<Report> {
         Logger.log(`Called createKysoReport`)
         const report: Report = await this.reportsService.createKysoReport(token.id, createKysoReportDTO, files)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(report, 'report')
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
@@ -303,7 +300,7 @@ export class ReportsController extends GenericController<Report> {
         Logger.log(`Called createUIReport`)
         const report: Report = await this.reportsService.createUIReport(token.id, createUIReportDTO, files)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(report, 'report')
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
@@ -325,7 +322,7 @@ export class ReportsController extends GenericController<Report> {
         Logger.log(`Called createReportFromGithubRepository`)
         const report: Report = await this.reportsService.createReportFromGithubRepository(token.id, repositoryName)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(report, 'report')
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
@@ -355,7 +352,7 @@ export class ReportsController extends GenericController<Report> {
         Logger.log(`Called updateReport`)
         const report: Report = await this.reportsService.updateReport(token.id, reportId, updateReportRequestDTO)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(reportDto, 'report')
+        const relations = await this.relationsService.getRelations(reportDto, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(report, relations)
     }
 
@@ -377,6 +374,30 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponseDTO(report)
     }
 
+    @Patch('/:reportId/pin')
+    @ApiOperation({
+        summary: `Toggles global pin for the specified report`,
+        description: `Allows pinning and unpinning of the specified report globally`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Specified report data`,
+        type: Report,
+    })
+    @ApiParam({
+        name: 'reportId',
+        required: true,
+        description: 'Id of the report to toggle global pin',
+        schema: { type: 'string' },
+    })
+    @Permission([ReportPermissionsEnum.GLOBAL_PIN])
+    async toggleGlobalPin(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
+        const report: Report = await this.reportsService.toggleGlobalPin(reportId)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
     @Patch('/:reportId/user-pin')
     @ApiOperation({
         summary: `Toggles the user's pin the specified report`,
@@ -393,11 +414,10 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to pin',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.EDIT])
     async toggleUserPin(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.toggleUserPin(token.id, reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(report, 'report')
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
@@ -421,7 +441,7 @@ export class ReportsController extends GenericController<Report> {
     async toggleUserStar(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.toggleUserStar(token.id, reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(report, 'report')
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
@@ -638,7 +658,7 @@ export class ReportsController extends GenericController<Report> {
         }
         const report: Report = await this.reportsService.setPreviewPicture(reportId, file)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(report, 'report')
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
@@ -658,7 +678,7 @@ export class ReportsController extends GenericController<Report> {
     public async deleteBackgroundImage(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
         const report: Report = await this.reportsService.deletePreviewPicture(reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(report, 'report')
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
     }
 }

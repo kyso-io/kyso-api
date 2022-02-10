@@ -1,4 +1,4 @@
-import { Comment, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model'
+import { Comment, CommentPermissionsEnum, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -7,7 +7,6 @@ import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CommentsService } from './comments.service'
-import { CommentPermissionsEnum } from './security/comment-permissions.enum'
 
 @ApiTags('comments')
 @ApiExtraModels(Comment)
