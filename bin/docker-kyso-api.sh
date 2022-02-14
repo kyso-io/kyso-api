@@ -37,8 +37,8 @@ _readlinkf_posix() {
   while [ "$max_symlinks" -ge 0 ] && max_symlinks=$((max_symlinks - 1)); do
     if [ ! "$target" = "${target%/*}" ]; then
       case $target in
-        /*) cd -P "${target%/*}/" 2>/dev/null || break ;;
-        *) cd -P "./${target%/*}" 2>/dev/null || break ;;
+      /*) cd -P "${target%/*}/" 2>/dev/null || break ;;
+      *) cd -P "./${target%/*}" 2>/dev/null || break ;;
       esac
       target=${target##*/}
     fi
@@ -70,13 +70,14 @@ cd_to_workdir() {
 
 docker_setup() {
   if [ ! -f "$NPMRC_KYSO" ]; then
-    PKG_READER_TOKEN=""
+    PACKAGE_READER_TOKEN=""
     echo "Please, create a personal access token with read_api scope"
     echo "URL: https://gitlab.kyso.io/-/profile/personal_access_tokens"
     while [ -z "$PACKAGE_READER_TOKEN" ]; do
-      read -p "Token value: " PACKAGE_READER_TOKEN
+      printf "Token value: "
+      read -r PACKAGE_READER_TOKEN
     done
-    cat > "$NPMRC_KYSO" << EOF
+    cat >"$NPMRC_KYSO" <<EOF
 
 @kyso-io:registry=https://gitlab.kyso.io/api/v4/packages/npm/
 //gitlab.kyso.io/api/v4/packages/npm/:_authToken=${PACKAGE_READER_TOKEN}
@@ -95,26 +96,31 @@ docker_build() {
     exit 1
   fi
   # Prepare .npmrc.docker
-  cat ".npmrc" "$NPMRC_KYSO" > "$NPMRC_DOCKER"
+  cat ".npmrc" "$NPMRC_KYSO" >"$NPMRC_DOCKER"
 
   # Compute build args
   if [ -f "./.build-args" ]; then
-    for _var in $(sed -ne 's/#.*//;/=/{p}' "./.build-args"); do
-      BUILD_ARGS="$BUILD_ARGS --build-arg \"$_var\""
-    done
+    BUILD_ARGS="$(
+      awk '!/^#/ { printf(" --build-arg \"%s\"", $0); }' "./.build-args"
+    )"
   fi
   # Compute build secrets if there is a .build_secrets file
   if [ -f "./.build-secrets" ]; then
-    for _secret in $(
-        sed -ne "/=/{ s/src=.npmrc/src=$NPMRC_DOCKER/; p }" "./.build-secrets"
-    ); do
-      BUILD_SECRETS="$BUILD_SECRETS --secret \"$_secret\""
-    done
+    BUILD_SECRETS="$(
+      awk -f- "./.build-secrets" <<EOF
+!/^#/{
+  sub("src=.npmrc","src=$NPMRC_DOCKER",\$0);
+  printf(" --secret \"%s\"", \$0);
+}
+EOF
+    )"
   fi
-
-  DOCKER_COMMAND="DOCKER_BUILDKIT=1 docker build $BUILD_ARGS $BUILD_SECRETS"
-  DOCKER_COMMAND="$DOCKER_COMMAND --tag '$BUILD_TAG' ."
-  eval "$(echo $DOCKER_COMMAND)"
+  DOCKER_COMMAND="$(
+    printf "%s" \
+      "DOCKER_BUILDKIT=1 docker build${BUILD_ARGS}${BUILD_SECRETS}" \
+      " --tag '$BUILD_TAG' ."
+  )"
+  eval "$DOCKER_COMMAND"
 }
 
 docker_build_prune() {
@@ -126,12 +132,16 @@ docker_epsh() {
     docker rm "$CONTAINER_NAME"
   fi
   VOLUMES="-v $(pwd)/$ENV_DOCKER:/app/.env"
-  docker run --entrypoint '/bin/sh' --rm -ti --name "$CONTAINER_NAME" \
-    $VOLUMES "$BUILD_TAG"
+  DOCKER_COMMAND="$(
+    printf "%s" \
+      "docker run --entrypoint '/bin/sh' --rm -ti --name '$CONTAINER_NAME'" \
+      " $VOLUMES '$BUILD_TAG'"
+  )"
+  eval "$DOCKER_COMMAND"
 }
 
 docker_logs() {
-  docker logs $@ "$CONTAINER_NAME"
+  docker logs "$@" "$CONTAINER_NAME"
 }
 
 docker_rm() {
@@ -143,8 +153,12 @@ docker_run() {
     docker rm "$CONTAINER_NAME"
   fi
   VOLUMES="-v $(pwd)/$ENV_DOCKER:/app/.env"
-  docker run -d --name "$CONTAINER_NAME" $CONTAINER_VARS $PUBLISH_PORTS \
-    $VOLUMES "$BUILD_TAG"
+  DOCKER_COMMAND="$(
+    printf "%s" \
+      "docker run -d --name '$CONTAINER_NAME' $CONTAINER_VARS $PUBLISH_PORTS" \
+      " $VOLUMES '$BUILD_TAG'"
+  )"
+  eval "$DOCKER_COMMAND"
 }
 
 docker_sh() {
@@ -152,8 +166,8 @@ docker_sh() {
 }
 
 docker_status() {
-  docker ps -a -f name="${CONTAINER_NAME}" --format '{{.Status}}' 2> /dev/null \
-  || true
+  docker ps -a -f name="${CONTAINER_NAME}" --format '{{.Status}}' 2>/dev/null ||
+    true
 }
 
 docker_stop() {
@@ -166,7 +180,7 @@ mongo() {
 }
 
 usage() {
-  cat << EOF
+  cat <<EOF
 Usage: $0 CMND [ARGS]
 
 Where CMND can be one of:
@@ -190,16 +204,16 @@ echo "WORKING DIRECTORY = '$(pwd)'"
 echo ""
 
 case "$1" in
-  build) docker_build;;
-  build-prune) docker_build_prune;;
-  epsh) docker_epsh;;
-  logs) shift && docker_logs $@;;
-  rm) docker_rm;;
-  setup) docker_setup;;
-  sh) docker_sh;;
-  start) docker_run;;
-  status) docker_status;;
-  stop) docker_stop;;
-  mongo) mongo;;
-  *) usage;;
+build) docker_build ;;
+build-prune) docker_build_prune ;;
+epsh) docker_epsh ;;
+logs) shift && docker_logs "$@" ;;
+rm) docker_rm ;;
+setup) docker_setup ;;
+sh) docker_sh ;;
+start) docker_run ;;
+status) docker_status ;;
+stop) docker_stop ;;
+mongo) mongo ;;
+*) usage ;;
 esac

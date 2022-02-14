@@ -1,4 +1,15 @@
-import { CreateUserRequestDTO, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, NormalizedResponseDTO, Token, UpdateUserRequestDTO, User, UserAccount, UserDTO } from '@kyso-io/kyso-model'
+import {
+    CreateUserRequestDTO,
+    HEADER_X_KYSO_ORGANIZATION,
+    HEADER_X_KYSO_TEAM,
+    NormalizedResponseDTO,
+    Token,
+    UpdateUserRequestDTO,
+    User,
+    UserAccount,
+    UserDTO,
+    UserPermissionsEnum,
+} from '@kyso-io/kyso-model'
 import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
@@ -7,7 +18,6 @@ import { GenericController } from '../../generic/controller.generic'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
-import { UserPermissionsEnum } from './security/user-permissions.enum'
 import { UsersService } from './users.service'
 
 @ApiTags('users')

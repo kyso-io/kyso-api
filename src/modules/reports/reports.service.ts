@@ -332,6 +332,14 @@ export class ReportsService extends AutowiredService {
         }
     }
 
+    public async toggleGlobalPin(reportId: string): Promise<Report> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new NotFoundError({ message: 'The specified report could not be found' })
+        }
+        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { pin: !report.pin } })
+    }
+
     public async toggleUserPin(userId: string, reportId: string): Promise<Report> {
         const pinnedReports: PinnedReport[] = await this.pinnedReportsMongoProvider.read({
             filter: {
@@ -692,7 +700,7 @@ export class ReportsService extends AutowiredService {
         return report
     }
 
-    public async createReportFromGithubRepository(userId: string, repositoryName: string): Promise<Report> {
+    public async createReportFromGithubRepository(userId: string, repositoryName: string, branch: string): Promise<Report> {
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new NotFoundError(`User ${userId} does not exist`)
@@ -765,11 +773,15 @@ export class ReportsService extends AutowiredService {
 
         new Promise<void>(async () => {
             Logger.log(`Report '${report.id} ${report.name}': Getting last commit of repository...`, ReportsService.name)
-            const commitsResponse = await octokit.repos.listCommits({
+            const args: any = {
                 owner: userAccount.username,
                 repo: repositoryName,
                 per_page: 1,
-            })
+            }
+            if (branch && branch.length > 0) {
+                args.sha = branch
+            }
+            const commitsResponse = await octokit.repos.listCommits(args)
             if (commitsResponse.status !== 200) {
                 report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                 Logger.error(`Report '${report.id} ${repositoryName}': GitHub API returned status ${commitsResponse.status}`, ReportsService.name)

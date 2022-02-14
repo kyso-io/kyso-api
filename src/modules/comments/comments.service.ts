@@ -1,4 +1,4 @@
-import { Comment, Discussion, GlobalPermissionsEnum, Report, Team, Token } from '@kyso-io/kyso-model'
+import { Comment, CommentPermissionsEnum, Discussion, GlobalPermissionsEnum, Report, Team, Token } from '@kyso-io/kyso-model'
 import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -7,7 +7,6 @@ import { DiscussionsService } from '../discussions/discussions.service'
 import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
 import { CommentsMongoProvider } from './providers/mongo-comments.provider'
-import { CommentPermissionsEnum } from './security/comment-permissions.enum'
 
 function factory(service: CommentsService) {
     return service

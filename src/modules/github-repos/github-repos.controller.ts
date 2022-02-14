@@ -2,6 +2,7 @@ import {
     GithubAccount,
     GithubEmail,
     GithubFileHash,
+    GithubRepoPermissionsEnum,
     GithubRepository,
     HEADER_X_KYSO_ORGANIZATION,
     HEADER_X_KYSO_TEAM,
@@ -22,7 +23,6 @@ import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { UsersService } from '../users/users.service'
 import { GithubReposService } from './github-repos.service'
-import { GithubRepoPermissionsEnum } from './security/github-repos-permissions.enum'
 
 @ApiTags('repos/github')
 @ApiExtraModels(GithubAccount, Repository)

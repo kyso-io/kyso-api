@@ -9,10 +9,12 @@ import {
     LoginProviderEnum,
     Organization,
     Report,
+    ReportPermissionsEnum,
     RepositoryProvider,
     Tag,
     TagRequestDTO,
     Team,
+    TeamPermissionsEnum,
     TeamVisibilityEnum,
     User,
     UserAccount,
@@ -25,9 +27,7 @@ import { CommentsService } from '../comments/comments.service'
 import { DiscussionsService } from '../discussions/discussions.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
-import { ReportPermissionsEnum } from '../reports/security/report-permissions.enum'
 import { TagsService } from '../tags/tags.service'
-import { TeamPermissionsEnum } from '../teams/security/team-permissions.enum'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
