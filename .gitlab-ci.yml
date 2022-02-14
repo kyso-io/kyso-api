@@ -1,6 +1,6 @@
 include:
   - project: 'common/gitlab-ci'
-    ref: v0.3.6
+    ref: v0.4.0
     file: '/templates/npm-dockerfile-build.yml'
 
 variables:
