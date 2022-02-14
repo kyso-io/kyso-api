@@ -318,9 +318,10 @@ export class ReportsController extends GenericController<Report> {
     async createReportFromGithubRepository(
         @CurrentToken() token: Token,
         @Param('repositoryName') repositoryName: string,
+        @Query('branch') branch: string,
     ): Promise<NormalizedResponseDTO<Report>> {
         Logger.log(`Called createReportFromGithubRepository`)
-        const report: Report = await this.reportsService.createReportFromGithubRepository(token.id, repositoryName)
+        const report: Report = await this.reportsService.createReportFromGithubRepository(token.id, repositoryName, branch)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
