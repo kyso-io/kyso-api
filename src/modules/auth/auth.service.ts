@@ -271,7 +271,7 @@ export class AuthService extends AutowiredService {
             case LoginProviderEnum.KYSO_ACCESS_TOKEN:
                 return await this.kysoLoginProvider.loginWithAccessToken(login.password, login.username)
             case LoginProviderEnum.GITHUB:
-                return await this.githubLoginProvider.login(login.password)
+                return await this.githubLoginProvider.login(login)
             case LoginProviderEnum.GOOGLE:
                 return this.googleLoginProvider.login(login)
         }
