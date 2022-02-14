@@ -1,6 +1,7 @@
 import {
     KysoPermissions,
     KysoRole,
+    Login,
     LoginProviderEnum,
     Organization,
     OrganizationMemberJoin,
@@ -20,6 +21,7 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { GithubLoginProvider } from './providers/github-login.provider'
+import { GoogleLoginProvider } from './providers/google-login.provider'
 import { KysoLoginProvider } from './providers/kyso-login.provider'
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
@@ -52,6 +54,7 @@ export class AuthService extends AutowiredService {
     constructor(
         private readonly kysoLoginProvider: KysoLoginProvider,
         private readonly githubLoginProvider: GithubLoginProvider,
+        private readonly googleLoginProvider: GoogleLoginProvider,
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
         private readonly userRoleProvider: UserRoleMongoProvider,
@@ -259,15 +262,16 @@ export class AuthService extends AutowiredService {
         return response
     }
 
-    async login(password: string, provider: LoginProviderEnum, username?: string): Promise<string> {
-        Logger.log(`Logging user ${username}`)
-        switch (provider) {
+    async login(login: Login): Promise<string> {
+        Logger.log(`Logging user ${login.username}`)
+        switch (login.provider) {
             case LoginProviderEnum.KYSO:
             default:
-                return await this.kysoLoginProvider.login(password, username)
+                return await this.kysoLoginProvider.login(login.password, login.username)
             case LoginProviderEnum.GITHUB:
-                return await this.githubLoginProvider.login(password)
-            // case LoginProvider.GOOGLE:
+                return await this.githubLoginProvider.login(login.password)
+            case LoginProviderEnum.GOOGLE:
+                return this.googleLoginProvider.login(login)
         }
     }
 
@@ -299,7 +303,7 @@ export class AuthService extends AutowiredService {
             return undefined
         }
     }
-    
+
     public async refreshToken(token: Token): Promise<string> {
         const user: User = await this.usersService.getUserById(token.id)
         const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(

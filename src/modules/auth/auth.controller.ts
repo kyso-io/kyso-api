@@ -1,5 +1,5 @@
 import { CreateUserRequestDTO, Login, NormalizedResponseDTO, Token, User } from '@kyso-io/kyso-model'
-import { Body, Controller, ForbiddenException, Get, Headers, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, ForbiddenException, Get, Headers, Post } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -23,7 +23,7 @@ export class AuthController extends GenericController<string> {
 
     @Get('/version')
     version(): string {
-        return "0.0.2"
+        return '0.0.2'
     }
 
     @Post('/login')
@@ -52,7 +52,7 @@ export class AuthController extends GenericController<string> {
         },
     })
     async login(@Body() login: Login): Promise<NormalizedResponseDTO<string>> {
-        const jwt: string = await this.authService.login(login.password, login.provider, login.username)
+        const jwt: string = await this.authService.login(login)
         return new NormalizedResponseDTO(jwt)
     }
 
@@ -84,16 +84,16 @@ export class AuthController extends GenericController<string> {
     })
     async refreshToken(@Headers('authorization') jwtToken: string): Promise<NormalizedResponseDTO<string>> {
         try {
-            const splittedToken = jwtToken.split("Bearer ")
+            const splittedToken = jwtToken.split('Bearer ')
             const decodedToken = this.authService.evaluateAndDecodeToken(splittedToken[1])
-            
-            if(decodedToken) {
+
+            if (decodedToken) {
                 const jwt: string = await this.authService.refreshToken(decodedToken)
                 return new NormalizedResponseDTO(jwt)
             } else {
                 throw new ForbiddenException()
             }
-        } catch(ex) {
+        } catch (ex) {
             throw new ForbiddenException()
         }
     }

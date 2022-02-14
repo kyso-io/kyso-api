@@ -31,6 +31,7 @@ import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
+import { QueryParser } from '../../helpers/queryParser'
 import slugify from '../../helpers/slugify'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
@@ -77,12 +78,21 @@ export class TeamsController extends GenericController<Team> {
         required: true,
     })
     @Permission([TeamPermissionsEnum.READ])
-    async getVisibilityTeams(@Req() req): Promise<NormalizedResponseDTO<Team[]>> {
-        const splittedToken = req.headers['authorization'].split('Bearer ')[1]
+    async getVisibilityTeams(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<Team[]>> {
+        const query = QueryParser.toQueryObject(req.url)
+        if (!query.sort) {
+            query.sort = { _created_at: -1 }
+        }
+        if (!query.filter) {
+            query.filter = {}
+        }
 
-        const token: Token = this.authService.evaluateAndDecodeToken(splittedToken)
-
-        const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+        let teams: Team[] = []
+        if (Object.keys(query.filter).length === 0) {
+            teams = await this.teamsService.getTeamsVisibleForUser(token.id)
+        } else {
+            teams = await this.teamsService.getTeams(query)
+        }
         return new NormalizedResponseDTO(teams)
     }
 
