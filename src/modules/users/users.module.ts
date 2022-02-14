@@ -1,4 +1,5 @@
 import { DynamicModule, Global, Module } from '@nestjs/common'
+import { KysoUserAccessTokensMongoProvider } from './providers/mongo-kyso-user-access-token.provider'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 import { UserController } from './user.controller'
 import { UsersController } from './users.controller'
@@ -16,7 +17,7 @@ export class UsersModule {
    
         return {
             module: UsersModule,
-            providers: [UsersService, UsersMongoProvider, dynamicProvider],
+            providers: [UsersService, UsersMongoProvider, KysoUserAccessTokensMongoProvider, dynamicProvider],
             controllers: [UserController, UsersController],
             exports: [dynamicProvider],
         };

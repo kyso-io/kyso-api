@@ -1,7 +1,9 @@
 import {
+    CreateKysoAccessTokenDto,
     CreateUserRequestDTO,
     HEADER_X_KYSO_ORGANIZATION,
     HEADER_X_KYSO_TEAM,
+    KysoUserAccessToken,
     NormalizedResponseDTO,
     Token,
     UpdateUserRequestDTO,
@@ -213,6 +215,24 @@ export class UsersController extends GenericController<User> {
     @Permission([UserPermissionsEnum.EDIT])
     async addAccount(@Param('userId') userId: string, @Body() userAccount: UserAccount): Promise<boolean> {
         return this.usersService.addAccount(userId, userAccount)
+    }
+
+    @Post('/:userId/access_token')
+    @ApiOperation({
+        summary: `Creates an access token for the specified user`,
+        description: `Creates an access token for the specified user`,
+    })
+    @ApiParam({
+        name: 'userId',
+        required: true,
+        description: `id of the user to create an access token`,
+        schema: { type: 'string' },
+    })
+    @ApiResponse({ status: 200, description: `Access Token created successfully`, type: KysoUserAccessToken })
+    @Permission([UserPermissionsEnum.EDIT])
+    async createUserAccessToken(@Param('userId') userId: string, @Body() accessTokenConfiguration: CreateKysoAccessTokenDto): Promise<KysoUserAccessToken> {
+        return this.usersService.createKysoAccessToken(accessTokenConfiguration.user_id, accessTokenConfiguration.name, 
+            accessTokenConfiguration.scope, accessTokenConfiguration.expiration_date)
     }
 
     @Delete('/:userId/accounts/:provider/:accountId')

@@ -1,5 +1,5 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
-import { CreateUserRequestDTO, Organization, Team, TeamVisibilityEnum, Token, UpdateUserRequestDTO, User, UserAccount } from '@kyso-io/kyso-model'
+import { CreateUserRequestDTO, KysoPermissions, KysoUserAccessToken, KysoUserAccessTokenStatus, Organization, Team, TeamVisibilityEnum, Token, UpdateUserRequestDTO, User, UserAccount } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { extname } from 'path'
@@ -12,6 +12,7 @@ import { CommentsService } from '../comments/comments.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
+import { KysoUserAccessTokensMongoProvider } from './providers/mongo-kyso-user-access-token.provider'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 
 function factory(service: UsersService) {
@@ -40,7 +41,9 @@ export class UsersService extends AutowiredService {
     @Autowired({ typeName: 'CommentsService' })
     private commentsService: CommentsService
 
-    constructor(private mailerService: MailerService, private readonly provider: UsersMongoProvider) {
+    constructor(private mailerService: MailerService, 
+        private readonly provider: UsersMongoProvider,
+        private readonly kysoAccessTokenProvider: KysoUserAccessTokensMongoProvider) {
         super()
     }
 
@@ -264,5 +267,27 @@ export class UsersService extends AutowiredService {
             await s3Client.send(deleteObjectCommand)
         }
         return this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { avatar_url: null } })
+    }
+
+    public async createKysoAccessToken(user_id: string, name: string, scope: KysoPermissions[], expiration_date?: Date): Promise<KysoUserAccessToken> {
+        const accessToken = new KysoUserAccessToken(user_id, name, KysoUserAccessTokenStatus.ACTIVE, 
+            expiration_date, null, scope, 0, uuidv4())
+        
+        return this.kysoAccessTokenProvider.create(accessToken)
+    }
+
+    public async searchAccessToken(user_id: string, access_token: string): Promise<KysoUserAccessToken> {
+        const result: KysoUserAccessToken[] = await this.kysoAccessTokenProvider.read({ filter: {
+            $and: [
+                {"user_id": user_id},
+                {"access_token": access_token}
+            ]
+        }})
+
+        if(result && result.length === 1) {
+            return result[0]
+        } else {
+            return null
+        }
     }
 }
