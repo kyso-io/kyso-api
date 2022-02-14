@@ -511,6 +511,29 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponseDTO(branches)
     }
 
+    @Get('/:reportId/versions')
+    @ApiOperation({
+        summary: `Get versions of a report`,
+        description: `By passing in the appropriate options you can see all the versions of a report`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Versions of the specified report`,
+        type: NormalizedResponseDTO,
+        isArray: true,
+    })
+    @ApiParam({
+        name: 'reportId',
+        required: true,
+        description: `Id of the version's report to fetch`,
+        schema: { type: 'string' },
+    })
+    @Permission([ReportPermissionsEnum.READ])
+    async getVersions(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<GithubBranch[]>> {
+        const branches: GithubBranch[] = await this.reportsService.getBranches(token.id, reportId)
+        return new NormalizedResponseDTO(branches)
+    }
+
     @Get('/:reportId/:branch/commits')
     @ApiOperation({
         summary: `Get commits of a report imported from a git provider`,
