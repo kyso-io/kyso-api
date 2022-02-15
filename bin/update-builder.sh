@@ -15,7 +15,7 @@ PACKAGE_LOCK="package-lock.json"
 VERSION_FILE="version.txt"
 
 # Regex to remove Kyso packages
-KYSO_PACKAGES="@kyso"
+KYSO_PACKAGES='^[[:blank:]]*"@kyso'
 
 # Terminal related vars
 bold="$(tput bold)"
