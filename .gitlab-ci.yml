@@ -7,3 +7,4 @@ variables:
   DOCKER_BUILDKIT: 1
   KYSO_IGNORE_BRANCH: "true"
   CODE_QUALITY_DISABLED: "true"
+  SAST_DISABLED: "true"
