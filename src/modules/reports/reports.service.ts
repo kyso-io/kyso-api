@@ -379,20 +379,26 @@ export class ReportsService extends AutowiredService {
     }
 
     public async reportModelToReportDTO(report: Report, userId: string): Promise<ReportDTO> {
-        const pinnedReport: StarredReport[] = await this.pinnedReportsMongoProvider.read({
-            filter: {
-                user_id: userId,
-                report_id: report.id,
-            },
-        })
+        let pinnedReport: StarredReport[] = []
+        if (userId) {
+            pinnedReport = await this.pinnedReportsMongoProvider.read({
+                filter: {
+                    user_id: userId,
+                    report_id: report.id,
+                },
+            })
+        }
         const userPin = pinnedReport.length > 0
         const numberOfStars: number = await this.starredReportsMongoProvider.count({ filter: { report_id: report.id } })
-        const starredReport: StarredReport[] = await this.starredReportsMongoProvider.read({
-            filter: {
-                user_id: userId,
-                report_id: report.id,
-            },
-        })
+        let starredReport: StarredReport[] = []
+        if (userId) {
+            starredReport = await this.starredReportsMongoProvider.read({
+                filter: {
+                    user_id: userId,
+                    report_id: report.id,
+                },
+            })
+        }
         const markAsStar: boolean = starredReport.length > 0
         const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: report.id } })
         const tags: Tag[] = await this.tagsService.getTagsOfEntity(report.id, EntityEnum.REPORT)
