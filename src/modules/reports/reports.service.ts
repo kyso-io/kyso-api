@@ -1407,4 +1407,35 @@ export class ReportsService extends AutowiredService {
         }
         return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: null } })
     }
+
+    public async getReportFiles(reportId: string, version: string): Promise<File[]> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        let files: File[] = []
+        if (version && version.length > 0 && !isNaN(version as any)) {
+            files = await this.filesMongoProvider.read({
+                filter: {
+                    report_id: reportId,
+                    version: parseInt(version, 10),
+                },
+            })
+        } else {
+            files = await this.filesMongoProvider.read({
+                filter: {
+                    report_id: reportId,
+                },
+                sort: {
+                    version: 1,
+                },
+            })
+            const map: Map<string, File> = new Map<string, File>()
+            files.forEach((file: File) => {
+                map.set(file.name, file)
+            })
+            files = Array.from(map.values())
+        }
+        return files
+    }
 }

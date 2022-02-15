@@ -5,6 +5,7 @@ import {
     CreateReportDTO,
     CreateReportRequestDTO,
     CreateUIReportDTO,
+    File,
     GithubBranch,
     GithubCommit,
     GithubFileHash,
@@ -476,6 +477,28 @@ export class ReportsController extends GenericController<Report> {
         @Res() response: any,
     ): Promise<any> {
         this.reportsService.pullReport(token, slugify(reportName), teamName, response)
+    }
+
+    @Get('/:reportId/files')
+    @ApiOperation({
+        summary: `Get all files of a report`,
+        description: `Get all files of a report`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Specified report data`,
+        type: File,
+    })
+    @ApiParam({
+        name: 'reportId',
+        required: true,
+        description: 'Id of the report to fetch',
+        schema: { type: 'string' },
+    })
+    @Permission([ReportPermissionsEnum.READ])
+    async getReportFiles(@Param('reportId') reportId: string, @Query('version') version: string): Promise<NormalizedResponseDTO<File>> {
+        const files: File[] = await this.reportsService.getReportFiles(reportId, version)
+        return new NormalizedResponseDTO(files)
     }
 
     @Get('/:reportId/comments')
