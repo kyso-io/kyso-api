@@ -1,7 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
 const AWS = require('aws-sdk')
-const S3Adapter = require('@parse/s3-files-adapter')
-// const MailgunAdapter = require('@parse/simple-mailgun-adapter')
 
 const bucket = process.env.AWS_S3_BUCKET
 
