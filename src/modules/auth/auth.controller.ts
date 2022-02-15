@@ -1,17 +1,23 @@
-import { CreateUserRequestDTO, Login, NormalizedResponseDTO, Token, User } from '@kyso-io/kyso-model'
-import { Body, Controller, ForbiddenException, Get, Headers, Post } from '@nestjs/common'
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { AuthProviderSpec, CreateUserRequestDTO, Login, LoginProviderEnum, NormalizedResponseDTO, Organization, PingIdSAMLSpec, Token, User } from '@kyso-io/kyso-model'
+import { Body, Controller, ForbiddenException, Get, Headers, Logger, Param, Post, Req, Res } from '@nestjs/common'
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
+import { passport } from '../../main'
+import { OrganizationsService } from '../organizations/organizations.service'
 import { UsersService } from '../users/users.service'
 import { AuthService } from './auth.service'
+const Saml2js = require('saml2js');
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController extends GenericController<string> {
     @Autowired({ typeName: 'UsersService' })
     private readonly usersService: UsersService
+
+    @Autowired({ typeName: 'OrganizationsService' })
+    private readonly organizationsService: OrganizationsService
 
     constructor(private readonly authService: AuthService) {
         super()
@@ -54,6 +60,76 @@ export class AuthController extends GenericController<string> {
     async login(@Body() login: Login): Promise<NormalizedResponseDTO<string>> {
         const jwt: string = await this.authService.login(login)
         return new NormalizedResponseDTO(jwt)
+    }
+
+    @Get('/login/sso/ping-saml/:organizationSlug')
+    @ApiOperation({
+        summary: `Logs an user into Kyso with PingID`,
+        description: `Logs an user into Kyso with PingID`,
+    })
+    @ApiResponse({
+        status: 302,
+        description: `Redirect to the configured SSO instance of PingID`,
+        type: String,
+    })
+    @ApiParam({
+        name: 'organizationSlug',
+        required: true,
+        description: `Slugified name of kyso's organization to login`,
+        schema: { type: 'string' },
+        example: 'JANSSEN-RANDD',
+    })
+    async loginSSO(@Param('organizationSlug') organizationSlug: string, @Res() response) {
+        try {
+            // Fetch organizationSlug configuration
+            const organization: Organization = await this.organizationsService.getOrganization({
+                filter: {
+                    name: organizationSlug
+                }
+            })
+
+            let pingSamlConfiguration: AuthProviderSpec
+            
+            if(organization.options && organization.options.auth && organization.options.auth.otherProviders && organization.options.auth.otherProviders.length > 0) {
+                pingSamlConfiguration = organization.options.auth.otherProviders.find(x => x.type === LoginProviderEnum.PING_ID_SAML)
+            } else {
+                return "Your organization has not configured PingSAML as auth provider"
+            }
+
+            // Set variables to organizationConfiguration
+            let authPingIdSamlSsoUrl
+            let authPingIdSamlEnvironmentCode
+            let authPingIdSPEntityId
+
+            if(pingSamlConfiguration) {
+                const options = pingSamlConfiguration.options as PingIdSAMLSpec
+                
+                authPingIdSamlSsoUrl = options.sso_url
+                authPingIdSamlEnvironmentCode = options.environment_code
+                authPingIdSPEntityId = options.sp_entity_id
+            } else {
+                return "Your organization has not configured PingSAML as auth provider"
+            }
+
+            response.redirect(`${authPingIdSamlSsoUrl}/${authPingIdSamlEnvironmentCode}/saml20/idp/startsso?spEntityId=${authPingIdSPEntityId}`)
+        } catch(ex) {
+            Logger.error("Error using ping saml auth sso", ex)
+            return "Your organization has not properly configured PingSAML as auth provider"
+        }
+    }
+
+    @Post('/login/sso/ping-saml/callback')
+    async loginSSOCallback(@Req() request) { 
+        const xmlResponse = request.body.SAMLResponse;
+        const parser = new Saml2js(xmlResponse);
+        console.log(parser.toObject());
+    }
+
+    @Post('/login/sso/fail')
+    @Get('/login/sso/fail')
+    async loginSSOFail(@Req() request) {
+        console.log(request)
+        return "Failed"
     }
 
     @Post('/sign-up')

@@ -3,6 +3,7 @@ import {
     NormalizedResponseDTO,
     Organization,
     OrganizationMember,
+    OrganizationOptions,
     OrganizationPermissionsEnum,
     TeamPermissionsEnum,
     UpdateOrganizationDTO,
@@ -23,7 +24,7 @@ import {
     UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
-import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
 import { Permission } from '../auth/annotations/permission.decorator'
@@ -124,6 +125,48 @@ export class OrganizationsController extends GenericController<Organization> {
         @Body() updateOrganizationDTO: UpdateOrganizationDTO,
     ): Promise<NormalizedResponseDTO<Organization>> {
         const updatedOrganization: Organization = await this.organizationService.updateOrganization(organizationId, updateOrganizationDTO)
+        return new NormalizedResponseDTO(updatedOrganization)
+    }
+
+    @Patch('/:organizationId/options')
+    @ApiOperation({
+        summary: `Update organization options`,
+        description: `By passing the appropiate parameters you can update an organization's options`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Organization })
+    @ApiBody({
+        description: 'Organization options',
+        required: true,
+        type: OrganizationOptions,
+        examples: {
+            'PingID SAML Configuration': {
+                summary: 'Adds PingID SAML Configuration and disables the rest',
+                value: {
+                    "auth": {
+                        "allow_login_with_kyso":false,
+                        "allow_login_with_google":false,
+                        "allow_login_with_github":false,
+                        "otherProviders":[
+                            {
+                                "type":"ping_id_saml",
+                                "options": {
+                                    "sso_url": "https://auth.pingone.eu",
+                                    "environment_code": "0fda3448-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+                                    "sp_entity_id": "kyso-api-entity-id"
+                                }
+                            }
+                        ]
+                    }
+                },
+            },
+        },
+    })
+    @Permission([OrganizationPermissionsEnum.EDIT])
+    public async updateOrganizationOptions(
+        @Param('organizationId') organizationId: string,
+        @Body() organizationOptions: OrganizationOptions,
+    ): Promise<NormalizedResponseDTO<Organization>> {
+        const updatedOrganization: Organization = await this.organizationService.updateOrganizationOptions(organizationId, organizationOptions)
         return new NormalizedResponseDTO(updatedOrganization)
     }
 
