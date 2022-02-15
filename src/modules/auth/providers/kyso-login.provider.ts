@@ -91,7 +91,7 @@ export class KysoLoginProvider {
         // Search for provided access_token for that user
         const dbAccessToken: KysoUserAccessToken = await this.usersService.searchAccessToken(user.id, access_token)
 
-        if(!dbAccessToken) {
+        if (!dbAccessToken) {
             throw new UnauthorizedException('Unauthorized')
         } else {
             // Build all the permissions for this user

@@ -43,6 +43,10 @@ export class DiscussionsService extends AutowiredService {
         return discussions.length > 0 ? discussions[0] : null
     }
 
+    public async getDiscussionById(discussionId: string): Promise<Discussion> {
+        return this.getDiscussion({ filter: { _id: this.provider.toObjectId(discussionId) } })
+    }
+
     public async createDiscussion(data: CreateDiscussionRequestDTO): Promise<Discussion> {
         const author: User = await this.usersService.getUserById(data.user_id)
         if (!author) {
