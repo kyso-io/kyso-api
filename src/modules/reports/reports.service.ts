@@ -379,20 +379,26 @@ export class ReportsService extends AutowiredService {
     }
 
     public async reportModelToReportDTO(report: Report, userId: string): Promise<ReportDTO> {
-        const pinnedReport: StarredReport[] = await this.pinnedReportsMongoProvider.read({
-            filter: {
-                user_id: userId,
-                report_id: report.id,
-            },
-        })
+        let pinnedReport: StarredReport[] = []
+        if (userId) {
+            pinnedReport = await this.pinnedReportsMongoProvider.read({
+                filter: {
+                    user_id: userId,
+                    report_id: report.id,
+                },
+            })
+        }
         const userPin = pinnedReport.length > 0
         const numberOfStars: number = await this.starredReportsMongoProvider.count({ filter: { report_id: report.id } })
-        const starredReport: StarredReport[] = await this.starredReportsMongoProvider.read({
-            filter: {
-                user_id: userId,
-                report_id: report.id,
-            },
-        })
+        let starredReport: StarredReport[] = []
+        if (userId) {
+            starredReport = await this.starredReportsMongoProvider.read({
+                filter: {
+                    user_id: userId,
+                    report_id: report.id,
+                },
+            })
+        }
         const markAsStar: boolean = starredReport.length > 0
         const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: report.id } })
         const tags: Tag[] = await this.tagsService.getTagsOfEntity(report.id, EntityEnum.REPORT)
@@ -1406,5 +1412,36 @@ export class ReportsService extends AutowiredService {
             await s3Client.send(deleteObjectCommand)
         }
         return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: null } })
+    }
+
+    public async getReportFiles(reportId: string, version: string): Promise<File[]> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        let files: File[] = []
+        if (version && version.length > 0 && !isNaN(version as any)) {
+            files = await this.filesMongoProvider.read({
+                filter: {
+                    report_id: reportId,
+                    version: parseInt(version, 10),
+                },
+            })
+        } else {
+            files = await this.filesMongoProvider.read({
+                filter: {
+                    report_id: reportId,
+                },
+                sort: {
+                    version: 1,
+                },
+            })
+            const map: Map<string, File> = new Map<string, File>()
+            files.forEach((file: File) => {
+                map.set(file.name, file)
+            })
+            files = Array.from(map.values())
+        }
+        return files
     }
 }

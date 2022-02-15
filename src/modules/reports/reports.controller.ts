@@ -5,6 +5,7 @@ import {
     CreateReportDTO,
     CreateReportRequestDTO,
     CreateUIReportDTO,
+    File,
     GithubBranch,
     GithubCommit,
     GithubFileHash,
@@ -16,6 +17,7 @@ import {
     ReportDTO,
     ReportPermissionsEnum,
     Team,
+    TeamVisibilityEnum,
     Token,
     UpdateReportRequestDTO,
 } from '@kyso-io/kyso-model'
@@ -29,6 +31,7 @@ import {
     Param,
     Patch,
     Post,
+    PreconditionFailedException,
     Query,
     Req,
     Res,
@@ -42,6 +45,7 @@ import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiPar
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
+import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { InvalidInputError } from '../../helpers/errorHandling'
 import { QueryParser } from '../../helpers/queryParser'
@@ -228,6 +232,42 @@ export class ReportsController extends GenericController<Report> {
         }
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
+    @Get('/:reportId/embedded')
+    @ApiOperation({
+        summary: `Get a report`,
+        description: `Allows fetching content of a specific report passing its id`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Report matching id`,
+        type: ReportDTO,
+    })
+    @ApiParam({
+        name: 'reportId',
+        required: true,
+        description: 'Id of the report to fetch',
+        schema: { type: 'string' },
+    })
+    @Public()
+    async getEmbeddedReport(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new InvalidInputError('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (!team) {
+            throw new InvalidInputError('Team not found')
+        }
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            throw new PreconditionFailedException(`Report is not public`)
+        }
+        await this.reportsService.increaseViews({ _id: new ObjectId(reportId) })
+        report.views++
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, null)
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
@@ -476,6 +516,28 @@ export class ReportsController extends GenericController<Report> {
         @Res() response: any,
     ): Promise<any> {
         this.reportsService.pullReport(token, slugify(reportName), teamName, response)
+    }
+
+    @Get('/:reportId/files')
+    @ApiOperation({
+        summary: `Get all files of a report`,
+        description: `Get all files of a report`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Specified report data`,
+        type: File,
+    })
+    @ApiParam({
+        name: 'reportId',
+        required: true,
+        description: 'Id of the report to fetch',
+        schema: { type: 'string' },
+    })
+    @Permission([ReportPermissionsEnum.READ])
+    async getReportFiles(@Param('reportId') reportId: string, @Query('version') version: string): Promise<NormalizedResponseDTO<File>> {
+        const files: File[] = await this.reportsService.getReportFiles(reportId, version)
+        return new NormalizedResponseDTO(files)
     }
 
     @Get('/:reportId/comments')

@@ -103,6 +103,9 @@ export class CommentsService extends AutowiredService {
         if (!comment) {
             throw new PreconditionFailedException('The specified comment could not be found')
         }
+        if (comment.mark_delete_at != null) {
+            throw new PreconditionFailedException('The specified comment has been deleted')
+        }
         const dataFields: any = {
             text: updateCommentRequest.text,
             marked: updateCommentRequest.marked,
@@ -121,20 +124,36 @@ export class CommentsService extends AutowiredService {
     }
 
     async deleteComment(token: Token, commentId: string): Promise<Comment> {
-        const comment: Comment = await this.getCommentById(commentId)
+        let comment: Comment = await this.getCommentById(commentId)
         if (!comment) {
             throw new PreconditionFailedException('The specified comment could not be found')
         }
-        const report: Report = await this.reportsService.getReportById(comment.report_id)
-        if (!report) {
-            throw new PreconditionFailedException('The specified report could not be found')
-        }
-        if (!report.team_id || report.team_id == null || report.team_id === '') {
-            throw new PreconditionFailedException('The specified report does not have a team associated')
-        }
-        const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
-        if (!team) {
-            throw new PreconditionFailedException('The specified team could not be found')
+        if (comment?.report_id) {
+            const report: Report = await this.reportsService.getReportById(comment.report_id)
+            if (!report) {
+                throw new PreconditionFailedException('The specified report could not be found')
+            }
+            if (!report.team_id || report.team_id == null || report.team_id === '') {
+                throw new PreconditionFailedException('The specified report does not have a team associated')
+            }
+            const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
+            if (!team) {
+                throw new PreconditionFailedException('The specified team could not be found')
+            }
+        } else if (comment?.discussion_id) {
+            const discussion: Discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
+            if (!discussion) {
+                throw new PreconditionFailedException('The specified discussion could not be found')
+            }
+            if (!discussion.team_id || discussion.team_id == null || discussion.team_id === '') {
+                throw new PreconditionFailedException('The specified discussion does not have a team associated')
+            }
+            const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(discussion.team_id) } })
+            if (!team) {
+                throw new PreconditionFailedException('The specified team could not be found')
+            }
+        } else {
+            throw new PreconditionFailedException('The specified comment does not have a report or discussion associated')
         }
         const userIsCommentCreator: boolean = comment.user_id === token.id
         const hasCommentPermissionAdmin: boolean = userHasPermission(token, CommentPermissionsEnum.ADMIN)
@@ -142,7 +161,14 @@ export class CommentsService extends AutowiredService {
         if (!userIsCommentCreator && !hasCommentPermissionAdmin && !hasGlobalPermissionAdmin) {
             throw new PreconditionFailedException('The specified user does not have permission to delete this comment')
         }
-        await this.provider.deleteOne({ _id: this.provider.toObjectId(commentId) })
+        const relatedComments: Comment[] = await this.provider.read({
+            filter: { comment_id: this.provider.toObjectId(commentId) },
+        })
+        if (relatedComments.length > 0) {
+            comment = await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } })
+        } else {
+            await this.provider.deleteOne({ _id: this.provider.toObjectId(commentId) })
+        }
         return comment
     }
 

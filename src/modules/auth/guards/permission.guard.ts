@@ -3,6 +3,7 @@ import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/commo
 import { Reflector } from '@nestjs/core'
 import { Observable } from 'rxjs'
 import { Autowired } from '../../../decorators/autowired'
+import { IS_PUBLIC_KEY } from '../../../decorators/is-public'
 import { PERMISSION_KEY } from '../annotations/permission.decorator'
 import { AuthService } from '../auth.service'
 
@@ -16,7 +17,12 @@ export class PermissionsGuard implements CanActivate {
     canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
         // FOR JNJ DEMO, REMOVE LATER
         return true
-        
+
+        const isPublic: boolean = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [context.getHandler(), context.getClass()])
+        if (isPublic) {
+            return true
+        }
+
         try {
             const request = context.switchToHttp().getRequest()
 
