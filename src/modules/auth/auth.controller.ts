@@ -1,5 +1,5 @@
 import { AuthProviderSpec, CreateUserRequestDTO, Login, LoginProviderEnum, NormalizedResponseDTO, Organization, PingIdSAMLSpec, Token, User } from '@kyso-io/kyso-model'
-import { Body, Controller, ForbiddenException, Get, Headers, Logger, Param, Post, Req, Res } from '@nestjs/common'
+import { Body, Controller, ForbiddenException, PreconditionFailedException, Get, Headers, Logger, Param, Post, Req, Res } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -119,10 +119,22 @@ export class AuthController extends GenericController<string> {
     }
 
     @Post('/login/sso/ping-saml/callback')
-    async loginSSOCallback(@Req() request) { 
+    async loginSSOCallback(@Req() request, @Res() response) { 
         const xmlResponse = request.body.SAMLResponse;
         const parser = new Saml2js(xmlResponse);
-        console.log(parser.toObject());
+        const data = parser.toObject()
+        
+        if(data && data.samlSubject && data.email && data.portrait && data.name) {
+            // Build JWT token and redirect to frontend
+            const login: Login = new Login(data.samlSubject, LoginProviderEnum.PING_ID_SAML, data.email, data)
+
+            const jwt = await this.authService.login(login)
+
+            response.redirect(`${process.env.FRONTEND_URL}/sso/${jwt}`)
+
+        } else {
+            throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the following properties: samlSubject, email, portrait and name`)
+        }
     }
 
     @Post('/login/sso/fail')
@@ -172,5 +184,24 @@ export class AuthController extends GenericController<string> {
         } catch (ex) {
             throw new ForbiddenException()
         }
+    }
+
+    @Get('/organization/:organizationSlug/options')
+    @ApiParam({
+        name: 'organizationSlug',
+        required: true,
+        description: `Slugified name of kyso's organization to login`,
+        schema: { type: 'string' },
+        example: 'JANSSEN-RANDD',
+    })
+    async getOrganizationAuthOptions(@Param('organizationSlug') organizationSlug: string) {
+        // Fetch organizationSlug configuration
+        const organization: Organization = await this.organizationsService.getOrganization({
+            filter: {
+                name: organizationSlug
+            }
+        })
+
+        return organization.options.auth
     }
 }
