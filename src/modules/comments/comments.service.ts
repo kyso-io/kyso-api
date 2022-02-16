@@ -1,11 +1,14 @@
-import { Comment, CommentPermissionsEnum, Discussion, GlobalPermissionsEnum, Report, Team, Token } from '@kyso-io/kyso-model'
-import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
+import { Comment, CommentPermissionsEnum, Discussion, GlobalPermissionsEnum, Organization, Report, Team, Token, User } from '@kyso-io/kyso-model'
+import { MailerService } from '@nestjs-modules/mailer'
+import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
 import { DiscussionsService } from '../discussions/discussions.service'
+import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
+import { UsersService } from '../users/users.service'
 import { CommentsMongoProvider } from './providers/mongo-comments.provider'
 
 function factory(service: CommentsService) {
@@ -22,8 +25,14 @@ export function createProvider(): Provider<CommentsService> {
 
 @Injectable()
 export class CommentsService extends AutowiredService {
+    @Autowired({ typeName: 'UsersService' })
+    private usersService: UsersService
+
     @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
+
+    @Autowired({ typeName: 'OrganizationsService' })
+    private organizationsService: OrganizationsService
 
     @Autowired({ typeName: 'ReportsService' })
     private reportsService: ReportsService
@@ -31,7 +40,7 @@ export class CommentsService extends AutowiredService {
     @Autowired({ typeName: 'DiscussionsService' })
     private discussionsService: DiscussionsService
 
-    constructor(private readonly provider: CommentsMongoProvider) {
+    constructor(private mailerService: MailerService, private readonly provider: CommentsMongoProvider) {
         super()
     }
 
@@ -83,15 +92,58 @@ export class CommentsService extends AutowiredService {
         }*/
 
         const newComment: Comment = await this.createComment(comment)
-
         if (discussion) {
-            const index: number = discussion.participants.findIndex((participant: string) => participant === comment.user_id)
-            if (index === -1) {
-                await this.discussionsService.addParticipantToDiscussion(discussion.id, comment.user_id)
-            }
+            await this.checkMentionsInDiscussionComment(newComment)
         }
 
         return newComment
+    }
+
+    private async checkMentionsInDiscussionComment(comment: Comment): Promise<void> {
+        const discussion: Discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
+        // Detect all mentions
+        const regExpMentions = /@\[(.*?)\]\(.*?\)/g
+        const matches = [...comment.text.matchAll(regExpMentions)]
+        const userIds: string[] = [comment.user_id]
+        if (matches) {
+            const regExpUserId = /\(([^)]+)\)/
+            matches.forEach((match) => {
+                const matchesUserId = regExpUserId.exec(match[0])
+                const userId = matchesUserId[1]
+                if (!userIds.includes(userId)) {
+                    userIds.push(userId)
+                }
+            })
+        }
+        const creator: User = await this.usersService.getUserById(comment.user_id)
+        for (const userId of userIds) {
+            const index: number = discussion.participants.findIndex((participant: string) => participant === userId)
+            if (index === -1) {
+                const user: User = await this.usersService.getUserById(userId)
+                if (!user) {
+                    Logger.error(`Could not find user with id ${userId}`, CommentsService.name)
+                    continue
+                }
+                await this.discussionsService.addParticipantToDiscussion(discussion.id, userId)
+                if (creator.id === userId) {
+                    continue
+                }
+                const team: Team = await this.teamsService.getTeamById(discussion.team_id)
+                const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+                this.mailerService
+                    .sendMail({
+                        to: user.email,
+                        subject: 'You have been mentioned in a discussion',
+                        html: `User ${creator.nickname} mentioned you in the discussion <a href="${process.env.FRONTEND_URL}/${organization.name}/${team.name}/discussions/${discussion.id}">${discussion.title}</a>`,
+                    })
+                    .then((messageInfo) => {
+                        Logger.log(`Mention in discussion mail ${messageInfo.messageId} sent to ${user.email}`, UsersService.name)
+                    })
+                    .catch((err) => {
+                        Logger.error(`An error occurrend sending mention in discussion mail to ${user.email}`, err, UsersService.name)
+                    })
+            }
+        }
     }
 
     async createComment(comment: Comment): Promise<Comment> {
@@ -116,7 +168,11 @@ export class CommentsService extends AutowiredService {
         if (comment.text !== updateCommentRequest.text) {
             dataFields.edited = true
         }
-        return this.provider.update({ _id: this.provider.toObjectId(id) }, { $set: dataFields })
+        const updatedComment: Comment = await this.provider.update({ _id: this.provider.toObjectId(id) }, { $set: dataFields })
+        if (updatedComment?.discussion_id) {
+            await this.checkMentionsInDiscussionComment(updatedComment)
+        }
+        return updatedComment
     }
 
     public async getNumberOfComments(query: any): Promise<number> {
