@@ -8,6 +8,7 @@ import { GoogleLoginProvider } from './providers/google-login.provider'
 import { KysoLoginProvider } from './providers/kyso-login.provider'
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
+import { PingIdLoginProvider } from './providers/ping-id-login.provider'
 
 @Global()
 export class AuthModule {
@@ -30,6 +31,7 @@ export class AuthModule {
                 PlatformRoleMongoProvider,
                 PermissionsGuard,
                 UserRoleMongoProvider,
+                PingIdLoginProvider
             ],
             controllers: [AuthController],
             exports: [dynamicProvider, PermissionsGuard],

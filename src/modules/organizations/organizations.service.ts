@@ -4,6 +4,7 @@ import {
     Organization,
     OrganizationMember,
     OrganizationMemberJoin,
+    OrganizationOptions,
     UpdateOrganizationDTO,
     UpdateOrganizationMembersDTO,
     User,
@@ -162,6 +163,26 @@ export class OrganizationsService extends AutowiredService {
         } else {
             return []
         }
+    }
+
+    public async updateOrganizationOptions(organizationId: string, options: OrganizationOptions): Promise<Organization> {
+        const organizationDb: Organization = await this.getOrganizationById(organizationId)
+        
+        if (!organizationDb) {
+            throw new PreconditionFailedException('Organization does not exist')
+        }
+        
+        organizationDb.options = options
+
+        const data: any = {}
+        data.options = options
+        
+        return await this.provider.update(
+            { _id: this.provider.toObjectId(organizationDb.id) },
+            {
+                $set: data,
+            },
+        )
     }
 
     public async updateOrganization(organizationId: string, updateOrganizationDTO: UpdateOrganizationDTO): Promise<Organization> {

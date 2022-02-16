@@ -25,6 +25,7 @@ import { GoogleLoginProvider } from './providers/google-login.provider'
 import { KysoLoginProvider } from './providers/kyso-login.provider'
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
+import { PingIdLoginProvider } from './providers/ping-id-login.provider'
 
 export const TOKEN_EXPIRATION_TIME = '8h'
 
@@ -58,6 +59,7 @@ export class AuthService extends AutowiredService {
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
         private readonly userRoleProvider: UserRoleMongoProvider,
+        private readonly pingIdLoginProvider: PingIdLoginProvider
     ) {
         super()
     }
@@ -274,6 +276,9 @@ export class AuthService extends AutowiredService {
                 return await this.githubLoginProvider.login(login)
             case LoginProviderEnum.GOOGLE:
                 return this.googleLoginProvider.login(login)
+            case LoginProviderEnum.PING_ID_SAML:
+                return this.pingIdLoginProvider.login(login)
+                return 
         }
     }
 
