@@ -1,14 +1,24 @@
-import { AuthProviderSpec, CreateUserRequestDTO, Login, LoginProviderEnum, NormalizedResponseDTO, Organization, PingIdSAMLSpec, Token, User } from '@kyso-io/kyso-model'
-import { Body, Controller, ForbiddenException, PreconditionFailedException, Get, Headers, Logger, Param, Post, Req, Res } from '@nestjs/common'
+import {
+    AuthProviderSpec,
+    CreateUserRequestDTO,
+    Login,
+    LoginProviderEnum,
+    NormalizedResponseDTO,
+    Organization,
+    PingIdSAMLSpec,
+    Token,
+    User,
+} from '@kyso-io/kyso-model'
+import { Body, Controller, ForbiddenException, Get, Headers, Logger, Param, Post, PreconditionFailedException, Req, Res } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
-import { passport } from '../../main'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { UsersService } from '../users/users.service'
 import { AuthService } from './auth.service'
-const Saml2js = require('saml2js');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Saml2js = require('saml2js')
 
 @ApiTags('auth')
 @Controller('auth')
@@ -84,16 +94,21 @@ export class AuthController extends GenericController<string> {
             // Fetch organizationSlug configuration
             const organization: Organization = await this.organizationsService.getOrganization({
                 filter: {
-                    name: organizationSlug
-                }
+                    name: organizationSlug,
+                },
             })
 
             let pingSamlConfiguration: AuthProviderSpec
-            
-            if(organization.options && organization.options.auth && organization.options.auth.otherProviders && organization.options.auth.otherProviders.length > 0) {
-                pingSamlConfiguration = organization.options.auth.otherProviders.find(x => x.type === LoginProviderEnum.PING_ID_SAML)
+
+            if (
+                organization.options &&
+                organization.options.auth &&
+                organization.options.auth.otherProviders &&
+                organization.options.auth.otherProviders.length > 0
+            ) {
+                pingSamlConfiguration = organization.options.auth.otherProviders.find((x) => x.type === LoginProviderEnum.PING_ID_SAML)
             } else {
-                return "Your organization has not configured PingSAML as auth provider"
+                return 'Your organization has not configured PingSAML as auth provider'
             }
 
             // Set variables to organizationConfiguration
@@ -101,39 +116,40 @@ export class AuthController extends GenericController<string> {
             let authPingIdSamlEnvironmentCode
             let authPingIdSPEntityId
 
-            if(pingSamlConfiguration) {
+            if (pingSamlConfiguration) {
                 const options = pingSamlConfiguration.options as PingIdSAMLSpec
-                
+
                 authPingIdSamlSsoUrl = options.sso_url
                 authPingIdSamlEnvironmentCode = options.environment_code
                 authPingIdSPEntityId = options.sp_entity_id
             } else {
-                return "Your organization has not configured PingSAML as auth provider"
+                return 'Your organization has not configured PingSAML as auth provider'
             }
 
             response.redirect(`${authPingIdSamlSsoUrl}/${authPingIdSamlEnvironmentCode}/saml20/idp/startsso?spEntityId=${authPingIdSPEntityId}`)
-        } catch(ex) {
-            Logger.error("Error using ping saml auth sso", ex)
-            return "Your organization has not properly configured PingSAML as auth provider"
+        } catch (ex) {
+            Logger.error('Error using ping saml auth sso', ex)
+            return 'Your organization has not properly configured PingSAML as auth provider'
         }
     }
 
     @Post('/login/sso/ping-saml/callback')
-    async loginSSOCallback(@Req() request, @Res() response) { 
-        const xmlResponse = request.body.SAMLResponse;
-        const parser = new Saml2js(xmlResponse);
+    async loginSSOCallback(@Req() request, @Res() response) {
+        const xmlResponse = request.body.SAMLResponse
+        const parser = new Saml2js(xmlResponse)
         const data = parser.toObject()
-        
-        if(data && data.samlSubject && data.email && data.portrait && data.name) {
+
+        if (data && data.samlSubject && data.email && data.portrait && data.name) {
             // Build JWT token and redirect to frontend
             const login: Login = new Login(data.samlSubject, LoginProviderEnum.PING_ID_SAML, data.email, data)
 
             const jwt = await this.authService.login(login)
 
             response.redirect(`${process.env.FRONTEND_URL}/sso/${jwt}`)
-
         } else {
-            throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the following properties: samlSubject, email, portrait and name`)
+            throw new PreconditionFailedException(
+                `Incomplete SAML payload received. Kyso requires the following properties: samlSubject, email, portrait and name`,
+            )
         }
     }
 
@@ -141,7 +157,7 @@ export class AuthController extends GenericController<string> {
     @Get('/login/sso/fail')
     async loginSSOFail(@Req() request) {
         console.log(request)
-        return "Failed"
+        return 'Failed'
     }
 
     @Post('/sign-up')
@@ -198,8 +214,8 @@ export class AuthController extends GenericController<string> {
         // Fetch organizationSlug configuration
         const organization: Organization = await this.organizationsService.getOrganization({
             filter: {
-                name: organizationSlug
-            }
+                name: organizationSlug,
+            },
         })
 
         return new NormalizedResponseDTO(organization.options.auth)
