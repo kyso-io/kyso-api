@@ -16,6 +16,7 @@ import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post,
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
@@ -145,8 +146,29 @@ export class UsersController extends GenericController<User> {
         if (!user) {
             throw new BadRequestException(`User with id ${userId} not found`)
         }
-        this.assignReferences(user)
         return new NormalizedResponseDTO(UserDTO.fromUser(user))
+    }
+
+    @Get('/:username/profile')
+    @Public()
+    @ApiOperation({
+        summary: `Get user profile`,
+        description: `Allows fetching content of a specific user passing its id`,
+    })
+    @ApiParam({
+        name: 'username',
+        required: true,
+        description: `Username of the user to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
+    async getUserProfile(@Param('username') username: string): Promise<NormalizedResponseDTO<UserDTO>> {
+        const user: User = await this.usersService.getUser({ filter: { username } })
+        if (!user) {
+            throw new BadRequestException(`User with username ${username} not found`)
+        }
+        const userDto: UserDTO = UserDTO.fromUser(user)
+        return new NormalizedResponseDTO(userDto)
     }
 
     @Post()
@@ -231,8 +253,12 @@ export class UsersController extends GenericController<User> {
     @ApiResponse({ status: 200, description: `Access Token created successfully`, type: KysoUserAccessToken })
     @Permission([UserPermissionsEnum.EDIT])
     async createUserAccessToken(@Param('userId') userId: string, @Body() accessTokenConfiguration: CreateKysoAccessTokenDto): Promise<KysoUserAccessToken> {
-        return this.usersService.createKysoAccessToken(accessTokenConfiguration.user_id, accessTokenConfiguration.name, 
-            accessTokenConfiguration.scope, accessTokenConfiguration.expiration_date)
+        return this.usersService.createKysoAccessToken(
+            accessTokenConfiguration.user_id,
+            accessTokenConfiguration.name,
+            accessTokenConfiguration.scope,
+            accessTokenConfiguration.expiration_date,
+        )
     }
 
     @Delete('/:userId/accounts/:provider/:accountId')
