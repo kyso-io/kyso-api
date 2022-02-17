@@ -80,7 +80,6 @@ export class MongoProvider<T> {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     populateMinimalData() {}
     
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
     async executeMigration(fromVersion: number, toVersion: number) {
         const callableMigrationMethods = []
         for(let i = fromVersion; i < toVersion; i++) {
