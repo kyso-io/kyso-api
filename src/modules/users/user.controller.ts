@@ -8,8 +8,6 @@ import { AuthService } from '../auth/auth.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { UsersService } from './users.service'
 
-const UPDATABLE_FIELDS = ['email', 'nickname', 'bio', 'accessToken', 'access_token']
-
 @ApiTags('user')
 @ApiExtraModels(User)
 @UseGuards(PermissionsGuard)

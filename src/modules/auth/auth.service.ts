@@ -59,7 +59,7 @@ export class AuthService extends AutowiredService {
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
         private readonly userRoleProvider: UserRoleMongoProvider,
-        private readonly pingIdLoginProvider: PingIdLoginProvider
+        private readonly pingIdLoginProvider: PingIdLoginProvider,
     ) {
         super()
     }
@@ -278,7 +278,6 @@ export class AuthService extends AutowiredService {
                 return this.googleLoginProvider.login(login)
             case LoginProviderEnum.PING_ID_SAML:
                 return this.pingIdLoginProvider.login(login)
-                return 
         }
     }
 

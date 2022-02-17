@@ -1,8 +1,6 @@
-import { CreateUserRequestDTO, Login, LoginProviderEnum, Token, TokenPermissions, UserAccount } from '@kyso-io/kyso-model'
+import { CreateUserRequestDTO, Login, LoginProviderEnum, Token, TokenPermissions } from '@kyso-io/kyso-model'
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
-import { OAuth2Client } from 'google-auth-library'
-import { ObjectId } from 'mongodb'
 import { Autowired } from '../../../decorators/autowired'
 import { OrganizationsService } from '../../organizations/organizations.service'
 import { TeamsService } from '../../teams/teams.service'
@@ -32,16 +30,16 @@ export class PingIdLoginProvider {
 
     public async login(login: Login): Promise<string> {
         Logger.log(`User ${login.username} is trying to login with PingId`)
-        
+
         try {
             let user = await this.usersService.getUser({
                 filter: { username: login.username },
             })
-            
+
             if (!user) {
                 // New User
-                let name = login.payload.name 
-                let portrait = login.payload.profilePicture
+                const name = login.payload.name
+                const portrait = login.payload.profilePicture
                 Logger.log(`User ${login.username} is a new user`)
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
                     login.username,
@@ -80,7 +78,7 @@ export class PingIdLoginProvider {
                 Logger.log(`User ${login.username} is updating Google account`, GoogleLoginProvider.name)
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })*/
-            
+
             const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
                 login.username,
                 this.usersService,
@@ -89,7 +87,7 @@ export class PingIdLoginProvider {
                 this.platformRoleProvider,
                 this.userRoleProvider,
             )
-            
+
             const payload: Token = new Token(
                 user.id.toString(),
                 user.name,

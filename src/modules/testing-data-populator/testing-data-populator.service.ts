@@ -260,7 +260,7 @@ export class TestingDataPopulatorService {
             return await this.usersService.createUser(user)
         } catch (ex) {
             Logger.log(`${user.nickname} user already exists`)
-            return this.usersService.getUser({ email: user.email })
+            return this.usersService.getUser({ filter: { username: user.username } })
         }
     }
 

@@ -291,9 +291,10 @@ export class TeamsService extends AutowiredService {
         const team: Team = await this.getTeam({
             filter: { name: teamId },
         })
-        const user: User = await this.usersService.getUser({
-            filter: { email: userId },
-        })
+        const user: User = await this.usersService.getUserById(userId)
+        if (!user) {
+            throw new PreconditionFailedException('User not found')
+        }
         await this.addMembersById(team.id, [user.id], [])
         return this.getMembers(teamId)
     }

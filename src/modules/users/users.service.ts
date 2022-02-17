@@ -1,5 +1,17 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
-import { CreateUserRequestDTO, KysoPermissions, KysoUserAccessToken, KysoUserAccessTokenStatus, Organization, Team, TeamVisibilityEnum, Token, UpdateUserRequestDTO, User, UserAccount } from '@kyso-io/kyso-model'
+import {
+    CreateUserRequestDTO,
+    KysoPermissions,
+    KysoUserAccessToken,
+    KysoUserAccessTokenStatus,
+    Organization,
+    Team,
+    TeamVisibilityEnum,
+    Token,
+    UpdateUserRequestDTO,
+    User,
+    UserAccount,
+} from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { extname } from 'path'
@@ -41,9 +53,11 @@ export class UsersService extends AutowiredService {
     @Autowired({ typeName: 'CommentsService' })
     private commentsService: CommentsService
 
-    constructor(private mailerService: MailerService, 
+    constructor(
+        private readonly mailerService: MailerService,
         private readonly provider: UsersMongoProvider,
-        private readonly kysoAccessTokenProvider: KysoUserAccessTokensMongoProvider) {
+        private readonly kysoAccessTokenProvider: KysoUserAccessTokensMongoProvider,
+    ) {
         super()
     }
 
@@ -74,7 +88,7 @@ export class UsersService extends AutowiredService {
 
     async createUser(userToCreate: CreateUserRequestDTO): Promise<User> {
         // exists a prev user with same email?
-        const user: User = await this.getUser({ filter: { email: userToCreate.email } })
+        const user: User = await this.getUser({ filter: { username: userToCreate.username } })
 
         if (!userToCreate.password) {
             throw new PreconditionFailedException(null, 'Password unset')
@@ -128,7 +142,7 @@ export class UsersService extends AutowiredService {
     }
 
     async deleteUser(id: string): Promise<boolean> {
-        const user: User = await this.getUser({ filter: { _id: this.provider.toObjectId(id) } })
+        const user: User = await this.getUserById(id)
         if (!user) {
             throw new PreconditionFailedException(null, `Can't delete user as does not exists`)
         }
@@ -157,7 +171,7 @@ export class UsersService extends AutowiredService {
     }
 
     public async addAccount(id: string, userAccount: UserAccount): Promise<boolean> {
-        const user: User = await this.getUser({ filter: { _id: this.provider.toObjectId(id) } })
+        const user: User = await this.getUserById(id)
 
         if (!user) {
             throw new PreconditionFailedException(null, `Can't add account to user as does not exists`)
@@ -178,8 +192,7 @@ export class UsersService extends AutowiredService {
     }
 
     public async removeAccount(id: string, provider: string, accountId: string): Promise<boolean> {
-        const user = await this.getUser({ filter: { _id: this.provider.toObjectId(id) } })
-
+        const user: User = await this.getUserById(id)
         if (!user) {
             throw new PreconditionFailedException(null, `Can't remove account to user as does not exists`)
         }
@@ -197,7 +210,7 @@ export class UsersService extends AutowiredService {
     }
 
     public async updateUserData(id: string, data: UpdateUserRequestDTO): Promise<User> {
-        const user: User = await this.getUser({ filter: { _id: this.provider.toObjectId(id) } })
+        const user: User = await this.getUserById(id)
         if (!user) {
             throw new PreconditionFailedException(null, `Can't update user as does not exists`)
         }
@@ -224,8 +237,8 @@ export class UsersService extends AutowiredService {
     }
 
     // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
-    public async setProfilePicture(token: Token, file: any /*Express.Multer.File*/): Promise<User> {
-        const user: User = await this.getUser({ filter: { _id: this.provider.toObjectId(token.id) } })
+    public async setProfilePicture(token: Token, file: any): Promise<User> {
+        const user: User = await this.getUserById(token.id)
         if (!user) {
             throw new PreconditionFailedException('User not found')
         }
@@ -253,7 +266,7 @@ export class UsersService extends AutowiredService {
     }
 
     public async deleteProfilePicture(token: Token): Promise<User> {
-        const user: User = await this.getUser({ filter: { _id: this.provider.toObjectId(token.id) } })
+        const user: User = await this.getUserById(token.id)
         if (!user) {
             throw new PreconditionFailedException('User not found')
         }
@@ -270,21 +283,18 @@ export class UsersService extends AutowiredService {
     }
 
     public async createKysoAccessToken(user_id: string, name: string, scope: KysoPermissions[], expiration_date?: Date): Promise<KysoUserAccessToken> {
-        const accessToken = new KysoUserAccessToken(user_id, name, KysoUserAccessTokenStatus.ACTIVE, 
-            expiration_date, null, scope, 0, uuidv4())
-        
+        const accessToken = new KysoUserAccessToken(user_id, name, KysoUserAccessTokenStatus.ACTIVE, expiration_date, null, scope, 0, uuidv4())
         return this.kysoAccessTokenProvider.create(accessToken)
     }
 
     public async searchAccessToken(user_id: string, access_token: string): Promise<KysoUserAccessToken> {
-        const result: KysoUserAccessToken[] = await this.kysoAccessTokenProvider.read({ filter: {
-            $and: [
-                {"user_id": user_id},
-                {"access_token": access_token}
-            ]
-        }})
+        const result: KysoUserAccessToken[] = await this.kysoAccessTokenProvider.read({
+            filter: {
+                $and: [{ user_id: user_id }, { access_token: access_token }],
+            },
+        })
 
-        if(result && result.length === 1) {
+        if (result && result.length === 1) {
             return result[0]
         } else {
             return null
