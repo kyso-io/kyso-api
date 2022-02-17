@@ -276,13 +276,14 @@ export class MongoProvider<T> {
             const data: any = {}
             data.version = version
 
-            const result = await this.db.collection(KYSO_MODEL_VERSION_COLLECTION_NAME).findOneAndUpdate(
-                { filter: { _id: this.toObjectId(databaseCollectionVersion[0].id) } }, 
+            await this.db.collection(KYSO_MODEL_VERSION_COLLECTION_NAME).updateOne(
+                { collection: this.baseCollection }, 
                 {
                     $set: data,
+                    $currentDate: { _updated_at: { $type: 'date' } }
                 },
-                { returnDocument: 'after' })
-            console.log(result)
+                { returnDocument: 'after' }
+            )
         } else {
             // Does not exists, then create
             const newKysoDataModelVersion = new KysoDataModelVersion() as any;
