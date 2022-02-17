@@ -23,11 +23,11 @@ const DEFAULT_GLOBAL_ADMIN_USER = new User(
     '',
     new mongo.ObjectId('61a8ae8f9c2bc3c5a2144000').toString(),
 )
-
 @Injectable()
 export class UsersMongoProvider extends MongoProvider<User> {
     provider: any
-
+    static modelVersion = "1"
+    
     constructor() {
         super('User', db)
     }
@@ -53,5 +53,5 @@ export class UsersMongoProvider extends MongoProvider<User> {
         copycat.hashed_password = AuthService.hashPassword(randomPassword)
 
         await this.create(copycat)
-    }
+    }    
 }

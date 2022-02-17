@@ -202,6 +202,6 @@ export class AuthController extends GenericController<string> {
             }
         })
 
-        return organization.options.auth
+        return new NormalizedResponseDTO(organization.options.auth)
     }
 }

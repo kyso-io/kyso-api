@@ -57,8 +57,31 @@ export class MongoProvider<T> {
         }
     }
 
+    // TO OVERRIDE
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     populateMinimalData() {}
+    
+    // TO OVERRIDE
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    executeMigration(fromVersion: number, toVersion: number) {
+        const callableMigrationMethods = []
+        for(let i = fromVersion; i < toVersion; i++) {
+            let j = i + 1;
+            callableMigrationMethods.push(`migrate_from_${i}_to_${j}`)
+        }
+
+
+        for(let x of callableMigrationMethods) {
+            try {
+                Logger.log("Executing migration " + x)
+                this.runDynamicMethod(x)
+            } catch(ex) {
+                Logger.error(`Migration ${x} returned an error`, ex)
+                // Break the loop as the data can be inconsistent
+                break;
+            }
+        }
+    }
 
     getCollection(name?) {
         const collectionName = name || this.baseCollection
@@ -159,6 +182,10 @@ export class MongoProvider<T> {
         const { filter } = query
         const count = await this.getCollection().countDocuments(filter)
         return count
+    }
+
+    runDynamicMethod(methodName: string) { 
+        this[methodName]();
     }
 }
 
