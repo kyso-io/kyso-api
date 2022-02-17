@@ -1,3 +1,4 @@
+import { KysoDataModelVersion } from '@kyso-io/kyso-model'
 import { Logger } from '@nestjs/common'
 import * as mongo from 'mongodb'
 import { ObjectId } from 'mongodb'
@@ -12,19 +13,24 @@ const QUERY_TO_PIPELINE = {
     limit: '$limit',
 }
 
+const KYSO_MODEL_VERSION_COLLECTION_NAME = "KysoDataModelVersion"
 export class MongoProvider<T> {
     baseCollection: any
     private db: any
     private indices: any[]
-
+    // Default version number
+    protected version: number = 1
+    protected kysoModelProvider
+        
     constructor(collection, mongoDB, indices?: any[]) {
         this.db = mongoDB
         this.baseCollection = collection
         this.indices = indices || []
 
         const existsCollectionPromise = this.existsMongoDBCollection(this.baseCollection)
-
+        
         existsCollectionPromise.then(async (existsCollection) => {
+            await this.checkAndCreateKysoModelVersionCollection()
             if (!existsCollection) {
                 try {
                     Logger.log(`Collection '${this.baseCollection}' does not exists, creating it`)
@@ -34,11 +40,24 @@ export class MongoProvider<T> {
                     await this.populateMinimalData()
 
                     await this.checkIndices()
+                    await this.saveModelVersion(this.version)
                 } catch (ex) {
                     Logger.log(`Collection '${this.baseCollection}' already exists`, ex)
                 }
             } else {
                 await this.checkIndices()
+                const existsVersion = await this.existsCollectionVersion()
+
+                if(existsVersion) {
+                    const databaseVersion: KysoDataModelVersion = await this.getCollectionVersion()
+                    const dbVersion = databaseVersion.version
+
+                    if(dbVersion < this.version) {
+                        await this.executeMigration(dbVersion, this.version)
+                    }
+                } else {
+                    await this.saveModelVersion(this.version)
+                }
             }
         })
     }
@@ -61,20 +80,20 @@ export class MongoProvider<T> {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     populateMinimalData() {}
     
-    // TO OVERRIDE
     // eslint-disable-next-line @typescript-eslint/no-empty-function
-    executeMigration(fromVersion: number, toVersion: number) {
+    async executeMigration(fromVersion: number, toVersion: number) {
         const callableMigrationMethods = []
         for(let i = fromVersion; i < toVersion; i++) {
             let j = i + 1;
             callableMigrationMethods.push(`migrate_from_${i}_to_${j}`)
         }
 
-
         for(let x of callableMigrationMethods) {
             try {
                 Logger.log("Executing migration " + x)
-                this.runDynamicMethod(x)
+                const migrationResult = await this.runDynamicMethod(x)
+                // Update migration in database
+                await this.saveModelVersion(x.split('_to_')[1] as number)
             } catch(ex) {
                 Logger.error(`Migration ${x} returned an error`, ex)
                 // Break the loop as the data can be inconsistent
@@ -161,6 +180,15 @@ export class MongoProvider<T> {
         return parseForeignKeys(obj.value)
     }
 
+    public async updateOne(filterQuery, updateQuery): Promise<T> {
+        if (!updateQuery.$currentDate) updateQuery.$currentDate = {}
+        updateQuery.$currentDate._updated_at = { $type: 'date' }
+
+        const obj = await this.getCollection().updateOne(filterQuery, updateQuery, { returnDocument: 'after' })
+
+        return parseForeignKeys(obj.value)
+    }
+
     public async deleteOne(filter: any): Promise<void> {
         await this.getCollection().deleteOne(filter)
     }
@@ -178,6 +206,17 @@ export class MongoProvider<T> {
         return found === -1 ? false : true
     }
 
+    private async checkAndCreateKysoModelVersionCollection() {
+        if(!await this.existsMongoDBCollection(KYSO_MODEL_VERSION_COLLECTION_NAME)) {
+            try {
+                Logger.log(`Collection KysoDataModelVersion does not exists, creating it`)
+                await this.db.createCollection(KYSO_MODEL_VERSION_COLLECTION_NAME)
+            } catch(ex) {
+
+            }
+        }
+    }
+
     public async count(query): Promise<number> {
         const { filter } = query
         const count = await this.getCollection().countDocuments(filter)
@@ -186,6 +225,74 @@ export class MongoProvider<T> {
 
     runDynamicMethod(methodName: string) { 
         this[methodName]();
+    }
+
+    protected async getCollectionVersion(): Promise<KysoDataModelVersion> {
+        const { filter, ...options } = { filter: { collection: this.baseCollection }}
+        const cursor = await this.db.collection(KYSO_MODEL_VERSION_COLLECTION_NAME)
+            .find(filter, options)
+            .map((elem) => parseForeignKeys(elem))
+        const databaseCollectionVersion: KysoDataModelVersion[] = await cursor.toArray()
+
+        if(databaseCollectionVersion && databaseCollectionVersion.length === 1) {
+            return databaseCollectionVersion[0]
+        } else if (databaseCollectionVersion.length > 1){
+            Logger.warn(`Collection ${this.baseCollection} has more than one document in the database`)
+            return databaseCollectionVersion[0]
+        } else {
+            return null
+        }
+    }
+
+    protected async existsCollectionVersion(): Promise<boolean> {       
+        const { filter, ...options } = { filter: { collection: this.baseCollection }}
+        const cursor = await this.db.collection(KYSO_MODEL_VERSION_COLLECTION_NAME)
+            .find(filter, options)
+            .map((elem) => parseForeignKeys(elem))
+        
+        const databaseCollectionVersion: KysoDataModelVersion[] = await cursor.toArray()
+
+        if(databaseCollectionVersion && databaseCollectionVersion.length === 1) {
+            return true
+        } else if (databaseCollectionVersion.length > 1){
+            Logger.warn(`Collection ${this.baseCollection} has more than one document in the database`)
+            return true
+        } else {
+            return false
+        }
+        
+    }
+
+    async saveModelVersion(version: number) {
+        const { filter, ...options } = { filter: { collection: this.baseCollection }}
+        const cursor = await this.db.collection(KYSO_MODEL_VERSION_COLLECTION_NAME)
+            .find(filter, options)
+            .map((elem) => parseForeignKeys(elem))
+        
+        const databaseCollectionVersion: any[] = await cursor.toArray()
+
+        if(databaseCollectionVersion && databaseCollectionVersion.length === 1) {
+            // Exists, then update
+            const data: any = {}
+            data.version = version
+
+            const result = await this.db.collection(KYSO_MODEL_VERSION_COLLECTION_NAME).findOneAndUpdate(
+                { filter: { _id: this.toObjectId(databaseCollectionVersion[0].id) } }, 
+                {
+                    $set: data,
+                },
+                { returnDocument: 'after' })
+            console.log(result)
+        } else {
+            // Does not exists, then create
+            const newKysoDataModelVersion = new KysoDataModelVersion() as any;
+            newKysoDataModelVersion.collection = this.baseCollection
+            newKysoDataModelVersion.version = version
+            delete newKysoDataModelVersion._id
+
+            newKysoDataModelVersion.created_at = new Date()
+            await this.db.collection(KYSO_MODEL_VERSION_COLLECTION_NAME).insertOne(newKysoDataModelVersion)
+        }
     }
 }
 
@@ -215,4 +322,6 @@ function parseForeignKeys(obj) {
 
         return result
     }
+
+    
 }

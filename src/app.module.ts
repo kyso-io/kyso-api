@@ -52,7 +52,7 @@ import { UsersModule } from './modules/users/users.module'
         TagsModule.forRoot(),
         TeamsModule.forRoot(),
         TestingDataPopulatorModule,
-        UsersModule.forRoot(),
+        UsersModule.forRoot()
     ],
 })
 export class AppModule {}

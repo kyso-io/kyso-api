@@ -26,7 +26,7 @@ const DEFAULT_GLOBAL_ADMIN_USER = new User(
 @Injectable()
 export class UsersMongoProvider extends MongoProvider<User> {
     provider: any
-    static modelVersion = "1"
+    version = 1
     
     constructor() {
         super('User', db)
