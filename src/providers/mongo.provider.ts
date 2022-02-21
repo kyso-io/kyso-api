@@ -13,22 +13,22 @@ const QUERY_TO_PIPELINE = {
     limit: '$limit',
 }
 
-const KYSO_MODEL_VERSION_COLLECTION_NAME = "KysoDataModelVersion"
+const KYSO_MODEL_VERSION_COLLECTION_NAME = 'KysoDataModelVersion'
 export class MongoProvider<T> {
     baseCollection: any
     private db: any
     private indices: any[]
     // Default version number
-    protected version: number = 1
+    protected version = 1
     protected kysoModelProvider
-        
+
     constructor(collection, mongoDB, indices?: any[]) {
         this.db = mongoDB
         this.baseCollection = collection
         this.indices = indices || []
 
         const existsCollectionPromise = this.existsMongoDBCollection(this.baseCollection)
-        
+
         existsCollectionPromise.then(async (existsCollection) => {
             await this.checkAndCreateKysoModelVersionCollection()
             if (!existsCollection) {
@@ -48,11 +48,11 @@ export class MongoProvider<T> {
                 await this.checkIndices()
                 const existsVersion = await this.existsCollectionVersion()
 
-                if(existsVersion) {
+                if (existsVersion) {
                     const databaseVersion: KysoDataModelVersion = await this.getCollectionVersion()
                     const dbVersion = databaseVersion.version
 
-                    if(dbVersion < this.version) {
+                    if (dbVersion < this.version) {
                         await this.executeMigration(dbVersion, this.version)
                     }
                 } else {
@@ -79,24 +79,24 @@ export class MongoProvider<T> {
     // TO OVERRIDE
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     populateMinimalData() {}
-    
+
     async executeMigration(fromVersion: number, toVersion: number) {
         const callableMigrationMethods = []
-        for(let i = fromVersion; i < toVersion; i++) {
-            let j = i + 1;
+        for (let i = fromVersion; i < toVersion; i++) {
+            const j = i + 1
             callableMigrationMethods.push(`migrate_from_${i}_to_${j}`)
         }
 
-        for(let x of callableMigrationMethods) {
+        for (const x of callableMigrationMethods) {
             try {
-                Logger.log("Executing migration " + x)
+                Logger.log('Executing migration ' + x)
                 const migrationResult = await this.runDynamicMethod(x)
                 // Update migration in database
                 await this.saveModelVersion(x.split('_to_')[1] as number)
-            } catch(ex) {
+            } catch (ex) {
                 Logger.error(`Migration ${x} returned an error`, ex)
                 // Break the loop as the data can be inconsistent
-                break;
+                break
             }
         }
     }
@@ -172,7 +172,7 @@ export class MongoProvider<T> {
 
     public async update(filterQuery, updateQuery): Promise<T> {
         if (!updateQuery.$currentDate) updateQuery.$currentDate = {}
-        updateQuery.$currentDate._updated_at = { $type: 'date' }
+        updateQuery.$currentDate.updated_at = { $type: 'date' }
 
         const obj = await this.getCollection().findOneAndUpdate(filterQuery, updateQuery, { returnDocument: 'after' })
 
@@ -181,7 +181,7 @@ export class MongoProvider<T> {
 
     public async updateOne(filterQuery, updateQuery): Promise<T> {
         if (!updateQuery.$currentDate) updateQuery.$currentDate = {}
-        updateQuery.$currentDate._updated_at = { $type: 'date' }
+        updateQuery.$currentDate.updated_at = { $type: 'date' }
 
         const obj = await this.getCollection().updateOne(filterQuery, updateQuery, { returnDocument: 'after' })
 
@@ -206,13 +206,11 @@ export class MongoProvider<T> {
     }
 
     private async checkAndCreateKysoModelVersionCollection() {
-        if(!await this.existsMongoDBCollection(KYSO_MODEL_VERSION_COLLECTION_NAME)) {
+        if (!(await this.existsMongoDBCollection(KYSO_MODEL_VERSION_COLLECTION_NAME))) {
             try {
                 Logger.log(`Collection KysoDataModelVersion does not exists, creating it`)
                 await this.db.createCollection(KYSO_MODEL_VERSION_COLLECTION_NAME)
-            } catch(ex) {
-
-            }
+            } catch (ex) {}
         }
     }
 
@@ -222,20 +220,21 @@ export class MongoProvider<T> {
         return count
     }
 
-    runDynamicMethod(methodName: string) { 
-        this[methodName]();
+    runDynamicMethod(methodName: string) {
+        this[methodName]()
     }
 
     protected async getCollectionVersion(): Promise<KysoDataModelVersion> {
-        const { filter, ...options } = { filter: { collection: this.baseCollection }}
-        const cursor = await this.db.collection(KYSO_MODEL_VERSION_COLLECTION_NAME)
+        const { filter, ...options } = { filter: { collection: this.baseCollection } }
+        const cursor = await this.db
+            .collection(KYSO_MODEL_VERSION_COLLECTION_NAME)
             .find(filter, options)
             .map((elem) => parseForeignKeys(elem))
         const databaseCollectionVersion: KysoDataModelVersion[] = await cursor.toArray()
 
-        if(databaseCollectionVersion && databaseCollectionVersion.length === 1) {
+        if (databaseCollectionVersion && databaseCollectionVersion.length === 1) {
             return databaseCollectionVersion[0]
-        } else if (databaseCollectionVersion.length > 1){
+        } else if (databaseCollectionVersion.length > 1) {
             Logger.warn(`Collection ${this.baseCollection} has more than one document in the database`)
             return databaseCollectionVersion[0]
         } else {
@@ -243,49 +242,50 @@ export class MongoProvider<T> {
         }
     }
 
-    protected async existsCollectionVersion(): Promise<boolean> {       
-        const { filter, ...options } = { filter: { collection: this.baseCollection }}
-        const cursor = await this.db.collection(KYSO_MODEL_VERSION_COLLECTION_NAME)
+    protected async existsCollectionVersion(): Promise<boolean> {
+        const { filter, ...options } = { filter: { collection: this.baseCollection } }
+        const cursor = await this.db
+            .collection(KYSO_MODEL_VERSION_COLLECTION_NAME)
             .find(filter, options)
             .map((elem) => parseForeignKeys(elem))
-        
+
         const databaseCollectionVersion: KysoDataModelVersion[] = await cursor.toArray()
 
-        if(databaseCollectionVersion && databaseCollectionVersion.length === 1) {
+        if (databaseCollectionVersion && databaseCollectionVersion.length === 1) {
             return true
-        } else if (databaseCollectionVersion.length > 1){
+        } else if (databaseCollectionVersion.length > 1) {
             Logger.warn(`Collection ${this.baseCollection} has more than one document in the database`)
             return true
         } else {
             return false
         }
-        
     }
 
     async saveModelVersion(version: number) {
-        const { filter, ...options } = { filter: { collection: this.baseCollection }}
-        const cursor = await this.db.collection(KYSO_MODEL_VERSION_COLLECTION_NAME)
+        const { filter, ...options } = { filter: { collection: this.baseCollection } }
+        const cursor = await this.db
+            .collection(KYSO_MODEL_VERSION_COLLECTION_NAME)
             .find(filter, options)
             .map((elem) => parseForeignKeys(elem))
-        
+
         const databaseCollectionVersion: any[] = await cursor.toArray()
 
-        if(databaseCollectionVersion && databaseCollectionVersion.length === 1) {
+        if (databaseCollectionVersion && databaseCollectionVersion.length === 1) {
             // Exists, then update
             const data: any = {}
             data.version = version
 
             await this.db.collection(KYSO_MODEL_VERSION_COLLECTION_NAME).updateOne(
-                { collection: this.baseCollection }, 
+                { collection: this.baseCollection },
                 {
                     $set: data,
-                    $currentDate: { _updated_at: { $type: 'date' } }
+                    $currentDate: { updated_at: { $type: 'date' } },
                 },
-                { returnDocument: 'after' }
+                { returnDocument: 'after' },
             )
         } else {
             // Does not exists, then create
-            const newKysoDataModelVersion = new KysoDataModelVersion() as any;
+            const newKysoDataModelVersion = new KysoDataModelVersion() as any
             newKysoDataModelVersion.collection = this.baseCollection
             newKysoDataModelVersion.version = version
             delete newKysoDataModelVersion._id
@@ -310,8 +310,8 @@ function parseForeignKeys(obj) {
                 }
             } else if (key.startsWith('_')) {
                 if (key === '_id') result.id = value.toString()
-                else if (key === '_created_at') result.created_at = value
-                else if (key === '_updated_at') result.updated_at = value
+                else if (key === 'created_at') result.created_at = value
+                else if (key === 'updated_at') result.updated_at = value
                 // Exception to the rule, is not a security issue as the hash is unique and can't be dehashed, and we need it
                 // to compare it in the login process
                 else if (key === '_hashed_password') result.hashed_password = value
@@ -322,6 +322,4 @@ function parseForeignKeys(obj) {
 
         return result
     }
-
-    
 }

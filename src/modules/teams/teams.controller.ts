@@ -81,7 +81,7 @@ export class TeamsController extends GenericController<Team> {
     async getVisibilityTeams(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<Team[]>> {
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) {
-            query.sort = { _created_at: -1 }
+            query.sort = { created_at: -1 }
         }
         if (!query.filter) {
             query.filter = {}

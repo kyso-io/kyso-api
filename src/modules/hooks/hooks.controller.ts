@@ -49,6 +49,27 @@ export class HooksController {
             return
         }
 
-        this.reportsService.downloadGithubRepo(report, repository, sha, userAccount)
+        this.reportsService.downloadGithubRepo(user, report, repository, sha, userAccount)
+    }
+
+    @Post('bitbucket')
+    public async bitbucketHook(@Body() body: any): Promise<void> {
+        const report: Report = await this.reportsService.getReport({ filter: { name: body.repository.full_name } })
+        if (!report) {
+            Logger.error(`No report found for bitbucket repository ${body.repository.full_name}`, HooksController.name)
+            return
+        }
+        const user: User = await this.usersService.getUserById(report.user_id)
+        if (!user) {
+            Logger.error(`No user found for Github report '${report.id} ${report.name}'`, HooksController.name)
+            return
+        }
+        const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
+        if (!userAccount) {
+            Logger.error(`No Github account found for user '${user.id} ${user.name}'`, HooksController.name)
+            return
+        }
+        const sha: string = body.push.changes[0].commits[0].hash
+        this.reportsService.downloadBitbucketRepo(user, report, body.repository.full_name, sha, userAccount)
     }
 }

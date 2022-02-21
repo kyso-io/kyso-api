@@ -1,10 +1,21 @@
-import { GithubFileHash, GithubRepository, LoginProviderEnum, NormalizedResponseDTO, Repository, Token, User, UserAccount } from '@kyso-io/kyso-model'
+import {
+    BitbucketRepoPermissionsEnum,
+    GithubFileHash,
+    GithubRepository,
+    LoginProviderEnum,
+    NormalizedResponseDTO,
+    Repository,
+    Token,
+    User,
+    UserAccount,
+} from '@kyso-io/kyso-model'
 import { Controller, Get, Param, PreconditionFailedException, Query } from '@nestjs/common'
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
+import { Permission } from '../auth/annotations/permission.decorator'
 import { UsersService } from '../users/users.service'
 import { BitbucketReposProvider } from './providers/bitbucket-repo.provider'
 
@@ -31,6 +42,7 @@ export class BitbucketReposController extends GenericController<Repository> {
         description: `Search results matching criteria`,
         type: Repository,
     })
+    @Permission([BitbucketRepoPermissionsEnum.READ])
     async getRepos(
         @CurrentToken() token: Token,
         @Query('filter') filter,
@@ -63,6 +75,7 @@ export class BitbucketReposController extends GenericController<Repository> {
         status: 200,
         description: `The data of the specified repository`,
     })
+    @Permission([BitbucketRepoPermissionsEnum.READ])
     async getAuthenticatedUser(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<any>> {
         try {
             const user: User = await this.usersService.getUserById(token.id)
@@ -88,6 +101,7 @@ export class BitbucketReposController extends GenericController<Repository> {
         description: `The data of the specified repository`,
         type: Repository,
     })
+    @Permission([BitbucketRepoPermissionsEnum.READ])
     async getRepo(@CurrentToken() token: Token, @Query('name') name: string): Promise<NormalizedResponseDTO<GithubRepository>> {
         try {
             if (!name || name.length === 0) {
@@ -98,7 +112,7 @@ export class BitbucketReposController extends GenericController<Repository> {
             if (!userAccount) {
                 throw new PreconditionFailedException('User does not have a bitbucket account')
             }
-            const repository: GithubRepository = await this.bitbucketReposProvider.getRepo(userAccount.username, userAccount.accessToken, name)
+            const repository: GithubRepository = await this.bitbucketReposProvider.getRepository(userAccount.username, userAccount.accessToken, name)
             return new NormalizedResponseDTO(repository)
         } catch (e) {
             return new NormalizedResponseDTO(null)
@@ -121,6 +135,7 @@ export class BitbucketReposController extends GenericController<Repository> {
         description: `The data of the specified repository`,
         type: Repository,
     })
+    @Permission([BitbucketRepoPermissionsEnum.READ])
     async getRepoTree(
         @CurrentToken() token: Token,
         @Param('branch') branch: string,

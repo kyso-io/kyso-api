@@ -1,6 +1,7 @@
 import { GithubRepository } from '@kyso-io/kyso-model'
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { NotFoundError } from '../../../helpers/errorHandling'
+import { CreateBitbucketWebhookDto } from '../classes/create-bitbucket-webhook.dto'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const axios = require('axios').default
 
@@ -20,41 +21,6 @@ const DEFAULT_PER_PAGE = 20
 
 @Injectable()
 export class BitbucketReposProvider {
-    constructor() {
-        // const username = 'dani-kyso'
-        // const password = 'D6GjpNwngz9A3t7XjZwq'
-        // this.getWorkspaces(username, password, 1, DEFAULT_PER_PAGE)
-        //     .then((res) => console.log(res))
-        //     .catch((err) => console.log(err))
-        // this.getAllRepos(username, password)
-        //     .then((result) => console.log(result))
-        //     .catch((err) => console.log(err))
-        // this.getRepo(username, password, 'dani-kyso/dummy-project')
-        //     .then((result) => console.log(result))
-        //     .catch((err) => console.log(err))
-        // this.searchRepos(username, password, 'dani-kyso', 'name~"dummy"', 1, DEFAULT_PER_PAGE)
-        //     .then((result) => console.log(result))
-        //     .catch((err) => console.log(err))
-        // this.getBranches(username, password, 'dani-kyso/dummy-project', 1, DEFAULT_PER_PAGE)
-        //     .then((result) => console.log(result))
-        //     .catch((err) => console.log(err))
-        // this.getCommits(username, password, 'dani-kyso/dummy-project', 'master', 1, DEFAULT_PER_PAGE)
-        //     .then((result) => console.log(result))
-        //     .catch((err) => console.log(err))
-        // this.getRootFilesAndFolders(username, password, 'dani-kyso/dummy-project')
-        //     .then((result) => console.log(result))
-        //     .catch((err) => console.log(err))
-        // this.getRootFilesAndFoldersByCommit(username, password, 'dani-kyso/dummy-project', '7aac65f1606c246ee074bb9a579cf737f3288e95', 'data/skus', null)
-        //     .then((result) => console.log(result))
-        //     .catch((err) => console.log(err))
-        // this.getFileContent(username, password, 'dani-kyso/dummy-project', '7aac65f1606c246ee074bb9a579cf737f3288e95', 'index.js')
-        //     .then((result) => console.log(Buffer.from(result).toString()))
-        //     .catch((err) => console.log(err))
-        // this.getUser(username, password)
-        //     .then((result) => console.log(result))
-        //     .catch((err) => console.log(err))
-    }
-
     private withUserAndAppPassword(username: string, appPassword: string): string {
         const buffer = Buffer.from(`${username}:${appPassword}`)
         return `Basic ${buffer.toString('base64')}`
@@ -94,7 +60,7 @@ export class BitbucketReposProvider {
         return res.data
     }
 
-    public async getRepo(username: string, password: string, fullName: string): Promise<any> {
+    public async getRepository(username: string, password: string, fullName: string): Promise<any> {
         const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}`, {
             headers: { Authorization: this.withUserAndAppPassword(username, password) },
         })
@@ -220,6 +186,40 @@ export class BitbucketReposProvider {
 
     public async getUser(username: string, password: string): Promise<any> {
         const res = await axios.get(`${process.env.BITBUCKET_API}/user`, {
+            headers: { Authorization: this.withUserAndAppPassword(username, password) },
+        })
+        return res.data
+    }
+
+    public async downloadRepository(username: string, password: string, fullName: string, commit: string): Promise<Buffer> {
+        try {
+            const res = await axios.get(`https://bitbucket.org/${fullName}/get/${commit}.zip`, {
+                headers: { Authorization: this.withUserAndAppPassword(username, password) },
+                responseType: 'arraybuffer',
+            })
+            return res.data
+        } catch (e) {
+            Logger.error(`An error occurred while downloading the repo ${fullName}@${commit}`, e, BitbucketReposProvider.name)
+            return null
+        }
+    }
+
+    public async getWebhooks(username: string, password: string, fullName: string): Promise<void> {
+        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/hooks`, {
+            headers: { Authorization: this.withUserAndAppPassword(username, password) },
+        })
+        return res.data
+    }
+
+    public async createWebhook(username: string, password: string, fullName: string, data: CreateBitbucketWebhookDto): Promise<void> {
+        const res = await axios.post(`${process.env.BITBUCKET_API}/repositories/${fullName}/hooks`, data, {
+            headers: { Authorization: this.withUserAndAppPassword(username, password) },
+        })
+        return res.data
+    }
+
+    public async deleteWebhook(username: string, password: string, fullName: string, hookId: number): Promise<void> {
+        const res = await axios.delete(`${process.env.BITBUCKET_API}/repositories/${fullName}/hooks/${hookId}`, {
             headers: { Authorization: this.withUserAndAppPassword(username, password) },
         })
         return res.data

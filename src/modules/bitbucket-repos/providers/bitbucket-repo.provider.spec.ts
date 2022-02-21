@@ -30,7 +30,7 @@ describe('Bitbucket provider suite test', () => {
 
         bucket.withUserAndAppPassword(process.env.BITBUCKET_USER, process.env.BITBUCKET_APP_PASSWORD)
 
-        const result = await bucket.getRepo('test-kuso', 'my-first-repository')
+        const result = await bucket.getRepository('test-kuso', 'my-first-repository')
 
         expect(result.name).toEqual('my-first-repository')
     })
