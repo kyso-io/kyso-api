@@ -136,7 +136,6 @@ export class ReportsController extends GenericController<Report> {
                 EntityEnum.REPORT,
             )*/
             const newFilter = { ...query.filter }
-            console.log(`${query.filter.$text.$search}`)
 
             newFilter.$or = [
                 // {
@@ -162,8 +161,6 @@ export class ReportsController extends GenericController<Report> {
         if (query?.filter?.name && !isNaN(query.filter.name)) {
             query.filter.name = query.filter.name.toString()
         }
-
-        console.log(query)
 
         const reports: Report[] = await this.reportsService.getReports(query)
         let reportsDtos: ReportDTO[] = []
