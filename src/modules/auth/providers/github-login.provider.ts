@@ -91,7 +91,7 @@ export class GithubLoginProvider {
             }
 
             const index: number = user.accounts.findIndex(
-                (userAccount: UserAccount) => userAccount.type === LoginProviderEnum.GITHUB && userAccount.username === login.username,
+                (userAccount: UserAccount) => userAccount.type === LoginProviderEnum.GITHUB && userAccount.accountId === githubUser.id,
             )
             if (index === -1) {
                 user.accounts.push({

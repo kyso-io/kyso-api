@@ -42,7 +42,7 @@ export class InvitationsController extends GenericController<Invitation> {
     })
     public async getInvitations(@Req() req): Promise<NormalizedResponseDTO<Invitation[]>> {
         const query = QueryParser.toQueryObject(req.url)
-        if (!query.sort) query.sort = { _created_at: -1 }
+        if (!query.sort) query.sort = { created_at: -1 }
         if (!query.filter) query.filter = {}
         const invitations: Invitation[] = await this.invitationsService.getInvitations(query)
         return new NormalizedResponseDTO(invitations)

@@ -43,6 +43,7 @@ import { AutowiredService } from '../../generic/autowired.generic'
 import { NotFoundError } from '../../helpers/errorHandling'
 import slugify from '../../helpers/slugify'
 import { Validators } from '../../helpers/validators'
+import { BitbucketReposService } from '../bitbucket-repos/bitbucket-repos.service'
 import { CommentsService } from '../comments/comments.service'
 import { GithubReposService } from '../github-repos/github-repos.service'
 import { OrganizationsService } from '../organizations/organizations.service'
@@ -89,6 +90,9 @@ export class ReportsService extends AutowiredService {
 
     @Autowired({ typeName: 'OrganizationsService' })
     private organizationsService: OrganizationsService
+
+    @Autowired({ typeName: 'BitbucketReposService' })
+    private bitbucketReposService: BitbucketReposService
 
     constructor(
         private readonly provider: ReportsMongoProvider,
@@ -730,8 +734,6 @@ export class ReportsService extends AutowiredService {
             throw new PreconditionFailedException(`User ${user.nickname} does not have a GitHub access token`)
         }
 
-        const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
-
         const octokit = new Octokit({
             auth: `token ${userAccount.accessToken}`,
         })
@@ -751,7 +753,6 @@ export class ReportsService extends AutowiredService {
         const repository = repositoryResponse.data
 
         const reports: Report[] = await this.provider.read({ filter: { name: repository.name, user_id: user.id } })
-        let reportFiles: File[] = []
         let report: Report = null
         if (reports.length > 0) {
             // Existing report
@@ -763,7 +764,7 @@ export class ReportsService extends AutowiredService {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
             Logger.log(`Report '${report.id} ${report.name}' already imported. Updating files...`, ReportsService.name)
         } else {
-            const webhook = await this.createWebhook(octokit, userAccount.username, repository.name)
+            const webhook = await this.createGithubWebhook(octokit, userAccount.username, repository.name)
             report = new Report(
                 repository.name,
                 repository.id.toString(),
@@ -824,139 +825,28 @@ export class ReportsService extends AutowiredService {
             }
 
             // Normalize file paths
-            const relativePath: string = filePaths[1]
-            const files: { name: string; filePath: string }[] = []
+            let files: { name: string; filePath: string }[] = []
             let kysoConfigFile: KysoConfigFile = null
-            const directoriesToRemove: string[] = []
-            // Search kyso config file and annotate directories to remove at the end of the process
-            for (let i = 2; i < filePaths.length; i++) {
-                const filePath: string = filePaths[i]
-                if (lstatSync(filePath).isDirectory()) {
-                    directoriesToRemove.push(filePath)
-                    continue
-                }
-                const fileName: string = filePath.replace(`${relativePath}/`, '')
-                if (fileName === 'kyso.json') {
-                    try {
-                        kysoConfigFile = JSON.parse(readFileSync(filePath, 'utf8'))
-                        if (!KysoConfigFile.isValid(kysoConfigFile)) {
-                            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                            Logger.error(`Report ${report.id} ${repositoryName}: kyso.json config file is not valid`, ReportsService.name)
-                            // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: kyso.json config file is not valid`)
-                            return
-                        }
-                    } catch (e) {
-                        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                        Logger.error(`Report ${report.id} ${repositoryName}: Could not parse kyso.json file`, ReportsService.name)
-                        // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Could not parse kyso.json file`, ReportsService.name)
-                        return
-                    }
-                } else if (fileName === 'kyso.yml' || fileName === 'kyso.yaml') {
-                    try {
-                        kysoConfigFile = jsYaml.load(readFileSync(filePath, 'utf8')) as KysoConfigFile
-                        if (!KysoConfigFile.isValid(kysoConfigFile)) {
-                            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                            Logger.error(`Report ${report.id} ${repositoryName}: kyso.{yml,yaml} config file is not valid`, ReportsService.name)
-                            // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: kyso.{yml,yaml} config file is not valid`)
-                            return
-                        }
-                    } catch (e) {
-                        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                        Logger.error(`Report ${report.id} ${repositoryName}: Could not parse kyso.{yml,yaml} file`, ReportsService.name)
-                        // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Could not parse kyso.{yml,yaml} file`, ReportsService.name)
-                        return
-                    }
-                }
-                files.push({ name: fileName, filePath: filePath })
-            }
-            if (!kysoConfigFile) {
-                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                Logger.error(`Report ${report.id} ${repositoryName}: Repository does not contain a kyso.{json,yml,yaml} config file`, ReportsService.name)
-                // throw new PreconditionFailedException(`Repository ${repositoryName} does not contain a kyso.{json,yml,yaml} config file`, ReportsService.name)
-                return
+            let directoriesToRemove: string[] = []
+            try {
+                const result = await this.normalizeFilePatsh(report, filePaths)
+                files = result.files
+                kysoConfigFile = result.kysoConfigFile
+                directoriesToRemove = result.directoriesToRemove
+                Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${branch}'`, ReportsService.name)
+            } catch (e) {
+                await this.deleteReport(report.id)
+                return null
             }
             Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${sha}'`, ReportsService.name)
 
-            const team: Team = await this.teamsService.getTeam({ filter: { name: kysoConfigFile.team } })
-            if (!team) {
-                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                Logger.error(`Report ${report.id} ${repositoryName}: Team ${kysoConfigFile.team} does not exist`, ReportsService.name)
-                // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Team ${kysoConfigFile.team} does not exist`)
-                return
-            }
-            const belongsToTeam: boolean = await this.teamsService.userBelongsToTeam(team.id, user.id)
-            if (!isGlobalAdmin && !belongsToTeam) {
-                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                Logger.error(`Report ${report.id} ${repositoryName}: User ${user.nickname} is not a member of team ${team.name}`, ReportsService.name)
-                // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: User ${user.nickname} is not a member of team ${team.name}`)
-                return
-            }
-
-            report = await this.provider.update(
-                { _id: this.provider.toObjectId(report.id) },
-                {
-                    $set: {
-                        status: ReportStatus.Imported,
-                        team_id: team.id,
-                        title: kysoConfigFile.title || report.title,
-                    },
-                },
-            )
-
-            await this.checkReportTags(report.id, kysoConfigFile.tags)
-
-            const s3Client: S3Client = this.getS3Client()
-
-            // Get all report files
-            reportFiles = await this.filesMongoProvider.read({ filter: { report_id: report.id }, sort: { version: -1 } })
-            for (let i = 0; i < files.length; i++) {
-                const originalName: string = files[i].name
-                const sha: string = sha256File(files[i].filePath)
-                const size: number = statSync(files[i].filePath).size
-                const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-                let reportFile: File = reportFiles.find((reportFile: File) => reportFile.name === originalName)
-                if (reportFile) {
-                    reportFile = new File(report.id, originalName, path_s3, size, sha, reportFile.version + 1)
-                    Logger.log(`Report '${report.name}': file ${reportFile.name} new version ${reportFile.version}`, ReportsService.name)
-                } else {
-                    reportFile = new File(report.id, originalName, path_s3, size, sha, 1)
-                    Logger.log(`Report '${report.name}': new file ${reportFile.name}`, ReportsService.name)
-                }
-                reportFile = await this.filesMongoProvider.create(reportFile)
-                reportFiles.push(reportFile)
-                const zip = new AdmZip()
-                const fileContent: Buffer = readFileSync(files[i].filePath)
-                zip.addFile(originalName, fileContent)
-                const outputFilePath = `/tmp/${uuidv4()}.zip`
-                zip.writeZip(outputFilePath)
-                Logger.log(`Report '${report.name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
-                await s3Client.send(
-                    new PutObjectCommand({
-                        Bucket: process.env.AWS_S3_BUCKET,
-                        Key: reportFile.path_s3,
-                        Body: readFileSync(outputFilePath),
-                    }),
-                )
-                Logger.log(`Report '${report.name}': uploaded file '${reportFile.name}' to S3 with key '${reportFile.path_s3}'`, ReportsService.name)
-                // Delete zip file
-                unlinkSync(outputFilePath)
-            }
-
-            // Delete directories
-            for (let i = 0; i < directoriesToRemove.length; i++) {
-                rmSync(directoriesToRemove[i], { recursive: true, force: true })
-            }
-            // Delete extracted directory of github project
-            rmSync(extractedDir, { recursive: true, force: true })
-
-            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
-            Logger.log(`Report '${report.id} ${report.name}' imported`, ReportsService.name)
+            this.uploadRepositoryFilesToS3(user, report, extractedDir, kysoConfigFile, files, directoriesToRemove)
         })
 
         return report
     }
 
-    public async downloadGithubRepo(report: Report, repository: any, sha: string, userAccount: UserAccount): Promise<void> {
+    public async downloadGithubRepo(user: User, report: Report, repository: any, sha: string, userAccount: UserAccount): Promise<void> {
         Logger.log(`Downloading and extrating repository ${report.name}' commit '${sha}'`, ReportsService.name)
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
 
@@ -979,6 +869,202 @@ export class ReportsService extends AutowiredService {
         }
 
         // Normalize file paths
+        let files: { name: string; filePath: string }[] = []
+        let kysoConfigFile: KysoConfigFile = null
+        let directoriesToRemove: string[] = []
+        try {
+            const result = await this.normalizeFilePatsh(report, filePaths)
+            files = result.files
+            kysoConfigFile = result.kysoConfigFile
+            directoriesToRemove = result.directoriesToRemove
+            Logger.log(`Downloaded ${files.length} files from repository ${report.name}' commit '${sha}'`, ReportsService.name)
+        } catch (e) {
+            await this.deleteReport(report.id)
+            return null
+        }
+        Logger.log(`Downloaded ${files.length} files from repository ${report.name}' commit '${sha}'`, ReportsService.name)
+
+        this.uploadRepositoryFilesToS3(user, report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+    }
+
+    public async createReportFromBitbucketRepository(userId: string, repositoryName: string, branch: string): Promise<Report> {
+        const user: User = await this.usersService.getUserById(userId)
+        if (!user) {
+            throw new NotFoundError(`User ${userId} does not exist`)
+        }
+        const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
+        if (!userAccount) {
+            throw new PreconditionFailedException(`User ${user.nickname} does not have a Bitbucket account`)
+        }
+        if (!userAccount.username || userAccount.username.length === 0) {
+            throw new PreconditionFailedException(`User ${user.nickname} does not have a Bitbucket username`)
+        }
+        if (!userAccount.accessToken || userAccount.accessToken.length === 0) {
+            throw new PreconditionFailedException(`User ${user.nickname} does not have a Bitbucket access token`)
+        }
+
+        let bitbucketRepository: any = null
+        try {
+            bitbucketRepository = await this.bitbucketReposService.getRepository(userAccount.username, userAccount.accessToken, repositoryName)
+        } catch (e) {
+            throw new PreconditionFailedException(`User ${user.nickname} does not have a Bitbucket repository '${repositoryName}'`)
+        }
+
+        const reports: Report[] = await this.provider.read({ filter: { name: bitbucketRepository.fullName, user_id: user.id } })
+        let report: Report = null
+        if (reports.length > 0) {
+            // Existing report
+            report = reports[0]
+            if (report.status === ReportStatus.Processing) {
+                Logger.log(`Report '${report.id} ${report.name}' is being imported`, ReportsService.name)
+                return report
+            }
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
+            Logger.log(`Report '${report.id} ${report.name}' already imported. Updating files...`, ReportsService.name)
+        } else {
+            let webhook: any = null
+            try {
+                webhook = await this.bitbucketReposService.createWebhook(userAccount.username, userAccount.accessToken, repositoryName)
+                Logger.log(`Created webhook for repository '${repositoryName}' with id ${webhook.id}`, ReportsService.name)
+            } catch (e) {
+                throw Error(`An error occurred creating webhook for repository '${repositoryName}'`)
+            }
+            report = new Report(
+                bitbucketRepository.fullName,
+                bitbucketRepository.id,
+                webhook.uuid,
+                RepositoryProvider.BITBUCKET,
+                userAccount.username,
+                bitbucketRepository.defaultBranch,
+                null,
+                0,
+                false,
+                bitbucketRepository.description,
+                user.id,
+                null,
+                bitbucketRepository.name,
+                [],
+                null,
+            )
+            report = await this.provider.create(report)
+            Logger.log(`New report '${report.id} ${report.name}'`, ReportsService.name)
+        }
+
+        new Promise<void>(async () => {
+            const desiredCommit: string = branch && branch.length > 0 ? branch : bitbucketRepository.defaultBranch
+            const extractedDir = `/tmp/${uuidv4()}`
+            try {
+                Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
+                const buffer: Buffer = await this.bitbucketReposService.downloadRepository(
+                    userAccount.username,
+                    userAccount.accessToken,
+                    repositoryName,
+                    desiredCommit,
+                )
+                if (!buffer) {
+                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+                    Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${desiredCommit}`, ReportsService.name)
+                    // throw new PreconditionFailedException(`Could not download repository ${repositoryName} commit ${desiredCommit}`, ReportsService.name)
+                    return
+                }
+                Logger.log(`Report '${report.id} ${report.name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
+                const zip: AdmZip = new AdmZip(buffer)
+                zip.extractAllTo(extractedDir, true)
+                Logger.log(`Extracted repository '${repositoryName}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
+            } catch (e) {
+                await this.deleteReport(report.id)
+                throw Error(`An error occurred downloading repository '${repositoryName}'`)
+            }
+
+            const filePaths: string[] = await this.getFilePaths(extractedDir)
+            if (filePaths.length < 2) {
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+                Logger.error(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
+                throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
+            }
+
+            // Normalize file paths
+            let files: { name: string; filePath: string }[] = []
+            let kysoConfigFile: KysoConfigFile = null
+            let directoriesToRemove: string[] = []
+            try {
+                const result = await this.normalizeFilePatsh(report, filePaths)
+                files = result.files
+                kysoConfigFile = result.kysoConfigFile
+                directoriesToRemove = result.directoriesToRemove
+                Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
+            } catch (e) {
+                await this.deleteReport(report.id)
+                return null
+            }
+
+            await this.uploadRepositoryFilesToS3(user, report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+        })
+
+        return report
+    }
+
+    public async downloadBitbucketRepo(user: User, report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
+        Logger.log(`Downloading and extrating repository ${report.name}' commit '${desiredCommit}'`, ReportsService.name)
+        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
+
+        const extractedDir = `/tmp/${uuidv4()}`
+        try {
+            Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
+            const buffer: Buffer = await this.bitbucketReposService.downloadRepository(
+                userAccount.username,
+                userAccount.accessToken,
+                repositoryName,
+                desiredCommit,
+            )
+            if (!buffer) {
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+                Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${desiredCommit}`, ReportsService.name)
+                // throw new PreconditionFailedException(`Could not download repository ${repositoryName} commit ${desiredCommit}`, ReportsService.name)
+                return
+            }
+            Logger.log(`Report '${report.id} ${report.name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
+            const zip: AdmZip = new AdmZip(buffer)
+            zip.extractAllTo(extractedDir, true)
+            Logger.log(`Extracted repository '${repositoryName}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
+        } catch (e) {
+            await this.deleteReport(report.id)
+            throw Error(`An error occurred downloading repository '${repositoryName}'`)
+        }
+        Logger.log(`Report '${report.id} ${report.name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
+
+        const filePaths: string[] = await this.getFilePaths(extractedDir)
+        if (filePaths.length < 2) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report ${report.id} ${report.name}: Repository does not contain any files`, ReportsService.name)
+            // throw new PreconditionFailedException(`Report ${report.id} ${report.name}: Repository does not contain any files`, ReportsService.name)
+            return
+        }
+
+        // Normalize file paths
+        let files: { name: string; filePath: string }[] = []
+        let kysoConfigFile: KysoConfigFile = null
+        let directoriesToRemove: string[] = []
+        try {
+            const result = await this.normalizeFilePatsh(report, filePaths)
+            files = result.files
+            kysoConfigFile = result.kysoConfigFile
+            directoriesToRemove = result.directoriesToRemove
+            Logger.log(`Downloaded ${files.length} files from repository ${report.name}' commit '${desiredCommit}'`, ReportsService.name)
+        } catch (e) {
+            await this.deleteReport(report.id)
+            return null
+        }
+        Logger.log(`Downloaded ${files.length} files from repository ${report.name}' commit '${desiredCommit}'`, ReportsService.name)
+
+        this.uploadRepositoryFilesToS3(user, report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+    }
+
+    private async normalizeFilePatsh(
+        report: Report,
+        filePaths: string[],
+    ): Promise<{ files: { name: string; filePath: string }[]; kysoConfigFile: KysoConfigFile; directoriesToRemove: string[] }> {
+        // Normalize file paths
         const relativePath: string = filePaths[1]
         const files: { name: string; filePath: string }[] = []
         let kysoConfigFile: KysoConfigFile = null
@@ -997,14 +1083,12 @@ export class ReportsService extends AutowiredService {
                     if (!KysoConfigFile.isValid(kysoConfigFile)) {
                         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                         Logger.error(`Report ${report.id} ${report.name}: kyso.json config file is not valid`, ReportsService.name)
-                        // throw new PreconditionFailedException(`Report ${report.id} ${report.name}: kyso.json config file is not valid`)
-                        return
+                        throw new PreconditionFailedException(`Report ${report.id} ${report.name}: kyso.json config file is not valid`)
                     }
                 } catch (e) {
                     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                     Logger.error(`Report ${report.id} ${report.name}: Could not parse kyso.json file`, ReportsService.name)
-                    // throw new PreconditionFailedException(`Report ${report.id} ${report.name}: Could not parse kyso.json file`, ReportsService.name)
-                    return
+                    throw new PreconditionFailedException(`Report ${report.id} ${report.name}: Could not parse kyso.json file`, ReportsService.name)
                 }
             } else if (fileName === 'kyso.yml' || fileName === 'kyso.yaml') {
                 try {
@@ -1012,14 +1096,12 @@ export class ReportsService extends AutowiredService {
                     if (!KysoConfigFile.isValid(kysoConfigFile)) {
                         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                         Logger.error(`Report ${report.id} ${report.name}: kyso.{yml,yaml} config file is not valid`, ReportsService.name)
-                        // throw new PreconditionFailedException(`Report ${report.id} ${report.name}: kyso.{yml,yaml} config file is not valid`)
-                        return
+                        throw new PreconditionFailedException(`Report ${report.id} ${report.name}: kyso.{yml,yaml} config file is not valid`)
                     }
                 } catch (e) {
                     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                     Logger.error(`Report ${report.id} ${report.name}: Could not parse kyso.{yml,yaml} file`, ReportsService.name)
-                    // throw new PreconditionFailedException(`Report ${report.id} ${report.name}: Could not parse kyso.{yml,yaml} file`, ReportsService.name)
-                    return
+                    throw new PreconditionFailedException(`Report ${report.id} ${report.name}: Could not parse kyso.{yml,yaml} file`, ReportsService.name)
                 }
             }
             files.push({ name: fileName, filePath: filePath })
@@ -1027,10 +1109,47 @@ export class ReportsService extends AutowiredService {
         if (!kysoConfigFile) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report ${report.id} ${report.name}: Repository does not contain a kyso.{json,yml,yaml} config file`, ReportsService.name)
-            // throw new PreconditionFailedException(`Repository ${report.name} does not contain a kyso.{json,yml,yaml} config file`, ReportsService.name)
+            throw new PreconditionFailedException(`Repository ${report.name} does not contain a kyso.{json,yml,yaml} config file`, ReportsService.name)
+        }
+        return { files, kysoConfigFile, directoriesToRemove }
+    }
+
+    private async uploadRepositoryFilesToS3(
+        user: User,
+        report: Report,
+        extractedDir: string,
+        kysoConfigFile: KysoConfigFile,
+        files: { name: string; filePath: string }[],
+        directoriesToRemove: string[],
+    ): Promise<void> {
+        const team: Team = await this.teamsService.getTeam({ filter: { name: kysoConfigFile.team } })
+        if (!team) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report ${report.id} ${report.name}: Team ${kysoConfigFile.team} does not exist`, ReportsService.name)
+            // throw new PreconditionFailedException(`Report ${report.id} ${report.name}: Team ${kysoConfigFile.team} does not exist`)
             return
         }
-        Logger.log(`Downloaded ${files.length} files from repository ${report.name}' commit '${sha}'`, ReportsService.name)
+        const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
+        const belongsToTeam: boolean = await this.teamsService.userBelongsToTeam(team.id, user.id)
+        if (!isGlobalAdmin && !belongsToTeam) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report ${report.id} ${report.name}: User ${user.nickname} is not a member of team ${team.name}`, ReportsService.name)
+            // throw new PreconditionFailedException(`Report ${report.id} ${report.name}: User ${user.nickname} is not a member of team ${team.name}`)
+            return
+        }
+
+        report = await this.provider.update(
+            { _id: this.provider.toObjectId(report.id) },
+            {
+                $set: {
+                    status: ReportStatus.Imported,
+                    team_id: team.id,
+                    title: kysoConfigFile.title || report.title,
+                },
+            },
+        )
+
+        await this.checkReportTags(report.id, kysoConfigFile.tags)
 
         const s3Client: S3Client = this.getS3Client()
 
@@ -1077,11 +1196,10 @@ export class ReportsService extends AutowiredService {
         rmSync(extractedDir, { recursive: true, force: true })
 
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
-        Logger.log(`Report '${report.id} ${report.name} ${sha}' imported`, ReportsService.name)
-        return
+        Logger.log(`Report '${report.id} ${report.name}' imported`, ReportsService.name)
     }
 
-    private async createWebhook(octokit: Octokit, username: string, repositoryName: string) {
+    private async createGithubWebhook(octokit: Octokit, username: string, repositoryName: string) {
         try {
             let hookUrl = `${process.env.BASE_URL}/v1/hooks/github`
             if (process.env.NODE_ENV === 'development') {
@@ -1427,48 +1545,17 @@ export class ReportsService extends AutowiredService {
         if (!report) {
             throw new PreconditionFailedException('Report not found')
         }
-        let files: File[] = []
+        const query: any = {
+            filter: {
+                report_id: reportId,
+            },
+            sort: {
+                version: 1,
+            },
+        }
         if (version && version.length > 0 && !isNaN(version as any)) {
-            files = await this.filesMongoProvider.read({
-                filter: {
-                    report_id: reportId,
-                    version: parseInt(version, 10),
-                },
-            })
-        } else {
-            files = await this.filesMongoProvider.read({
-                filter: {
-                    report_id: reportId,
-                },
-                sort: {
-                    version: 1,
-                },
-            })
-            const map: Map<string, File> = new Map<string, File>()
-            files.forEach((file: File) => {
-                map.set(file.name, file)
-            })
-            files = Array.from(map.values())
+            query.filter.version = parseInt(version, 10)
         }
-        return files
-    }
-
-    public async createReportFromBitbucket(userId: string, repositoryName: string, commit: string): Promise<Report> {
-        const user: User = await this.usersService.getUserById(userId)
-        if (!user) {
-            throw new NotFoundError(`User ${userId} does not exist`)
-        }
-        const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
-        if (!userAccount) {
-            throw new PreconditionFailedException(`User ${user.nickname} does not have a Bitbucket account`)
-        }
-        if (!userAccount.username || userAccount.username.length === 0) {
-            throw new PreconditionFailedException(`User ${user.nickname} does not have a Bitbucket username`)
-        }
-        if (!userAccount.accessToken || userAccount.accessToken.length === 0) {
-            throw new PreconditionFailedException(`User ${user.nickname} does not have a Bitbucket access token`)
-        }
-        console.log(userAccount)
-        return null
+        return this.filesMongoProvider.read(query)
     }
 }

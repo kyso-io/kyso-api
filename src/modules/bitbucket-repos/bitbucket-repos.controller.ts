@@ -98,7 +98,7 @@ export class BitbucketReposController extends GenericController<Repository> {
             if (!userAccount) {
                 throw new PreconditionFailedException('User does not have a bitbucket account')
             }
-            const repository: GithubRepository = await this.bitbucketReposProvider.getRepo(userAccount.username, userAccount.accessToken, name)
+            const repository: GithubRepository = await this.bitbucketReposProvider.getRepository(userAccount.username, userAccount.accessToken, name)
             return new NormalizedResponseDTO(repository)
         } catch (e) {
             return new NormalizedResponseDTO(null)

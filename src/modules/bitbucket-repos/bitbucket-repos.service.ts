@@ -16,7 +16,36 @@ export function createProvider(): Provider<BitbucketReposService> {
 
 @Injectable()
 export class BitbucketReposService extends AutowiredService {
-    constructor(private readonly provider: BitbucketReposProvider) {
+    constructor(private readonly bitbucketReposProvider: BitbucketReposProvider) {
         super()
+    }
+
+    public async getRepository(username: string, password: string, fullName: string): Promise<any> {
+        return this.bitbucketReposProvider.getRepository(username, password, fullName)
+    }
+
+    public async downloadRepository(username: string, password: string, fullName: string, commit: string): Promise<Buffer> {
+        return this.bitbucketReposProvider.downloadRepository(username, password, fullName, commit)
+    }
+
+    public async getWebhooks(username: string, password: string, fullName: string): Promise<any> {
+        return this.bitbucketReposProvider.getWebhooks(username, password, fullName)
+    }
+
+    public async createWebhook(username: string, password: string, fullName: string): Promise<any> {
+        let hookUrl = `${process.env.BASE_URL}/v1/hooks/bitbucket`
+        if (process.env.NODE_ENV === 'development') {
+            hookUrl = 'https://smee.io/kyso-bitbucket-hook-test'
+        }
+        return this.bitbucketReposProvider.createWebhook(username, password, fullName, {
+            description: 'Kyso webhook',
+            url: hookUrl,
+            active: true,
+            events: ['repo:push'],
+        })
+    }
+
+    public async deleteWebhook(username: string, password: string, fullName: string, hookId: number): Promise<any> {
+        return this.bitbucketReposProvider.deleteWebhook(username, password, fullName, hookId)
     }
 }

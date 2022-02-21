@@ -48,7 +48,6 @@ import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
-import { InvalidInputError } from '../../helpers/errorHandling'
 import { QueryParser } from '../../helpers/queryParser'
 import slugify from '../../helpers/slugify'
 import { Validators } from '../../helpers/validators'
@@ -114,7 +113,7 @@ export class ReportsController extends GenericController<Report> {
     })
     async getReports(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<ReportDTO[]>> {
         const query = QueryParser.toQueryObject(req.url)
-        if (!query.sort) query.sort = { _created_at: -1 }
+        if (!query.sort) query.sort = { created_at: -1 }
         if (!query.filter) query.filter = {}
 
         if (!query.filter.hasOwnProperty('team_id') || query.filter.team_id == null || query.filter.team_id === '') {
@@ -163,6 +162,8 @@ export class ReportsController extends GenericController<Report> {
         if (query?.filter?.name && !isNaN(query.filter.name)) {
             query.filter.name = query.filter.name.toString()
         }
+
+        console.log(query)
 
         const reports: Report[] = await this.reportsService.getReports(query)
         let reportsDtos: ReportDTO[] = []
@@ -233,7 +234,7 @@ export class ReportsController extends GenericController<Report> {
         await this.reportsService.increaseViews({ _id: new ObjectId(reportId) })
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
-            throw new InvalidInputError('Report not found')
+            throw new PreconditionFailedException('Report not found')
         }
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
@@ -276,18 +277,18 @@ export class ReportsController extends GenericController<Report> {
     ): Promise<NormalizedResponseDTO<ReportDTO>> {
         const organization: Organization = await this.organizationsService.getOrganization({ filter: { name: organizationName } })
         if (!organization) {
-            throw new InvalidInputError('Organization not found')
+            throw new PreconditionFailedException('Organization not found')
         }
         const team: Team = await this.teamsService.getTeam({ filter: { name: teamName, organization_id: organization.id } })
         if (!team) {
-            throw new InvalidInputError('Team not found')
+            throw new PreconditionFailedException('Team not found')
         }
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
             throw new PreconditionFailedException(`Report is not public`)
         }
         const report: Report = await this.reportsService.getReport({ filter: { name: reportName, team_id: team.id } })
         if (!report) {
-            throw new InvalidInputError('Report not found')
+            throw new PreconditionFailedException('Report not found')
         }
         await this.reportsService.increaseViews({ _id: new ObjectId(report.id) })
         report.views++
@@ -387,6 +388,32 @@ export class ReportsController extends GenericController<Report> {
     ): Promise<NormalizedResponseDTO<Report>> {
         Logger.log(`Called createReportFromGithubRepository`)
         const report: Report = await this.reportsService.createReportFromGithubRepository(token.id, repositoryName, branch)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
+    @Post('/bitbucket')
+    @ApiOperation({
+        summary: `Create a new report based on bitbucket repository`,
+        description: `By passing the appropiate parameters you can create a new report referencing a bitbucket repository`,
+    })
+    @ApiResponse({
+        status: 201,
+        description: `Created report`,
+        type: ReportDTO,
+    })
+    @Permission([ReportPermissionsEnum.CREATE])
+    async createReportFromBitbucketRepository(
+        @CurrentToken() token: Token,
+        @Query('name') name: string,
+        @Query('branch') branch: string,
+    ): Promise<NormalizedResponseDTO<Report>> {
+        if (!name || name.length === 0) {
+            throw new PreconditionFailedException('Repository name is required')
+        }
+        Logger.log(`Called createReportFromBitbucketRepository`)
+        const report: Report = await this.reportsService.createReportFromBitbucketRepository(token.id, name, branch)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
@@ -586,7 +613,7 @@ export class ReportsController extends GenericController<Report> {
     async getComments(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Comment[]>> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
-            throw new InvalidInputError('Report not found')
+            throw new PreconditionFailedException('Report not found')
         }
         const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: reportId } })
         const relations = await this.relationsService.getRelations(comments, 'comment')
@@ -729,7 +756,7 @@ export class ReportsController extends GenericController<Report> {
     @Permission([ReportPermissionsEnum.READ])
     async getReportFileContent(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Param('hash') hash: string): Promise<Buffer> {
         if (!Validators.isValidSha(hash)) {
-            throw new InvalidInputError({
+            throw new PreconditionFailedException({
                 message: 'Hash is not a valid sha. Must have 40 hexadecimal characters.',
             })
         }

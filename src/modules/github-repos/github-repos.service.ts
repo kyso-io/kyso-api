@@ -33,7 +33,6 @@ export function createProvider(): Provider<GithubReposService> {
     }
 }
 
-// @Injectable({ scope: Scope.REQUEST })
 @Injectable()
 export class GithubReposService extends AutowiredService {
     constructor(private readonly provider: GithubReposProvider) {
@@ -49,7 +48,7 @@ export class GithubReposService extends AutowiredService {
     }
 
     public async getRepos(accessToken: string, { filter, page = 1, perPage = DEFAULT_REPOS_PER_PAGE }) {
-        return filter ? this.provider.searchRepos(accessToken, filter, page, perPage) : this.provider.getRepos(accessToken, page, perPage)
+        return filter && filter.length > 0 ? this.provider.searchRepos(accessToken, filter, page, perPage) : this.provider.getRepos(accessToken, page, perPage)
     }
 
     public async getGithubRepository(accessToken: string, githubUsername: string, repositoryName: string): Promise<GithubRepository> {
