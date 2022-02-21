@@ -113,6 +113,14 @@ export class ReportsService extends AutowiredService {
         return this.provider.read(query)
     }
 
+    async getReport(query: any): Promise<Report> {
+        const reports: Report[] = await this.provider.read(query)
+        if (reports.length === 0) {
+            return null
+        }
+        return reports[0]
+    }
+
     public async getReportById(reportId: string): Promise<Report> {
         const reports: Report[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(reportId) } })
         return reports.length === 1 ? reports[0] : null
@@ -1443,5 +1451,24 @@ export class ReportsService extends AutowiredService {
             files = Array.from(map.values())
         }
         return files
+    }
+
+    public async createReportFromBitbucket(userId: string, repositoryName: string, commit: string): Promise<Report> {
+        const user: User = await this.usersService.getUserById(userId)
+        if (!user) {
+            throw new NotFoundError(`User ${userId} does not exist`)
+        }
+        const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
+        if (!userAccount) {
+            throw new PreconditionFailedException(`User ${user.nickname} does not have a Bitbucket account`)
+        }
+        if (!userAccount.username || userAccount.username.length === 0) {
+            throw new PreconditionFailedException(`User ${user.nickname} does not have a Bitbucket username`)
+        }
+        if (!userAccount.accessToken || userAccount.accessToken.length === 0) {
+            throw new PreconditionFailedException(`User ${user.nickname} does not have a Bitbucket access token`)
+        }
+        console.log(userAccount)
+        return null
     }
 }
