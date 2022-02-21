@@ -1,6 +1,7 @@
 import {
     AuthProviderSpec,
     CreateUserRequestDTO,
+    GlobalPermissionsEnum,
     Login,
     LoginProviderEnum,
     NormalizedResponseDTO,
@@ -9,14 +10,19 @@ import {
     Token,
     User,
 } from '@kyso-io/kyso-model'
-import { Body, Controller, ForbiddenException, Get, Headers, Logger, Param, Post, PreconditionFailedException, Req, Res } from '@nestjs/common'
+import { Body, Controller, ForbiddenException, Get, Headers, Logger, Param, Post, PreconditionFailedException, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
 import { OrganizationsService } from '../organizations/organizations.service'
+import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
+import { CurrentToken } from './annotations/current-token.decorator'
 import { AuthService } from './auth.service'
+import { PermissionsGuard } from './guards/permission.guard'
+import { PlatformRoleService } from './platform-role.service'
+import { UserRoleService } from './user-role.service'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Saml2js = require('saml2js')
 
@@ -28,6 +34,15 @@ export class AuthController extends GenericController<string> {
 
     @Autowired({ typeName: 'OrganizationsService' })
     private readonly organizationsService: OrganizationsService
+
+    @Autowired({ typeName: 'UserRoleService' })
+    public userRoleService: UserRoleService
+    
+    @Autowired({ typeName: 'PlatformRoleService' })
+    public platformRoleService: PlatformRoleService
+    
+    @Autowired({ typeName: 'TeamsService' })
+    public teamsService: TeamsService
 
     constructor(private readonly authService: AuthService) {
         super()
@@ -219,5 +234,28 @@ export class AuthController extends GenericController<string> {
         })
 
         return new NormalizedResponseDTO(organization.options.auth)
+    }
+
+    @Get('/user/:username/permissions')
+    @ApiParam({
+        name: 'username',
+        required: true,
+        description: `Username of the user to retrieve their permissions`,
+        schema: { type: 'string' },
+        example: 'rey@kyso.io',
+    })
+    @ApiBearerAuth()
+    async getUserPermissions(@CurrentToken() requesterUser: Token, @Param('username') username: string) {
+        // If the user is global admin
+        if(requesterUser.isGlobalAdmin()) {
+            return requesterUser.permissions
+        }
+
+        // If is not global admin, then only return this info if the requester is the same as the username parameter
+        if(requesterUser.username.toLowerCase() === username.toLowerCase()) {
+            return requesterUser.permissions
+        } else {
+            throw new UnauthorizedException(`The requester user has no rights to access other user permissions`)
+        }
     }
 }

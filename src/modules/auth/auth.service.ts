@@ -20,12 +20,13 @@ import { AutowiredService } from '../../generic/autowired.generic'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
+import { PlatformRoleService } from './platform-role.service'
 import { GithubLoginProvider } from './providers/github-login.provider'
 import { GoogleLoginProvider } from './providers/google-login.provider'
 import { KysoLoginProvider } from './providers/kyso-login.provider'
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'
-import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
 import { PingIdLoginProvider } from './providers/ping-id-login.provider'
+import { UserRoleService } from './user-role.service'
 
 export const TOKEN_EXPIRATION_TIME = '8h'
 
@@ -46,19 +47,12 @@ export class AuthService extends AutowiredService {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
-    @Autowired({ typeName: 'TeamsService' })
-    private teamsService: TeamsService
-
-    @Autowired({ typeName: 'OrganizationsService' })
-    private organizationsService: OrganizationsService
-
     constructor(
         private readonly kysoLoginProvider: KysoLoginProvider,
         private readonly githubLoginProvider: GithubLoginProvider,
         private readonly googleLoginProvider: GoogleLoginProvider,
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
-        private readonly userRoleProvider: UserRoleMongoProvider,
         private readonly pingIdLoginProvider: PingIdLoginProvider,
     ) {
         super()
@@ -87,8 +81,8 @@ export class AuthService extends AutowiredService {
         userService: UsersService,
         teamService: TeamsService,
         organizationService: OrganizationsService,
-        platformRoleProvider: PlatformRoleMongoProvider,
-        userRoleProvider: UserRoleMongoProvider,
+        platformRoleService: PlatformRoleService,
+        userRoleService: UserRoleService,
     ): Promise<TokenPermissions> {
         const response = {
             global: [],
@@ -102,7 +96,7 @@ export class AuthService extends AutowiredService {
         response.global = user.global_permissions
 
         // These are the generic platform roles in Kyso, can't be deleted. Are eternal.
-        const platformRoles: KysoRole[] = await platformRoleProvider.read({})
+        const platformRoles: KysoRole[] = await platformRoleService.getPlatformRoles()
 
         // Search for teams in which this user is a member
         const userTeamMembership: TeamMemberJoin[] = await teamService.searchMembers({ filter: { member_id: user.id } })
@@ -225,7 +219,8 @@ export class AuthService extends AutowiredService {
         }
 
         // TODO: Global permissions, not related to teams
-        const generalRoles = await userRoleProvider.read({ filter: { userId: user.id } })
+        
+        const generalRoles = await userRoleService.getRolesByUser(user.id)
 
         if (generalRoles && generalRoles.length > 0) {
             for (const organizationMembership of userOrganizationMembership) {
@@ -312,14 +307,7 @@ export class AuthService extends AutowiredService {
 
     public async refreshToken(token: Token): Promise<string> {
         const user: User = await this.usersService.getUserById(token.id)
-        const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
-            user.username,
-            this.usersService,
-            this.teamsService,
-            this.organizationsService,
-            this.platformRoleProvider,
-            this.userRoleProvider,
-        )
+        
         const payload: Token = new Token(
             user.id.toString(),
             user.name,
@@ -327,7 +315,6 @@ export class AuthService extends AutowiredService {
             user.nickname,
             user.email,
             user.plan,
-            permissions,
             user.avatar_url,
             user.location,
             user.link,

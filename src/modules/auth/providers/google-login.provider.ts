@@ -90,14 +90,7 @@ export class GoogleLoginProvider {
                 Logger.log(`User ${login.username} is updating Google account`, GoogleLoginProvider.name)
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
-            const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
-                login.username,
-                this.usersService,
-                this.teamsService,
-                this.organizationsService,
-                this.platformRoleProvider,
-                this.userRoleProvider,
-            )
+            
             const payload: Token = new Token(
                 user.id.toString(),
                 user.name,
@@ -105,7 +98,6 @@ export class GoogleLoginProvider {
                 user.nickname,
                 user.email,
                 user.plan,
-                permissions,
                 user.avatar_url,
                 user.location,
                 user.link,
