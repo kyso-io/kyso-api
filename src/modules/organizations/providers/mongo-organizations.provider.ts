@@ -27,7 +27,6 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
      *                  "otherProviders" : [ ]
      *              }
      *          }
-     *     - Delete legacy property allowGoogleLogin
      */
     async migrate_from_1_to_2() {
         const allOrganizations: Organization[] = await this.read({})
@@ -60,15 +59,6 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
                     },
                 )
             }
-
-            // In any case, delete the allowGoogleLogin legacy property
-            await this.update(
-                { _id: this.toObjectId(org.id) },
-                {
-                    $unset: { allowGoogleLogin: "" },
-                },
-            )
-            
         }
 
         // Update database to new version
