@@ -13,6 +13,7 @@ import {
     HEADER_X_KYSO_ORGANIZATION,
     HEADER_X_KYSO_TEAM,
     NormalizedResponseDTO,
+    Organization,
     Report,
     ReportDTO,
     ReportPermissionsEnum,
@@ -55,6 +56,7 @@ import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CommentsService } from '../comments/comments.service'
+import { OrganizationsService } from '../organizations/organizations.service'
 import { RelationsService } from '../relations/relations.service'
 import { TagsService } from '../tags/tags.service'
 import { TeamsService } from '../teams/teams.service'
@@ -90,6 +92,9 @@ export class ReportsController extends GenericController<Report> {
 
     @Autowired({ typeName: 'TagsService' })
     private tagsService: TagsService
+
+    @Autowired({ typeName: 'OrganizationsService' })
+    private organizationsService: OrganizationsService
 
     constructor() {
         super()
@@ -235,7 +240,7 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
-    @Get('/:reportId/embedded')
+    @Get('/embedded/:organizationName/:teamName/:reportName')
     @ApiOperation({
         summary: `Get a report`,
         description: `Allows fetching content of a specific report passing its id`,
@@ -246,25 +251,45 @@ export class ReportsController extends GenericController<Report> {
         type: ReportDTO,
     })
     @ApiParam({
-        name: 'reportId',
+        name: 'organizationName',
         required: true,
-        description: 'Id of the report to fetch',
+        description: 'Name of the organization to fetch',
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'teamName',
+        required: true,
+        description: 'Name of the team to fetch',
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'reportName',
+        required: true,
+        description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
     @Public()
-    async getEmbeddedReport(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
-        const report: Report = await this.reportsService.getReportById(reportId)
-        if (!report) {
-            throw new InvalidInputError('Report not found')
+    async getEmbeddedReport(
+        @Param('organizationName') organizationName: string,
+        @Param('teamName') teamName: string,
+        @Param('reportName') reportName: string,
+    ): Promise<NormalizedResponseDTO<ReportDTO>> {
+        const organization: Organization = await this.organizationsService.getOrganization({ filter: { name: organizationName } })
+        if (!organization) {
+            throw new InvalidInputError('Organization not found')
         }
-        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        const team: Team = await this.teamsService.getTeam({ filter: { name: teamName, organization_id: organization.id } })
         if (!team) {
             throw new InvalidInputError('Team not found')
         }
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
             throw new PreconditionFailedException(`Report is not public`)
         }
-        await this.reportsService.increaseViews({ _id: new ObjectId(reportId) })
+        const report: Report = await this.reportsService.getReport({ filter: { name: reportName, team_id: team.id } })
+        if (!report) {
+            throw new InvalidInputError('Report not found')
+        }
+        await this.reportsService.increaseViews({ _id: new ObjectId(report.id) })
         report.views++
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, null)
