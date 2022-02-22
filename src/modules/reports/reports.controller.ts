@@ -607,12 +607,16 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getComments(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Comment[]>> {
+    async getComments(@Param('reportId') reportId: string, @Req() req): Promise<NormalizedResponseDTO<Comment[]>> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('Report not found')
         }
-        const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: reportId } })
+        const query = QueryParser.toQueryObject(req.url)
+        if (!query.sort) {
+            query.sort = { created_at: -1 }
+        }
+        const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: reportId }, sort: query.sort })
         const relations = await this.relationsService.getRelations(comments, 'comment')
         return new NormalizedResponseDTO(
             comments.filter((comment: Comment) => !comment.comment_id),
