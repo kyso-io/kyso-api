@@ -9,10 +9,7 @@ import { GithubReposService } from '../../github-repos/github-repos.service'
 import { OrganizationsService } from '../../organizations/organizations.service'
 import { TeamsService } from '../../teams/teams.service'
 import { UsersService } from '../../users/users.service'
-import { AuthService } from '../auth.service'
 import { GoogleLoginProvider } from './google-login.provider'
-import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
-import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
 export const TOKEN_EXPIRATION_TIME = '8h'
 
@@ -21,19 +18,11 @@ export class GithubLoginProvider {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
-    @Autowired({ typeName: 'OrganizationsService' })
-    private organizationsService: OrganizationsService
-
-    @Autowired({ typeName: 'TeamsService' })
-    private teamsService: TeamsService
-
     @Autowired({ typeName: 'GithubReposService' })
     private githubReposService: GithubReposService
 
     constructor(
-        private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
-        private readonly userRoleProvider: UserRoleMongoProvider,
     ) {}
     // FLOW:
     //     * After calling login, frontend should call to
@@ -107,14 +96,7 @@ export class GithubLoginProvider {
                 Logger.log(`User ${login.username} is updating Google account`, GoogleLoginProvider.name)
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
-            const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
-                login.username,
-                this.usersService,
-                this.teamsService,
-                this.organizationsService,
-                this.platformRoleProvider,
-                this.userRoleProvider,
-            )
+    
             const payload: Token = new Token(
                 user.id.toString(),
                 user.name,
@@ -122,7 +104,6 @@ export class GithubLoginProvider {
                 user.nickname,
                 user.email,
                 user.plan,
-                permissions,
                 user.avatar_url,
                 user.location,
                 user.link,

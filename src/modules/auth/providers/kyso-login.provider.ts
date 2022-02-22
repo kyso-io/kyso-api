@@ -14,12 +14,6 @@ export class KysoLoginProvider {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
-    @Autowired({ typeName: 'OrganizationsService' })
-    private organizationsService: OrganizationsService
-
-    @Autowired({ typeName: 'TeamsService' })
-    private teamsService: TeamsService
-
     constructor(
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
@@ -39,16 +33,6 @@ export class KysoLoginProvider {
         const isRightPassword = await AuthService.isPasswordCorrect(password, user.hashed_password)
 
         if (isRightPassword) {
-            // Build all the permissions for this user
-            const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
-                username,
-                this.usersService,
-                this.teamsService,
-                this.organizationsService,
-                this.platformRoleProvider,
-                this.userRoleProvider,
-            )
-
             const payload: Token = new Token(
                 user.id.toString(),
                 user.name,
@@ -56,7 +40,6 @@ export class KysoLoginProvider {
                 user.nickname,
                 user.email,
                 user.plan,
-                permissions,
                 user.avatar_url,
                 user.location,
                 user.link,
@@ -94,17 +77,6 @@ export class KysoLoginProvider {
         if (!dbAccessToken) {
             throw new UnauthorizedException('Unauthorized')
         } else {
-            // Build all the permissions for this user
-            const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
-                username,
-                this.usersService,
-                this.teamsService,
-                this.organizationsService,
-                this.platformRoleProvider,
-                this.userRoleProvider,
-            )
-
-            // TODO: BUILD PERMISSIONS FROM SCOPE INSTEAD OF FINALPERMISSIONSFORUSER
             const payload: Token = new Token(
                 user.id.toString(),
                 user.name,
@@ -112,7 +84,6 @@ export class KysoLoginProvider {
                 user.nickname,
                 user.email,
                 user.plan,
-                permissions,
                 user.avatar_url,
                 user.location,
                 user.link,

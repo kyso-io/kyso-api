@@ -5,9 +5,6 @@ import { Autowired } from '../../../decorators/autowired'
 import { OrganizationsService } from '../../organizations/organizations.service'
 import { TeamsService } from '../../teams/teams.service'
 import { UsersService } from '../../users/users.service'
-import { AuthService } from '../auth.service'
-import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
-import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
 export const TOKEN_EXPIRATION_TIME = '8h'
 
@@ -16,16 +13,8 @@ export class PingIdLoginProvider {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
-    @Autowired({ typeName: 'OrganizationsService' })
-    private organizationsService: OrganizationsService
-
-    @Autowired({ typeName: 'TeamsService' })
-    private teamsService: TeamsService
-
     constructor(
-        private readonly jwtService: JwtService,
-        private readonly platformRoleProvider: PlatformRoleMongoProvider,
-        private readonly userRoleProvider: UserRoleMongoProvider,
+        private readonly jwtService: JwtService
     ) {}
 
     public async login(login: Login): Promise<string> {
@@ -79,15 +68,6 @@ export class PingIdLoginProvider {
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })*/
 
-            const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
-                login.username,
-                this.usersService,
-                this.teamsService,
-                this.organizationsService,
-                this.platformRoleProvider,
-                this.userRoleProvider,
-            )
-
             const payload: Token = new Token(
                 user.id.toString(),
                 user.name,
@@ -95,11 +75,10 @@ export class PingIdLoginProvider {
                 user.nickname,
                 user.email,
                 user.plan,
-                permissions,
                 user.avatar_url,
                 user.location,
                 user.link,
-                user.bio,
+                user.bio
             )
             return this.jwtService.sign(
                 { payload },
