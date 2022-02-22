@@ -86,13 +86,7 @@ export class TeamsController extends GenericController<Team> {
         if (!query.filter) {
             query.filter = {}
         }
-
-        let teams: Team[] = []
-        if (Object.keys(query.filter).length === 0) {
-            teams = await this.teamsService.getTeamsVisibleForUser(token.id)
-        } else {
-            teams = await this.teamsService.getTeams(query)
-        }
+        const teams: Team[] = await this.teamsService.getTeamsForController(token.id, query)
         return new NormalizedResponseDTO(teams)
     }
 
