@@ -247,13 +247,14 @@ export class AuthController extends GenericController<string> {
     @ApiBearerAuth()
     async getUserPermissions(@CurrentToken() requesterUser: Token, @Param('username') username: string) {
         // If the user is global admin
+        const result = new NormalizedResponseDTO(requesterUser.permissions)
         if(requesterUser.isGlobalAdmin()) {
-            return requesterUser.permissions
+            return result
         }
 
         // If is not global admin, then only return this info if the requester is the same as the username parameter
         if(requesterUser.username.toLowerCase() === username.toLowerCase()) {
-            return requesterUser.permissions
+            return result
         } else {
             throw new UnauthorizedException(`The requester user has no rights to access other user permissions`)
         }
