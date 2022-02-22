@@ -48,4 +48,27 @@ export class BitbucketReposService extends AutowiredService {
     public async deleteWebhook(username: string, password: string, fullName: string, hookId: number): Promise<any> {
         return this.bitbucketReposProvider.deleteWebhook(username, password, fullName, hookId)
     }
+
+    public async getBranches(username: string, password: string, fullName: string): Promise<any> {
+        return this.bitbucketReposProvider.getBranches(username, password, fullName)
+    }
+
+    public async getCommits(username: string, password: string, fullName: string, branch: string): Promise<any> {
+        return this.bitbucketReposProvider.getCommits(username, password, fullName, branch)
+    }
+
+    public async getRootFilesAndFoldersByCommit(
+        username: string,
+        password: string,
+        fullName: string,
+        commit: string,
+        folder: string,
+        pageCode: number,
+    ): Promise<any> {
+        return this.bitbucketReposProvider.getRootFilesAndFoldersByCommit(username, password, fullName, commit, folder, pageCode)
+    }
+
+    public async getFileContent(username: string, password: string, fullName: string, commit: string, filePath: string): Promise<any> {
+        return this.bitbucketReposProvider.getFileContent(username, password, fullName, commit, filePath)
+    }
 }

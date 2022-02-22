@@ -607,12 +607,16 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getComments(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Comment[]>> {
+    async getComments(@Param('reportId') reportId: string, @Req() req): Promise<NormalizedResponseDTO<Comment[]>> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('Report not found')
         }
-        const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: reportId } })
+        const query = QueryParser.toQueryObject(req.url)
+        if (!query.sort) {
+            query.sort = { created_at: -1 }
+        }
+        const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: reportId }, sort: query.sort })
         const relations = await this.relationsService.getRelations(comments, 'comment')
         return new NormalizedResponseDTO(
             comments.filter((comment: Comment) => !comment.comment_id),
@@ -639,29 +643,6 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.READ])
     async getBranches(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<GithubBranch[]>> {
-        const branches: GithubBranch[] = await this.reportsService.getBranches(token.id, reportId)
-        return new NormalizedResponseDTO(branches)
-    }
-
-    @Get('/:reportId/versions')
-    @ApiOperation({
-        summary: `Get versions of a report`,
-        description: `By passing in the appropriate options you can see all the versions of a report`,
-    })
-    @ApiNormalizedResponse({
-        status: 200,
-        description: `Versions of the specified report`,
-        type: NormalizedResponseDTO,
-        isArray: true,
-    })
-    @ApiParam({
-        name: 'reportId',
-        required: true,
-        description: `Id of the version's report to fetch`,
-        schema: { type: 'string' },
-    })
-    @Permission([ReportPermissionsEnum.READ])
-    async getVersions(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<GithubBranch[]>> {
         const branches: GithubBranch[] = await this.reportsService.getBranches(token.id, reportId)
         return new NormalizedResponseDTO(branches)
     }
@@ -751,13 +732,18 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getReportFileContent(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Param('hash') hash: string): Promise<Buffer> {
+    async getReportFileContent(
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @Param('hash') hash: string,
+        @Query('path') path: string,
+    ): Promise<Buffer> {
         if (!Validators.isValidSha(hash)) {
             throw new PreconditionFailedException({
                 message: 'Hash is not a valid sha. Must have 40 hexadecimal characters.',
             })
         }
-        return this.reportsService.getReportFileContent(token.id, reportId, hash)
+        return this.reportsService.getReportFileContent(token.id, reportId, hash, path)
     }
 
     @UseInterceptors(

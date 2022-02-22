@@ -6,12 +6,13 @@ import {
     NormalizedResponseDTO,
     UpdateDiscussionRequestDTO,
 } from '@kyso-io/kyso-model'
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, PreconditionFailedException, Query, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, PreconditionFailedException, Query, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { InvalidInputError } from 'src/helpers/errorHandling'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
+import { QueryParser } from '../../helpers/queryParser'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CommentsService } from '../comments/comments.service'
@@ -117,16 +118,21 @@ export class DiscussionsController extends GenericController<Discussion> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Comments related to that discussion`, type: Comment, isArray: true })
     @Permission([DiscussionPermissionsEnum.READ])
-    public async getDiscussionCommentsGivenTeamIdAndDiscussionNumber(@Param('discussionId') discussionId: string): Promise<NormalizedResponseDTO<Comment[]>> {
+    public async getDiscussionCommentsGivenTeamIdAndDiscussionNumber(
+        @Param('discussionId') discussionId: string,
+        @Req() req,
+    ): Promise<NormalizedResponseDTO<Comment[]>> {
         const discussion: Discussion = await this.discussionsService.getDiscussion({
             id: discussionId,
         })
-
         if (!discussion) {
             throw new InvalidInputError('Discussion not found')
         }
-
-        const comments: Comment[] = await this.commentsService.getComments({ filter: { discussion_id: discussionId } })
+        const query = QueryParser.toQueryObject(req.url)
+        if (!query.sort) {
+            query.sort = { created_at: -1 }
+        }
+        const comments: Comment[] = await this.commentsService.getComments({ filter: { discussion_id: discussionId }, sort: query.sort })
         const relations = await this.relationsService.getRelations(comments, 'comment')
         return new NormalizedResponseDTO(
             comments.filter((comment: Comment) => !comment.comment_id),

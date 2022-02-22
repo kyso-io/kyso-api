@@ -8,8 +8,8 @@ const axios = require('axios').default
 const repoMapFunction = (repo: any): GithubRepository => ({
     id: repo.uuid,
     owner: repo.owner.display_name ? repo.owner.display_name : '',
-    name: repo.name,
-    fullName: repo.full_name,
+    name: repo.full_name,
+    fullName: repo.name,
     defaultBranch: repo.mainbranch.name,
     description: repo.description,
     isPrivate: repo.is_private,
@@ -71,7 +71,7 @@ export class BitbucketReposProvider {
     public async searchRepos(username: string, password: string, workspace: string, filter: string, page: number, perPage: number): Promise<any> {
         let url = `${process.env.BITBUCKET_API}/repositories/${workspace}?`
         if (filter) {
-            url += `q=${filter}`
+            url += `q=name="${filter}"`
         }
         if (page) {
             url += `&page=${page}`
@@ -85,8 +85,10 @@ export class BitbucketReposProvider {
         return res.data.values.map(repoMapFunction)
     }
 
-    public async getBranches(username: string, password: string, fullName: string, page: number, perPage: number): Promise<any> {
-        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/refs/branches?page=${page}&pagelen=${perPage}`, {
+    // public async getBranches(username: string, password: string, fullName: string, page: number, perPage: number): Promise<any> {
+    public async getBranches(username: string, password: string, fullName: string): Promise<any> {
+        // const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/refs/branches?page=${page}&pagelen=${perPage}`, {
+        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/refs/branches`, {
             headers: { Authorization: this.withUserAndAppPassword(username, password) },
         })
         return res.data.values.map((branch) => ({
@@ -95,8 +97,10 @@ export class BitbucketReposProvider {
         }))
     }
 
-    public async getCommits(username: string, password: string, fullName: string, branch: string, page: number, perPage: number): Promise<any> {
-        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/commits/${branch}?page=${page}&pagelen=${perPage}`, {
+    // public async getCommits(username: string, password: string, fullName: string, branch: string, page: number, perPage: number): Promise<any> {
+    public async getCommits(username: string, password: string, fullName: string, branch: string): Promise<any> {
+        // const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/commits/${branch}?page=${page}&pagelen=${perPage}`, {
+        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/commits/${branch}`, {
             headers: { Authorization: this.withUserAndAppPassword(username, password) },
         })
         return res.data.values.map((elem) => ({
@@ -141,8 +145,17 @@ export class BitbucketReposProvider {
         if (commit) {
             requestUrl = requestUrl + `${commit}/`
         }
+        let fileName = null
         if (folder && folder.length > 0) {
-            requestUrl = requestUrl + `${folder}/`
+            const directories: string[] = folder.split('/')
+            if (directories.length === 1 && directories[0].includes('.')) {
+                fileName = directories[directories.length - 1]
+            } else if (directories[directories.length - 1].includes('.')) {
+                requestUrl = requestUrl + `${directories.slice(0, directories.length - 1).join('/')}/`
+                fileName = directories[directories.length - 1]
+            } else {
+                requestUrl = requestUrl + `${folder}/`
+            }
         }
         if (pageCode) {
             requestUrl = requestUrl + `?page=${pageCode}`
@@ -152,7 +165,7 @@ export class BitbucketReposProvider {
             headers: { Authorization: this.withUserAndAppPassword(username, password) },
         })
         const filterData = (obj) => ({
-            type: obj.type,
+            type: obj.type === 'commit_dir' ? 'dir' : 'file',
             path: obj.path,
             hash: obj.commit.hash,
             htmlUrl: obj.links.self.href,
@@ -161,9 +174,13 @@ export class BitbucketReposProvider {
         if (res.data.next) {
             nextPageCode = res.data.next.split('?page=')[1]
         }
+        let result = res.data.values
+        if (fileName) {
+            result = result.filter((obj) => obj.path.endsWith(fileName))
+        }
         return {
             nextPageCode: nextPageCode,
-            data: res.data.values.map(filterData),
+            data: result.map(filterData),
         }
     }
 
@@ -175,6 +192,7 @@ export class BitbucketReposProvider {
             })
             return Buffer.from(res.data, 'utf-8')
         } catch (err) {
+            console.log(err)
             if (err.status === 404) {
                 throw new NotFoundError({
                     message: "The resource you are trying to access can't be found or isn't a file.",
