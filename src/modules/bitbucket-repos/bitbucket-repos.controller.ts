@@ -64,7 +64,7 @@ export class BitbucketReposController extends GenericController<Repository> {
                 this.bitbucketReposProvider.searchRepos(userAccount.username, userAccount.accessToken, workspace, filter, page, perPage),
             ),
         )
-        return new NormalizedResponseDTO(repos)
+        return new NormalizedResponseDTO(repos.flat())
     }
 
     @Get('/user')

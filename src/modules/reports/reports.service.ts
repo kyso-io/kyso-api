@@ -193,10 +193,11 @@ export class ReportsService extends AutowiredService {
         }
 
         const report: Report = new Report(
-            createReportDto.name,
+            slugify(createReportDto.name),
             null,
             null,
             createReportDto.provider,
+            createReportDto.name,
             createReportDto.username_provider,
             createReportDto.default_branch,
             createReportDto.path,
@@ -272,15 +273,26 @@ export class ReportsService extends AutowiredService {
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
         }
-        if (report.provider === RepositoryProvider.KYSO) {
-            return this.localReportsService.getReportVersions(report.id)
-        } else {
-            const user: User = await this.usersService.getUserById(userId)
-            const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
-            if (!userAccount) {
-                throw new PreconditionFailedException('User does not have a github account')
-            }
-            return this.githubReposService.getBranches(userAccount.accessToken, userAccount.username, report.name)
+        const user: User = await this.usersService.getUserById(userId)
+        let userAccount: UserAccount = null
+        switch (report.provider) {
+            case RepositoryProvider.KYSO:
+            case RepositoryProvider.KYSO_CLI:
+                return this.localReportsService.getReportVersions(report.id)
+            case RepositoryProvider.GITHUB:
+                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+                if (!userAccount) {
+                    throw new PreconditionFailedException('User does not have a github account')
+                }
+                return this.githubReposService.getBranches(userAccount.accessToken, userAccount.username, report.name_provider)
+            case RepositoryProvider.BITBUCKET:
+                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
+                if (!userAccount) {
+                    throw new PreconditionFailedException('User does not have a bitbucket account')
+                }
+                return this.bitbucketReposService.getBranches(userAccount.username, userAccount.accessToken, report.name_provider)
+            default:
+                return []
         }
     }
 
@@ -289,17 +301,27 @@ export class ReportsService extends AutowiredService {
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
         }
-        if (report.provider === RepositoryProvider.KYSO) {
-            throw new PreconditionFailedException({
-                message: 'This functionality is not available in S3',
-            })
-        }
         const user: User = await this.usersService.getUserById(userId)
-        const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
-        if (!userAccount) {
-            throw new PreconditionFailedException('User does not have a github account')
+        let userAccount: UserAccount = null
+        switch (report.provider) {
+            case RepositoryProvider.KYSO:
+            case RepositoryProvider.KYSO_CLI:
+                throw new PreconditionFailedException({
+                    message: 'This functionality is not available in S3',
+                })
+            case RepositoryProvider.GITHUB:
+                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+                if (!userAccount) {
+                    throw new PreconditionFailedException('User does not have a github account')
+                }
+                return this.githubReposService.getCommits(userAccount.accessToken, userAccount.username, report.name_provider, branch)
+            case RepositoryProvider.BITBUCKET:
+                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
+                if (!userAccount) {
+                    throw new PreconditionFailedException('User does not have a bitbucket account')
+                }
+                return this.bitbucketReposService.getCommits(userAccount.username, userAccount.accessToken, report.name_provider, branch)
         }
-        return this.githubReposService.getCommits(userAccount.accessToken, userAccount.username, report.name, branch)
     }
 
     public async getReportTree(userId: string, reportId: string, branch: string, path: string): Promise<GithubFileHash | GithubFileHash[]> {
@@ -307,38 +329,60 @@ export class ReportsService extends AutowiredService {
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
         }
+        const user: User = await this.usersService.getUserById(userId)
+        let userAccount: UserAccount = null
         switch (report.provider) {
             case RepositoryProvider.KYSO:
             case RepositoryProvider.KYSO_CLI:
                 return this.getKysoReportTree(report.id, path)
             case RepositoryProvider.GITHUB:
-                const user: User = await this.usersService.getUserById(userId)
-                const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
                 if (!userAccount) {
                     throw new PreconditionFailedException('User does not have a github account')
                 }
-                return this.githubReposService.getFileHash(userAccount.accessToken, path, userAccount.username, report.name, branch)
+                return this.githubReposService.getFileHash(userAccount.accessToken, path, userAccount.username, report.name_provider, branch)
+            case RepositoryProvider.BITBUCKET:
+                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
+                if (!userAccount) {
+                    throw new PreconditionFailedException('User does not have a bitbucket account')
+                }
+                const result = await this.bitbucketReposService.getRootFilesAndFoldersByCommit(
+                    userAccount.username,
+                    userAccount.accessToken,
+                    report.name_provider,
+                    branch,
+                    path,
+                    null,
+                )
+                return result?.data ? result.data : []
             default:
                 return null
         }
     }
 
-    public async getReportFileContent(userId: string, reportId: string, hash: string): Promise<Buffer> {
+    public async getReportFileContent(userId: string, reportId: string, hash: string, filePath: string): Promise<Buffer> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
         }
+        const user: User = await this.usersService.getUserById(userId)
+        let userAccount: UserAccount = null
         switch (report.provider) {
             case RepositoryProvider.KYSO:
             case RepositoryProvider.KYSO_CLI:
                 return this.getKysoFileContent(report.id, hash)
             case RepositoryProvider.GITHUB:
-                const user: User = await this.usersService.getUserById(userId)
-                const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
+                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
                 if (!userAccount) {
                     throw new PreconditionFailedException('User does not have a github account')
                 }
-                return this.githubReposService.getFileContent(userAccount.accessToken, hash, userAccount.username, report.name)
+                return this.githubReposService.getFileContent(userAccount.accessToken, hash, userAccount.username, report.name_provider)
+            case RepositoryProvider.BITBUCKET:
+                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
+                if (!userAccount) {
+                    throw new PreconditionFailedException('User does not have a bitbucket account')
+                }
+                return this.bitbucketReposService.getFileContent(userAccount.username, userAccount.accessToken, report.name_provider, hash, filePath)
             default:
                 return null
         }
@@ -423,6 +467,7 @@ export class ReportsService extends AutowiredService {
             report.report_type,
             report.views,
             report.provider,
+            report.name_provider,
             report.pin,
             userPin,
             numberOfStars,
@@ -544,10 +589,11 @@ export class ReportsService extends AutowiredService {
             Logger.log(`Creating new report '${name}'`, ReportsService.name)
             // New report
             report = new Report(
-                name,
+                slugify(name),
                 null,
                 null,
                 RepositoryProvider.KYSO_CLI,
+                slugify(name),
                 null,
                 null,
                 null,
@@ -667,10 +713,11 @@ export class ReportsService extends AutowiredService {
             Logger.log(`Creating new report '${name}'`, ReportsService.name)
             // New report
             report = new Report(
-                name,
+                slugify(name),
                 null,
                 null,
                 RepositoryProvider.KYSO,
+                slugify(name),
                 null,
                 null,
                 null,
@@ -766,10 +813,11 @@ export class ReportsService extends AutowiredService {
         } else {
             const webhook = await this.createGithubWebhook(octokit, userAccount.username, repository.name)
             report = new Report(
-                repository.name,
+                slugify(repository.name),
                 repository.id.toString(),
                 webhook.id.toString(),
                 RepositoryProvider.GITHUB,
+                repository.name,
                 repository.owner.login,
                 repository.default_branch,
                 null,
@@ -910,7 +958,7 @@ export class ReportsService extends AutowiredService {
             throw new PreconditionFailedException(`User ${user.nickname} does not have a Bitbucket repository '${repositoryName}'`)
         }
 
-        const reports: Report[] = await this.provider.read({ filter: { name: bitbucketRepository.fullName, user_id: user.id } })
+        const reports: Report[] = await this.provider.read({ filter: { name: bitbucketRepository.name, user_id: user.id } })
         let report: Report = null
         if (reports.length > 0) {
             // Existing report
@@ -930,10 +978,11 @@ export class ReportsService extends AutowiredService {
                 throw Error(`An error occurred creating webhook for repository '${repositoryName}'`)
             }
             report = new Report(
-                bitbucketRepository.fullName,
+                slugify(bitbucketRepository.name),
                 bitbucketRepository.id,
                 webhook.uuid,
                 RepositoryProvider.BITBUCKET,
+                bitbucketRepository.name,
                 userAccount.username,
                 bitbucketRepository.defaultBranch,
                 null,
