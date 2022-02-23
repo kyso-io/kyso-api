@@ -1,4 +1,4 @@
-import { CreateUserRequestDTO, Login, LoginProviderEnum, Token, TokenPermissions, UserAccount } from '@kyso-io/kyso-model'
+import { CreateUserRequestDTO, Login, LoginProviderEnum, Token, UserAccount } from '@kyso-io/kyso-model'
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { OAuth2Client } from 'google-auth-library'
@@ -7,7 +7,6 @@ import { Autowired } from '../../../decorators/autowired'
 import { OrganizationsService } from '../../organizations/organizations.service'
 import { TeamsService } from '../../teams/teams.service'
 import { UsersService } from '../../users/users.service'
-import { AuthService } from '../auth.service'
 import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
@@ -90,7 +89,7 @@ export class GoogleLoginProvider {
                 Logger.log(`User ${login.username} is updating Google account`, GoogleLoginProvider.name)
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
-            
+
             const payload: Token = new Token(
                 user.id.toString(),
                 user.name,
@@ -102,6 +101,11 @@ export class GoogleLoginProvider {
                 user.location,
                 user.link,
                 user.bio,
+                user.accounts.map((userAccount: UserAccount) => ({
+                    type: userAccount.type,
+                    accountId: userAccount.accountId,
+                    username: userAccount.username,
+                })),
             )
             return this.jwtService.sign(
                 { payload },

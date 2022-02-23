@@ -10,6 +10,7 @@ import {
     Token,
     TokenPermissions,
     User,
+    UserAccount,
 } from '@kyso-io/kyso-model'
 import { Injectable, Logger, Provider } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
@@ -323,6 +324,11 @@ export class AuthService extends AutowiredService {
             user.location,
             user.link,
             user.bio,
+            user.accounts.map((userAccount: UserAccount) => ({
+                type: userAccount.type,
+                accountId: userAccount.accountId,
+                username: userAccount.username,
+            })),
         )
         return this.jwtService.sign(
             { payload },

@@ -1,9 +1,7 @@
-import { CreateUserRequestDTO, Login, LoginProviderEnum, Token, TokenPermissions } from '@kyso-io/kyso-model'
+import { CreateUserRequestDTO, Login, LoginProviderEnum, Token, UserAccount } from '@kyso-io/kyso-model'
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { Autowired } from '../../../decorators/autowired'
-import { OrganizationsService } from '../../organizations/organizations.service'
-import { TeamsService } from '../../teams/teams.service'
 import { UsersService } from '../../users/users.service'
 
 export const TOKEN_EXPIRATION_TIME = '8h'
@@ -13,9 +11,7 @@ export class PingIdLoginProvider {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
-    constructor(
-        private readonly jwtService: JwtService
-    ) {}
+    constructor(private readonly jwtService: JwtService) {}
 
     public async login(login: Login): Promise<string> {
         Logger.log(`User ${login.username} is trying to login with PingId`)
@@ -48,26 +44,6 @@ export class PingIdLoginProvider {
                 user = await this.usersService.createUser(createUserRequestDto)
             }
 
-            // Update
-            /*const index: number = user.accounts.findIndex(
-                (userAccount: UserAccount) => userAccount.type === LoginProviderEnum.PING_ID_SAML && userAccount.username === loginTicket.getPayload().email,
-            )
-            if (index === -1) {
-                user.accounts.push({
-                    type: LoginProviderEnum.GOOGLE,
-                    accountId: loginTicket.getPayload().email,
-                    username: loginTicket.getPayload().email,
-                    accessToken: login.payload.access_token,
-                    payload: login.payload,
-                })
-                Logger.log(`User ${login.username} is adding Google account`, GoogleLoginProvider.name)
-            } else {
-                user.accounts[index].accessToken = login.payload.access_token
-                user.accounts[index].payload = login.payload
-                Logger.log(`User ${login.username} is updating Google account`, GoogleLoginProvider.name)
-            }
-            await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })*/
-
             const payload: Token = new Token(
                 user.id.toString(),
                 user.name,
@@ -78,7 +54,12 @@ export class PingIdLoginProvider {
                 user.avatar_url,
                 user.location,
                 user.link,
-                user.bio
+                user.bio,
+                user.accounts.map((userAccount: UserAccount) => ({
+                    type: userAccount.type,
+                    accountId: userAccount.accountId,
+                    username: userAccount.username,
+                })),
             )
             return this.jwtService.sign(
                 { payload },

@@ -1,9 +1,7 @@
-import { KysoUserAccessToken, Token, TokenPermissions } from '@kyso-io/kyso-model'
+import { KysoUserAccessToken, Token, UserAccount } from '@kyso-io/kyso-model'
 import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { Autowired } from '../../../decorators/autowired'
-import { OrganizationsService } from '../../organizations/organizations.service'
-import { TeamsService } from '../../teams/teams.service'
 import { UsersService } from '../../users/users.service'
 import { AuthService, TOKEN_EXPIRATION_TIME } from '../auth.service'
 import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
@@ -44,6 +42,11 @@ export class KysoLoginProvider {
                 user.location,
                 user.link,
                 user.bio,
+                user.accounts.map((userAccount: UserAccount) => ({
+                    type: userAccount.type,
+                    accountId: userAccount.accountId,
+                    username: userAccount.username,
+                })),
             )
 
             // generate token
@@ -88,6 +91,11 @@ export class KysoLoginProvider {
                 user.location,
                 user.link,
                 user.bio,
+                user.accounts.map((userAccount: UserAccount) => ({
+                    type: userAccount.type,
+                    accountId: userAccount.accountId,
+                    username: userAccount.username,
+                })),
             )
 
             // generate token
