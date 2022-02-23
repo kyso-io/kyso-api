@@ -262,8 +262,8 @@ export class TeamsController extends GenericController<Team> {
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
-        const upadtedTeam: Team = await this.teamsService.updateTeam({ _id: new ObjectId(teamId) }, { $set: data })
-        return new NormalizedResponseDTO(upadtedTeam)
+        const updatedTeam: Team = await this.teamsService.updateTeam({ _id: new ObjectId(teamId) }, { $set: data })
+        return new NormalizedResponseDTO(updatedTeam)
     }
 
     @Post()
