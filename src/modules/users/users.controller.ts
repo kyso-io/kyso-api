@@ -43,7 +43,7 @@ export class UsersController extends GenericController<User> {
     }
 
     assignReferences(user: User) {
-        // user.self_url = HateoasLinker.createRef(`/users/${user.nickname}`)
+        // user.self_url = HateoasLinker.createRef(`/users/${user.display_name}`)
     }
 
     @Get()

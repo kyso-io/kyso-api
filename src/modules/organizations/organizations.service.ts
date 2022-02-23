@@ -59,7 +59,7 @@ export class OrganizationsService extends AutowiredService {
 
     public async createOrganization(organization: Organization): Promise<Organization> {
         // The name of this organization exists?
-        const organizations: Organization[] = await this.provider.read({ filter: { name: organization.name } })
+        const organizations: Organization[] = await this.provider.read({ filter: { sluglified_name: organization.sluglified_name } })
         if (organizations.length > 0) {
             throw new PreconditionFailedException('The name of the organization must be unique')
         }
@@ -159,7 +159,7 @@ export class OrganizationsService extends AutowiredService {
                 return { ...u, roles: thisMember.role_names }
             })
 
-            return usersAndRoles.map((x) => new OrganizationMember(x.id.toString(), x.nickname, x.name, x.roles, x.bio, x.avatar_url, x.email))
+            return usersAndRoles.map((x) => new OrganizationMember(x.id.toString(), x.display_name, x.name, x.roles, x.bio, x.avatar_url, x.email))
         } else {
             return []
         }
@@ -296,7 +296,7 @@ export class OrganizationsService extends AutowiredService {
                 throw new PreconditionFailedException('User already has this role')
             }
         }
-        return this.getOrganizationMembers(organization.name)
+        return this.getOrganizationMembers(organization.sluglified_name)
     }
 
     public async removeOrganizationMemberRole(organizationId: string, userId: string, role: string): Promise<OrganizationMember[]> {
@@ -345,14 +345,14 @@ export class OrganizationsService extends AutowiredService {
         }
         const s3Client: S3Client = this.getS3Client()
         if (organization?.avatar_url && organization.avatar_url.length > 0) {
-            Logger.log(`Removing previous image of organization ${organization.name}`, OrganizationsService.name)
+            Logger.log(`Removing previous image of organization ${organization.sluglified_name}`, OrganizationsService.name)
             const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
                 Bucket: process.env.AWS_S3_BUCKET,
                 Key: organization.avatar_url.split('/').slice(-1)[0],
             })
             await s3Client.send(deleteObjectCommand)
         }
-        Logger.log(`Uploading image for organization ${organization.name}`, OrganizationsService.name)
+        Logger.log(`Uploading image for organization ${organization.sluglified_name}`, OrganizationsService.name)
         const Key = `${uuidv4()}${extname(file.originalname)}`
         await s3Client.send(
             new PutObjectCommand({
@@ -361,7 +361,7 @@ export class OrganizationsService extends AutowiredService {
                 Body: file.buffer,
             }),
         )
-        Logger.log(`Uploaded image for organization ${organization.name}`, OrganizationsService.name)
+        Logger.log(`Uploaded image for organization ${organization.sluglified_name}`, OrganizationsService.name)
         const avatar_url = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${Key}`
         return this.provider.update({ _id: this.provider.toObjectId(organization.id) }, { $set: { avatar_url } })
     }
@@ -373,7 +373,7 @@ export class OrganizationsService extends AutowiredService {
         }
         const s3Client: S3Client = this.getS3Client()
         if (organization?.avatar_url && organization.avatar_url.length > 0) {
-            Logger.log(`Removing previous image of organization ${organization.name}`, OrganizationsService.name)
+            Logger.log(`Removing previous image of organization ${organization.sluglified_name}`, OrganizationsService.name)
             const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
                 Bucket: process.env.AWS_S3_BUCKET,
                 Key: organization.avatar_url.split('/').slice(-1)[0],

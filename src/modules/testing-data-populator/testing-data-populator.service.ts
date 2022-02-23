@@ -126,7 +126,7 @@ export class TestingDataPopulatorService {
 
     private async checkIfAlreadyExists() {
         // I assume only these two usernames exist if they were created by the test data populator
-        const testUsersByUsername = await this.usersService.getUsers({ filter: { $or: [{ username: 'rey@kyso.io' }, { username: 'kylo@kyso.io' }] } })
+        const testUsersByUsername = await this.usersService.getUsers({ filter: { $or: [{ email: 'rey@kyso.io' }, { email: 'kylo@kyso.io' }] } })
         if (testUsersByUsername.length === 2) {
             return true
         }
@@ -256,10 +256,10 @@ export class TestingDataPopulatorService {
 
     private async _createUser(user: CreateUserRequestDTO) {
         try {
-            Logger.log(`Creating ${user.nickname} user...`)
+            Logger.log(`Creating ${user.display_name} user...`)
             return await this.usersService.createUser(user)
         } catch (ex) {
-            Logger.log(`${user.nickname} user already exists`)
+            Logger.log(`${user.display_name} user already exists`)
             return this.usersService.getUser({ filter: { username: user.username } })
         }
     }
@@ -534,10 +534,10 @@ export class TestingDataPopulatorService {
 
     private async _createOrganization(organization: Organization) {
         try {
-            Logger.log(`Creating ${organization.name} organization...`)
+            Logger.log(`Creating ${organization.sluglified_name} organization...`)
             return await this.organizationsService.createOrganization(organization)
         } catch (ex) {
-            Logger.log(` ${organization.name} organization already exists`)
+            Logger.log(` ${organization.sluglified_name} organization already exists`)
         }
     }
 
@@ -588,10 +588,10 @@ export class TestingDataPopulatorService {
 
     private async _createTeam(team: Team) {
         try {
-            Logger.log(`Creating ${team.name} team...`)
+            Logger.log(`Creating ${team.sluglified_name} team...`)
             return await this.teamsService.createTeam(team)
         } catch (ex) {
-            Logger.log(` ${team.name} team already exists`)
+            Logger.log(` ${team.sluglified_name} team already exists`)
         }
     }
 
@@ -641,10 +641,10 @@ export class TestingDataPopulatorService {
 
     private async assignUsersToTeams() {
         try {
-            Logger.log(`Adding ${this.Gideon_OrganizationAdminUser.nickname} to team ${this.PrivateTeam.name} with role ${this.CustomTeamRole.name}`)
+            Logger.log(`Adding ${this.Gideon_OrganizationAdminUser.display_name} to team ${this.PrivateTeam.sluglified_name} with role ${this.CustomTeamRole.name}`)
             await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Gideon_OrganizationAdminUser.id], [this.CustomTeamRole.name])
 
-            Logger.log(`Adding ${this.Rey_TeamAdminUser.nickname} to team ${this.PrivateTeam.name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}`)
+            Logger.log(`Adding ${this.Rey_TeamAdminUser.display_name} to team ${this.PrivateTeam.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}`)
             await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Rey_TeamAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
         } catch (ex) {
             // silent it

@@ -21,7 +21,7 @@ export class KysoLoginProvider {
     async login(password: string, username?: string): Promise<string> {
         // Get user from database
         const user = await this.usersService.getUser({
-            filter: { username: username },
+            filter: { email: username },
         })
 
         if (!user) {
@@ -35,7 +35,7 @@ export class KysoLoginProvider {
                 user.id.toString(),
                 user.name,
                 user.username,
-                user.nickname,
+                user.display_name,
                 user.email,
                 user.plan,
                 user.avatar_url,
@@ -84,7 +84,7 @@ export class KysoLoginProvider {
                 user.id.toString(),
                 user.name,
                 user.username,
-                user.nickname,
+                user.display_name,
                 user.email,
                 user.plan,
                 user.avatar_url,

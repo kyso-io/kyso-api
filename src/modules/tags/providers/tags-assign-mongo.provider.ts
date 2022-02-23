@@ -5,6 +5,8 @@ import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
 export class TagsAssignMongoProvider extends MongoProvider<TagAssign> {
+    version = 1
+    
     constructor() {
         super('TagAssign', db)
     }

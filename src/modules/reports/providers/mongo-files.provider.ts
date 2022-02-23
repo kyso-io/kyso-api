@@ -5,6 +5,8 @@ import { db } from '../../../main'
 import { MongoProvider } from '../../../providers/mongo.provider'
 @Injectable()
 export class FilesMongoProvider extends MongoProvider<File> {
+    version = 1
+    
     constructor() {
         super('File', db)
     }

@@ -134,7 +134,7 @@ export class CommentsService extends AutowiredService {
                     .sendMail({
                         to: user.email,
                         subject: 'You have been mentioned in a discussion',
-                        html: `User ${creator.nickname} mentioned you in the discussion <a href="${process.env.FRONTEND_URL}/${organization.name}/${team.name}/discussions/${discussion.id}">${discussion.title}</a>`,
+                        html: `User ${creator.display_name} mentioned you in the discussion <a href="${process.env.FRONTEND_URL}/${organization.sluglified_name}/${team.sluglified_name}/discussions/${discussion.id}">${discussion.title}</a>`,
                     })
                     .then((messageInfo) => {
                         Logger.log(`Mention in discussion mail ${messageInfo.messageId} sent to ${user.email}`, UsersService.name)

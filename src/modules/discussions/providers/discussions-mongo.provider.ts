@@ -5,6 +5,8 @@ import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
 export class DiscussionsMongoProvider extends MongoProvider<Discussion> {
+    version = 1
+    
     constructor() {
         super('Discussion', db, [
             {

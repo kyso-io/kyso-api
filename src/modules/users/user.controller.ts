@@ -22,7 +22,7 @@ export class UserController extends GenericController<User> {
     }
 
     assignReferences(user: User) {
-        // user.self_url = HateoasLinker.createRef(`/users/${user.nickname}`)
+        // user.self_url = HateoasLinker.createRef(`/users/${user.display_name}`)
     }
 
     // TODO: This is in /user not in /users... bad naming, and the design is poor. For now, keep as is to don't break

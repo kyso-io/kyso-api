@@ -141,8 +141,8 @@ export class AuthService extends AutowiredService {
                 })
 
                 response.teams.push({
-                    name: team.name,
-                    nickname: team.nickname,
+                    name: team.sluglified_name,
+                    display_name: team.display_name,
                     id: team.id,
                     permissions: [...new Set(computedPermissions)], // Remove duplicated permissions
                     organization_id: team.organization_id,
@@ -193,8 +193,8 @@ export class AuthService extends AutowiredService {
 
                 response.organizations.push({
                     id: organization.id,
-                    name: organization.name,
-                    nickname: organization.nickname,
+                    name: organization.sluglified_name,
+                    display_name: organization.display_name,
                     permissions: computedPermissions,
                 })
 
@@ -210,8 +210,8 @@ export class AuthService extends AutowiredService {
                     if (alreadyExistsInResponse.length === 0) {
                         // If not, retrieve the roles
                         response.teams.push({
-                            name: orgTeam.name,
-                            nickname: orgTeam.nickname,
+                            name: orgTeam.sluglified_name,
+                            display_name: orgTeam.display_name,
                             id: orgTeam.id,
                             organization_inherited: true,
                             organization_id: orgTeam.organization_id, // Remove duplicated permissions
@@ -317,7 +317,7 @@ export class AuthService extends AutowiredService {
             user.id.toString(),
             user.name,
             user.username,
-            user.nickname,
+            user.display_name,
             user.email,
             user.plan,
             user.avatar_url,

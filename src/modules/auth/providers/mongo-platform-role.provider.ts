@@ -5,6 +5,8 @@ import { PlatformRole } from '../../../security/platform-roles'
 
 @Injectable()
 export class PlatformRoleMongoProvider extends MongoProvider<any> {
+    version = 1
+    
     constructor() {
         super('PlatformRole', db)
     }

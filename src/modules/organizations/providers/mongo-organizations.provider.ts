@@ -1,11 +1,12 @@
 import { Organization, OrganizationAuthOptions, OrganizationOptions } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
+import slug from '../../../helpers/slugify'
 import { db } from '../../../main'
 import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
 export class OrganizationsMongoProvider extends MongoProvider<Organization> {
-    version = 2
+    version = 3
 
     constructor() {
         super('Organization', db)
@@ -49,7 +50,7 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
                 const data: any = {}
                 data.options = orgOptions
                 
-                Logger.log(`Migrating organization ${org.nickname} from version 1 to version 2`)
+                Logger.log(`Migrating organization ${org.display_name} from version 1 to version 2`)
                 
                 // Add the default value
                 await this.update(
@@ -63,5 +64,43 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
 
         // Update database to new version
         await this.saveModelVersion(2)        
+    }
+
+    /**
+     * Refactored properties:
+     *     - nickname to display_name
+     *     - name to sluglified_name
+     * 
+     * This migration do:
+     *     - Iterates through every document in Organization collection
+     *     - For each of them:
+     *         - Read nickname and name properties
+     *         - Updates new display_name with nickname value
+     *         - Updates new sluglified_name with name value, but sluglifing it
+     *         - Updates name value as well but sluglifing it
+     * 
+     * This migration DOES NOT DELETE name nor nickname, to be backwards compatible, but these properties are deprecated and will be deleted in next migrations
+     */
+     async migrate_from_2_to_3() {
+        const cursor = await this.getCollection().find({})
+        const allOrganizations: any[] = await cursor.toArray()
+        
+        for(let organization of allOrganizations) {
+            const data: any = {
+                sluglified_name: slug(organization.name),
+                name: slug(organization.name),
+                display_name: organization.nickname
+            }
+
+            await this.update(
+                { _id: this.toObjectId(organization.id) },
+                {
+                    $set: data,
+                },
+            )
+        }
+
+        // This is made automatically, so don't need to add it explicitly
+        // await this.saveModelVersion(3)      
     }
 }
