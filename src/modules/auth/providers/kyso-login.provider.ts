@@ -21,7 +21,7 @@ export class KysoLoginProvider {
     async login(password: string, username?: string): Promise<string> {
         // Get user from database
         const user = await this.usersService.getUser({
-            filter: { username: username },
+            filter: { email: username },
         })
 
         if (!user) {
