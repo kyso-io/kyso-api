@@ -59,7 +59,7 @@ export class OrganizationsService extends AutowiredService {
 
     public async createOrganization(organization: Organization): Promise<Organization> {
         // The name of this organization exists?
-        const organizations: Organization[] = await this.provider.read({ filter: { name: organization.sluglified_name } })
+        const organizations: Organization[] = await this.provider.read({ filter: { sluglified_name: organization.sluglified_name } })
         if (organizations.length > 0) {
             throw new PreconditionFailedException('The name of the organization must be unique')
         }

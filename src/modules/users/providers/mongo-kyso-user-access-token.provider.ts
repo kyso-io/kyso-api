@@ -7,6 +7,8 @@ import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
 export class KysoUserAccessTokensMongoProvider extends MongoProvider<KysoUserAccessToken> {
+    version = 1
+    
     provider: any
 
     constructor() {

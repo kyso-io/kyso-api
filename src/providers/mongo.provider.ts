@@ -14,12 +14,12 @@ const QUERY_TO_PIPELINE = {
 }
 
 const KYSO_MODEL_VERSION_COLLECTION_NAME = 'KysoDataModelVersion'
-export class MongoProvider<T> {
+export abstract class MongoProvider<T> {
     baseCollection: any
-    private db: any
+    protected db: any
     private indices: any[]
     // Default version number
-    protected version = 1
+    protected abstract version
     protected kysoModelProvider
 
     constructor(collection, mongoDB, indices?: any[]) {
@@ -53,7 +53,7 @@ export class MongoProvider<T> {
                     const dbVersion = databaseVersion.version
 
                     if (dbVersion < this.version) {
-                        await this.executeMigration(dbVersion, this.version)
+                        await this.executeMigration(+dbVersion, this.version)
                     }
                 } else {
                     await this.saveModelVersion(this.version)
@@ -78,7 +78,7 @@ export class MongoProvider<T> {
 
     // TO OVERRIDE
     // eslint-disable-next-line @typescript-eslint/no-empty-function
-    populateMinimalData() {}
+    abstract populateMinimalData()
 
     async executeMigration(fromVersion: number, toVersion: number) {
         const callableMigrationMethods = []
@@ -273,7 +273,7 @@ export class MongoProvider<T> {
         if (databaseCollectionVersion && databaseCollectionVersion.length === 1) {
             // Exists, then update
             const data: any = {}
-            data.version = version
+            data.version = +version
 
             await this.db.collection(KYSO_MODEL_VERSION_COLLECTION_NAME).updateOne(
                 { collection: this.baseCollection },
@@ -287,7 +287,7 @@ export class MongoProvider<T> {
             // Does not exists, then create
             const newKysoDataModelVersion = new KysoDataModelVersion() as any
             newKysoDataModelVersion.collection = this.baseCollection
-            newKysoDataModelVersion.version = version
+            newKysoDataModelVersion.version = +version
             delete newKysoDataModelVersion._id
 
             newKysoDataModelVersion.created_at = new Date()
