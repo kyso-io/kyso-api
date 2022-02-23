@@ -290,7 +290,7 @@ export class ReportsService extends AutowiredService {
                 if (!userAccount) {
                     throw new PreconditionFailedException('User does not have a bitbucket account')
                 }
-                return this.bitbucketReposService.getBranches(userAccount.username, userAccount.accessToken, report.name_provider)
+                return this.bitbucketReposService.getBranches(userAccount.accessToken, report.name_provider)
             default:
                 return []
         }
@@ -320,7 +320,7 @@ export class ReportsService extends AutowiredService {
                 if (!userAccount) {
                     throw new PreconditionFailedException('User does not have a bitbucket account')
                 }
-                return this.bitbucketReposService.getCommits(userAccount.username, userAccount.accessToken, report.name_provider, branch)
+                return this.bitbucketReposService.getCommits(userAccount.accessToken, report.name_provider, branch)
         }
     }
 
@@ -347,7 +347,6 @@ export class ReportsService extends AutowiredService {
                     throw new PreconditionFailedException('User does not have a bitbucket account')
                 }
                 const result = await this.bitbucketReposService.getRootFilesAndFoldersByCommit(
-                    userAccount.username,
                     userAccount.accessToken,
                     report.name_provider,
                     branch,
@@ -382,7 +381,7 @@ export class ReportsService extends AutowiredService {
                 if (!userAccount) {
                     throw new PreconditionFailedException('User does not have a bitbucket account')
                 }
-                return this.bitbucketReposService.getFileContent(userAccount.username, userAccount.accessToken, report.name_provider, hash, filePath)
+                return this.bitbucketReposService.getFileContent(userAccount.accessToken, report.name_provider, hash, filePath)
             default:
                 return null
         }
@@ -953,7 +952,7 @@ export class ReportsService extends AutowiredService {
 
         let bitbucketRepository: any = null
         try {
-            bitbucketRepository = await this.bitbucketReposService.getRepository(userAccount.username, userAccount.accessToken, repositoryName)
+            bitbucketRepository = await this.bitbucketReposService.getRepository(userAccount.accessToken, repositoryName)
         } catch (e) {
             throw new PreconditionFailedException(`User ${user.nickname} does not have a Bitbucket repository '${repositoryName}'`)
         }
@@ -972,7 +971,7 @@ export class ReportsService extends AutowiredService {
         } else {
             let webhook: any = null
             try {
-                webhook = await this.bitbucketReposService.createWebhook(userAccount.username, userAccount.accessToken, repositoryName)
+                webhook = await this.bitbucketReposService.createWebhook(userAccount.accessToken, repositoryName)
                 Logger.log(`Created webhook for repository '${repositoryName}' with id ${webhook.id}`, ReportsService.name)
             } catch (e) {
                 throw Error(`An error occurred creating webhook for repository '${repositoryName}'`)
@@ -1004,12 +1003,7 @@ export class ReportsService extends AutowiredService {
             const extractedDir = `/tmp/${uuidv4()}`
             try {
                 Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
-                const buffer: Buffer = await this.bitbucketReposService.downloadRepository(
-                    userAccount.username,
-                    userAccount.accessToken,
-                    repositoryName,
-                    desiredCommit,
-                )
+                const buffer: Buffer = await this.bitbucketReposService.downloadRepository(userAccount.accessToken, repositoryName, desiredCommit)
                 if (!buffer) {
                     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                     Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${desiredCommit}`, ReportsService.name)
@@ -1060,12 +1054,7 @@ export class ReportsService extends AutowiredService {
         const extractedDir = `/tmp/${uuidv4()}`
         try {
             Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
-            const buffer: Buffer = await this.bitbucketReposService.downloadRepository(
-                userAccount.username,
-                userAccount.accessToken,
-                repositoryName,
-                desiredCommit,
-            )
+            const buffer: Buffer = await this.bitbucketReposService.downloadRepository(userAccount.accessToken, repositoryName, desiredCommit)
             if (!buffer) {
                 report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                 Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${desiredCommit}`, ReportsService.name)

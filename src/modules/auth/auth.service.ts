@@ -21,6 +21,7 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { PlatformRoleService } from './platform-role.service'
+import { BitbucketLoginProvider } from './providers/bitbucket-login.provider'
 import { GithubLoginProvider } from './providers/github-login.provider'
 import { GoogleLoginProvider } from './providers/google-login.provider'
 import { KysoLoginProvider } from './providers/kyso-login.provider'
@@ -48,12 +49,13 @@ export class AuthService extends AutowiredService {
     private usersService: UsersService
 
     constructor(
-        private readonly kysoLoginProvider: KysoLoginProvider,
+        private readonly bitbucketLoginProvider: BitbucketLoginProvider,
         private readonly githubLoginProvider: GithubLoginProvider,
         private readonly googleLoginProvider: GoogleLoginProvider,
-        private readonly platformRoleProvider: PlatformRoleMongoProvider,
         private readonly jwtService: JwtService,
+        private readonly kysoLoginProvider: KysoLoginProvider,
         private readonly pingIdLoginProvider: PingIdLoginProvider,
+        private readonly platformRoleProvider: PlatformRoleMongoProvider,
     ) {
         super()
     }
@@ -219,7 +221,7 @@ export class AuthService extends AutowiredService {
         }
 
         // TODO: Global permissions, not related to teams
-        
+
         const generalRoles = await userRoleService.getRolesByUser(user.id)
 
         if (generalRoles && generalRoles.length > 0) {
@@ -273,6 +275,8 @@ export class AuthService extends AutowiredService {
                 return this.googleLoginProvider.login(login)
             case LoginProviderEnum.PING_ID_SAML:
                 return this.pingIdLoginProvider.login(login)
+            case LoginProviderEnum.BITBUCKET:
+                return this.bitbucketLoginProvider.login(login)
         }
     }
 
@@ -307,7 +311,7 @@ export class AuthService extends AutowiredService {
 
     public async refreshToken(token: Token): Promise<string> {
         const user: User = await this.usersService.getUserById(token.id)
-        
+
         const payload: Token = new Token(
             user.id.toString(),
             user.name,

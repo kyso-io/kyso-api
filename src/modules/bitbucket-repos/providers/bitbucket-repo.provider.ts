@@ -1,6 +1,5 @@
 import { GithubRepository } from '@kyso-io/kyso-model'
-import { Injectable, Logger } from '@nestjs/common'
-import { NotFoundError } from '../../../helpers/errorHandling'
+import { Injectable } from '@nestjs/common'
 import { CreateBitbucketWebhookDto } from '../classes/create-bitbucket-webhook.dto'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const axios = require('axios').default
@@ -21,29 +20,24 @@ const DEFAULT_PER_PAGE = 20
 
 @Injectable()
 export class BitbucketReposProvider {
-    private withUserAndAppPassword(username: string, appPassword: string): string {
-        const buffer = Buffer.from(`${username}:${appPassword}`)
-        return `Basic ${buffer.toString('base64')}`
-    }
-
-    private async getRepos(username: string, password: string, workspace: string, page: number, perPage: number): Promise<any[]> {
+    private async getRepos(accessToken: string, workspace: string, page: number, perPage: number): Promise<any[]> {
         const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${workspace}?page=${page}&pagelen=${perPage}`, {
-            headers: { Authorization: this.withUserAndAppPassword(username, password) },
+            headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data.values.map(repoMapFunction)
     }
 
-    public async getAllRepos(username: string, password: string): Promise<any[]> {
+    public async getAllRepos(accessToken: string): Promise<any[]> {
         let page = 1
         let workspaces = null
         let result = []
         do {
-            workspaces = await this.getWorkspaces(username, password, page, DEFAULT_PER_PAGE)
+            workspaces = await this.getWorkspaces(accessToken, page, DEFAULT_PER_PAGE)
             let paginatedResponse = null
             for (const workspace of workspaces.values) {
                 let repositoryPage = 1
                 do {
-                    paginatedResponse = await this.getRepos(username, password, workspace.slug, repositoryPage, DEFAULT_PER_PAGE)
+                    paginatedResponse = await this.getRepos(accessToken, workspace.slug, repositoryPage, DEFAULT_PER_PAGE)
                     repositoryPage++
                     result = [...result, ...paginatedResponse]
                 } while (paginatedResponse.length > 0)
@@ -53,22 +47,22 @@ export class BitbucketReposProvider {
         return result
     }
 
-    public async getWorkspaces(username: string, password: string, page: number, perPage: number): Promise<any> {
+    public async getWorkspaces(accessToken: string, page: number, perPage: number): Promise<any> {
         const res = await axios.get(`${process.env.BITBUCKET_API}/workspaces?page=${page}&pagelen=${perPage}`, {
-            headers: { Authorization: this.withUserAndAppPassword(username, password) },
+            headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data
     }
 
-    public async getRepository(username: string, password: string, fullName: string): Promise<any> {
+    public async getRepository(accessToken: string, fullName: string): Promise<any> {
         const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}`, {
-            headers: { Authorization: this.withUserAndAppPassword(username, password) },
+            headers: { Authorization: `Bearer ${accessToken}` },
         })
         return repoMapFunction(res.data)
     }
 
     // https://developer.atlassian.com/cloud/bitbucket/rest/intro/#filtering
-    public async searchRepos(username: string, password: string, workspace: string, filter: string, page: number, perPage: number): Promise<any> {
+    public async searchRepos(accessToken: string, workspace: string, filter: string, page: number, perPage: number): Promise<any> {
         let url = `${process.env.BITBUCKET_API}/repositories/${workspace}?`
         if (filter) {
             url += `q=name="${filter}"`
@@ -80,16 +74,16 @@ export class BitbucketReposProvider {
             url += `&pagelen=${perPage}`
         }
         const res = await axios.get(url, {
-            headers: { Authorization: this.withUserAndAppPassword(username, password) },
+            headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data.values.map(repoMapFunction)
     }
 
-    // public async getBranches(username: string, password: string, fullName: string, page: number, perPage: number): Promise<any> {
-    public async getBranches(username: string, password: string, fullName: string): Promise<any> {
+    // public async getBranches(accessToken: string, fullName: string, page: number, perPage: number): Promise<any> {
+    public async getBranches(accessToken: string, fullName: string): Promise<any> {
         // const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/refs/branches?page=${page}&pagelen=${perPage}`, {
         const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/refs/branches`, {
-            headers: { Authorization: this.withUserAndAppPassword(username, password) },
+            headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data.values.map((branch) => ({
             name: branch.name,
@@ -97,11 +91,11 @@ export class BitbucketReposProvider {
         }))
     }
 
-    // public async getCommits(username: string, password: string, fullName: string, branch: string, page: number, perPage: number): Promise<any> {
-    public async getCommits(username: string, password: string, fullName: string, branch: string): Promise<any> {
+    // public async getCommits(accessToken: string, fullName: string, branch: string, page: number, perPage: number): Promise<any> {
+    public async getCommits(accessToken: string, fullName: string, branch: string): Promise<any> {
         // const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/commits/${branch}?page=${page}&pagelen=${perPage}`, {
         const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/commits/${branch}`, {
-            headers: { Authorization: this.withUserAndAppPassword(username, password) },
+            headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data.values.map((elem) => ({
             sha: elem.hash,
@@ -119,8 +113,8 @@ export class BitbucketReposProvider {
         return text.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi)
     }
 
-    public async getRootFilesAndFolders(username: string, password: string, fullName: string): Promise<any> {
-        return this.getRootFilesAndFoldersByCommit(username, password, fullName, null, null, null)
+    public async getRootFilesAndFolders(accessToken: string, fullName: string): Promise<any> {
+        return this.getRootFilesAndFoldersByCommit(accessToken, fullName, null, null, null)
     }
 
     /**
@@ -133,14 +127,7 @@ export class BitbucketReposProvider {
      *                     as a code, and not as an incremental number.
      * @returns
      */
-    public async getRootFilesAndFoldersByCommit(
-        username: string,
-        password: string,
-        fullName: string,
-        commit: string,
-        folder: string,
-        pageCode: number,
-    ): Promise<any> {
+    public async getRootFilesAndFoldersByCommit(accessToken: string, fullName: string, commit: string, folder: string, pageCode: number): Promise<any> {
         let requestUrl = `${process.env.BITBUCKET_API}/repositories/${fullName}/src/`
         if (commit) {
             requestUrl = requestUrl + `${commit}/`
@@ -162,7 +149,7 @@ export class BitbucketReposProvider {
         }
         // The last slash (/) is important, without it... does not works...
         const res = await axios.get(requestUrl, {
-            headers: { Authorization: this.withUserAndAppPassword(username, password) },
+            headers: { Authorization: `Bearer ${accessToken}` },
         })
         const filterData = (obj) => ({
             type: obj.type === 'commit_dir' ? 'dir' : 'file',
@@ -184,61 +171,74 @@ export class BitbucketReposProvider {
         }
     }
 
-    public async getFileContent(username: string, password: string, fullName: string, commit: string, filePath: string): Promise<any> {
-        try {
-            const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/src/${commit}/${filePath}`, {
-                headers: { Authorization: this.withUserAndAppPassword(username, password) },
-                transformResponse: [(data) => data],
-            })
-            return Buffer.from(res.data, 'utf-8')
-        } catch (err) {
-            console.log(err)
-            if (err.status === 404) {
-                throw new NotFoundError({
-                    message: "The resource you are trying to access can't be found or isn't a file.",
-                })
-            }
-            throw err
-        }
+    public async getFileContent(accessToken: string, fullName: string, commit: string, filePath: string): Promise<any> {
+        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/src/${commit}/${filePath}`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            transformResponse: [(data) => data],
+        })
+        return Buffer.from(res.data, 'utf-8')
     }
 
-    public async getUser(username: string, password: string): Promise<any> {
+    public async getUser(accessToken: string): Promise<any> {
         const res = await axios.get(`${process.env.BITBUCKET_API}/user`, {
-            headers: { Authorization: this.withUserAndAppPassword(username, password) },
+            headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data
     }
 
-    public async downloadRepository(username: string, password: string, fullName: string, commit: string): Promise<Buffer> {
-        try {
-            const res = await axios.get(`https://bitbucket.org/${fullName}/get/${commit}.zip`, {
-                headers: { Authorization: this.withUserAndAppPassword(username, password) },
-                responseType: 'arraybuffer',
-            })
-            return res.data
-        } catch (e) {
-            Logger.error(`An error occurred while downloading the repo ${fullName}@${commit}`, e, BitbucketReposProvider.name)
-            return null
-        }
+    public async downloadRepository(accessToken: string, fullName: string, commit: string): Promise<Buffer> {
+        const res = await axios.get(`https://bitbucket.org/${fullName}/get/${commit}.zip`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            responseType: 'arraybuffer',
+        })
+        return res.data
     }
 
-    public async getWebhooks(username: string, password: string, fullName: string): Promise<void> {
+    public async getWebhooks(accessToken: string, fullName: string): Promise<void> {
         const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/hooks`, {
-            headers: { Authorization: this.withUserAndAppPassword(username, password) },
+            headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data
     }
 
-    public async createWebhook(username: string, password: string, fullName: string, data: CreateBitbucketWebhookDto): Promise<void> {
+    public async createWebhook(accessToken: string, fullName: string, data: CreateBitbucketWebhookDto): Promise<void> {
         const res = await axios.post(`${process.env.BITBUCKET_API}/repositories/${fullName}/hooks`, data, {
-            headers: { Authorization: this.withUserAndAppPassword(username, password) },
+            headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data
     }
 
-    public async deleteWebhook(username: string, password: string, fullName: string, hookId: number): Promise<void> {
+    public async deleteWebhook(accessToken: string, fullName: string, hookId: number): Promise<void> {
         const res = await axios.delete(`${process.env.BITBUCKET_API}/repositories/${fullName}/hooks/${hookId}`, {
-            headers: { Authorization: this.withUserAndAppPassword(username, password) },
+            headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        return res.data
+    }
+
+    public async login(code: string): Promise<any> {
+        const params = new URLSearchParams({
+            grant_type: 'authorization_code',
+            code,
+        })
+        const res = await axios.post(`https://bitbucket.org/site/oauth2/access_token`, params.toString(), {
+            auth: {
+                username: process.env.AUTH_BITBUCKET_CLIENT_ID,
+                password: process.env.AUTH_BITBUCKET_CLIENT_SECRET,
+            },
+        })
+        return res.data
+    }
+
+    public async refreshToken(refresh_token: string): Promise<any> {
+        const params = new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token,
+        })
+        const res = await axios.post(`https://bitbucket.org/site/oauth2/access_token`, params.toString(), {
+            auth: {
+                username: process.env.AUTH_BITBUCKET_CLIENT_ID,
+                password: process.env.AUTH_BITBUCKET_CLIENT_SECRET,
+            },
         })
         return res.data
     }

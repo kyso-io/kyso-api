@@ -1,13 +1,11 @@
-import { CreateUserRequestDTO, Login, LoginProviderEnum, Token, TokenPermissions, User, UserAccount } from '@kyso-io/kyso-model'
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
+import { CreateUserRequestDTO, Login, LoginProviderEnum, Token, User, UserAccount } from '@kyso-io/kyso-model'
+import { Injectable, Logger } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
 import { ObjectId } from 'mongodb'
 import { Autowired } from '../../../decorators/autowired'
 import { UnauthorizedError } from '../../../helpers/errorHandling'
 import { GithubReposService } from '../../github-repos/github-repos.service'
-import { OrganizationsService } from '../../organizations/organizations.service'
-import { TeamsService } from '../../teams/teams.service'
 import { UsersService } from '../../users/users.service'
 import { GoogleLoginProvider } from './google-login.provider'
 
@@ -21,9 +19,7 @@ export class GithubLoginProvider {
     @Autowired({ typeName: 'GithubReposService' })
     private githubReposService: GithubReposService
 
-    constructor(
-        private readonly jwtService: JwtService,
-    ) {}
+    constructor(private readonly jwtService: JwtService) {}
     // FLOW:
     //     * After calling login, frontend should call to
     // https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_url=${REDIRECT}&state=${RANDOM_STRING}
@@ -96,7 +92,7 @@ export class GithubLoginProvider {
                 Logger.log(`User ${login.username} is updating Google account`, GoogleLoginProvider.name)
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
-    
+
             const payload: Token = new Token(
                 user.id.toString(),
                 user.name,

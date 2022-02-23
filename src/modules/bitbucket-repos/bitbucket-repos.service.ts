@@ -20,24 +20,24 @@ export class BitbucketReposService extends AutowiredService {
         super()
     }
 
-    public async getRepository(username: string, password: string, fullName: string): Promise<any> {
-        return this.bitbucketReposProvider.getRepository(username, password, fullName)
+    public async getRepository(accessToken: string, fullName: string): Promise<any> {
+        return this.bitbucketReposProvider.getRepository(accessToken, fullName)
     }
 
-    public async downloadRepository(username: string, password: string, fullName: string, commit: string): Promise<Buffer> {
-        return this.bitbucketReposProvider.downloadRepository(username, password, fullName, commit)
+    public async downloadRepository(accessToken: string, fullName: string, commit: string): Promise<Buffer> {
+        return this.bitbucketReposProvider.downloadRepository(accessToken, fullName, commit)
     }
 
-    public async getWebhooks(username: string, password: string, fullName: string): Promise<any> {
-        return this.bitbucketReposProvider.getWebhooks(username, password, fullName)
+    public async getWebhooks(accessToken: string, fullName: string): Promise<any> {
+        return this.bitbucketReposProvider.getWebhooks(accessToken, fullName)
     }
 
-    public async createWebhook(username: string, password: string, fullName: string): Promise<any> {
+    public async createWebhook(accessToken: string, fullName: string): Promise<any> {
         let hookUrl = `${process.env.BASE_URL}/v1/hooks/bitbucket`
         if (process.env.NODE_ENV === 'development') {
             hookUrl = 'https://smee.io/kyso-bitbucket-hook-test'
         }
-        return this.bitbucketReposProvider.createWebhook(username, password, fullName, {
+        return this.bitbucketReposProvider.createWebhook(accessToken, fullName, {
             description: 'Kyso webhook',
             url: hookUrl,
             active: true,
@@ -45,30 +45,35 @@ export class BitbucketReposService extends AutowiredService {
         })
     }
 
-    public async deleteWebhook(username: string, password: string, fullName: string, hookId: number): Promise<any> {
-        return this.bitbucketReposProvider.deleteWebhook(username, password, fullName, hookId)
+    public async deleteWebhook(accessToken: string, fullName: string, hookId: number): Promise<any> {
+        return this.bitbucketReposProvider.deleteWebhook(accessToken, fullName, hookId)
     }
 
-    public async getBranches(username: string, password: string, fullName: string): Promise<any> {
-        return this.bitbucketReposProvider.getBranches(username, password, fullName)
+    public async getBranches(accessToken: string, fullName: string): Promise<any> {
+        return this.bitbucketReposProvider.getBranches(accessToken, fullName)
     }
 
-    public async getCommits(username: string, password: string, fullName: string, branch: string): Promise<any> {
-        return this.bitbucketReposProvider.getCommits(username, password, fullName, branch)
+    public async getCommits(accessToken: string, fullName: string, branch: string): Promise<any> {
+        return this.bitbucketReposProvider.getCommits(accessToken, fullName, branch)
     }
 
-    public async getRootFilesAndFoldersByCommit(
-        username: string,
-        password: string,
-        fullName: string,
-        commit: string,
-        folder: string,
-        pageCode: number,
-    ): Promise<any> {
-        return this.bitbucketReposProvider.getRootFilesAndFoldersByCommit(username, password, fullName, commit, folder, pageCode)
+    public async getRootFilesAndFoldersByCommit(accessToken: string, fullName: string, commit: string, folder: string, pageCode: number): Promise<any> {
+        return this.bitbucketReposProvider.getRootFilesAndFoldersByCommit(accessToken, fullName, commit, folder, pageCode)
     }
 
-    public async getFileContent(username: string, password: string, fullName: string, commit: string, filePath: string): Promise<any> {
-        return this.bitbucketReposProvider.getFileContent(username, password, fullName, commit, filePath)
+    public async getFileContent(accessToken: string, fullName: string, commit: string, filePath: string): Promise<any> {
+        return this.bitbucketReposProvider.getFileContent(accessToken, fullName, commit, filePath)
+    }
+
+    public async getUser(accessToken: string): Promise<any> {
+        return this.bitbucketReposProvider.getUser(accessToken)
+    }
+
+    public async login(code: string): Promise<any> {
+        return this.bitbucketReposProvider.login(code)
+    }
+
+    public async refreshToken(refreshToken: string): Promise<any> {
+        return this.bitbucketReposProvider.refreshToken(refreshToken)
     }
 }

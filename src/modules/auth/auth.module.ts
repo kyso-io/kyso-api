@@ -2,15 +2,16 @@ import { DynamicModule, Global } from '@nestjs/common'
 import { JwtModule } from '@nestjs/jwt'
 import { AuthController } from './auth.controller'
 import { AuthService, createProvider } from './auth.service'
-import { PlatformRoleService, createPlatformRoleProvider } from './platform-role.service'
-import { UserRoleService, createUserRoleProvider } from './user-role.service'
 import { PermissionsGuard } from './guards/permission.guard'
+import { createPlatformRoleProvider, PlatformRoleService } from './platform-role.service'
+import { BitbucketLoginProvider } from './providers/bitbucket-login.provider'
 import { GithubLoginProvider } from './providers/github-login.provider'
 import { GoogleLoginProvider } from './providers/google-login.provider'
 import { KysoLoginProvider } from './providers/kyso-login.provider'
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './providers/mongo-user-role.provider'
 import { PingIdLoginProvider } from './providers/ping-id-login.provider'
+import { createUserRoleProvider, UserRoleService } from './user-role.service'
 
 @Global()
 export class AuthModule {
@@ -39,7 +40,8 @@ export class AuthModule {
                 PlatformRoleMongoProvider,
                 PermissionsGuard,
                 UserRoleMongoProvider,
-                PingIdLoginProvider
+                PingIdLoginProvider,
+                BitbucketLoginProvider,
             ],
             controllers: [AuthController],
             exports: [dynamicProvider, platformRoleDynamicProvider, userRoleDynamicProvider, PermissionsGuard],

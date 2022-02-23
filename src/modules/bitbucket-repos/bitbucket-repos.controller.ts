@@ -54,15 +54,13 @@ export class BitbucketReposController extends GenericController<Repository> {
         if (!userAccount) {
             throw new PreconditionFailedException('User does not have a bitbucket account')
         }
-        const data: any = await this.bitbucketReposProvider.getWorkspaces(userAccount.username, userAccount.accessToken, 1, 100)
+        const data: any = await this.bitbucketReposProvider.getWorkspaces(userAccount.accessToken, 1, 100)
         let workspaces: string[] = []
         if (data?.values && Array.isArray(data.values) && data.values.length > 0) {
             workspaces = data.values.map((workspace: any) => workspace.slug)
         }
         const repos: GithubRepository[] = await Promise.all(
-            workspaces.map((workspace: string) =>
-                this.bitbucketReposProvider.searchRepos(userAccount.username, userAccount.accessToken, workspace, filter, page, perPage),
-            ),
+            workspaces.map((workspace: string) => this.bitbucketReposProvider.searchRepos(userAccount.accessToken, workspace, filter, page, perPage)),
         )
         return new NormalizedResponseDTO(repos.flat())
     }
@@ -83,7 +81,7 @@ export class BitbucketReposController extends GenericController<Repository> {
             if (!userAccount) {
                 throw new PreconditionFailedException('User does not have a bitbucket account')
             }
-            const bitbucketAccount: any = await this.bitbucketReposProvider.getUser(userAccount.username, userAccount.accessToken)
+            const bitbucketAccount: any = await this.bitbucketReposProvider.getUser(userAccount.accessToken)
             return new NormalizedResponseDTO(bitbucketAccount)
         } catch (e) {
             console.log(e)
@@ -112,7 +110,7 @@ export class BitbucketReposController extends GenericController<Repository> {
             if (!userAccount) {
                 throw new PreconditionFailedException('User does not have a bitbucket account')
             }
-            const repository: GithubRepository = await this.bitbucketReposProvider.getRepository(userAccount.username, userAccount.accessToken, name)
+            const repository: GithubRepository = await this.bitbucketReposProvider.getRepository(userAccount.accessToken, name)
             return new NormalizedResponseDTO(repository)
         } catch (e) {
             return new NormalizedResponseDTO(null)
@@ -152,7 +150,6 @@ export class BitbucketReposController extends GenericController<Repository> {
                 throw new PreconditionFailedException('User does not have a bitbucket account')
             }
             const tree: { nextPageCode: string; data: GithubFileHash[] } = await this.bitbucketReposProvider.getRootFilesAndFoldersByCommit(
-                userAccount.username,
                 userAccount.accessToken,
                 name,
                 branch,
