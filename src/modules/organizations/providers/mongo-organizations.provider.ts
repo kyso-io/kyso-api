@@ -49,7 +49,7 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
                 const data: any = {}
                 data.options = orgOptions
                 
-                Logger.log(`Migrating organization ${org.nickname} from version 1 to version 2`)
+                Logger.log(`Migrating organization ${org.display_name} from version 1 to version 2`)
                 
                 // Add the default value
                 await this.update(

@@ -203,7 +203,7 @@ export class TeamsService extends AutowiredService {
                 return { ...u, roles: thisMember.role_names }
             })
 
-            return usersAndRoles.map((x) => new TeamMember(x.id.toString(), x.nickname, x.name, x.roles, x.bio, x.avatar_url, x.email))
+            return usersAndRoles.map((x) => new TeamMember(x.id.toString(), x.display_name, x.name, x.roles, x.bio, x.avatar_url, x.email))
         } else {
             return []
         }
@@ -215,9 +215,9 @@ export class TeamsService extends AutowiredService {
 
     async createTeam(team: Team, userId?: string) {
         try {
-            team.name = slugify(team.nickname)
+            team.sluglified_name = slugify(team.display_name)
             // The name of this team exists?
-            const teams: Team[] = await this.provider.read({ filter: { name: team.name } })
+            const teams: Team[] = await this.provider.read({ filter: { sluglified_name: team.sluglified_name } })
             if (teams.length > 0) {
                 // Exists, throw an exception
                 throw new PreconditionFailedException('The name of the team must be unique')
@@ -228,9 +228,9 @@ export class TeamsService extends AutowiredService {
                 throw new PreconditionFailedException('The organization does not exist')
             }
 
-            const users: User[] = await this.usersService.getUsers({ filter: { nickname: team.name } })
+            const users: User[] = await this.usersService.getUsers({ filter: { sluglified_name: team.sluglified_name } })
             if (users.length > 0) {
-                throw new PreconditionFailedException('There is already a user with this nickname')
+                throw new PreconditionFailedException('There is already a user with this display_name')
             }
 
             const newTeam: Team = await this.provider.create(team)
@@ -429,14 +429,14 @@ export class TeamsService extends AutowiredService {
         }
         const s3Client: S3Client = this.getS3Client()
         if (team?.avatar_url && team.avatar_url.length > 0) {
-            Logger.log(`Removing previous image of team ${team.name}`, OrganizationsService.name)
+            Logger.log(`Removing previous image of team ${team.sluglified_name}`, OrganizationsService.name)
             const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
                 Bucket: process.env.AWS_S3_BUCKET,
                 Key: team.avatar_url.split('/').slice(-1)[0],
             })
             await s3Client.send(deleteObjectCommand)
         }
-        Logger.log(`Uploading image for team ${team.name}`, OrganizationsService.name)
+        Logger.log(`Uploading image for team ${team.sluglified_name}`, OrganizationsService.name)
         const Key = `${uuidv4()}${extname(file.originalname)}`
         await s3Client.send(
             new PutObjectCommand({
@@ -445,7 +445,7 @@ export class TeamsService extends AutowiredService {
                 Body: file.buffer,
             }),
         )
-        Logger.log(`Uploaded image for team ${team.name}`, OrganizationsService.name)
+        Logger.log(`Uploaded image for team ${team.sluglified_name}`, OrganizationsService.name)
         const avatar_url = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${Key}`
         return this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url } })
     }
@@ -457,7 +457,7 @@ export class TeamsService extends AutowiredService {
         }
         const s3Client: S3Client = this.getS3Client()
         if (team?.avatar_url && team.avatar_url.length > 0) {
-            Logger.log(`Removing previous image of team ${team.name}`, OrganizationsService.name)
+            Logger.log(`Removing previous image of team ${team.sluglified_name}`, OrganizationsService.name)
             const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
                 Bucket: process.env.AWS_S3_BUCKET,
                 Key: team.avatar_url.split('/').slice(-1)[0],

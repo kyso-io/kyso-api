@@ -97,7 +97,7 @@ export class GithubLoginProvider {
                 user.id.toString(),
                 user.name,
                 user.username,
-                user.nickname,
+                user.display_name,
                 user.email,
                 user.plan,
                 user.avatar_url,

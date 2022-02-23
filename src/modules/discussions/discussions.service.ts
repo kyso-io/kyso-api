@@ -77,7 +77,7 @@ export class DiscussionsService extends AutowiredService {
             data.description,
             data.discussion_number,
             data.main,
-            author.nickname,
+            author.display_name,
             data.participants,
             data.request_private,
             data.team_id,

@@ -40,7 +40,7 @@ export class HooksController {
 
         const user: User = await this.usersService.getUserById(report.user_id)
         if (!user) {
-            Logger.error(`No user found for Github report '${report.id} ${report.name}'`, HooksController.name)
+            Logger.error(`No user found for Github report '${report.id} ${report.sluglified_name}'`, HooksController.name)
             return
         }
         const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
@@ -61,7 +61,7 @@ export class HooksController {
         }
         const user: User = await this.usersService.getUserById(report.user_id)
         if (!user) {
-            Logger.error(`No user found for Github report '${report.id} ${report.name}'`, HooksController.name)
+            Logger.error(`No user found for Github report '${report.id} ${report.sluglified_name}'`, HooksController.name)
             return
         }
         const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)

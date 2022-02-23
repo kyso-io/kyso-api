@@ -102,40 +102,40 @@ export class UsersService extends AutowiredService {
         // Hash the password and delete the plain password property
         const newUser: User = User.fromCreateUserRequest(userToCreate)
         newUser.hashed_password = AuthService.hashPassword(userToCreate.password)
-        Logger.log(`Creating new user ${userToCreate.nickname}...`)
+        Logger.log(`Creating new user ${userToCreate.display_name}...`)
         const userDb: User = await this.provider.create(newUser)
 
         // Create user organization
-        const organizationName: string = userDb.nickname.charAt(0).toUpperCase() + userDb.nickname.slice(1) + "'s Workspace"
+        const organizationName: string = userDb.display_name.charAt(0).toUpperCase() + userDb.display_name.slice(1) + "'s Workspace"
         const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], userDb.email, '', '', true, '', '', '', '')
-        Logger.log(`Creating new organization ${newOrganization.name}`)
+        Logger.log(`Creating new organization ${newOrganization.sluglified_name}`)
         const organizationDb: Organization = await this.organizationsService.createOrganization(newOrganization)
 
         // Add user to organization as admin
-        Logger.log(`Adding ${userDb.nickname} to organization ${organizationDb.name} with role ${PlatformRole.ORGANIZATION_ADMIN_ROLE.name}...`)
+        Logger.log(`Adding ${userDb.display_name} to organization ${organizationDb.sluglified_name} with role ${PlatformRole.ORGANIZATION_ADMIN_ROLE.name}...`)
         await this.organizationsService.addMembersById(organizationDb.id, [userDb.id], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name])
 
         // Create user team
-        const teamName: string = userDb.nickname.charAt(0).toUpperCase() + userDb.nickname.slice(1) + "'s Private"
+        const teamName: string = userDb.display_name.charAt(0).toUpperCase() + userDb.display_name.slice(1) + "'s Private"
         const newUserTeam: Team = new Team(teamName, '', '', '', '', [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
-        Logger.log(`Creating new team ${newUserTeam.name}...`)
+        Logger.log(`Creating new team ${newUserTeam.sluglified_name}...`)
         const userTeamDb: Team = await this.teamsService.createTeam(newUserTeam)
 
         // Add user to team as admin
-        Logger.log(`Adding ${userDb.nickname} to team ${userTeamDb.name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}...`)
+        Logger.log(`Adding ${userDb.display_name} to team ${userTeamDb.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}...`)
         await this.teamsService.addMembersById(userTeamDb.id, [userDb.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
 
         this.mailerService
             .sendMail({
                 to: userDb.email,
                 subject: 'Welcome to Kyso',
-                html: `Welcome to Kyso, ${userDb.nickname}!`,
+                html: `Welcome to Kyso, ${userDb.display_name}!`,
             })
             .then(() => {
-                Logger.log(`Welcome mail sent to ${userDb.nickname}`, UsersService.name)
+                Logger.log(`Welcome mail sent to ${userDb.display_name}`, UsersService.name)
             })
             .catch((err) => {
-                Logger.error(`Error sending welcome mail to ${userDb.nickname}`, err, UsersService.name)
+                Logger.error(`Error sending welcome mail to ${userDb.display_name}`, err, UsersService.name)
             })
 
         return userDb
