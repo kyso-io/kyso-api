@@ -4,7 +4,7 @@ include:
     file: '/templates/npm-dockerfile-build.yml'
 
 # Update docker_build's before_script to update the public/v.html file
-docker_build:
+docker-build:
   before_script:
   - !reference [.docker-config, before_script]
   - !reference [.npm-config, before_script]
