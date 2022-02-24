@@ -57,7 +57,6 @@ import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CommentsService } from '../comments/comments.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { RelationsService } from '../relations/relations.service'
-import { TagsService } from '../tags/tags.service'
 import { TeamsService } from '../teams/teams.service'
 import { ReportsService } from './reports.service'
 
@@ -88,9 +87,6 @@ export class ReportsController extends GenericController<Report> {
 
     @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
-
-    @Autowired({ typeName: 'TagsService' })
-    private tagsService: TagsService
 
     @Autowired({ typeName: 'OrganizationsService' })
     private organizationsService: OrganizationsService

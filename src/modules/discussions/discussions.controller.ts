@@ -6,7 +6,7 @@ import {
     NormalizedResponseDTO,
     UpdateDiscussionRequestDTO,
 } from '@kyso-io/kyso-model'
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, PreconditionFailedException, Query, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, PreconditionFailedException, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { InvalidInputError } from 'src/helpers/errorHandling'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -39,40 +39,21 @@ export class DiscussionsController extends GenericController<Discussion> {
     @ApiOperation({ summary: 'Get all discussions' })
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion, isArray: true })
     @Permission([DiscussionPermissionsEnum.READ])
-    public async getDiscussions(
-        @Query('team_id') teamId: string,
-        @Query('user_id') userId: string,
-        @Query('page', ParseIntPipe) page: number,
-        @Query('per_page', ParseIntPipe) per_page: number,
-        @Query('sort') sort: string,
-        @Query('search') search: string,
-    ): Promise<NormalizedResponseDTO<Discussion[]>> {
-        const data: any = {
-            filter: {
-                mark_delete_at: { $eq: null },
-            },
-            sort: {
-                created_at: -1,
-            },
-            limit: per_page,
-            skip: (page - 1) * per_page,
+    public async getDiscussions(@Req() req): Promise<NormalizedResponseDTO<Discussion[]>> {
+        const query = QueryParser.toQueryObject(req.url)
+        if (!query.sort) {
+            query.sort = { created_at: -1 }
         }
-        if (teamId) {
-            data.filter.team_id = teamId
-        } else if (userId) {
-            data.filter.user_id = userId
-        }
-        if (sort && (sort === 'asc' || sort === 'desc')) {
-            data.sort.created_at = sort === 'asc' ? 1 : -1
-        }
-        if (search && search.length > 0) {
-            data.filter.$or = [
-                { title: { $regex: search, $options: 'i' } },
-                { main: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } },
+        query.filter.mark_delete_at = { $eq: null }
+        if (query?.filter?.$text) {
+            query.filter.$or = [
+                { title: { $regex: `${query.filter.$text.$search}`, $options: 'i' } },
+                { main: { $regex: `${query.filter.$text.$search}`, $options: 'i' } },
+                { description: { $regex: `${query.filter.$text.$search}`, $options: 'i' } },
             ]
+            delete query.$text
         }
-        const discussions: Discussion[] = await this.discussionsService.getDiscussions(data)
+        const discussions: Discussion[] = await this.discussionsService.getDiscussions(query)
         const relations = await this.relationsService.getRelations(discussions, 'discussion', { participants: 'User', assignees: 'User' })
         return new NormalizedResponseDTO(discussions, relations)
     }
