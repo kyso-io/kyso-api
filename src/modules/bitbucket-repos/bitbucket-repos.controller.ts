@@ -162,4 +162,20 @@ export class BitbucketReposController extends GenericController<Repository> {
             return new NormalizedResponseDTO(null)
         }
     }
+
+    @Get('/user/access-token/:accessToken')
+    @ApiOperation({
+        summary: `Get github user info by access token`,
+        description: `Get data about the git provider account that was linked with the requesting user account.`,
+    })
+    @ApiParam({
+        name: 'accessToken',
+        required: true,
+        description: `Github's access token related to the user you want to fetch data`,
+        schema: { type: 'string' },
+    })
+    async getUserByAccessToken(@Param('accessToken') accessToken: string): Promise<NormalizedResponseDTO<any>> {
+        const user = await this.bitbucketReposProvider.getUser(accessToken)
+        return new NormalizedResponseDTO(user)
+    }
 }

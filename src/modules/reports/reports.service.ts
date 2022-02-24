@@ -155,7 +155,7 @@ export class ReportsService extends AutowiredService {
         // Check if exists a report with this name
         const reports: Report[] = await this.getReports({
             filter: {
-                name: createReportDto.name,
+                sluglified_name: createReportDto.name,
             },
         })
 
@@ -525,7 +525,7 @@ export class ReportsService extends AutowiredService {
             throw new PreconditionFailedException('No kyso file provided')
         }
 
-        const organization: Organization = await this.organizationsService.getOrganization({ filter: { name: createKysoReportDTO.organization } })
+        const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: createKysoReportDTO.organization } })
         Logger.log(`Organization: ${organization.sluglified_name}`)
         if (!organization) {
             Logger.error(`Organization ${createKysoReportDTO.organization} does not exist`)
@@ -539,7 +539,7 @@ export class ReportsService extends AutowiredService {
             throw new PreconditionFailedException(`User ${user.display_name} is not a member of organization ${createKysoReportDTO.organization}`)
         }
 
-        const team: Team = await this.teamsService.getTeam({ filter: { name: createKysoReportDTO.team } })
+        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: createKysoReportDTO.team } })
         Logger.log(`Team: ${team.sluglified_name}`)
         if (!team) {
             Logger.error(`Team ${createKysoReportDTO.team} does not exist`)
@@ -552,7 +552,9 @@ export class ReportsService extends AutowiredService {
         const belongsToTeam: boolean = await this.teamsService.userBelongsToTeam(team.id, user.id)
         Logger.log(`user belongs to team?: ${belongsToTeam}`)
         if (!isGlobalAdmin && !belongsToTeam && !userBelongsToOrganization) {
-            Logger.error(`User ${user.display_name} is not a member of team ${createKysoReportDTO.team} nor the organization ${createKysoReportDTO.organization}`)
+            Logger.error(
+                `User ${user.display_name} is not a member of team ${createKysoReportDTO.team} nor the organization ${createKysoReportDTO.organization}`,
+            )
             throw new PreconditionFailedException(
                 `User ${user.display_name} is not a member of team ${createKysoReportDTO.team} nor the organization ${createKysoReportDTO.organization}`,
             )
@@ -646,7 +648,7 @@ export class ReportsService extends AutowiredService {
         const user: User = await this.usersService.getUserById(userId)
         const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
 
-        const organization: Organization = await this.organizationsService.getOrganization({ filter: { name: createUIReportDTO.organization } })
+        const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: createUIReportDTO.organization } })
         if (!organization) {
             throw new PreconditionFailedException(`Organization ${createUIReportDTO.organization} does not exist`)
         }
@@ -656,7 +658,7 @@ export class ReportsService extends AutowiredService {
             throw new PreconditionFailedException(`User ${user.display_name} is not a member of organization ${createUIReportDTO.organization}`)
         }
 
-        const team: Team = await this.teamsService.getTeam({ filter: { name: createUIReportDTO.team } })
+        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: createUIReportDTO.team } })
         if (!team) {
             throw new PreconditionFailedException(`Team ${createUIReportDTO.team} does not exist`)
         }
@@ -703,7 +705,10 @@ export class ReportsService extends AutowiredService {
                             Body: zip.toBuffer(),
                         }),
                     )
-                    Logger.log(`Report '${report.sluglified_name}': uploaded file '${report.sluglified_name}' to S3 with key '${reportFile.path_s3}'`, ReportsService.name)
+                    Logger.log(
+                        `Report '${report.sluglified_name}': uploaded file '${report.sluglified_name}' to S3 with key '${reportFile.path_s3}'`,
+                        ReportsService.name,
+                    )
                 }
                 report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
                 Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
@@ -752,7 +757,10 @@ export class ReportsService extends AutowiredService {
                             Body: zip.toBuffer(),
                         }),
                     )
-                    Logger.log(`Report '${report.sluglified_name}': uploaded file '${report.sluglified_name}' to S3 with key '${file.path_s3}'`, ReportsService.name)
+                    Logger.log(
+                        `Report '${report.sluglified_name}': uploaded file '${report.sluglified_name}' to S3 with key '${file.path_s3}'`,
+                        ReportsService.name,
+                    )
                 }
                 report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
                 Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
@@ -798,7 +806,7 @@ export class ReportsService extends AutowiredService {
         }
         const repository = repositoryResponse.data
 
-        const reports: Report[] = await this.provider.read({ filter: { name: repository.name, user_id: user.id } })
+        const reports: Report[] = await this.provider.read({ filter: { sluglified_name: repository.name, user_id: user.id } })
         let report: Report = null
         if (reports.length > 0) {
             // Existing report
@@ -957,7 +965,7 @@ export class ReportsService extends AutowiredService {
             throw new PreconditionFailedException(`User ${user.display_name} does not have a Bitbucket repository '${repositoryName}'`)
         }
 
-        const reports: Report[] = await this.provider.read({ filter: { name: bitbucketRepository.name, user_id: user.id } })
+        const reports: Report[] = await this.provider.read({ filter: { sluglified_name: bitbucketRepository.name, user_id: user.id } })
         let report: Report = null
         if (reports.length > 0) {
             // Existing report
@@ -1139,7 +1147,10 @@ export class ReportsService extends AutowiredService {
                 } catch (e) {
                     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                     Logger.error(`Report ${report.id} ${report.sluglified_name}: Could not parse kyso.{yml,yaml} file`, ReportsService.name)
-                    throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: Could not parse kyso.{yml,yaml} file`, ReportsService.name)
+                    throw new PreconditionFailedException(
+                        `Report ${report.id} ${report.sluglified_name}: Could not parse kyso.{yml,yaml} file`,
+                        ReportsService.name,
+                    )
                 }
             }
             files.push({ name: fileName, filePath: filePath })
@@ -1147,7 +1158,10 @@ export class ReportsService extends AutowiredService {
         if (!kysoConfigFile) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report ${report.id} ${report.sluglified_name}: Repository does not contain a kyso.{json,yml,yaml} config file`, ReportsService.name)
-            throw new PreconditionFailedException(`Repository ${report.sluglified_name} does not contain a kyso.{json,yml,yaml} config file`, ReportsService.name)
+            throw new PreconditionFailedException(
+                `Repository ${report.sluglified_name} does not contain a kyso.{json,yml,yaml} config file`,
+                ReportsService.name,
+            )
         }
         return { files, kysoConfigFile, directoriesToRemove }
     }
@@ -1160,7 +1174,7 @@ export class ReportsService extends AutowiredService {
         files: { name: string; filePath: string }[],
         directoriesToRemove: string[],
     ): Promise<void> {
-        const team: Team = await this.teamsService.getTeam({ filter: { name: kysoConfigFile.team } })
+        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team } })
         if (!team) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report ${report.id} ${report.sluglified_name}: Team ${kysoConfigFile.team} does not exist`, ReportsService.name)
@@ -1171,7 +1185,10 @@ export class ReportsService extends AutowiredService {
         const belongsToTeam: boolean = await this.teamsService.userBelongsToTeam(team.id, user.id)
         if (!isGlobalAdmin && !belongsToTeam) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-            Logger.error(`Report ${report.id} ${report.sluglified_name}: User ${user.display_name} is not a member of team ${team.sluglified_name}`, ReportsService.name)
+            Logger.error(
+                `Report ${report.id} ${report.sluglified_name}: User ${user.display_name} is not a member of team ${team.sluglified_name}`,
+                ReportsService.name,
+            )
             // throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: User ${user.display_name} is not a member of team ${team.sluglified_name}`)
             return
         }
@@ -1345,7 +1362,7 @@ export class ReportsService extends AutowiredService {
             isGlobalAdmin = true
         }
 
-        const team: Team = await this.teamsService.getTeam({ filter: { name: teamName } })
+        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: teamName } })
         if (!team) {
             response.status(404).send(`Team '${teamName}' not found`)
             return
@@ -1358,7 +1375,7 @@ export class ReportsService extends AutowiredService {
             return
         }
 
-        const reports: Report[] = await this.provider.read({ filter: { name: reportName, team_id: team.id } })
+        const reports: Report[] = await this.provider.read({ filter: { sluglified_name: reportName, team_id: team.id } })
         if (reports.length === 0) {
             response.status(404).send(`Report ${reportName} of team ${teamName} not found`)
             return
