@@ -561,7 +561,7 @@ export class ReportsService extends AutowiredService {
         }
 
         const name: string = slugify(createKysoReportDTO.title)
-        const reports: Report[] = await this.provider.read({ filter: { name, team_id: team.id } })
+        const reports: Report[] = await this.provider.read({ filter: { sluglified_name: name, team_id: team.id } })
         const reportFiles: File[] = []
         let report: Report = null
         if (reports.length > 0) {
@@ -1436,6 +1436,10 @@ export class ReportsService extends AutowiredService {
             sort: { version: 1 },
         })
 
+        if (reportFiles.length === 0) {
+            return []
+        }
+
         let sanitizedPath = ''
         if (path && (path == './' || path == '/' || path == '.' || path == '/.')) {
             sanitizedPath = ''
@@ -1478,7 +1482,6 @@ export class ReportsService extends AutowiredService {
 
         if (result.length === 0) {
             const justFile = Array.from(map.values()).find((file: File) => file.name.startsWith(sanitizedPath))
-
             return [
                 {
                     type: 'file',

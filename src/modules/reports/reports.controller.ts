@@ -142,7 +142,7 @@ export class ReportsController extends GenericController<Report> {
                 //     $text: newFilter.$text,
                 // },
                 {
-                    name: { $regex: `${query.filter.$text.$search}`, $options: 'i' },
+                    sluglified_name: { $regex: `${query.filter.$text.$search}`, $options: 'i' },
                 },
                 {
                     title: { $regex: `${query.filter.$text.$search}`, $options: 'i' },
@@ -158,9 +158,11 @@ export class ReportsController extends GenericController<Report> {
             query.filter = newFilter
         }
 
-        if (query?.filter?.name && !isNaN(query.filter.name)) {
-            query.filter.name = query.filter.name.toString()
+        if (query?.filter?.sluglified_name && !isNaN(query.filter.sluglified_name)) {
+            query.filter.sluglified_name = query.filter.sluglified_name.toString()
         }
+
+        console.log(query)
 
         const reports: Report[] = await this.reportsService.getReports(query)
         let reportsDtos: ReportDTO[] = []
@@ -272,18 +274,18 @@ export class ReportsController extends GenericController<Report> {
         @Param('teamName') teamName: string,
         @Param('reportName') reportName: string,
     ): Promise<NormalizedResponseDTO<ReportDTO>> {
-        const organization: Organization = await this.organizationsService.getOrganization({ filter: { name: organizationName } })
+        const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
         if (!organization) {
             throw new PreconditionFailedException('Organization not found')
         }
-        const team: Team = await this.teamsService.getTeam({ filter: { name: teamName, organization_id: organization.id } })
+        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: teamName, organization_id: organization.id } })
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
             throw new PreconditionFailedException(`Report is not public`)
         }
-        const report: Report = await this.reportsService.getReport({ filter: { name: reportName, team_id: team.id } })
+        const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: reportName, team_id: team.id } })
         if (!report) {
             throw new PreconditionFailedException('Report not found')
         }
