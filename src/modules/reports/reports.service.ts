@@ -209,6 +209,8 @@ export class ReportsService extends AutowiredService {
             createReportDto.title,
             [],
             null,
+            false,
+            false,
         )
         Logger.log('Creating report')
         return this.provider.create(report)
@@ -481,6 +483,8 @@ export class ReportsService extends AutowiredService {
             report.author_ids,
             report.status,
             report.preview_picture,
+            report.show_code,
+            report.show_output,
         )
     }
 
@@ -606,6 +610,8 @@ export class ReportsService extends AutowiredService {
                 createKysoReportDTO.title,
                 [],
                 null,
+                false,
+                false,
             )
             report.report_type = 'kyso-cli'
             report = await this.provider.create(report)
@@ -733,6 +739,8 @@ export class ReportsService extends AutowiredService {
                 createUIReportDTO.title,
                 [],
                 null,
+                false,
+                false,
             )
             report.report_type = 'kyso'
             report = await this.provider.create(report)
@@ -836,6 +844,8 @@ export class ReportsService extends AutowiredService {
                 repository.full_name,
                 [],
                 null,
+                false,
+                false,
             )
             report = await this.provider.create(report)
             Logger.log(`New report '${report.id} ${report.sluglified_name}'`, ReportsService.name)
@@ -1001,6 +1011,8 @@ export class ReportsService extends AutowiredService {
                 bitbucketRepository.name,
                 [],
                 null,
+                false,
+                false,
             )
             report = await this.provider.create(report)
             Logger.log(`New report '${report.id} ${report.sluglified_name}'`, ReportsService.name)

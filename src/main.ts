@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common'
 import { NestFactory, Reflector } from '@nestjs/core'
+import { NestExpressApplication } from '@nestjs/platform-express'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import * as bodyParser from 'body-parser'
 import * as dotenv from 'dotenv'
@@ -91,7 +92,10 @@ async function bootstrap() {
         app_mount_dir = process.env.APP_MOUNT_DIR
     }
     await connectToDatabase(process.env.DATABASE_NAME || 'kyso')
-    const app = await NestFactory.create(AppModule)
+    const app = await NestFactory.create<NestExpressApplication>(AppModule)
+
+    // Serve files in ./public on the root of the application
+    app.useStaticAssets('./public', {prefix: app_mount_dir + '/'});
 
     app.use(bodyParser.json({ limit: '500mb' }))
     app.use(bodyParser.urlencoded({ limit: '500mb', extended: true }))

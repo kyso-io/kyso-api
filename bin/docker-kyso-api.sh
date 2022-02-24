@@ -127,6 +127,10 @@ docker_build_prune() {
   DOCKER_BUILDKIT=1 docker builder prune -af
 }
 
+push_lo() {
+  docker push "$BUILD_TAG"
+}
+
 docker_epsh() {
   if [ "$(docker_status)" ]; then
     docker rm "$CONTAINER_NAME"
@@ -206,6 +210,7 @@ echo ""
 case "$1" in
 build) docker_build ;;
 build-prune) docker_build_prune ;;
+push) push_lo ;;
 epsh) docker_epsh ;;
 logs) shift && docker_logs "$@" ;;
 rm) docker_rm ;;

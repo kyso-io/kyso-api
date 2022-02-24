@@ -6,7 +6,7 @@ import { MongoProvider } from '../../../providers/mongo.provider'
 @Injectable()
 export class TeamMemberMongoProvider extends MongoProvider<TeamMemberJoin> {
     version = 1
-    
+
     constructor() {
         super('TeamMember', db)
     }

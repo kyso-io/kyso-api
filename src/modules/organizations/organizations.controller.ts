@@ -142,21 +142,21 @@ export class OrganizationsController extends GenericController<Organization> {
             'PingID SAML Configuration': {
                 summary: 'Adds PingID SAML Configuration and disables the rest',
                 value: {
-                    "auth": {
-                        "allow_login_with_kyso":false,
-                        "allow_login_with_google":false,
-                        "allow_login_with_github":false,
-                        "otherProviders":[
+                    auth: {
+                        allow_login_with_kyso: false,
+                        allow_login_with_google: false,
+                        allow_login_with_github: false,
+                        otherProviders: [
                             {
-                                "type":"ping_id_saml",
-                                "options": {
-                                    "sso_url": "https://auth.pingone.eu",
-                                    "environment_code": "0fda3448-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
-                                    "sp_entity_id": "kyso-api-entity-id"
-                                }
-                            }
-                        ]
-                    }
+                                type: 'ping_id_saml',
+                                options: {
+                                    sso_url: 'https://auth.pingone.eu',
+                                    environment_code: '0fda3448-XXXX-XXXX-XXXX-XXXXXXXXXXXX',
+                                    sp_entity_id: 'kyso-api-entity-id',
+                                },
+                            },
+                        ],
+                    },
                 },
             },
         },
