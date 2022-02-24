@@ -35,6 +35,8 @@ WORKDIR /app
 COPY --chown=node:node --from=builder /app/node_modules ./node_modules
 # Copy the dist folder from the builder
 COPY --chown=node:node --from=builder /app/dist ./dist
+# Copy the public folder from the repository
+COPY --chown=node:node public/ ./public/
 # Copy the sources ... FIXME(sto): this should not be needed!!!
 COPY --chown=node:node src/ ./src/
 # Create link to the sources from dist ... FIXME(sto): again, this is wrong
