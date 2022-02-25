@@ -209,6 +209,59 @@ export class TeamsService extends AutowiredService {
         }
     }
 
+    public async getAssignees(teamId: string): Promise<TeamMember[]> {
+        const team: Team = await this.getTeamById(teamId)
+        if (team) {
+            let userIds: string[] = []
+            let teamMembersJoin: TeamMemberJoin[] = []
+            let users: User[] = []
+            let organizationMembersJoin: OrganizationMemberJoin[] = []
+            switch (team.visibility) {
+                case TeamVisibilityEnum.PRIVATE:
+                    teamMembersJoin = await this.teamMemberProvider.getMembers(team.id)
+                    userIds = teamMembersJoin.map((x: TeamMemberJoin) => x.member_id)
+                    break
+                case TeamVisibilityEnum.PROTECTED:
+                    teamMembersJoin = await this.teamMemberProvider.getMembers(team.id)
+                    userIds = teamMembersJoin.map((x: TeamMemberJoin) => x.member_id)
+                    organizationMembersJoin = await this.organizationsService.getMembers(team.organization_id)
+                    for (const element of organizationMembersJoin) {
+                        const index: number = userIds.indexOf(element.member_id)
+                        if (index === -1) {
+                            userIds.push(element.member_id)
+                        }
+                    }
+                    break
+                case TeamVisibilityEnum.PUBLIC:
+                    organizationMembersJoin = await this.organizationsService.getMembers(team.organization_id)
+                    userIds = organizationMembersJoin.map((x: OrganizationMemberJoin) => x.member_id)
+                    const restOfUsers: User[] = await this.usersService.getUsers({
+                        filter: { _id: { $nin: organizationMembersJoin.map((x: OrganizationMemberJoin) => x.member_id) } },
+                        projection: { _id: 1 },
+                    })
+                    for (const userId of restOfUsers) {
+                        userIds.push(userId.id)
+                    }
+                    break
+            }
+            if (userIds.length === 0) {
+                return []
+            }
+            users = await this.usersService.getUsers({
+                filter: { _id: { $in: userIds.map((userId: string) => this.provider.toObjectId(userId)) } },
+            })
+            // Sort users based on the order of userIds
+            users.sort((userA: User, userB: User) => {
+                return userIds.indexOf(userA.id) - userIds.indexOf(userB.id)
+            })
+            return users.map((user: User) => {
+                return new TeamMember(user.id.toString(), user.display_name, user.name, [], user.bio, user.avatar_url, user.email)
+            })
+        } else {
+            return []
+        }
+    }
+
     async updateTeam(filterQuery: any, updateQuery: any): Promise<Team> {
         return this.provider.update(filterQuery, updateQuery)
     }
