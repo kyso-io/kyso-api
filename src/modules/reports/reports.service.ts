@@ -1628,4 +1628,35 @@ export class ReportsService extends AutowiredService {
         }
         return this.filesMongoProvider.read(query)
     }
+
+    public async getReportVersions(reportId: string): Promise<{ version: number; created_at: Date; num_files: number }[]> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const query: any = {
+            filter: {
+                report_id: reportId,
+            },
+            sort: {
+                version: 1,
+            },
+        }
+        const files: File[] = await this.filesMongoProvider.read(query)
+        const map: Map<number, { version: number; created_at: Date; num_files: number }> = new Map<
+            number,
+            { version: number; created_at: Date; num_files: number }
+        >()
+        files.forEach((file: File) => {
+            if (!map.has(file.version)) {
+                map.set(file.version, {
+                    version: file.version,
+                    created_at: file.created_at,
+                    num_files: 0,
+                })
+            }
+            map.get(file.version).num_files++
+        })
+        return Array.from(map.values())
+    }
 }
