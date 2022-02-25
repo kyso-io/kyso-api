@@ -129,7 +129,6 @@ export class DiscussionsService extends AutowiredService {
                     request_private: data.request_private,
                     title: data.title,
                     url_name: data.url_name,
-                    updated_at: new Date(),
                 },
             },
         )

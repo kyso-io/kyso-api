@@ -138,7 +138,7 @@ export class TeamsController extends GenericController<Team> {
     @ApiParam({
         name: 'id',
         required: true,
-        description: `Name of the team to fetch`,
+        description: `Id of the team to fetch`,
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
@@ -150,6 +150,29 @@ export class TeamsController extends GenericController<Team> {
     @Permission([TeamPermissionsEnum.READ])
     async getTeamMembers(@Param('id') id: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
         const data: TeamMember[] = await this.teamsService.getMembers(id)
+        return new NormalizedResponseDTO(data)
+    }
+
+    @Get('/:teamId/assignees')
+    @ApiOperation({
+        summary: `Get assignee list`,
+        description: `Allows fetching content of a specific team passing its name`,
+    })
+    @ApiParam({
+        name: 'teamId',
+        required: true,
+        description: `Id of the team to fetch assignees`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
+    @ApiHeader({
+        name: HEADER_X_KYSO_TEAM,
+        description: 'Name of the team',
+        required: true,
+    })
+    @Permission([TeamPermissionsEnum.READ])
+    async getAssignees(@Param('teamId') teamId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
+        const data: TeamMember[] = await this.teamsService.getAssignees(teamId)
         return new NormalizedResponseDTO(data)
     }
 
