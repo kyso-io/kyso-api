@@ -1,7 +1,6 @@
 import { GlobalPermissionsEnum, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, ResourcePermissions, Token, TokenPermissions } from '@kyso-io/kyso-model'
 import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
-import { Observable } from 'rxjs'
 import { Autowired } from '../../../decorators/autowired'
 import { IS_PUBLIC_KEY } from '../../../decorators/is-public'
 import { OrganizationsService } from '../../organizations/organizations.service'
@@ -19,10 +18,10 @@ export class PermissionsGuard implements CanActivate {
 
     @Autowired({ typeName: 'UserRoleService' })
     public userRoleService: UserRoleService
-    
+
     @Autowired({ typeName: 'PlatformRoleService' })
     public platformRoleService: PlatformRoleService
-    
+
     @Autowired({ typeName: 'TeamsService' })
     public teamsService: TeamsService
 
@@ -55,9 +54,9 @@ export class PermissionsGuard implements CanActivate {
                 this.platformRoleService,
                 this.userRoleService,
             )
-    
+
             tokenPayload.permissions = permissions
-            
+
             // Set token in request to get access in controller
             request.token = tokenPayload
 
