@@ -585,6 +585,23 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponseDTO(files)
     }
 
+    @Get('/:reportId/versions')
+    @ApiOperation({
+        summary: `Get all versions of a report`,
+        description: `Get all versions of a report`,
+    })
+    @ApiParam({
+        name: 'reportId',
+        required: true,
+        description: 'Id of the report to fetch',
+        schema: { type: 'string' },
+    })
+    @Permission([ReportPermissionsEnum.READ])
+    async getReportVersions(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<{ version: number; created_at: Date; num_files: number }>> {
+        const versions: any[] = await this.reportsService.getReportVersions(reportId)
+        return new NormalizedResponseDTO(versions)
+    }
+
     @Get('/:reportId/comments')
     @ApiOperation({
         summary: `Get comments of a report`,
