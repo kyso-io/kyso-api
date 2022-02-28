@@ -27,6 +27,7 @@ import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } 
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
+import { db } from '../../main'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
@@ -62,6 +63,20 @@ export class AuthController extends GenericController<string> {
     @Get('/version')
     version(): string {
         return '0.0.2'
+    }
+
+    @Get('/db')
+    public async getMongoDbVersion(): Promise<string> {
+        return new Promise<string | null>((resolve) => {
+            db.admin().serverInfo((err, info) => {
+                if (err) {
+                    Logger.error(`An error occurred getting mongodb version`, err, AuthController.name)
+                    resolve(err)
+                } else {
+                    resolve(info?.version ? info.version : 'Unknown')
+                }
+            })
+        })
     }
 
     @Post('/login')
