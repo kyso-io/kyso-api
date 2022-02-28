@@ -12,12 +12,13 @@ import {
     UserDTO,
     UserPermissionsEnum,
 } from '@kyso-io/kyso-model'
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
+import { QueryParser } from '../../helpers/queryParser'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
@@ -89,42 +90,17 @@ export class UsersController extends GenericController<User> {
     @Permission([UserPermissionsEnum.READ])
     async getUsers(
         @Query('user_id') userId: string[],
-        @Query('page') page: number,
-        @Query('per_page') per_page: number,
-        @Query('sort') sort: string,
+        @Req() req,
     ): Promise<NormalizedResponseDTO<UserDTO[]>> {
-        if (!page) {
-            page = 1
-        }
-
-        if (!per_page) {
-            per_page = 20
-        }
-
-        const query: any = {
-            filter: {},
-            sort: {
-                created_at: -1,
-            },
-            limit: per_page,
-            skip: (page - 1) * per_page,
-        }
-        if (userId) {
+        const query = QueryParser.toQueryObject(req.url)
+        if (userId && userId.length > 0) {
             const mapped = userId.map((x) => {
-                console.log(x)
                 const result = { id: x }
-
                 return result
             })
-
             query.filter = { $or: mapped }
         }
-        if (sort && (sort === 'asc' || sort === 'desc')) {
-            query.sort.created_at = sort === 'asc' ? 1 : -1
-        }
-
         const result: User[] = await this.usersService.getUsers(query)
-
         return new NormalizedResponseDTO(UserDTO.fromUserArray(result))
     }
 

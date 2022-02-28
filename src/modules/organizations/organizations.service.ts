@@ -1,5 +1,6 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
+    AddUserOrganizationDto,
     KysoRole,
     Organization,
     OrganizationMember,
@@ -167,16 +168,16 @@ export class OrganizationsService extends AutowiredService {
 
     public async updateOrganizationOptions(organizationId: string, options: OrganizationOptions): Promise<Organization> {
         const organizationDb: Organization = await this.getOrganizationById(organizationId)
-        
+
         if (!organizationDb) {
             throw new PreconditionFailedException('Organization does not exist')
         }
-        
+
         organizationDb.options = options
 
         const data: any = {}
         data.options = options
-        
+
         return await this.provider.update(
             { _id: this.provider.toObjectId(organizationDb.id) },
             {
@@ -215,12 +216,12 @@ export class OrganizationsService extends AutowiredService {
         return this.organizationMemberProvider.getMembers(organizationId)
     }
 
-    public async addMemberToOrganization(organizationId: string, userId: string): Promise<OrganizationMember[]> {
-        const organization: Organization = await this.getOrganizationById(organizationId)
+    public async addMemberToOrganization(addUserOrganizationDto: AddUserOrganizationDto): Promise<OrganizationMember[]> {
+        const organization: Organization = await this.getOrganizationById(addUserOrganizationDto.organizationId)
         if (!organization) {
             throw new PreconditionFailedException('Organization does not exist')
         }
-        const user: User = await this.usersService.getUserById(userId)
+        const user: User = await this.usersService.getUserById(addUserOrganizationDto.userId)
         if (!user) {
             throw new PreconditionFailedException('User does not exist')
         }
@@ -231,7 +232,18 @@ export class OrganizationsService extends AutowiredService {
             throw new PreconditionFailedException('User already belongs to the organization')
         }
 
-        const newMember: OrganizationMemberJoin = new OrganizationMemberJoin(organization.id, user.id, [], true)
+        const validRoles: string[] = [
+            PlatformRole.TEAM_ADMIN_ROLE.name,
+            PlatformRole.TEAM_CONTRIBUTOR_ROLE.name,
+            PlatformRole.TEAM_READER_ROLE.name,
+            PlatformRole.ORGANIZATION_ADMIN_ROLE.name,
+            ...organization.roles.map((x: KysoRole) => x.name),
+        ]
+        if (!validRoles.includes(addUserOrganizationDto.role)) {
+            throw new PreconditionFailedException('Invalid role')
+        }
+
+        const newMember: OrganizationMemberJoin = new OrganizationMemberJoin(organization.id, user.id, [addUserOrganizationDto.role], true)
         await this.organizationMemberProvider.create(newMember)
         return this.getOrganizationMembers(organization.id)
     }
@@ -286,17 +298,12 @@ export class OrganizationsService extends AutowiredService {
             if (!member) {
                 throw new PreconditionFailedException('User is not a member of this organization')
             }
-            const role: string = member.role_names.find((x: string) => x === element.role)
-            if (!role) {
-                if (!validRoles.includes(element.role)) {
-                    throw new PreconditionFailedException(`Role ${element.role} is not valid`)
-                }
-                await this.organizationMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $push: { role_names: element.role } })
-            } else {
-                throw new PreconditionFailedException('User already has this role')
+            if (!validRoles.includes(element.role)) {
+                throw new PreconditionFailedException(`Role ${element.role} is not valid`)
             }
+            await this.organizationMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
         }
-        return this.getOrganizationMembers(organization.sluglified_name)
+        return this.getOrganizationMembers(organization.id)
     }
 
     public async removeOrganizationMemberRole(organizationId: string, userId: string, role: string): Promise<OrganizationMember[]> {

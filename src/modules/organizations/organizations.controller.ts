@@ -1,4 +1,5 @@
 import {
+    AddUserOrganizationDto,
     GlobalPermissionsEnum,
     NormalizedResponseDTO,
     Organization,
@@ -170,7 +171,7 @@ export class OrganizationsController extends GenericController<Organization> {
         return new NormalizedResponseDTO(updatedOrganization)
     }
 
-    @Post('/:organizationId/members/:userId')
+    @Post('/members')
     @ApiOperation({
         summary: `Add user to an organization`,
         description: `By passing the appropiate parameters you can add a user to an organization`,
@@ -189,18 +190,15 @@ export class OrganizationsController extends GenericController<Organization> {
         schema: { type: 'string' },
     })
     @Permission([OrganizationPermissionsEnum.ADMIN])
-    public async addMemberToOrganization(
-        @Param('organizationId') organizationId: string,
-        @Param('userId') userId: string,
-    ): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
-        const members: OrganizationMember[] = await this.organizationService.addMemberToOrganization(organizationId, userId)
+    public async addMemberToOrganization(@Body() addUserOrganizationDto: AddUserOrganizationDto): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
+        const members: OrganizationMember[] = await this.organizationService.addMemberToOrganization(addUserOrganizationDto)
         return new NormalizedResponseDTO(members)
     }
 
     @Delete('/:organizationId/members/:userId')
     @ApiOperation({
-        summary: `Remove user to an organization`,
-        description: `By passing the appropiate parameters you can remove a user to an organization`,
+        summary: `Remove user from the organization`,
+        description: `By passing the appropiate parameters you can remove a user from the organization`,
     })
     @ApiParam({
         name: 'organizationId',
