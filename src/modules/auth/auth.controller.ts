@@ -251,11 +251,10 @@ export class AuthController extends GenericController<string> {
         // Fetch organizationSlug configuration
         const organization: Organization = await this.organizationsService.getOrganization({
             filter: {
-                name: organizationSlug,
+                sluglified_name: organizationSlug,
             },
         })
-
-        return new NormalizedResponseDTO(organization.options.auth)
+        return new NormalizedResponseDTO(organization?.options?.auth)
     }
 
     @Get('/user/:username/permissions')
