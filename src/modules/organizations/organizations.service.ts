@@ -167,21 +167,15 @@ export class OrganizationsService extends AutowiredService {
     }
 
     public async updateOrganizationOptions(organizationId: string, options: OrganizationOptions): Promise<Organization> {
+        console.log(options)
         const organizationDb: Organization = await this.getOrganizationById(organizationId)
-
         if (!organizationDb) {
             throw new PreconditionFailedException('Organization does not exist')
         }
-
-        organizationDb.options = options
-
-        const data: any = {}
-        data.options = options
-
         return await this.provider.update(
             { _id: this.provider.toObjectId(organizationDb.id) },
             {
-                $set: data,
+                $set: { options },
             },
         )
     }
