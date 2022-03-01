@@ -234,6 +234,34 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
+    @Get('/:reportName/:teamId/exists')
+    @ApiOperation({
+        summary: `Check if report exists`,
+        description: `Allows checking if a report exists passing its name and team name`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Report matching name and team name`,
+        type: Boolean,
+    })
+    @ApiParam({
+        name: 'reportName',
+        required: true,
+        description: 'Name of the report to check',
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'teamId',
+        required: true,
+        description: 'Id of the team to check',
+        schema: { type: 'string' },
+    })
+    @Permission([ReportPermissionsEnum.READ])
+    async checkReport(@Param('reportName') reportName: string, @Param('teamId') teamId: string): Promise<boolean> {
+        const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: slugify(reportName), team_id: teamId } })
+        return report != null
+    }
+
     @Get('/embedded/:organizationName/:teamName/:reportName')
     @ApiOperation({
         summary: `Get a report`,
