@@ -156,13 +156,14 @@ export class ReportsService extends AutowiredService {
         const reports: Report[] = await this.getReports({
             filter: {
                 sluglified_name: createReportDto.name,
+                team_id: team.id,
             },
         })
 
-        if (reports.length !== 0) {
-            Logger.error('The specified name is already used by another report')
+        if (reports.length > 0) {
+            Logger.error(`A report with name ${createReportDto.name} already exists in this team. Please choose another name`)
             throw new PreconditionFailedException({
-                message: 'The specified name is already used by another report',
+                message: `A report with name ${createReportDto.name} already exists in this team. Please choose another name`,
             })
         }
 
@@ -193,7 +194,7 @@ export class ReportsService extends AutowiredService {
         }
 
         const report: Report = new Report(
-            slugify(createReportDto.name),
+            createReportDto.name,
             null,
             null,
             createReportDto.provider,
@@ -594,11 +595,11 @@ export class ReportsService extends AutowiredService {
             Logger.log(`Creating new report '${name}'`, ReportsService.name)
             // New report
             report = new Report(
-                slugify(name),
+                name,
                 null,
                 null,
                 RepositoryProvider.KYSO_CLI,
-                slugify(name),
+                name,
                 null,
                 null,
                 null,
@@ -672,8 +673,8 @@ export class ReportsService extends AutowiredService {
             throw new PreconditionFailedException(`Team ${createUIReportDTO.team} does not belong to organization ${createUIReportDTO.organization}`)
         }
 
-        const name: string = slugify(createUIReportDTO.title)
-        const reports: Report[] = await this.provider.read({ filter: { name, team_id: team.id } })
+        const sluglified_name: string = slugify(createUIReportDTO.title)
+        const reports: Report[] = await this.provider.read({ filter: { sluglified_name, team_id: team.id } })
         const s3Client: S3Client = this.getS3Client()
         let report: Report = null
         if (reports.length > 0) {
@@ -720,14 +721,14 @@ export class ReportsService extends AutowiredService {
                 Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
             })
         } else {
-            Logger.log(`Creating new report '${name}'`, ReportsService.name)
+            Logger.log(`Creating new report '${sluglified_name}'`, ReportsService.name)
             // New report
             report = new Report(
-                slugify(name),
+                sluglified_name,
                 null,
                 null,
                 RepositoryProvider.KYSO,
-                slugify(name),
+                sluglified_name,
                 null,
                 null,
                 null,
@@ -814,7 +815,7 @@ export class ReportsService extends AutowiredService {
         }
         const repository = repositoryResponse.data
 
-        const reports: Report[] = await this.provider.read({ filter: { sluglified_name: repository.name, user_id: user.id } })
+        const reports: Report[] = await this.provider.read({ filter: { sluglified_name: slugify(repository.name), user_id: user.id } })
         let report: Report = null
         if (reports.length > 0) {
             // Existing report
