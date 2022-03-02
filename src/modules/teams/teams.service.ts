@@ -433,17 +433,7 @@ export class TeamsService extends AutowiredService {
             if (!member) {
                 throw new PreconditionFailedException('User is not a member of this team')
             }
-            const role: string = member.role_names.find((x: string) => x === element.role)
-            if (!role) {
-                // if (!validRoles.includes(element.role)) {
-                //     throw new PreconditionFailedException(`Role ${element.role} is not valid`)
-                // }
-                // await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $push: { role_names: element.role } })
-                // TODO: just for J&J demo
-                await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
-            } else {
-                throw new PreconditionFailedException('User already has this role')
-            }
+            await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
         }
         return this.getMembers(team.id)
     }
