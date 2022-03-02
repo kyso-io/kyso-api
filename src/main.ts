@@ -49,7 +49,7 @@ async function bootstrap() {
         app_mount_dir = process.env.APP_MOUNT_DIR
     }
     
-    await connectToDatabase(process.env.DATABASE_NAME || 'kyso')
+    await connectToDatabase()
     
     try {
         const kysoSettingCollection = db.collection("KysoSetting")
@@ -179,8 +179,7 @@ async function bootstrap() {
     })
 }
 
-async function connectToDatabase(DB_NAME) {
-    Logger.log(`Connecting to database... ${DB_NAME}`)
+async function connectToDatabase() {
     if (!client) {
         try {
             client = await MongoClient.connect(process.env.DATABASE_URI, {
@@ -188,7 +187,8 @@ async function connectToDatabase(DB_NAME) {
                 maxPoolSize: 10,
                 // poolSize: 10 <-- Deprecated
             })
-            db = await client.db(DB_NAME)
+            Logger.log(`Connecting to database... ${client.s.options.dbName}`)
+            db = await client.db(client.s.options.dbName)
             await db.command({ ping: 1 })
         } catch (err) {
             Logger.error(`Couldn't connect with mongoDB instance at ${process.env.DATABASE_URI}`)
