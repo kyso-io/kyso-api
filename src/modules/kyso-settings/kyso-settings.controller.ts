@@ -76,7 +76,7 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
         isArray: false
     })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
-    public async updateSetting(@Param('key') key: string, @Body() data: any): Promise<NormalizedResponseDTO<boolean>> {
+    public async updateSetting(@Param('key') key: string, @Body() data: string): Promise<NormalizedResponseDTO<boolean>> {
         const updated: KysoSetting = await this.kysoSettingsService.updateValue(KysoSettingsEnum[key], data.value)
         return new NormalizedResponseDTO(updated)
     }
