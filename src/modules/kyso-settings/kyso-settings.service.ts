@@ -35,4 +35,14 @@ export class KysoSettingsService extends AutowiredService {
             return null
         }
     }
+
+    public async updateValue(key: KysoSettingsEnum, value: string) {
+        const dataFields: any = {
+            value: value
+        }
+        
+        const updated: KysoSetting = await this.provider.update({ key: key }, { $set: dataFields })
+
+        return updated;
+    }
 }
