@@ -46,6 +46,8 @@ import { Validators } from '../../helpers/validators'
 import { BitbucketReposService } from '../bitbucket-repos/bitbucket-repos.service'
 import { CommentsService } from '../comments/comments.service'
 import { GithubReposService } from '../github-repos/github-repos.service'
+import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TagsService } from '../tags/tags.service'
 import { TeamsService } from '../teams/teams.service'
@@ -94,6 +96,9 @@ export class ReportsService extends AutowiredService {
     @Autowired({ typeName: 'BitbucketReposService' })
     private bitbucketReposService: BitbucketReposService
 
+    @Autowired({ typeName: 'KysoSettingsService' })
+    private kysoSettingsService: KysoSettingsService
+
     constructor(
         private readonly provider: ReportsMongoProvider,
         private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider,
@@ -103,12 +108,16 @@ export class ReportsService extends AutowiredService {
         super()
     }
 
-    private getS3Client(): S3Client {
+    private async getS3Client(): Promise<S3Client> {
+        const awsRegion = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_REGION)
+        const awsAccessKey = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_ACCESS_KEY_ID)
+        const awsSecretAccessKey = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_SECRET_ACCESS_KEY)
+
         return new S3Client({
-            region: process.env.AWS_REGION,
+            region: awsRegion,
             credentials: {
-                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+                accessKeyId: awsAccessKey,
+                secretAccessKey: awsSecretAccessKey,
             },
         })
     }
@@ -232,6 +241,8 @@ export class ReportsService extends AutowiredService {
     }
 
     public async deleteReport(reportId: string): Promise<Report> {
+        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
@@ -249,7 +260,7 @@ export class ReportsService extends AutowiredService {
         // Delete relations with starred reports
         await this.starredReportsMongoProvider.deleteMany({ report_id: reportId })
 
-        const s3Client: S3Client = this.getS3Client()
+        const s3Client: S3Client = await this.getS3Client()
 
         // Delete report files in S3
         const reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id } })
@@ -257,7 +268,7 @@ export class ReportsService extends AutowiredService {
             if (file?.path_s3 && file.path_s3.length > 0) {
                 Logger.log(`Report '${report.sluglified_name}': deleting file ${file.name} in S3...`, ReportsService.name)
                 const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
-                    Bucket: process.env.AWS_S3_BUCKET,
+                    Bucket: s3Bucket,
                     Key: file.path_s3,
                 })
                 await s3Client.send(deleteObjectCommand)
@@ -631,13 +642,14 @@ export class ReportsService extends AutowiredService {
 
         new Promise<void>(async () => {
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to S3...`, ReportsService.name)
-            const s3Client: S3Client = this.getS3Client()
+            const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+            const s3Client: S3Client = await this.getS3Client()
             for (let i = 0; i < files.length; i++) {
                 const reportFile: File = reportFiles.find((reportFile: File) => reportFile.name === createKysoReportDTO.original_names[i])
                 Logger.log(`Report '${report.sluglified_name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
                 await s3Client.send(
                     new PutObjectCommand({
-                        Bucket: process.env.AWS_S3_BUCKET,
+                        Bucket: s3Bucket,
                         Key: reportFile.path_s3,
                         Body: files[i].buffer,
                     }),
@@ -654,6 +666,7 @@ export class ReportsService extends AutowiredService {
     public async createUIReport(userId: string, createUIReportDTO: CreateUIReportDTO, files: any[]): Promise<Report> {
         const user: User = await this.usersService.getUserById(userId)
         const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
+        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
 
         const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: createUIReportDTO.organization } })
         if (!organization) {
@@ -675,7 +688,7 @@ export class ReportsService extends AutowiredService {
 
         const sluglified_name: string = slugify(createUIReportDTO.title)
         const reports: Report[] = await this.provider.read({ filter: { sluglified_name, team_id: team.id } })
-        const s3Client: S3Client = this.getS3Client()
+        const s3Client: S3Client = await this.getS3Client()
         let report: Report = null
         if (reports.length > 0) {
             // Existing report
@@ -707,7 +720,7 @@ export class ReportsService extends AutowiredService {
                     Logger.log(`Report '${report.sluglified_name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
                     await s3Client.send(
                         new PutObjectCommand({
-                            Bucket: process.env.AWS_S3_BUCKET,
+                            Bucket: s3Bucket,
                             Key: path_s3,
                             Body: zip.toBuffer(),
                         }),
@@ -761,7 +774,7 @@ export class ReportsService extends AutowiredService {
                     Logger.log(`Report '${report.sluglified_name}': uploading file '${file.name}' to S3...`, ReportsService.name)
                     await s3Client.send(
                         new PutObjectCommand({
-                            Bucket: process.env.AWS_S3_BUCKET,
+                            Bucket: s3Bucket,
                             Key: path_s3,
                             Body: zip.toBuffer(),
                         }),
@@ -1187,6 +1200,7 @@ export class ReportsService extends AutowiredService {
         files: { name: string; filePath: string }[],
         directoriesToRemove: string[],
     ): Promise<void> {
+        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
         const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team } })
         if (!team) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
@@ -1219,7 +1233,7 @@ export class ReportsService extends AutowiredService {
 
         await this.checkReportTags(report.id, kysoConfigFile.tags)
 
-        const s3Client: S3Client = this.getS3Client()
+        const s3Client: S3Client = await this.getS3Client()
 
         // Get all report files
         const reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id }, sort: { version: -1 } })
@@ -1246,7 +1260,7 @@ export class ReportsService extends AutowiredService {
             Logger.log(`Report '${report.sluglified_name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
             await s3Client.send(
                 new PutObjectCommand({
-                    Bucket: process.env.AWS_S3_BUCKET,
+                    Bucket: s3Bucket,
                     Key: reportFile.path_s3,
                     Body: readFileSync(outputFilePath),
                 }),
@@ -1269,7 +1283,9 @@ export class ReportsService extends AutowiredService {
 
     private async createGithubWebhook(octokit: Octokit, username: string, repositoryName: string) {
         try {
-            let hookUrl = `${process.env.BASE_URL}/v1/hooks/github`
+            const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL)
+            
+            let hookUrl = `${baseUrl}/v1/hooks/github`
             if (process.env.NODE_ENV === 'development') {
                 hookUrl = 'https://smee.io/kyso-github-hook-test'
             }
@@ -1371,6 +1387,7 @@ export class ReportsService extends AutowiredService {
 
     public async pullReport(token: Token, reportName: string, teamName: string, response: any): Promise<void> {
         let isGlobalAdmin = false
+        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
         if (token.permissions.global?.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)) {
             isGlobalAdmin = true
         }
@@ -1408,15 +1425,15 @@ export class ReportsService extends AutowiredService {
         }
         reportFiles = Array.from(map.values())
 
-        const s3Client: S3Client = this.getS3Client()
-
+        const s3Client: S3Client = await this.getS3Client()
+        
         const zip: AdmZip = new AdmZip()
         Logger.log(`Report '${report.sluglified_name}': downloading ${reportFiles.length} files from S3...`, ReportsService.name)
         for (const reportFile of reportFiles) {
             try {
                 Logger.log(`Report '${report.sluglified_name}': downloading file ${reportFile.name}...`, ReportsService.name)
                 const getObjectCommand: GetObjectCommand = new GetObjectCommand({
-                    Bucket: process.env.AWS_S3_BUCKET,
+                    Bucket: s3Bucket,
                     Key: reportFile.path_s3,
                 })
                 const result = await s3Client.send(getObjectCommand)
@@ -1535,6 +1552,8 @@ export class ReportsService extends AutowiredService {
     }
 
     private async getKysoFileContent(reportId: string, hash: string): Promise<Buffer> {
+        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+
         const files: File[] = await this.filesMongoProvider.read({
             filter: {
                 report_id: reportId,
@@ -1546,9 +1565,9 @@ export class ReportsService extends AutowiredService {
         }
         const reportFile: File = files[0]
 
-        const s3Client: S3Client = this.getS3Client()
+        const s3Client: S3Client = await this.getS3Client()
         const getObjectCommand: GetObjectCommand = new GetObjectCommand({
-            Bucket: process.env.AWS_S3_BUCKET,
+            Bucket: s3Bucket,
             Key: reportFile.path_s3,
         })
         const result = await s3Client.send(getObjectCommand)
@@ -1567,15 +1586,16 @@ export class ReportsService extends AutowiredService {
     }
 
     public async setPreviewPicture(reportId: string, file: any): Promise<Report> {
+        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('Report not found')
         }
-        const s3Client: S3Client = this.getS3Client()
+        const s3Client: S3Client = await this.getS3Client()
         if (report?.preview_picture && report.preview_picture.length > 0) {
             Logger.log(`Removing previous image of report ${report.sluglified_name}`, ReportsService.name)
             const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
-                Bucket: process.env.AWS_S3_BUCKET,
+                Bucket: s3Bucket,
                 Key: report.preview_picture.split('/').slice(-1)[0],
             })
             await s3Client.send(deleteObjectCommand)
@@ -1584,26 +1604,27 @@ export class ReportsService extends AutowiredService {
         const Key = `${uuidv4()}${extname(file.originalname)}`
         await s3Client.send(
             new PutObjectCommand({
-                Bucket: process.env.AWS_S3_BUCKET,
+                Bucket: s3Bucket,
                 Key,
                 Body: file.buffer,
             }),
         )
         Logger.log(`Uploaded image for report ${report.sluglified_name}`, ReportsService.name)
-        const preview_picture = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${Key}`
+        const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${Key}`
         return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture } })
     }
 
     public async deletePreviewPicture(reportId: string): Promise<Report> {
+        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('Report not found')
         }
-        const s3Client: S3Client = this.getS3Client()
+        const s3Client: S3Client = await this.getS3Client()
         if (report?.preview_picture && report.preview_picture.length > 0) {
             Logger.log(`Removing previous image of report ${report.sluglified_name}`, OrganizationsService.name)
             const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
-                Bucket: process.env.AWS_S3_BUCKET,
+                Bucket: s3Bucket,
                 Key: report.preview_picture.split('/').slice(-1)[0],
             })
             await s3Client.send(deleteObjectCommand)

@@ -1,38 +1,40 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
+import { Autowired } from '../../../decorators/autowired'
+import { KysoSettingsEnum } from '../../kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 const AWS = require('aws-sdk')
-
-const bucket = process.env.AWS_S3_BUCKET
 
 @Injectable()
 export class FilesS3Provider {
-    settings: any
-    client: any
-    constructor() {
-        this.settings = this.getParseConfig().s3settings
-        this.client = new AWS.S3({
-            params: { Bucket: this.settings.bucket },
-            region: this.settings.region,
-            signatureVersion: 'v4',
-            globalCacheControl: this.settings.globalCacheControl,
-        })
-    }
+    @Autowired({ typeName: 'KysoSettingsService' })
+    private kysoSettingsService: KysoSettingsService
+   
+    constructor() { }
 
     async getFile(fileName) {
-        const res = await this.client.getObject({ Key: fileName }).promise()
+        const s3Client = await this.connectS3()
+        const res = await s3Client.getObject({ Key: fileName }).promise()
         return Buffer.from(res.Body, 'base64')
     }
 
-    private getParseConfig(): any {
+    private async connectS3(): Promise<any> {
+        const awsRegion = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_REGION)
+        const cloudFrontUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_FILES_CLOUDFRONT_URL)
+        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+
         const s3settings = {
-            bucket,
-            region: process.env.AWS_REGION,
+            bucket: s3Bucket,
+            region: awsRegion,
             globalCacheControl: 'public, max-age=86400',
             directAccess: true,
-            baseUrl: process.env.KYSO_FILES_CLOUDFRONT_URL,
+            baseUrl: cloudFrontUrl
         }
 
-        return {
-            s3settings
-        }
+        return new AWS.S3({
+            params: { Bucket: s3settings.bucket },
+            region: s3settings.region,
+            signatureVersion: 'v4',
+            globalCacheControl: s3settings.globalCacheControl,
+        })
     }
 }

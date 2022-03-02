@@ -1,5 +1,8 @@
 import { GithubRepository } from '@kyso-io/kyso-model'
 import { Injectable } from '@nestjs/common'
+import { Autowired } from '../../../decorators/autowired'
+import { KysoSettingsEnum } from '../../kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 import { CreateBitbucketWebhookDto } from '../classes/create-bitbucket-webhook.dto'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const axios = require('axios').default
@@ -20,8 +23,13 @@ const DEFAULT_PER_PAGE = 20
 
 @Injectable()
 export class BitbucketReposProvider {
+    @Autowired({ typeName: 'KysoSettingsService' })
+    private kysoSettingsService: KysoSettingsService
+    
     private async getRepos(accessToken: string, workspace: string, page: number, perPage: number): Promise<any[]> {
-        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${workspace}?page=${page}&pagelen=${perPage}`, {
+        const bitbucketApi = await this.kysoSettingsService.getValue(KysoSettingsEnum.BITBUCKET_API)
+        
+        const res = await axios.get(`${bitbucketApi}/repositories/${workspace}?page=${page}&pagelen=${perPage}`, {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data.values.map(repoMapFunction)
@@ -48,14 +56,16 @@ export class BitbucketReposProvider {
     }
 
     public async getWorkspaces(accessToken: string, page: number, perPage: number): Promise<any> {
-        const res = await axios.get(`${process.env.BITBUCKET_API}/workspaces?page=${page}&pagelen=${perPage}`, {
+        const bitbucketApi = await this.kysoSettingsService.getValue(KysoSettingsEnum.BITBUCKET_API)
+        const res = await axios.get(`${bitbucketApi}/workspaces?page=${page}&pagelen=${perPage}`, {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data
     }
 
     public async getRepository(accessToken: string, fullName: string): Promise<any> {
-        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}`, {
+        const bitbucketApi = await this.kysoSettingsService.getValue(KysoSettingsEnum.BITBUCKET_API)
+        const res = await axios.get(`${bitbucketApi}/repositories/${fullName}`, {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         return repoMapFunction(res.data)
@@ -63,7 +73,8 @@ export class BitbucketReposProvider {
 
     // https://developer.atlassian.com/cloud/bitbucket/rest/intro/#filtering
     public async searchRepos(accessToken: string, workspace: string, filter: string, page: number, perPage: number): Promise<any> {
-        let url = `${process.env.BITBUCKET_API}/repositories/${workspace}?`
+        const bitbucketApi = await this.kysoSettingsService.getValue(KysoSettingsEnum.BITBUCKET_API)
+        let url = `${bitbucketApi}/repositories/${workspace}?`
         if (filter) {
             url += `q=name="${filter}"`
         }
@@ -81,8 +92,8 @@ export class BitbucketReposProvider {
 
     // public async getBranches(accessToken: string, fullName: string, page: number, perPage: number): Promise<any> {
     public async getBranches(accessToken: string, fullName: string): Promise<any> {
-        // const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/refs/branches?page=${page}&pagelen=${perPage}`, {
-        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/refs/branches`, {
+        const bitbucketApi = await this.kysoSettingsService.getValue(KysoSettingsEnum.BITBUCKET_API)
+        const res = await axios.get(`${bitbucketApi}/repositories/${fullName}/refs/branches`, {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data.values.map((branch) => ({
@@ -94,7 +105,8 @@ export class BitbucketReposProvider {
     // public async getCommits(accessToken: string, fullName: string, branch: string, page: number, perPage: number): Promise<any> {
     public async getCommits(accessToken: string, fullName: string, branch: string): Promise<any> {
         // const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/commits/${branch}?page=${page}&pagelen=${perPage}`, {
-        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/commits/${branch}`, {
+        const bitbucketApi = await this.kysoSettingsService.getValue(KysoSettingsEnum.BITBUCKET_API)
+        const res = await axios.get(`${bitbucketApi}/repositories/${fullName}/commits/${branch}`, {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data.values.map((elem) => ({
@@ -128,7 +140,8 @@ export class BitbucketReposProvider {
      * @returns
      */
     public async getRootFilesAndFoldersByCommit(accessToken: string, fullName: string, commit: string, folder: string, pageCode: number): Promise<any> {
-        let requestUrl = `${process.env.BITBUCKET_API}/repositories/${fullName}/src/`
+        const bitbucketApi = await this.kysoSettingsService.getValue(KysoSettingsEnum.BITBUCKET_API)
+        let requestUrl = `${bitbucketApi}/repositories/${fullName}/src/`
         if (commit) {
             requestUrl = requestUrl + `${commit}/`
         }
@@ -172,7 +185,8 @@ export class BitbucketReposProvider {
     }
 
     public async getFileContent(accessToken: string, fullName: string, commit: string, filePath: string): Promise<any> {
-        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/src/${commit}/${filePath}`, {
+        const bitbucketApi = await this.kysoSettingsService.getValue(KysoSettingsEnum.BITBUCKET_API)
+        const res = await axios.get(`${bitbucketApi}/repositories/${fullName}/src/${commit}/${filePath}`, {
             headers: { Authorization: `Bearer ${accessToken}` },
             transformResponse: [(data) => data],
         })
@@ -180,7 +194,8 @@ export class BitbucketReposProvider {
     }
 
     public async getUser(accessToken: string): Promise<any> {
-        const res = await axios.get(`${process.env.BITBUCKET_API}/user`, {
+        const bitbucketApi = await this.kysoSettingsService.getValue(KysoSettingsEnum.BITBUCKET_API)
+        const res = await axios.get(`${bitbucketApi}/user`, {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data
@@ -195,49 +210,57 @@ export class BitbucketReposProvider {
     }
 
     public async getWebhooks(accessToken: string, fullName: string): Promise<void> {
-        const res = await axios.get(`${process.env.BITBUCKET_API}/repositories/${fullName}/hooks`, {
+        const bitbucketApi = await this.kysoSettingsService.getValue(KysoSettingsEnum.BITBUCKET_API)
+        const res = await axios.get(`${bitbucketApi}/repositories/${fullName}/hooks`, {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data
     }
 
     public async createWebhook(accessToken: string, fullName: string, data: CreateBitbucketWebhookDto): Promise<void> {
-        const res = await axios.post(`${process.env.BITBUCKET_API}/repositories/${fullName}/hooks`, data, {
+        const bitbucketApi = await this.kysoSettingsService.getValue(KysoSettingsEnum.BITBUCKET_API)
+        const res = await axios.post(`${bitbucketApi}/repositories/${fullName}/hooks`, data, {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data
     }
 
     public async deleteWebhook(accessToken: string, fullName: string, hookId: number): Promise<void> {
-        const res = await axios.delete(`${process.env.BITBUCKET_API}/repositories/${fullName}/hooks/${hookId}`, {
+        const bitbucketApi = await this.kysoSettingsService.getValue(KysoSettingsEnum.BITBUCKET_API)
+        const res = await axios.delete(`${bitbucketApi}/repositories/${fullName}/hooks/${hookId}`, {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data
     }
 
     public async login(code: string): Promise<any> {
+        const clientId = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_BITBUCKET_CLIENT_ID)
+        const clientSecret = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_BITBUCKET_CLIENT_SECRET)
         const params = new URLSearchParams({
             grant_type: 'authorization_code',
             code,
         })
         const res = await axios.post(`https://bitbucket.org/site/oauth2/access_token`, params.toString(), {
             auth: {
-                username: process.env.AUTH_BITBUCKET_CLIENT_ID,
-                password: process.env.AUTH_BITBUCKET_CLIENT_SECRET,
+                username: clientId,
+                password: clientSecret,
             },
         })
         return res.data
     }
 
     public async refreshToken(refresh_token: string): Promise<any> {
+        const clientId = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_BITBUCKET_CLIENT_ID)
+        const clientSecret = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_BITBUCKET_CLIENT_SECRET)
+        
         const params = new URLSearchParams({
             grant_type: 'refresh_token',
             refresh_token,
         })
         const res = await axios.post(`https://bitbucket.org/site/oauth2/access_token`, params.toString(), {
             auth: {
-                username: process.env.AUTH_BITBUCKET_CLIENT_ID,
-                password: process.env.AUTH_BITBUCKET_CLIENT_SECRET,
+                username: clientId,
+                password: clientSecret,
             },
         })
         return res.data

@@ -4,41 +4,39 @@ import { JwtService } from '@nestjs/jwt'
 import { OAuth2Client } from 'google-auth-library'
 import { ObjectId } from 'mongodb'
 import { Autowired } from '../../../decorators/autowired'
-import { OrganizationsService } from '../../organizations/organizations.service'
-import { TeamsService } from '../../teams/teams.service'
+import { KysoSettingsEnum } from '../../kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 import { UsersService } from '../../users/users.service'
 import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
 import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
 export const TOKEN_EXPIRATION_TIME = '8h'
-
 @Injectable()
 export class GoogleLoginProvider {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
-    @Autowired({ typeName: 'OrganizationsService' })
-    private organizationsService: OrganizationsService
-
-    @Autowired({ typeName: 'TeamsService' })
-    private teamsService: TeamsService
+    @Autowired({ typeName: 'KysoSettingsService' })
+    private kysoSettingsService: KysoSettingsService
 
     constructor(
-        private readonly jwtService: JwtService,
-        private readonly platformRoleProvider: PlatformRoleMongoProvider,
-        private readonly userRoleProvider: UserRoleMongoProvider,
+        private readonly jwtService: JwtService
     ) {}
 
     public async login(login: Login): Promise<string> {
         Logger.log(`User ${login.username} is trying to login with Google`, GoogleLoginProvider.name)
-        const oAuth2Client = new OAuth2Client(process.env.AUTH_GOOGLE_CLIENT_ID, process.env.AUTH_GOOGLE_CLIENT_SECRET)
+        
+        const clientId = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITHUB_CLIENT_ID)
+        const clientSecret = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITHUB_CLIENT_SECRET)
+
+        const oAuth2Client = new OAuth2Client(clientId, clientSecret)
         oAuth2Client.setCredentials(login.payload)
         try {
             Logger.log(`User ${login.username} verifying token...`, GoogleLoginProvider.name)
             // Verify the id_token, and access the claims.
             const loginTicket = await oAuth2Client.verifyIdToken({
                 idToken: oAuth2Client.credentials.id_token,
-                audience: process.env.AUTH_GOOGLE_CLIENT_ID,
+                audience: clientId
             })
             if (login.username !== loginTicket.getPayload().email) {
                 throw new UnauthorizedException(`User ${login.username} is trying to login with Google, but the email is different`)

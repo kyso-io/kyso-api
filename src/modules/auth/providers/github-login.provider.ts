@@ -6,6 +6,8 @@ import { ObjectId } from 'mongodb'
 import { Autowired } from '../../../decorators/autowired'
 import { UnauthorizedError } from '../../../helpers/errorHandling'
 import { GithubReposService } from '../../github-repos/github-repos.service'
+import { KysoSettingsEnum } from '../../kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 import { UsersService } from '../../users/users.service'
 import { GoogleLoginProvider } from './google-login.provider'
 
@@ -19,6 +21,9 @@ export class GithubLoginProvider {
     @Autowired({ typeName: 'GithubReposService' })
     private githubReposService: GithubReposService
 
+    @Autowired({ typeName: 'KysoSettingsService' })
+    private kysoSettingsService: KysoSettingsService
+
     constructor(private readonly jwtService: JwtService) {}
     // FLOW:
     //     * After calling login, frontend should call to
@@ -29,11 +34,14 @@ export class GithubLoginProvider {
     //     * The access_token will be stored in MongoDB, so the next operations could be managed as well
     async login(login: Login): Promise<string> {
         try {
+            const clientId = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITHUB_CLIENT_ID)
+            const clientSecret = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITHUB_CLIENT_SECRET)
+            
             const res = await axios.post(
                 `https://github.com/login/oauth/access_token`,
                 {
-                    client_id: process.env.AUTH_GITHUB_CLIENT_ID,
-                    client_secret: process.env.AUTH_GITHUB_CLIENT_SECRET,
+                    client_id: clientId,
+                    client_secret: clientSecret,
                     code: login.password,
                 },
                 {
