@@ -1,9 +1,6 @@
 import {
-    BatchReportCreationDTO,
     Comment,
     CreateKysoReportDTO,
-    CreateReportDTO,
-    CreateReportRequestDTO,
     CreateUIReportDTO,
     File,
     GithubBranch,
@@ -42,7 +39,7 @@ import {
     UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express'
-import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -318,31 +315,6 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
-    @Post()
-    @ApiOperation({
-        summary: `Create a new report`,
-        description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
-    })
-    @ApiResponse({
-        status: 201,
-        description: `Created report object if passed a single Report, or an array of report creation status if passed an array of reports to create (see schemas)`,
-        schema: {
-            oneOf: [{ $ref: getSchemaPath(Report) }, { $ref: getSchemaPath(BatchReportCreationDTO) }],
-        },
-    })
-    @ApiBody({
-        type: CreateReportRequestDTO,
-        description: 'Pass an array to create multiple objects',
-    })
-    @Permission([ReportPermissionsEnum.CREATE])
-    async createReport(@CurrentToken() token: Token, @Body() createReportDto: CreateReportDTO): Promise<NormalizedResponseDTO<Report>> {
-        Logger.log(`Called createReport`)
-        const report: Report = await this.reportsService.createReport(token.id, createReportDto)
-        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
-        return new NormalizedResponseDTO(reportDto, relations)
-    }
-
     @Post('/kyso')
     @ApiOperation({
         summary: `Create a new report sending the files`,
@@ -401,7 +373,6 @@ export class ReportsController extends GenericController<Report> {
         description: `Created report`,
         type: ReportDTO,
     })
-    @Permission([ReportPermissionsEnum.CREATE])
     async createReportFromGithubRepository(
         @CurrentToken() token: Token,
         @Param('repositoryName') repositoryName: string,
@@ -424,7 +395,6 @@ export class ReportsController extends GenericController<Report> {
         description: `Created report`,
         type: ReportDTO,
     })
-    @Permission([ReportPermissionsEnum.CREATE])
     async createReportFromBitbucketRepository(
         @CurrentToken() token: Token,
         @Query('name') name: string,

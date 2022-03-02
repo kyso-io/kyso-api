@@ -274,6 +274,7 @@ export class TestingDataPopulatorService {
             this.ProtectedTeamWithCustomRole.id,
             `Kylo's thoughts about to switch from darkside to lightside`,
             'Sometimes the anger flows through me and I want to be at the darkside. But on the other hand, when I see Rey I get doubts and want to be in the lightside!',
+            null,
         )
 
         this.KyloThoughtsReport = await this._createReport(this.Kylo_TeamContributorUser, reportKylosThoughts)
@@ -287,6 +288,7 @@ export class TestingDataPopulatorService {
             this.PrivateTeam.id,
             `The Best Pokemon Report by Moff Gideon`,
             `Do you think Pokemon is not suitable for Lord Siths? You're wrong! See my report to know who is the best pokemon ever!`,
+            null,
         )
 
         this.BestPokemonReport = await this._createReport(this.Kylo_TeamContributorUser, reportMoffGideonPokemonReport)
@@ -300,6 +302,7 @@ export class TestingDataPopulatorService {
             this.PublicTeam.id,
             `Engineering details about the construction of the Dark Star for the Imperium`,
             'Make sure that this details dont get leaked as the lightside can really fuck us with that information',
+            null,
         )
 
         this.DeathStarEngineeringReport = await this._createReport(this.Gideon_OrganizationAdminUser, reportDeathStarEngineering)
@@ -313,6 +316,7 @@ export class TestingDataPopulatorService {
             this.ProtectedTeamWithCustomRole.id,
             `Counterattack plan's to destroy Death Star`,
             `Using the information that Moff Gideon leaked absurdly, in this report we detail how we're going to destroy the Empire`,
+            null,
         )
 
         this.RebelScumCounterAttackReport = await this._createReport(this.Rey_TeamAdminUser, reportRebelScumCounterAttack)

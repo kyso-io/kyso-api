@@ -6,7 +6,7 @@ import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
 export class ReportsMongoProvider extends MongoProvider<Report> {
-    version = 3
+    version = 4
 
     constructor() {
         super('Report', db, [
@@ -36,7 +36,7 @@ export class ReportsMongoProvider extends MongoProvider<Report> {
      *
      * This migration DOES NOT DELETE name property, to be backwards compatible, but these properties are deprecated and will be deleted in next migrations
      */
-    async migrate_from_1_to_2() {
+    async migrate_from_1_to_2(): Promise<void> {
         const cursor = await this.getCollection().find({})
         const allReports: any[] = await cursor.toArray()
 
@@ -57,7 +57,7 @@ export class ReportsMongoProvider extends MongoProvider<Report> {
         // await this.saveModelVersion(2)
     }
 
-    public async migrate_from_2_to_3() {
+    public async migrate_from_2_to_3(): Promise<void> {
         const cursor = await this.getCollection().find({})
         const allReports: any[] = await cursor.toArray()
         for (const report of allReports) {
@@ -73,4 +73,21 @@ export class ReportsMongoProvider extends MongoProvider<Report> {
             )
         }
     }
+    
+    public async migrate_from_3_to_4(): Promise<void> {
+        const cursor = await this.getCollection().find({})
+        const allReports: any[] = await cursor.toArray()
+        for (const report of allReports) {
+            const data: any = {
+                main_file: null,
+            }
+            await this.update(
+                { _id: this.toObjectId(report.id) },
+                {
+                    $set: data,
+                },
+            )
+        }
+    }
+
 }

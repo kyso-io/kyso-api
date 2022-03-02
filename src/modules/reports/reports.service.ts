@@ -12,21 +12,24 @@ import {
     GlobalPermissionsEnum,
     KysoConfigFile,
     LoginProviderEnum,
-    Organization,
     PinnedReport,
     Report,
     ReportDTO,
+    ReportPermissionsEnum,
     ReportStatus,
     RepositoryProvider,
+    ResourcePermissions,
     StarredReport,
     Tag,
     Team,
     Token,
+    TokenPermissions,
     UpdateReportRequestDTO,
     User,
     UserAccount,
 } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
+import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Octokit } from '@octokit/rest'
 import * as AdmZip from 'adm-zip'
@@ -43,6 +46,9 @@ import { AutowiredService } from '../../generic/autowired.generic'
 import { NotFoundError } from '../../helpers/errorHandling'
 import slugify from '../../helpers/slugify'
 import { Validators } from '../../helpers/validators'
+import { AuthService } from '../auth/auth.service'
+import { PlatformRoleService } from '../auth/platform-role.service'
+import { UserRoleService } from '../auth/user-role.service'
 import { BitbucketReposService } from '../bitbucket-repos/bitbucket-repos.service'
 import { CommentsService } from '../comments/comments.service'
 import { GithubReposService } from '../github-repos/github-repos.service'
@@ -94,7 +100,14 @@ export class ReportsService extends AutowiredService {
     @Autowired({ typeName: 'BitbucketReposService' })
     private bitbucketReposService: BitbucketReposService
 
+    @Autowired({ typeName: 'UserRoleService' })
+    public userRoleService: UserRoleService
+
+    @Autowired({ typeName: 'PlatformRoleService' })
+    public platformRoleService: PlatformRoleService
+
     constructor(
+        private readonly mailerService: MailerService,
         private readonly provider: ReportsMongoProvider,
         private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider,
         private readonly starredReportsMongoProvider: StarredReportsMongoProvider,
@@ -212,6 +225,7 @@ export class ReportsService extends AutowiredService {
             null,
             false,
             false,
+            kysoConfigFile && kysoConfigFile.main ? kysoConfigFile.main : null,
         )
         Logger.log('Creating report')
         return this.provider.create(report)
@@ -486,6 +500,7 @@ export class ReportsService extends AutowiredService {
             report.preview_picture,
             report.show_code,
             report.show_output,
+            report.main_file,
         )
     }
 
@@ -523,25 +538,10 @@ export class ReportsService extends AutowiredService {
             (file: Express.Multer.File) =>
                 file.originalname.endsWith('kyso.json') || file.originalname.endsWith('kyso.yaml') || file.originalname.endsWith('kyso.yml'),
         )
-        Logger.log(`Kyso files: ${JSON.stringify(kysoFiles)}`)
 
         if (kysoFiles.length === 0) {
             Logger.error(`No kyso file provided`)
             throw new PreconditionFailedException('No kyso file provided')
-        }
-
-        const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: createKysoReportDTO.organization } })
-        Logger.log(`Organization: ${organization.sluglified_name}`)
-        if (!organization) {
-            Logger.error(`Organization ${createKysoReportDTO.organization} does not exist`)
-            throw new PreconditionFailedException(`Organization ${createKysoReportDTO.organization} does not exist`)
-        }
-
-        const userBelongsToOrganization: boolean = await this.organizationsService.userBelongsToOrganization(user.id, organization.id)
-        Logger.log(`user belongs to organization?: ${userBelongsToOrganization}`)
-        if (!isGlobalAdmin && !userBelongsToOrganization) {
-            Logger.error(`User ${user.display_name} is not a member of organization ${createKysoReportDTO.organization}`)
-            throw new PreconditionFailedException(`User ${user.display_name} is not a member of organization ${createKysoReportDTO.organization}`)
         }
 
         const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: createKysoReportDTO.team } })
@@ -550,19 +550,10 @@ export class ReportsService extends AutowiredService {
             Logger.error(`Team ${createKysoReportDTO.team} does not exist`)
             throw new PreconditionFailedException(`Team ${createKysoReportDTO.team} does not exist`)
         }
-        if (team.organization_id !== organization.id) {
-            Logger.error(`Team ${createKysoReportDTO.team} does not exist`)
-            throw new PreconditionFailedException(`Team ${createKysoReportDTO.team} does not belong to organization ${createKysoReportDTO.organization}`)
-        }
-        const belongsToTeam: boolean = await this.teamsService.userBelongsToTeam(team.id, user.id)
-        Logger.log(`user belongs to team?: ${belongsToTeam}`)
-        if (!isGlobalAdmin && !belongsToTeam && !userBelongsToOrganization) {
-            Logger.error(
-                `User ${user.display_name} is not a member of team ${createKysoReportDTO.team} nor the organization ${createKysoReportDTO.organization}`,
-            )
-            throw new PreconditionFailedException(
-                `User ${user.display_name} is not a member of team ${createKysoReportDTO.team} nor the organization ${createKysoReportDTO.organization}`,
-            )
+        const userHasPermission: boolean = await this.checkCreateReportPermission(userId, createKysoReportDTO.team)
+        if (!userHasPermission) {
+            Logger.error(`User ${user.username} does not have permission to create report in team ${createKysoReportDTO.team}`)
+            throw new PreconditionFailedException(`User ${user.username} does not have permission to create report in team ${createKysoReportDTO.team}`)
         }
 
         const name: string = slugify(createKysoReportDTO.title)
@@ -613,6 +604,7 @@ export class ReportsService extends AutowiredService {
                 null,
                 false,
                 false,
+                createKysoReportDTO.main_file || null,
             )
             report.report_type = 'kyso-cli'
             report = await this.provider.create(report)
@@ -653,29 +645,56 @@ export class ReportsService extends AutowiredService {
 
     public async createUIReport(userId: string, createUIReportDTO: CreateUIReportDTO, files: any[]): Promise<Report> {
         const user: User = await this.usersService.getUserById(userId)
-        const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
-
-        const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: createUIReportDTO.organization } })
-        if (!organization) {
-            throw new PreconditionFailedException(`Organization ${createUIReportDTO.organization} does not exist`)
-        }
-
-        const userBelongsToOrganization: boolean = await this.organizationsService.userBelongsToOrganization(user.id, organization.id)
-        if (!isGlobalAdmin && !userBelongsToOrganization) {
-            throw new PreconditionFailedException(`User ${user.display_name} is not a member of organization ${createUIReportDTO.organization}`)
-        }
 
         const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: createUIReportDTO.team } })
+        Logger.log(`Team: ${team.sluglified_name}`)
         if (!team) {
+            Logger.error(`Team ${createUIReportDTO.team} does not exist`)
             throw new PreconditionFailedException(`Team ${createUIReportDTO.team} does not exist`)
         }
-        if (team.organization_id !== organization.id) {
-            throw new PreconditionFailedException(`Team ${createUIReportDTO.team} does not belong to organization ${createUIReportDTO.organization}`)
+        const userHasPermission: boolean = await this.checkCreateReportPermission(userId, createUIReportDTO.team)
+        if (!userHasPermission) {
+            Logger.error(`User ${user.username} does not have permission to create report in team ${createUIReportDTO.team}`)
+            throw new PreconditionFailedException(`User ${user.username} does not have permission to create report in team ${createUIReportDTO.team}`)
         }
 
         const sluglified_name: string = slugify(createUIReportDTO.title)
         const reports: Report[] = await this.provider.read({ filter: { sluglified_name, team_id: team.id } })
         const s3Client: S3Client = this.getS3Client()
+        let kysoConfigFile: KysoConfigFile = null
+        for (let i = 0; i < files.length; i++) {
+            const originalName: string = files[i].originalname
+            if (originalName.endsWith('kyso.json')) {
+                const localFilePath = `/tmp/${uuidv4()}_${originalName}`
+                try {
+                    writeFileSync(localFilePath, files[i].buffer)
+                    kysoConfigFile = JSON.parse(readFileSync(localFilePath).toString())
+                    unlinkSync(localFilePath)
+                    break
+                } catch (e: any) {
+                    unlinkSync(localFilePath)
+                    Logger.error(`An error occurred parsing kyso.json`, e, ReportsService.name)
+                    throw new PreconditionFailedException(`An error occurred parsing kyso.json`)
+                }
+            } else if (originalName.endsWith('kyso.yml') || originalName.endsWith('kyso.yaml')) {
+                const localFilePath = `/tmp/${uuidv4()}_${originalName}`
+                try {
+                    writeFileSync(localFilePath, files[i].buffer)
+                    kysoConfigFile = jsYaml.load(readFileSync(localFilePath).toString()) as KysoConfigFile
+                    unlinkSync(localFilePath)
+                    break
+                } catch (e: any) {
+                    unlinkSync(localFilePath)
+                    Logger.error(`An error occurred parsing kyso.{yml,yaml}`, e, ReportsService.name)
+                    throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}`)
+                }
+            }
+        }
+        if (!kysoConfigFile) {
+            Logger.error(`No kyso.{yml,yaml,json} file found`, ReportsService.name)
+            throw new PreconditionFailedException(`No kyso.{yml,yaml,json} file found`)
+        }
+
         let report: Report = null
         if (reports.length > 0) {
             // Existing report
@@ -717,7 +736,12 @@ export class ReportsService extends AutowiredService {
                         ReportsService.name,
                     )
                 }
-                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, {
+                    $set: {
+                        status: ReportStatus.Imported,
+                        main_file: kysoConfigFile.main || report.main_file,
+                    }
+                })
                 Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
             })
         } else {
@@ -742,6 +766,7 @@ export class ReportsService extends AutowiredService {
                 null,
                 false,
                 false,
+                kysoConfigFile.main,
             )
             report.report_type = 'kyso'
             report = await this.provider.create(report)
@@ -847,6 +872,7 @@ export class ReportsService extends AutowiredService {
                 null,
                 false,
                 false,
+                null,
             )
             report = await this.provider.create(report)
             Logger.log(`New report '${report.id} ${report.sluglified_name}'`, ReportsService.name)
@@ -895,7 +921,7 @@ export class ReportsService extends AutowiredService {
             let kysoConfigFile: KysoConfigFile = null
             let directoriesToRemove: string[] = []
             try {
-                const result = await this.normalizeFilePatsh(report, filePaths)
+                const result = await this.normalizeFilePaths(report, filePaths)
                 files = result.files
                 kysoConfigFile = result.kysoConfigFile
                 directoriesToRemove = result.directoriesToRemove
@@ -906,7 +932,26 @@ export class ReportsService extends AutowiredService {
             }
             Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${sha}'`, ReportsService.name)
 
-            this.uploadRepositoryFilesToS3(user, report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+            const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
+            if (!userHasPermission) {
+                Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+                await this.deleteReport(report.id)
+                this.mailerService
+                    .sendMail({
+                        to: user.email,
+                        subject: 'Error creating report',
+                        html: `You do not have permissions to create reports.`,
+                    })
+                    .then(() => {
+                        Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)
+                    })
+                    .catch((err) => {
+                        Logger.error(`Error sending mail 'Invalid permissions for creating report' to ${user.display_name}`, err, UsersService.name)
+                    })
+                return
+            }
+
+            this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove)
         })
 
         return report
@@ -939,7 +984,7 @@ export class ReportsService extends AutowiredService {
         let kysoConfigFile: KysoConfigFile = null
         let directoriesToRemove: string[] = []
         try {
-            const result = await this.normalizeFilePatsh(report, filePaths)
+            const result = await this.normalizeFilePaths(report, filePaths)
             files = result.files
             kysoConfigFile = result.kysoConfigFile
             directoriesToRemove = result.directoriesToRemove
@@ -950,7 +995,7 @@ export class ReportsService extends AutowiredService {
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name)
 
-        this.uploadRepositoryFilesToS3(user, report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+        this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove)
     }
 
     public async createReportFromBitbucketRepository(userId: string, repositoryName: string, branch: string): Promise<Report> {
@@ -1014,6 +1059,7 @@ export class ReportsService extends AutowiredService {
                 null,
                 false,
                 false,
+                null,
             )
             report = await this.provider.create(report)
             Logger.log(`New report '${report.id} ${report.sluglified_name}'`, ReportsService.name)
@@ -1052,7 +1098,7 @@ export class ReportsService extends AutowiredService {
             let kysoConfigFile: KysoConfigFile = null
             let directoriesToRemove: string[] = []
             try {
-                const result = await this.normalizeFilePatsh(report, filePaths)
+                const result = await this.normalizeFilePaths(report, filePaths)
                 files = result.files
                 kysoConfigFile = result.kysoConfigFile
                 directoriesToRemove = result.directoriesToRemove
@@ -1062,7 +1108,26 @@ export class ReportsService extends AutowiredService {
                 return null
             }
 
-            await this.uploadRepositoryFilesToS3(user, report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+            const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
+            if (!userHasPermission) {
+                Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+                await this.deleteReport(report.id)
+                this.mailerService
+                    .sendMail({
+                        to: user.email,
+                        subject: 'Error creating report',
+                        html: `You do not have permissions to create reports.`,
+                    })
+                    .then(() => {
+                        Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)
+                    })
+                    .catch((err) => {
+                        Logger.error(`Error sending mail 'Invalid permissions for creating report' to ${user.display_name}`, err, UsersService.name)
+                    })
+                return
+            }
+
+            await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove)
         })
 
         return report
@@ -1105,7 +1170,7 @@ export class ReportsService extends AutowiredService {
         let kysoConfigFile: KysoConfigFile = null
         let directoriesToRemove: string[] = []
         try {
-            const result = await this.normalizeFilePatsh(report, filePaths)
+            const result = await this.normalizeFilePaths(report, filePaths)
             files = result.files
             kysoConfigFile = result.kysoConfigFile
             directoriesToRemove = result.directoriesToRemove
@@ -1116,10 +1181,10 @@ export class ReportsService extends AutowiredService {
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
 
-        this.uploadRepositoryFilesToS3(user, report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+        this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove)
     }
 
-    private async normalizeFilePatsh(
+    private async normalizeFilePaths(
         report: Report,
         filePaths: string[],
     ): Promise<{ files: { name: string; filePath: string }[]; kysoConfigFile: KysoConfigFile; directoriesToRemove: string[] }> {
@@ -1180,7 +1245,6 @@ export class ReportsService extends AutowiredService {
     }
 
     private async uploadRepositoryFilesToS3(
-        user: User,
         report: Report,
         extractedDir: string,
         kysoConfigFile: KysoConfigFile,
@@ -1191,28 +1255,21 @@ export class ReportsService extends AutowiredService {
         if (!team) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report ${report.id} ${report.sluglified_name}: Team ${kysoConfigFile.team} does not exist`, ReportsService.name)
-            // throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: Team ${kysoConfigFile.team} does not exist`)
-            return
-        }
-        const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
-        const belongsToTeam: boolean = await this.teamsService.userBelongsToTeam(team.id, user.id)
-        if (!isGlobalAdmin && !belongsToTeam) {
-            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-            Logger.error(
-                `Report ${report.id} ${report.sluglified_name}: User ${user.display_name} is not a member of team ${team.sluglified_name}`,
-                ReportsService.name,
-            )
-            // throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: User ${user.display_name} is not a member of team ${team.sluglified_name}`)
             return
         }
 
+        let mainFile = null
+        if (kysoConfigFile?.main && kysoConfigFile.main.length > 0) {
+            mainFile = kysoConfigFile.main
+        }
         report = await this.provider.update(
             { _id: this.provider.toObjectId(report.id) },
             {
                 $set: {
-                    status: ReportStatus.Imported,
+                    status: ReportStatus.Processing,
                     team_id: team.id,
                     title: kysoConfigFile.title || report.title,
+                    main_file: mainFile || report?.main_file || null,
                 },
             },
         )
@@ -1659,5 +1716,42 @@ export class ReportsService extends AutowiredService {
             map.get(file.version).num_files++
         })
         return Array.from(map.values())
+    }
+
+    private async checkCreateReportPermission(userId: string, teamName: string): Promise<boolean> {
+        const user: User = await this.usersService.getUserById(userId)
+
+        const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
+            user.username,
+            this.usersService,
+            this.teamsService,
+            this.organizationsService,
+            this.platformRoleService,
+            this.userRoleService,
+        )
+
+        if (permissions?.global && permissions.global.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)) {
+            return true
+        }
+
+        const teamResourcePermissions: ResourcePermissions = permissions.teams.find((t: ResourcePermissions) => t.name === teamName)
+        if (!teamResourcePermissions) {
+            Logger.log(`User ${user.username} is not a member of the team ${teamName}`, ReportsService.name)
+            return false
+        }
+
+        if (teamResourcePermissions?.permissions && Array.isArray(teamResourcePermissions.permissions)) {
+            return teamResourcePermissions.permissions.includes(ReportPermissionsEnum.CREATE)
+        } else {
+            // Check if the user is a member of the organization
+            const organizationResourcePermissions: ResourcePermissions = permissions.organizations.find(
+                (o: ResourcePermissions) => o.id === teamResourcePermissions.organization_id,
+            )
+            if (!organizationResourcePermissions) {
+                Logger.log(`User ${user.username} is not a member of the organization ${organizationResourcePermissions.name}`, ReportsService.name)
+                return false
+            }
+            return organizationResourcePermissions.permissions.includes(ReportPermissionsEnum.CREATE)
+        }
     }
 }
