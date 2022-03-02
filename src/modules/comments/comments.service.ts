@@ -5,6 +5,8 @@ import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
 import { DiscussionsService } from '../discussions/discussions.service'
+import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
@@ -39,6 +41,9 @@ export class CommentsService extends AutowiredService {
 
     @Autowired({ typeName: 'DiscussionsService' })
     private discussionsService: DiscussionsService
+
+    @Autowired({ typeName: 'KysoSettingsService' })
+    private kysoSettingsService: KysoSettingsService
 
     constructor(private mailerService: MailerService, private readonly provider: CommentsMongoProvider) {
         super()
@@ -130,11 +135,13 @@ export class CommentsService extends AutowiredService {
                 }
                 const team: Team = await this.teamsService.getTeamById(discussion.team_id)
                 const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+                const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+
                 this.mailerService
                     .sendMail({
                         to: user.email,
                         subject: 'You have been mentioned in a discussion',
-                        html: `User ${creator.display_name} mentioned you in the discussion <a href="${process.env.FRONTEND_URL}/${organization.sluglified_name}/${team.sluglified_name}/discussions/${discussion.id}">${discussion.title}</a>`,
+                        html: `User ${creator.display_name} mentioned you in the discussion <a href="${frontendUrl}/${organization.sluglified_name}/${team.sluglified_name}/discussions/${discussion.id}">${discussion.title}</a>`,
                     })
                     .then((messageInfo) => {
                         Logger.log(`Mention in discussion mail ${messageInfo.messageId} sent to ${user.email}`, UsersService.name)

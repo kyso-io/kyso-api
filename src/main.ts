@@ -12,12 +12,11 @@ import { RedocModule, RedocOptions } from 'nestjs-redoc'
 import { AppModule } from './app.module'
 import { getSingletons, registerSingleton } from './decorators/autowired'
 import { TransformInterceptor } from './interceptors/exclude.interceptor'
+import { getKysoSettingDefaultValue, KysoSettingsEnum } from './modules/kyso-settings/enums/kyso-settings.enum'
 import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service'
 const { NodeTracerProvider } = require('@opentelemetry/sdk-trace-node')
 const { NestInstrumentation } = require('@opentelemetry/instrumentation-nestjs-core')
 const { registerInstrumentations } = require('@opentelemetry/instrumentation')
-export const passport = require('passport');
-const passportSaml = require('passport-saml');
 
 export let client
 export let db
@@ -33,46 +32,6 @@ registerInstrumentations({
     instrumentations: [new NestInstrumentation()],
 })
 
-passport.serializeUser((user, done) => {
-    done(null, user);
-});
-  
-passport.deserializeUser((user, done) => {
-    done(null, user);
-});
-
-// SAML strategy for passport -- Single IPD
-const strategy = new passportSaml.Strategy(
-    {
-      entryPoint: 'https://auth.pingone.eu/0fda3448-9115-4ca7-b9d3-269d6029276a/saml20/idp/startsso?spEntityId=kyso-api-entity-id',
-      issuer: 'https://auth.pingone.eu/0fda3448-9115-4ca7-b9d3-269d6029276a',
-      callbackUrl: 'http://localhost:4000/auth/pingid/callback',
-      cert: `MIIDcDCCAligAwIBAgIGAX75b59+MA0GCSqGSIb3DQEBCwUAMHkxCzAJBgNVBAYT
-             AlVTMRYwFAYDVQQKDA1QaW5nIElkZW50aXR5MRYwFAYDVQQLDA1QaW5nIElkZW50
-             aXR5MTowOAYDVQQDDDFQaW5nT25lIFNTTyBDZXJ0aWZpY2F0ZSBmb3Iga3lzby1w
-             aW5nIGVudmlyb25tZW50MB4XDTIyMDIxNDE4MTIyOVoXDTIzMDIxNDE4MTIyOVow
-             eTELMAkGA1UEBhMCVVMxFjAUBgNVBAoMDVBpbmcgSWRlbnRpdHkxFjAUBgNVBAsM
-             DVBpbmcgSWRlbnRpdHkxOjA4BgNVBAMMMVBpbmdPbmUgU1NPIENlcnRpZmljYXRl
-             IGZvciBreXNvLXBpbmcgZW52aXJvbm1lbnQwggEiMA0GCSqGSIb3DQEBAQUAA4IB
-             DwAwggEKAoIBAQDTxYEcnkl/l0EcIHrfrMVhXUAQrJ65mPAHMjZ7O0Q5aCYMAoN4
-             fIRsWVsQsoCat7WiijfpNmQAeyJo5Qc7S+XD0mmzSdO5E2ulxGDD9KSvdV32AGTZ
-             lzDZiwIjFgK+jm8guBsxeVgUA3IUVrHb93r7xuTUpvQjY/egs2l7AsSv3n7wjZoU
-             SXz6FAAYGOstfm5mqODXDRhswAqLX/l0sc0PvkORRUYKjZm7Lf8H3uybJc0oABC1
-             vY0yvZch1PoBQvAFGVQCoazijwFyGLApGcx06m9FuAcNkx+iQaeh4cQXMwqQ7vzX
-             Y8YfwomFG1OR7a3whRGWlxTcHZXYqHkkfXTZAgMBAAEwDQYJKoZIhvcNAQELBQAD
-             ggEBACeCz88vgr/C++1JGbrBGIIlB7XnLcSaEyVKWXyXsA0gTaXA0oVkgslSwOs8
-             Cyj0UKPdJsTniqMykGfNhkCX+mxKnhhY57Jae1bjGxtXNb0PTnCB7P4lONFB2ySY
-             e51+PkPcU9gzzoq8V/By8gssnGsSvTYvjEl0lMRaP0/pM6wiqCTkAB93SRjczrKj
-             TbORNSrRQz8IvChzfsSNFHfV0WHVFXFHddKvb8g2+Qpy6G+BRGW5Pu9eQ0M0ZaZ0
-             xTjh5BVBe19jM+IZSDI4pLGCeqYXsreRzf4gOvU21l9vjWk/W8nk2RDx3x1cEXZY
-             s10Z8am4rg0GO1c1ka5tiLC/5iw=`,
-    },
-    (profile, done) => done(null, profile),
-  );
-  
-passport.use(strategy);
-  
-
 async function bootstrap() {
     let app_mount_dir = ''
     let dotenv_path = '.env'
@@ -85,13 +44,38 @@ async function bootstrap() {
         path: dotenv_path,
     })
 
-    mailTransport = process.env.MAIL_TRANSPORT
-    mailFrom = process.env.MAIL_FROM
 
     if (process.env.APP_MOUNT_DIR) {
         app_mount_dir = process.env.APP_MOUNT_DIR
     }
-    await connectToDatabase(process.env.DATABASE_NAME || 'kyso')
+    
+    await connectToDatabase()
+    
+    try {
+        const kysoSettingCollection = db.collection("KysoSetting")
+        const mailTransportValue = await kysoSettingCollection.
+            find({ key: KysoSettingsEnum.MAIL_TRANSPORT}).toArray()
+        const mailFromValue = await kysoSettingCollection.
+            find({ key: KysoSettingsEnum.MAIL_FROM}).toArray()
+            
+        if(mailTransportValue.length === 0) {
+            // set default value
+            mailTransport = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT)    
+        } else  {
+            mailTransport = mailTransportValue[0].value
+        }
+
+        if(mailFromValue.length === 0) {
+            // set default value
+            mailFrom = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM)    
+        } else  {
+            mailFrom = mailFromValue[0].value
+        }
+    } catch(ex) {
+        mailTransport = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT)
+        mailFrom = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM)
+    }
+
     const app = await NestFactory.create<NestExpressApplication>(AppModule)
 
     // Serve files in ./public on the root of the application
@@ -195,8 +179,7 @@ async function bootstrap() {
     })
 }
 
-async function connectToDatabase(DB_NAME) {
-    Logger.log(`Connecting to database... ${DB_NAME}`)
+async function connectToDatabase() {
     if (!client) {
         try {
             client = await MongoClient.connect(process.env.DATABASE_URI, {
@@ -204,7 +187,8 @@ async function connectToDatabase(DB_NAME) {
                 maxPoolSize: 10,
                 // poolSize: 10 <-- Deprecated
             })
-            db = await client.db(DB_NAME)
+            Logger.log(`Connecting to database... ${client.s.options.dbName}`)
+            db = await client.db(client.s.options.dbName)
             await db.command({ ping: 1 })
         } catch (err) {
             Logger.error(`Couldn't connect with mongoDB instance at ${process.env.DATABASE_URI}`)

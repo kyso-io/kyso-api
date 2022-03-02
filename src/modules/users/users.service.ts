@@ -21,6 +21,8 @@ import { AutowiredService } from '../../generic/autowired.generic'
 import { PlatformRole } from '../../security/platform-roles'
 import { AuthService } from '../auth/auth.service'
 import { CommentsService } from '../comments/comments.service'
+import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
@@ -52,6 +54,9 @@ export class UsersService extends AutowiredService {
 
     @Autowired({ typeName: 'CommentsService' })
     private commentsService: CommentsService
+
+    @Autowired({ typeName: 'KysoSettingsService' })
+    private kysoSettingsService: KysoSettingsService
 
     constructor(
         private readonly mailerService: MailerService,
@@ -226,27 +231,33 @@ export class UsersService extends AutowiredService {
         )
     }
 
-    private getS3Client(): S3Client {
+    private async getS3Client(): Promise<S3Client> {
+        const awsRegion = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_REGION)
+        const awsAccessKey = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_ACCESS_KEY_ID)
+        const awsSecretAccessKey = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_SECRET_ACCESS_KEY)
+
         return new S3Client({
-            region: process.env.AWS_REGION,
+            region: awsRegion,
             credentials: {
-                accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+                accessKeyId: awsAccessKey,
+                secretAccessKey: awsSecretAccessKey,
             },
         })
     }
 
     // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
     public async setProfilePicture(token: Token, file: any): Promise<User> {
+        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+
         const user: User = await this.getUserById(token.id)
         if (!user) {
             throw new PreconditionFailedException('User not found')
         }
-        const s3Client: S3Client = this.getS3Client()
+        const s3Client: S3Client = await this.getS3Client()
         if (user?.avatar_url && user.avatar_url.length > 0) {
             Logger.log(`Removing previous image of user ${user.name}`, OrganizationsService.name)
             const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
-                Bucket: process.env.AWS_S3_BUCKET,
+                Bucket: s3Bucket,
                 Key: user.avatar_url.split('/').slice(-1)[0],
             })
             await s3Client.send(deleteObjectCommand)
@@ -255,26 +266,28 @@ export class UsersService extends AutowiredService {
         const Key = `${uuidv4()}${extname(file.originalname)}`
         await s3Client.send(
             new PutObjectCommand({
-                Bucket: process.env.AWS_S3_BUCKET,
+                Bucket: s3Bucket,
                 Key,
                 Body: file.buffer,
             }),
         )
         Logger.log(`Uploaded image for user ${user.name}`, OrganizationsService.name)
-        const avatar_url = `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${Key}`
+        const avatar_url = `https://${s3Bucket}.s3.amazonaws.com/${Key}`
         return this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { avatar_url } })
     }
 
     public async deleteProfilePicture(token: Token): Promise<User> {
+        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+
         const user: User = await this.getUserById(token.id)
         if (!user) {
             throw new PreconditionFailedException('User not found')
         }
-        const s3Client: S3Client = this.getS3Client()
+        const s3Client: S3Client = await this.getS3Client()
         if (user?.avatar_url && user.avatar_url.length > 0) {
             Logger.log(`Removing previous image of user ${user.name}`, OrganizationsService.name)
             const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
-                Bucket: process.env.AWS_S3_BUCKET,
+                Bucket: s3Bucket,
                 Key: user.avatar_url.split('/').slice(-1)[0],
             })
             await s3Client.send(deleteObjectCommand)

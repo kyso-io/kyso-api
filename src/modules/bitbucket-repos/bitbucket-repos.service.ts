@@ -1,5 +1,8 @@
 import { Injectable, Provider } from '@nestjs/common'
+import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
+import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { BitbucketReposProvider } from './providers/bitbucket-repo.provider'
 
 function factory(service: BitbucketReposService) {
@@ -16,6 +19,9 @@ export function createProvider(): Provider<BitbucketReposService> {
 
 @Injectable()
 export class BitbucketReposService extends AutowiredService {
+    @Autowired({ typeName: 'KysoSettingsService' })
+    private kysoSettingsService: KysoSettingsService
+    
     constructor(private readonly bitbucketReposProvider: BitbucketReposProvider) {
         super()
     }
@@ -33,7 +39,9 @@ export class BitbucketReposService extends AutowiredService {
     }
 
     public async createWebhook(accessToken: string, fullName: string): Promise<any> {
-        let hookUrl = `${process.env.BASE_URL}/v1/hooks/bitbucket`
+        const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL)
+        
+        let hookUrl = `${baseUrl}/v1/hooks/bitbucket`
         if (process.env.NODE_ENV === 'development') {
             hookUrl = 'https://smee.io/kyso-bitbucket-hook-test'
         }

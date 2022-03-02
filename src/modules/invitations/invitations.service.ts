@@ -3,6 +3,8 @@ import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
+import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
@@ -31,6 +33,9 @@ export class InvitationsService extends AutowiredService {
     @Autowired({ typeName: 'OrganizationsService' })
     private organizationsService: OrganizationsService
 
+    @Autowired({ typeName: 'KysoSettingsService' })
+    private kysoSettingsService: KysoSettingsService
+
     constructor(private mailerService: MailerService, private readonly provider: InvitationsMongoProvider) {
         super()
     }
@@ -56,6 +61,7 @@ export class InvitationsService extends AutowiredService {
     }
 
     public async createInvitation(userId: string, createInvitationDto: CreateInvitationDto): Promise<Invitation> {
+        const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
         const invitations: Invitation[] = await this.provider.read({
             filter: {
                 email: createInvitationDto.email,
@@ -79,7 +85,7 @@ export class InvitationsService extends AutowiredService {
                 html = `User ${user.display_name} has invited you to join the team <strong>${team.sluglified_name}</strong> with the role <strong>${invitation.payload.roles
                     .map((role: string) => role.replace('-', ' '))
                     .join(',')
-                    .toUpperCase()}</strong>. <a href="${process.env.FRONTEND_URL}/${organization.sluglified_name}/team/${team.sluglified_name}/invitation/${
+                    .toUpperCase()}</strong>. <a href="${frontendUrl}/${organization.sluglified_name}/team/${team.sluglified_name}/invitation/${
                     invitation.id
                 }">Open invitation</a>`
                 break

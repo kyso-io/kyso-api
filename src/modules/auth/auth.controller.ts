@@ -28,6 +28,8 @@ import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
 import { db } from '../../main'
+import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
@@ -55,6 +57,9 @@ export class AuthController extends GenericController<string> {
 
     @Autowired({ typeName: 'TeamsService' })
     public teamsService: TeamsService
+
+    @Autowired({ typeName: 'KysoSettingsService' })
+    public kysoSettingsService: KysoSettingsService
 
     constructor(private readonly authService: AuthService) {
         super()
@@ -181,8 +186,8 @@ export class AuthController extends GenericController<string> {
             const login: Login = new Login(data.samlSubject, LoginProviderEnum.PING_ID_SAML, data.email, data)
 
             const jwt = await this.authService.login(login)
-
-            response.redirect(`${process.env.FRONTEND_URL}/sso/${jwt}`)
+            const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+            response.redirect(`${frontendUrl}/sso/${jwt}`)
         } else {
             throw new PreconditionFailedException(
                 `Incomplete SAML payload received. Kyso requires the following properties: samlSubject, email, portrait and name`,

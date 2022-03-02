@@ -11,6 +11,7 @@ import { DiscussionsModule } from './modules/discussions/discussions.module'
 import { GithubReposModule } from './modules/github-repos/github-repos.module'
 import { HooksModule } from './modules/hooks/hooks.module'
 import { InvitationsModule } from './modules/invitations/invitations.module'
+import { KysoSettingsModule } from './modules/kyso-settings/kyso-settings.module'
 import { OrganizationsModule } from './modules/organizations/organizations.module'
 import { RelationsModule } from './modules/relations/relations.module'
 import { ReportsModule } from './modules/reports/reports.module'
@@ -52,7 +53,8 @@ import { UsersModule } from './modules/users/users.module'
         TagsModule.forRoot(),
         TeamsModule.forRoot(),
         TestingDataPopulatorModule,
-        UsersModule.forRoot()
+        UsersModule.forRoot(),
+        KysoSettingsModule.forRoot()
     ],
 })
 export class AppModule {}
