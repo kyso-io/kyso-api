@@ -114,7 +114,7 @@ export class GoogleLoginProvider {
             )
         } catch (e) {
             console.log(e)
-            throw new UnauthorizedException('Unauthorized')
+            throw new UnauthorizedException('Invalid credentials')
         }
     }
 }

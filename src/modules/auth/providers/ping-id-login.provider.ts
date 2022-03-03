@@ -70,7 +70,7 @@ export class PingIdLoginProvider {
             )
         } catch (e) {
             console.log(e)
-            throw new UnauthorizedException('Unauthorized')
+            throw new UnauthorizedException('Invalid credentials')
         }
     }
 }

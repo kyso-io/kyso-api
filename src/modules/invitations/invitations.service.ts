@@ -123,7 +123,7 @@ export class InvitationsService extends AutowiredService {
         }
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
-            throw new PreconditionFailedException('User not registered found')
+            throw new PreconditionFailedException('Invalid credentials found')
         }
         if (user.email !== invitation.email) {
             throw new PreconditionFailedException('User email does not match invitation email')

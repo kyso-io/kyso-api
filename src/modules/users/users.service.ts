@@ -324,7 +324,7 @@ export class UsersService extends AutowiredService {
             filter: { _id: this.provider.toObjectId(id) },
         })
         if (accessTokens.length === 0) {
-            throw new PreconditionFailedException('Access token not found')
+            throw new PreconditionFailedException('Invalid credentials')
         }
         const kysoAccessToken: KysoUserAccessToken = accessTokens[0]
         delete kysoAccessToken.access_token

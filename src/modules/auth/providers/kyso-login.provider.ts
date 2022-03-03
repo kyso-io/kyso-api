@@ -19,7 +19,7 @@ export class KysoLoginProvider {
         })
 
         if (!user) {
-            throw new UnauthorizedException('User not registered')
+            throw new UnauthorizedException('Invalid credentials')
         }
 
         const isRightPassword = await AuthService.isPasswordCorrect(password, user.hashed_password)
@@ -54,7 +54,7 @@ export class KysoLoginProvider {
 
             return token
         } else {
-            throw new UnauthorizedException('Incorrect username or password')
+            throw new UnauthorizedException('Invalid credentials')
         }
     }
 
@@ -65,14 +65,14 @@ export class KysoLoginProvider {
         })
 
         if (!user) {
-            throw new UnauthorizedException('User not registered')
+            throw new UnauthorizedException('Invalid credentials')
         }
 
         // Search for provided access_token for that user
         const dbAccessToken: KysoUserAccessToken = await this.usersService.searchAccessToken(user.id, access_token)
 
         if (!dbAccessToken) {
-            throw new UnauthorizedException('Incorrect username or token')
+            throw new UnauthorizedException('Invalid credentials')
         } else {
             const payload: Token = new Token(
                 user.id.toString(),
