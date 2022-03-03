@@ -1,7 +1,8 @@
-import { GlobalPermissionsEnum, Invitation, KysoSetting, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model'
-import { Body, Controller, Delete, Get, Param, Patch, UseGuards } from '@nestjs/common'
+import { GlobalPermissionsEnum, KysoSetting, NormalizedResponseDTO } from '@kyso-io/kyso-model'
+import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
@@ -17,7 +18,7 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
     constructor(private readonly kysoSettingsService: KysoSettingsService) {
         super()
     }
-    
+
     @Get('/')
     @ApiOperation({
         summary: `Get's all the settings of this instance of Kyso`,
@@ -27,7 +28,7 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
         status: 200,
         description: `List of all settings`,
         type: KysoSetting,
-        isArray: true
+        isArray: true,
     })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
     public async getAllSettings(): Promise<NormalizedResponseDTO<KysoSetting[]>> {
@@ -50,10 +51,11 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
         status: 200,
         description: `Setting data`,
         type: KysoSetting,
-        isArray: false
+        isArray: false,
     })
-    @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
-    public async getSetting(@Param('key') key: string): Promise<NormalizedResponseDTO<boolean>> {
+    // @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
+    @Public()
+    public async getSetting(@Param('key') key: string): Promise<NormalizedResponseDTO<string>> {
         const value: string = await this.kysoSettingsService.getValue(KysoSettingsEnum[key])
         return new NormalizedResponseDTO(value)
     }
@@ -73,10 +75,10 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
         status: 200,
         description: `Updated setting`,
         type: KysoSetting,
-        isArray: false
+        isArray: false,
     })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
-    public async updateSetting(@Param('key') key: string, @Body() data: string): Promise<NormalizedResponseDTO<boolean>> {
+    public async updateSetting(@Param('key') key: string, @Body() data: string): Promise<NormalizedResponseDTO<KysoSetting>> {
         const updated: KysoSetting = await this.kysoSettingsService.updateValue(KysoSettingsEnum[key], (data as any).value)
         return new NormalizedResponseDTO(updated)
     }
