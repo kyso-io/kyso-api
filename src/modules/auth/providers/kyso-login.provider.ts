@@ -4,19 +4,13 @@ import { JwtService } from '@nestjs/jwt'
 import { Autowired } from '../../../decorators/autowired'
 import { UsersService } from '../../users/users.service'
 import { AuthService, TOKEN_EXPIRATION_TIME } from '../auth.service'
-import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
-import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
 @Injectable()
 export class KysoLoginProvider {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
-    constructor(
-        private readonly platformRoleProvider: PlatformRoleMongoProvider,
-        private readonly jwtService: JwtService,
-        private readonly userRoleProvider: UserRoleMongoProvider,
-    ) {}
+    constructor(private readonly jwtService: JwtService) {}
 
     async login(password: string, username?: string): Promise<string> {
         // Get user from database
@@ -25,7 +19,7 @@ export class KysoLoginProvider {
         })
 
         if (!user) {
-            throw new UnauthorizedException('Unauthorized')
+            throw new UnauthorizedException('User not registered')
         }
 
         const isRightPassword = await AuthService.isPasswordCorrect(password, user.hashed_password)
@@ -60,7 +54,7 @@ export class KysoLoginProvider {
 
             return token
         } else {
-            throw new UnauthorizedException('Unauthorized')
+            throw new UnauthorizedException('Incorrect username or password')
         }
     }
 
@@ -71,14 +65,14 @@ export class KysoLoginProvider {
         })
 
         if (!user) {
-            throw new UnauthorizedException('Unauthorized')
+            throw new UnauthorizedException('User not registered')
         }
 
         // Search for provided access_token for that user
         const dbAccessToken: KysoUserAccessToken = await this.usersService.searchAccessToken(user.id, access_token)
 
         if (!dbAccessToken) {
-            throw new UnauthorizedException('Unauthorized')
+            throw new UnauthorizedException('Incorrect username or token')
         } else {
             const payload: Token = new Token(
                 user.id.toString(),

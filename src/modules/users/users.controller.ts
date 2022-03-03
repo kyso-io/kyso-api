@@ -3,6 +3,7 @@ import {
     CreateUserRequestDTO,
     HEADER_X_KYSO_ORGANIZATION,
     HEADER_X_KYSO_TEAM,
+    KysoPermissions,
     KysoUserAccessToken,
     NormalizedResponseDTO,
     Token,
@@ -88,10 +89,7 @@ export class UsersController extends GenericController<User> {
         description: 'Sort by creation_date. Values allowed: asc or desc. Default. <b>desc</b>',
     })
     @Permission([UserPermissionsEnum.READ])
-    async getUsers(
-        @Query('user_id') userId: string[],
-        @Req() req,
-    ): Promise<NormalizedResponseDTO<UserDTO[]>> {
+    async getUsers(@Query('user_id') userId: string[], @Req() req): Promise<NormalizedResponseDTO<UserDTO[]>> {
         const query = QueryParser.toQueryObject(req.url)
         if (userId && userId.length > 0) {
             const mapped = userId.map((x) => {
@@ -102,6 +100,76 @@ export class UsersController extends GenericController<User> {
         }
         const result: User[] = await this.usersService.getUsers(query)
         return new NormalizedResponseDTO(UserDTO.fromUserArray(result))
+    }
+
+    @Get('/access-tokens')
+    @ApiOperation({
+        summary: `Get access tokens`,
+        description: `Allows fetching access tokens of an user`,
+    })
+    @ApiResponse({ status: 200, description: `Access tokens`, type: KysoUserAccessToken, isArray: true })
+    @Permission([UserPermissionsEnum.READ])
+    async getAccessTokens(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+        const tokens: KysoUserAccessToken[] = await this.usersService.getAccessTokens(token.id)
+        return new NormalizedResponseDTO(tokens)
+    }
+
+    @Post('/access-token')
+    @ApiOperation({
+        summary: `Creates an access token for the specified user`,
+        description: `Creates an access token for the specified user`,
+    })
+    @ApiParam({
+        name: 'userId',
+        required: true,
+        description: `id of the user to create an access token`,
+        schema: { type: 'string' },
+    })
+    @ApiResponse({ status: 200, description: `Access Token created successfully`, type: KysoUserAccessToken })
+    @Permission([UserPermissionsEnum.EDIT])
+    async createUserAccessToken(
+        @CurrentToken() token: Token,
+        @Body() accessTokenConfiguration: CreateKysoAccessTokenDto,
+    ): Promise<NormalizedResponseDTO<KysoUserAccessToken>> {
+        // TODO: get the right permissions for the user
+        const permissions: KysoPermissions[] = []
+        const response: KysoUserAccessToken = await this.usersService.createKysoAccessToken(
+            token.id,
+            accessTokenConfiguration.name,
+            permissions,
+            accessTokenConfiguration.expiration_date,
+        )
+        return new NormalizedResponseDTO(response)
+    }
+
+    @Delete('/access-token')
+    @ApiOperation({
+        summary: `Deletes all access tokens`,
+        description: `Deletes all access tokens`,
+    })
+    @ApiResponse({ status: 200, description: `Access Tokens deleted successfully`, type: KysoUserAccessToken, isArray: true })
+    @Permission([UserPermissionsEnum.EDIT])
+    async deleteAllUserAccessToken(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+        const result: KysoUserAccessToken[] = await this.usersService.deleteAllUserAccessToken(token.id)
+        return new NormalizedResponseDTO(result)
+    }
+
+    @Delete('/access-token/:accessTokenId')
+    @ApiOperation({
+        summary: `Deletes an access token`,
+        description: `Deletes an access token`,
+    })
+    @ApiParam({
+        name: 'accessTokenId',
+        required: true,
+        description: `id of the access token to delete`,
+        schema: { type: 'string' },
+    })
+    @ApiResponse({ status: 200, description: `Access Token deleted successfully`, type: KysoUserAccessToken })
+    @Permission([UserPermissionsEnum.EDIT])
+    async deleteUserAccessToken(@Param('accessTokenId') accessTokenId: string): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+        const result: KysoUserAccessToken = await this.usersService.deleteKysoAccessToken(accessTokenId)
+        return new NormalizedResponseDTO(result)
     }
 
     @Get('/:userId')
@@ -213,28 +281,6 @@ export class UsersController extends GenericController<User> {
     @Permission([UserPermissionsEnum.EDIT])
     async addAccount(@Param('userId') userId: string, @Body() userAccount: UserAccount): Promise<boolean> {
         return this.usersService.addAccount(userId, userAccount)
-    }
-
-    @Post('/:userId/access_token')
-    @ApiOperation({
-        summary: `Creates an access token for the specified user`,
-        description: `Creates an access token for the specified user`,
-    })
-    @ApiParam({
-        name: 'userId',
-        required: true,
-        description: `id of the user to create an access token`,
-        schema: { type: 'string' },
-    })
-    @ApiResponse({ status: 200, description: `Access Token created successfully`, type: KysoUserAccessToken })
-    @Permission([UserPermissionsEnum.EDIT])
-    async createUserAccessToken(@Param('userId') userId: string, @Body() accessTokenConfiguration: CreateKysoAccessTokenDto): Promise<KysoUserAccessToken> {
-        return this.usersService.createKysoAccessToken(
-            accessTokenConfiguration.user_id,
-            accessTokenConfiguration.name,
-            accessTokenConfiguration.scope,
-            accessTokenConfiguration.expiration_date,
-        )
     }
 
     @Delete('/:userId/accounts/:provider/:accountId')

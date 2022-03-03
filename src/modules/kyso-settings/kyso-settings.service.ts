@@ -26,23 +26,19 @@ export class KysoSettingsService extends AutowiredService {
         return this.provider.read({})
     }
 
-    public async getValue(key: KysoSettingsEnum) {
-        const result: KysoSetting[] = await this.provider.read({filter: {key: key}})
-        
-        if(result.length === 1) {
+    public async getValue(key: KysoSettingsEnum): Promise<string> {
+        const result: KysoSetting[] = await this.provider.read({ filter: { key: key } })
+        if (result.length === 1) {
             return result[0].value
         } else {
             return null
         }
     }
 
-    public async updateValue(key: KysoSettingsEnum, value: string) {
+    public async updateValue(key: KysoSettingsEnum, value: string): Promise<KysoSetting> {
         const dataFields: any = {
-            value: value
+            value: value,
         }
-        
-        const updated: KysoSetting = await this.provider.update({ key: key }, { $set: dataFields })
-
-        return updated;
+        return this.provider.update({ key: key }, { $set: dataFields })
     }
 }

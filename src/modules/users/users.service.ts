@@ -295,9 +295,41 @@ export class UsersService extends AutowiredService {
         return this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { avatar_url: null } })
     }
 
+    public async getAccessTokens(userId: string): Promise<KysoUserAccessToken[]> {
+        return this.kysoAccessTokenProvider.read({
+            filter: { user_id: userId },
+        })
+    }
+
     public async createKysoAccessToken(user_id: string, name: string, scope: KysoPermissions[], expiration_date?: Date): Promise<KysoUserAccessToken> {
         const accessToken = new KysoUserAccessToken(user_id, name, KysoUserAccessTokenStatus.ACTIVE, expiration_date, null, scope, 0, uuidv4())
-        return this.kysoAccessTokenProvider.create(accessToken)
+        const newKysoUserAccessToken: KysoUserAccessToken = await this.kysoAccessTokenProvider.create(accessToken)
+        delete newKysoUserAccessToken.access_token
+        return newKysoUserAccessToken
+    }
+
+    public async deleteAllUserAccessToken(userId: string): Promise<KysoUserAccessToken[]> {
+        const accessTokens: KysoUserAccessToken[] = await this.kysoAccessTokenProvider.read({
+            filter: { user_id: userId },
+        })
+        for (const accessToken of accessTokens) {
+            delete accessToken.access_token
+        }
+        await this.kysoAccessTokenProvider.deleteMany({ user_id: userId })
+        return accessTokens
+    }
+
+    public async deleteKysoAccessToken(id: string): Promise<KysoUserAccessToken> {
+        const accessTokens: KysoUserAccessToken[] = await this.kysoAccessTokenProvider.read({
+            filter: { _id: this.provider.toObjectId(id) },
+        })
+        if (accessTokens.length === 0) {
+            throw new PreconditionFailedException('Access token not found')
+        }
+        const kysoAccessToken: KysoUserAccessToken = accessTokens[0]
+        delete kysoAccessToken.access_token
+        await this.kysoAccessTokenProvider.deleteOne({ _id: this.provider.toObjectId(id) })
+        return kysoAccessToken
     }
 
     public async searchAccessToken(user_id: string, access_token: string): Promise<KysoUserAccessToken> {
