@@ -720,8 +720,13 @@ export class ReportsController extends GenericController<Report> {
         @Param('reportId') reportId: string,
         @Param('branch') branch: string,
         @Query('path') path: string,
+        @Query('version') versionStr: string,
     ): Promise<NormalizedResponseDTO<GithubFileHash | GithubFileHash[]>> {
-        const hash: GithubFileHash | GithubFileHash[] = await this.reportsService.getReportTree(token.id, reportId, branch, path)
+        let version: number | null
+        if (versionStr && !isNaN(Number(versionStr))) {
+            version = parseInt(versionStr, 10)
+        }
+        const hash: GithubFileHash | GithubFileHash[] = await this.reportsService.getReportTree(token.id, reportId, branch, path, version)
         return new NormalizedResponseDTO(hash)
     }
 

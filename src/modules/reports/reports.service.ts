@@ -352,7 +352,7 @@ export class ReportsService extends AutowiredService {
         }
     }
 
-    public async getReportTree(userId: string, reportId: string, branch: string, path: string): Promise<GithubFileHash | GithubFileHash[]> {
+    public async getReportTree(userId: string, reportId: string, branch: string, path: string, version: number | null): Promise<GithubFileHash | GithubFileHash[]> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
@@ -362,7 +362,7 @@ export class ReportsService extends AutowiredService {
         switch (report.provider) {
             case RepositoryProvider.KYSO:
             case RepositoryProvider.KYSO_CLI:
-                return this.getKysoReportTree(report.id, path)
+                return this.getKysoReportTree(report.id, path, version)
             case RepositoryProvider.GITHUB:
                 userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
                 if (!userAccount) {
@@ -1516,14 +1516,17 @@ export class ReportsService extends AutowiredService {
         response.send(zip.toBuffer())
     }
 
-    private async getKysoReportTree(reportId: string, path: string): Promise<GithubFileHash[]> {
-        let reportFiles: File[] = await this.filesMongoProvider.read({
+    private async getKysoReportTree(reportId: string, path: string, version: number | null): Promise<GithubFileHash[]> {
+        const query: any = {
             filter: {
                 report_id: reportId,
             },
             sort: { version: 1 },
-        })
-
+        }
+        if (version) {
+            query.filter.version = version
+        }
+        let reportFiles: File[] = await this.filesMongoProvider.read(query)
         if (reportFiles.length === 0) {
             return []
         }
