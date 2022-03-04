@@ -308,15 +308,12 @@ export class UsersService extends AutowiredService {
         return newKysoUserAccessToken
     }
 
-    public async deleteAllUserAccessToken(userId: string): Promise<KysoUserAccessToken[]> {
-        const accessTokens: KysoUserAccessToken[] = await this.kysoAccessTokenProvider.read({
-            filter: { user_id: userId },
-        })
-        for (const accessToken of accessTokens) {
-            delete accessToken.access_token
-        }
-        await this.kysoAccessTokenProvider.deleteMany({ user_id: userId })
-        return accessTokens
+    public async revokeAllUserAccessToken(userId: string): Promise<KysoUserAccessToken[]> {
+        await this.kysoAccessTokenProvider.updateMany(
+            { user_id: userId },
+            { $set: { status: KysoUserAccessTokenStatus.REVOKED } },
+        )
+        return this.getAccessTokens(userId)
     }
 
     public async deleteKysoAccessToken(id: string): Promise<KysoUserAccessToken> {

@@ -142,15 +142,15 @@ export class UsersController extends GenericController<User> {
         return new NormalizedResponseDTO(response)
     }
 
-    @Delete('/access-token')
+    @Patch('/access-token/revoke-all')
     @ApiOperation({
-        summary: `Deletes all access tokens`,
-        description: `Deletes all access tokens`,
+        summary: `Revoke all user access tokens`,
+        description: `Revoke all user access tokens`,
     })
     @ApiResponse({ status: 200, description: `Access Tokens deleted successfully`, type: KysoUserAccessToken, isArray: true })
     @Permission([UserPermissionsEnum.EDIT])
-    async deleteAllUserAccessToken(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
-        const result: KysoUserAccessToken[] = await this.usersService.deleteAllUserAccessToken(token.id)
+    async revokeAllUserAccessToken(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+        const result: KysoUserAccessToken[] = await this.usersService.revokeAllUserAccessToken(token.id)
         return new NormalizedResponseDTO(result)
     }
 

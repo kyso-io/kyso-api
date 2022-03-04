@@ -188,6 +188,23 @@ export abstract class MongoProvider<T> {
         return parseForeignKeys(obj.value)
     }
 
+    public async updateMany(
+        filterQuery,
+        updateQuery,
+    ): Promise<{
+        acknowledged: boolean
+        modifiedCount: number
+        upsertedId: string | string[]
+        upsertedCount: number
+        matchedCount: number
+    }> {
+        if (!updateQuery.$currentDate) {
+            updateQuery.$currentDate = {}
+        }
+        updateQuery.$currentDate.updated_at = { $type: 'date' }
+        return this.getCollection().updateMany(filterQuery, updateQuery, { returnDocument: 'after' })
+    }
+
     public async deleteOne(filter: any): Promise<void> {
         await this.getCollection().deleteOne(filter)
     }
