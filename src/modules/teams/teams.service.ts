@@ -22,6 +22,7 @@ import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
 import slugify from '../../helpers/slugify'
 import { PlatformRole } from '../../security/platform-roles'
+import { CommentsService } from '../comments/comments.service'
 import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
@@ -55,6 +56,9 @@ export class TeamsService extends AutowiredService {
 
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
+
+    @Autowired({ typeName: 'CommentsService' })
+    private commentsService: CommentsService
 
     constructor(private readonly provider: TeamsMongoProvider, private readonly teamMemberProvider: TeamMemberMongoProvider) {
         super()
@@ -526,6 +530,15 @@ export class TeamsService extends AutowiredService {
         const team: Team = await this.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
+        }
+        // Delete all reports
+        const teamReports: Report[] = await this.reportsService.getReports({
+            filter: {
+                team_id: team.id,
+            },
+        })
+        for (const report of teamReports) {
+            await this.reportsService.deleteReport(report.id)
         }
         // Delete all members of this team
         await this.teamMemberProvider.deleteMany({ team_id: team.id })
