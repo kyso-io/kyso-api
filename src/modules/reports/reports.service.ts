@@ -26,7 +26,7 @@ import {
     TokenPermissions,
     UpdateReportRequestDTO,
     User,
-    UserAccount
+    UserAccount,
 } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import { MailerService } from '@nestjs-modules/mailer'
@@ -352,7 +352,13 @@ export class ReportsService extends AutowiredService {
         }
     }
 
-    public async getReportTree(userId: string, reportId: string, branch: string, path: string, version: number | null): Promise<GithubFileHash | GithubFileHash[]> {
+    public async getReportTree(
+        userId: string,
+        reportId: string,
+        branch: string,
+        path: string,
+        version: number | null,
+    ): Promise<GithubFileHash | GithubFileHash[]> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
@@ -749,12 +755,15 @@ export class ReportsService extends AutowiredService {
                         ReportsService.name,
                     )
                 }
-                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, {
-                    $set: {
-                        status: ReportStatus.Imported,
-                        main_file: kysoConfigFile.main || report.main_file,
-                    }
-                })
+                report = await this.provider.update(
+                    { _id: this.provider.toObjectId(report.id) },
+                    {
+                        $set: {
+                            status: ReportStatus.Imported,
+                            main_file: kysoConfigFile.main || report.main_file,
+                        },
+                    },
+                )
                 Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
             })
         } else {
@@ -1342,7 +1351,7 @@ export class ReportsService extends AutowiredService {
     private async createGithubWebhook(octokit: Octokit, username: string, repositoryName: string) {
         try {
             const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL)
-            
+
             let hookUrl = `${baseUrl}/v1/hooks/github`
             if (process.env.NODE_ENV === 'development') {
                 hookUrl = 'https://smee.io/kyso-github-hook-test'
@@ -1484,7 +1493,7 @@ export class ReportsService extends AutowiredService {
         reportFiles = Array.from(map.values())
 
         const s3Client: S3Client = await this.getS3Client()
-        
+
         const zip: AdmZip = new AdmZip()
         Logger.log(`Report '${report.sluglified_name}': downloading ${reportFiles.length} files from S3...`, ReportsService.name)
         for (const reportFile of reportFiles) {
@@ -1778,5 +1787,26 @@ export class ReportsService extends AutowiredService {
             }
             return organizationResourcePermissions.permissions.includes(ReportPermissionsEnum.CREATE)
         }
+    }
+
+    public async getReportByName(reportName: string, teamName: string): Promise<Report> {
+        const team: Team = await this.teamsService.getTeam({
+            filter: {
+                sluglified_name: teamName,
+            },
+        })
+        if (!team) {
+            throw new PreconditionFailedException('Team not found')
+        }
+        const report: Report = await this.getReport({
+            filter: {
+                sluglified_name: reportName,
+                team_id: team.id,
+            },
+        })
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        return report
     }
 }

@@ -231,6 +231,40 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
+    @Get('/:reportName/:teamName')
+    @ApiOperation({
+        summary: `Get a report`,
+        description: `Allows fetching content of a specific report passing its name and team name`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Report matching name and team name`,
+        type: ReportDTO,
+    })
+    @ApiParam({
+        name: 'reportName',
+        required: true,
+        description: 'Name of the report to fetch',
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'teamName',
+        required: true,
+        description: 'Name of the team to fetch',
+        schema: { type: 'string' },
+    })
+    // @Permission([ReportPermissionsEnum.READ])
+    async getReportByName(
+        @CurrentToken() token: Token,
+        @Param('reportName') reportName: string,
+        @Param('teamName') teamName: string,
+    ): Promise<NormalizedResponseDTO<ReportDTO>> {
+        const report: Report = await this.reportsService.getReportByName(reportName, teamName)
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
     @Get('/:reportName/:teamId/exists')
     @ApiOperation({
         summary: `Check if report exists`,
