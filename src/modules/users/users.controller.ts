@@ -108,7 +108,7 @@ export class UsersController extends GenericController<User> {
         description: `Allows fetching access tokens of an user`,
     })
     @ApiResponse({ status: 200, description: `Access tokens`, type: KysoUserAccessToken, isArray: true })
-    @Permission([UserPermissionsEnum.READ])
+    // @Permission([UserPermissionsEnum.READ])
     async getAccessTokens(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
         const tokens: KysoUserAccessToken[] = await this.usersService.getAccessTokens(token.id)
         return new NormalizedResponseDTO(tokens)
@@ -126,7 +126,7 @@ export class UsersController extends GenericController<User> {
         schema: { type: 'string' },
     })
     @ApiResponse({ status: 200, description: `Access Token created successfully`, type: KysoUserAccessToken })
-    @Permission([UserPermissionsEnum.EDIT])
+    // @Permission([UserPermissionsEnum.EDIT])
     async createUserAccessToken(
         @CurrentToken() token: Token,
         @Body() accessTokenConfiguration: CreateKysoAccessTokenDto,
@@ -148,7 +148,7 @@ export class UsersController extends GenericController<User> {
         description: `Revoke all user access tokens`,
     })
     @ApiResponse({ status: 200, description: `Access Tokens deleted successfully`, type: KysoUserAccessToken, isArray: true })
-    @Permission([UserPermissionsEnum.EDIT])
+    // @Permission([UserPermissionsEnum.EDIT])
     async revokeAllUserAccessToken(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
         const result: KysoUserAccessToken[] = await this.usersService.revokeAllUserAccessToken(token.id)
         return new NormalizedResponseDTO(result)
@@ -166,9 +166,9 @@ export class UsersController extends GenericController<User> {
         schema: { type: 'string' },
     })
     @ApiResponse({ status: 200, description: `Access Token deleted successfully`, type: KysoUserAccessToken })
-    @Permission([UserPermissionsEnum.EDIT])
-    async deleteUserAccessToken(@Param('accessTokenId') accessTokenId: string): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
-        const result: KysoUserAccessToken = await this.usersService.deleteKysoAccessToken(accessTokenId)
+    // @Permission([UserPermissionsEnum.EDIT])
+    async deleteUserAccessToken(@CurrentToken() token: Token, @Param('accessTokenId') accessTokenId: string): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+        const result: KysoUserAccessToken = await this.usersService.deleteKysoAccessToken(token.id, accessTokenId)
         return new NormalizedResponseDTO(result)
     }
 

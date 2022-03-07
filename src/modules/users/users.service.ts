@@ -304,7 +304,6 @@ export class UsersService extends AutowiredService {
     public async createKysoAccessToken(user_id: string, name: string, scope: KysoPermissions[], expiration_date?: Date): Promise<KysoUserAccessToken> {
         const accessToken = new KysoUserAccessToken(user_id, name, KysoUserAccessTokenStatus.ACTIVE, expiration_date, null, scope, 0, uuidv4())
         const newKysoUserAccessToken: KysoUserAccessToken = await this.kysoAccessTokenProvider.create(accessToken)
-        delete newKysoUserAccessToken.access_token
         return newKysoUserAccessToken
     }
 
@@ -316,14 +315,17 @@ export class UsersService extends AutowiredService {
         return this.getAccessTokens(userId)
     }
 
-    public async deleteKysoAccessToken(id: string): Promise<KysoUserAccessToken> {
+    public async deleteKysoAccessToken(userId: string, id: string): Promise<KysoUserAccessToken> {
         const accessTokens: KysoUserAccessToken[] = await this.kysoAccessTokenProvider.read({
             filter: { _id: this.provider.toObjectId(id) },
         })
         if (accessTokens.length === 0) {
-            throw new PreconditionFailedException('Invalid credentials')
+            throw new PreconditionFailedException('Access token not found')
         }
         const kysoAccessToken: KysoUserAccessToken = accessTokens[0]
+        if (kysoAccessToken.user_id !== userId) {
+            throw new PreconditionFailedException('Invalid credentials')
+        }
         delete kysoAccessToken.access_token
         await this.kysoAccessTokenProvider.deleteOne({ _id: this.provider.toObjectId(id) })
         return kysoAccessToken
