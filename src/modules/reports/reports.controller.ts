@@ -521,7 +521,8 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to pin',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.EDIT])
+    // No permission required, any user can vote any report
+    // @Permission([ReportPermissionsEnum.EDIT])
     async toggleUserStar(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.toggleUserStar(token.id, reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
