@@ -350,6 +350,49 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
+    @Get('/embedded/:reportId/file/:hash')
+    @ApiOperation({
+        summary: `Get content of a file`,
+        description: `By passing the hash of a file, get its raw content directly from the source.`,
+    })
+    @ApiParam({
+        name: 'reportId',
+        required: true,
+        description: 'Name of the report to fetch',
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'hash',
+        required: true,
+        description: 'Hash of the file to access',
+        schema: { type: 'string' },
+    })
+    @Public()
+    async getEmbeddedReportFileContent(
+        @Param('reportId') reportId: string,
+        @Param('hash') hash: string,
+        @Query('path') path: string,
+    ): Promise<Buffer> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('The specified report could not be found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (!team) {
+            throw new PreconditionFailedException('Team not found')
+        }
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            throw new PreconditionFailedException(`Report is not public`)
+        }
+        if (!Validators.isValidSha(hash)) {
+            throw new PreconditionFailedException({
+                message: 'Hash is not a valid sha. Must have 40 hexadecimal characters.',
+            })
+        }
+        // We use the identifier of the user who created the report
+        return this.reportsService.getReportFileContent(report.user_id, reportId, hash, path)
+    }
+
     @Post('/kyso')
     @ApiOperation({
         summary: `Create a new report sending the files`,
