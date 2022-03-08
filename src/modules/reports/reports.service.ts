@@ -30,7 +30,7 @@ import {
 } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import { MailerService } from '@nestjs-modules/mailer'
-import { Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ForbiddenException, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Octokit } from '@octokit/rest'
 import * as AdmZip from 'adm-zip'
 import axios, { AxiosResponse } from 'axios'
@@ -826,6 +826,51 @@ export class ReportsService extends AutowiredService {
 
         await this.checkReportTags(report.id, createUIReportDTO.tags)
 
+        return report
+    }
+
+    public async updateMainFileReport(userId: string, reportId: string, file: any): Promise<Report> {
+        const report: Report = await this.getReport({
+            filter: {
+                _id: this.provider.toObjectId(reportId),
+            },
+        })
+        if (!report) {
+            throw new NotFoundException(`Report with id '${reportId}' not found`)
+        }
+        const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(userId)
+        const team: Team | undefined = teams.find((team: Team) => team.id === report.team_id)
+        if (!team) {
+            throw new ForbiddenException(`User '${userId}' is not allowed to update report '${report.id}'`)
+        }
+        const files: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id, name: report.main_file } })
+        if (files.length === 0) {
+            throw new NotFoundException(`File with name '${report.main_file}' not found`)
+        }
+        let reportFile: File = files[0]
+        const zip = new AdmZip()
+        const originalName: string = reportFile.name
+        zip.addFile(originalName, file.buffer)
+        const localFilePath = `/tmp/${report.id}_${originalName}`
+        writeFileSync(localFilePath, file.buffer)
+        const sha: string = sha256File(localFilePath)
+        unlinkSync(localFilePath)
+        const size: number = file.size
+        const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
+        reportFile = new File(report.id, reportFile.name, path_s3, size, sha, reportFile.version + 1)
+        Logger.log(`Report '${report.sluglified_name}': file ${reportFile.name} new version ${reportFile.version}`, ReportsService.name)
+        reportFile = await this.filesMongoProvider.create(reportFile)
+        Logger.log(`Report '${report.sluglified_name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
+        const s3Client: S3Client = await this.getS3Client()
+        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+        await s3Client.send(
+            new PutObjectCommand({
+                Bucket: s3Bucket,
+                Key: path_s3,
+                Body: zip.toBuffer(),
+            }),
+        )
+        Logger.log(`Report '${report.sluglified_name}': uploaded file '${report.sluglified_name}' to S3 with key '${reportFile.path_s3}'`, ReportsService.name)
         return report
     }
 

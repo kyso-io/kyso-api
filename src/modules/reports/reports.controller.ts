@@ -231,38 +231,39 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
-    @Get('/:reportName/:teamName')
+    @Get('/:reportId/comments')
     @ApiOperation({
-        summary: `Get a report`,
-        description: `Allows fetching content of a specific report passing its name and team name`,
+        summary: `Get comments of a report`,
+        description: `By passing in the appropriate options you can see all the comments of a report`,
     })
     @ApiNormalizedResponse({
         status: 200,
-        description: `Report matching name and team name`,
-        type: ReportDTO,
+        description: `Comments of the specified report`,
+        type: Comment,
+        isArray: true,
     })
     @ApiParam({
-        name: 'reportName',
+        name: 'reportId',
         required: true,
-        description: 'Name of the report to fetch',
+        description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @ApiParam({
-        name: 'teamName',
-        required: true,
-        description: 'Name of the team to fetch',
-        schema: { type: 'string' },
-    })
-    // @Permission([ReportPermissionsEnum.READ])
-    async getReportByName(
-        @CurrentToken() token: Token,
-        @Param('reportName') reportName: string,
-        @Param('teamName') teamName: string,
-    ): Promise<NormalizedResponseDTO<ReportDTO>> {
-        const report: Report = await this.reportsService.getReportByName(reportName, teamName)
-        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
-        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        return new NormalizedResponseDTO(reportDto, relations)
+    @Permission([ReportPermissionsEnum.READ])
+    async getComments(@Param('reportId') reportId: string, @Req() req): Promise<NormalizedResponseDTO<Comment[]>> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const query = QueryParser.toQueryObject(req.url)
+        if (!query.sort) {
+            query.sort = { created_at: -1 }
+        }
+        const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: reportId }, sort: query.sort })
+        const relations = await this.relationsService.getRelations(comments, 'comment')
+        return new NormalizedResponseDTO(
+            comments.filter((comment: Comment) => !comment.comment_id),
+            relations,
+        )
     }
 
     @Get('/:reportName/:teamId/exists')
@@ -392,6 +393,29 @@ export class ReportsController extends GenericController<Report> {
     ): Promise<NormalizedResponseDTO<Report>> {
         Logger.log(`Called createUIReport`)
         const report: Report = await this.reportsService.createUIReport(token.id, createUIReportDTO, files)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
+    @Post('/ui/main-file/:reportId')
+    @ApiOperation({
+        summary: `Update the main file of the report`,
+        description: `By passing the appropiate parameters you can update the main file of report`,
+    })
+    @ApiResponse({
+        status: 201,
+        description: `Update the main file of the report`,
+        type: ReportDTO,
+    })
+    @UseInterceptors(FileInterceptor('file'))
+    @Permission([ReportPermissionsEnum.EDIT])
+    async updateMainFileReport(
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @UploadedFile() file: any,
+    ): Promise<NormalizedResponseDTO<Report>> {
+        const report: Report = await this.reportsService.updateMainFileReport(token.id, reportId, file)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
@@ -630,44 +654,21 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getReportVersions(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<{ version: number; created_at: Date; num_files: number }>> {
-        const versions: any[] = await this.reportsService.getReportVersions(reportId)
-        return new NormalizedResponseDTO(versions)
-    }
-
-    @Get('/:reportId/comments')
-    @ApiOperation({
-        summary: `Get comments of a report`,
-        description: `By passing in the appropriate options you can see all the comments of a report`,
-    })
-    @ApiNormalizedResponse({
-        status: 200,
-        description: `Comments of the specified report`,
-        type: Comment,
-        isArray: true,
-    })
-    @ApiParam({
-        name: 'reportId',
-        required: true,
-        description: 'Id of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @Permission([ReportPermissionsEnum.READ])
-    async getComments(@Param('reportId') reportId: string, @Req() req): Promise<NormalizedResponseDTO<Comment[]>> {
-        const report: Report = await this.reportsService.getReportById(reportId)
-        if (!report) {
-            throw new PreconditionFailedException('Report not found')
-        }
+    async getReportVersions(
+        @Param('reportId') reportId: string,
+        @Req() req,
+    ): Promise<NormalizedResponseDTO<{ version: number; created_at: Date; num_files: number }>> {
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) {
             query.sort = { created_at: -1 }
         }
-        const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: reportId }, sort: query.sort })
-        const relations = await this.relationsService.getRelations(comments, 'comment')
-        return new NormalizedResponseDTO(
-            comments.filter((comment: Comment) => !comment.comment_id),
-            relations,
-        )
+        const versions: any[] = await this.reportsService.getReportVersions(reportId)
+        if (query.sort.created_at === 1) {
+            versions.sort((a, b) => a.created_at.getTime() - b.created_at.getTime())
+        } else {
+            versions.sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
+        }
+        return new NormalizedResponseDTO(versions)
     }
 
     @Get('/:reportId/branches')
@@ -851,6 +852,40 @@ export class ReportsController extends GenericController<Report> {
         const report: Report = await this.reportsService.deletePreviewPicture(reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
+    @Get('/:reportName/:teamName')
+    @ApiOperation({
+        summary: `Get a report`,
+        description: `Allows fetching content of a specific report passing its name and team name`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Report matching name and team name`,
+        type: ReportDTO,
+    })
+    @ApiParam({
+        name: 'reportName',
+        required: true,
+        description: 'Name of the report to fetch',
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'teamName',
+        required: true,
+        description: 'Name of the team to fetch',
+        schema: { type: 'string' },
+    })
+    // @Permission([ReportPermissionsEnum.READ])
+    async getReportByName(
+        @CurrentToken() token: Token,
+        @Param('reportName') reportName: string,
+        @Param('teamName') teamName: string,
+    ): Promise<NormalizedResponseDTO<ReportDTO>> {
+        const report: Report = await this.reportsService.getReportByName(reportName, teamName)
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         return new NormalizedResponseDTO(reportDto, relations)
     }
 }
