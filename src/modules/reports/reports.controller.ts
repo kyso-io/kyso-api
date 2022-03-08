@@ -663,6 +663,31 @@ export class ReportsController extends GenericController<Report> {
         this.reportsService.pullReport(token, slugify(reportName), teamName, response)
     }
 
+    @Get('/:reportId/download')
+    @ApiOperation({
+        summary: `Download a report from S3`,
+        description: `Download a report from S3. This will download all files from S3 in zip format.`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Zip file containing all files of the report`,
+        type: Buffer,
+    })
+    @ApiParam({
+        name: 'reportId',
+        required: true,
+        description: 'Id of the report to pull',
+        schema: { type: 'string' },
+    })
+    @Permission([ReportPermissionsEnum.READ])
+    async downloadReport(
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @Res() response: any,
+    ): Promise<any> {
+        this.reportsService.downloadReport(token, reportId, response)
+    }
+
     @Get('/:reportId/files')
     @ApiOperation({
         summary: `Get all files of a report`,

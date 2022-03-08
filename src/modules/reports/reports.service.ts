@@ -1499,7 +1499,6 @@ export class ReportsService extends AutowiredService {
 
     public async pullReport(token: Token, reportName: string, teamName: string, response: any): Promise<void> {
         let isGlobalAdmin = false
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
         if (token.permissions.global?.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)) {
             isGlobalAdmin = true
         }
@@ -1524,6 +1523,37 @@ export class ReportsService extends AutowiredService {
         }
         const report: Report = reports[0]
 
+        this.returnZippedReport(report, response)
+    }
+
+    public async downloadReport(token: Token, reportId: string, response: any): Promise<void> {
+        let isGlobalAdmin = false
+        if (token.permissions.global?.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)) {
+            isGlobalAdmin = true
+        }
+
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            response.status(404).send(`Report '${reportId}' not found`)
+            return
+        }
+
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (!team) {
+            response.status(404).send(`Team '${report.team_id}' not found`)
+            return
+        }
+
+        const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+        const index: number = teams.findIndex((t: Team) => t.id === team.id)
+        if (!isGlobalAdmin && index === -1) {
+            response.status(401).send(`User does not have permission to download report ${report.sluglified_name}`)
+            return
+        }
+        this.returnZippedReport(report, response)
+    }
+
+    private async returnZippedReport(report: Report, response: any): Promise<void> {
         let reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id } })
         // Download only the last version of each file
         const map: Map<string, File> = new Map<string, File>()
@@ -1538,6 +1568,7 @@ export class ReportsService extends AutowiredService {
         reportFiles = Array.from(map.values())
 
         const s3Client: S3Client = await this.getS3Client()
+        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
 
         const zip: AdmZip = new AdmZip()
         Logger.log(`Report '${report.sluglified_name}': downloading ${reportFiles.length} files from S3...`, ReportsService.name)
