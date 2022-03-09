@@ -1698,8 +1698,6 @@ export class ReportsService extends AutowiredService {
     }
 
     private async getKysoFileContent(reportId: string, hash: string): Promise<Buffer> {
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-
         const files: File[] = await this.filesMongoProvider.read({
             filter: {
                 report_id: reportId,
@@ -1709,26 +1707,31 @@ export class ReportsService extends AutowiredService {
         if (files.length === 0) {
             return null
         }
-        const reportFile: File = files[0]
-
-        const s3Client: S3Client = await this.getS3Client()
-        const getObjectCommand: GetObjectCommand = new GetObjectCommand({
-            Bucket: s3Bucket,
-            Key: reportFile.path_s3,
-        })
-        const result = await s3Client.send(getObjectCommand)
-        if (!result || !result.hasOwnProperty('Body') || result.Body == null) {
-            Logger.error(`Error downloading file '${reportFile.name}' from S3`, ReportsService.name)
+        const reportFile: File = files[files.length - 1]
+        try {
+            const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+            const getObjectCommand: GetObjectCommand = new GetObjectCommand({
+                Bucket: s3Bucket,
+                Key: reportFile.path_s3,
+            })
+            const s3Client: S3Client = await this.getS3Client()
+            const result = await s3Client.send(getObjectCommand)
+            if (!result || !result.hasOwnProperty('Body') || result.Body == null) {
+                Logger.error(`Error downloading file '${reportFile.name}' from S3`, ReportsService.name)
+                return null
+            }
+            // return this.streamToBuffer(result.Body as Readable)
+            const buffer: Buffer = await this.streamToBuffer(result.Body as Readable)
+            const reportFileZip: AdmZip = new AdmZip(buffer)
+            const zipEntries: AdmZip.IZipEntry[] = reportFileZip.getEntries()
+            if (zipEntries.length === 0) {
+                return null
+            }
+            return zipEntries[0].getData()
+        } catch (e) {
+            Logger.error(`An error occurred while downloading file '${reportFile.name}' from S3`, e, ReportsService.name)
             return null
         }
-        // return this.streamToBuffer(result.Body as Readable)
-        const buffer: Buffer = await this.streamToBuffer(result.Body as Readable)
-        const reportFileZip: AdmZip = new AdmZip(buffer)
-        const zipEntries: AdmZip.IZipEntry[] = reportFileZip.getEntries()
-        if (zipEntries.length === 0) {
-            return null
-        }
-        return zipEntries[0].getData()
     }
 
     public async setPreviewPicture(reportId: string, file: any): Promise<Report> {
