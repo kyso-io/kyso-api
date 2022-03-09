@@ -3,12 +3,11 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { OAuth2Client } from 'google-auth-library'
 import { ObjectId } from 'mongodb'
+import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../../decorators/autowired'
 import { KysoSettingsEnum } from '../../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 import { UsersService } from '../../users/users.service'
-import { PlatformRoleMongoProvider } from './mongo-platform-role.provider'
-import { UserRoleMongoProvider } from './mongo-user-role.provider'
 
 export const TOKEN_EXPIRATION_TIME = '8h'
 @Injectable()
@@ -19,30 +18,21 @@ export class GoogleLoginProvider {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
 
-    constructor(
-        private readonly jwtService: JwtService
-    ) {}
+    constructor(private readonly jwtService: JwtService) {}
 
     public async login(login: Login): Promise<string> {
-        Logger.log(`User ${login.username} is trying to login with Google`, GoogleLoginProvider.name)
-        
-        const clientId = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITHUB_CLIENT_ID)
-        const clientSecret = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITHUB_CLIENT_SECRET)
-
+        const clientId = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GOOGLE_CLIENT_ID)
+        const clientSecret = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GOOGLE_CLIENT_SECRET)
         const oAuth2Client = new OAuth2Client(clientId, clientSecret)
         oAuth2Client.setCredentials(login.payload)
         try {
-            Logger.log(`User ${login.username} verifying token...`, GoogleLoginProvider.name)
             // Verify the id_token, and access the claims.
             const loginTicket = await oAuth2Client.verifyIdToken({
-                idToken: oAuth2Client.credentials.id_token,
-                audience: clientId
+                idToken: login.password,
+                audience: clientId,
             })
-            if (login.username !== loginTicket.getPayload().email) {
-                throw new UnauthorizedException(`User ${login.username} is trying to login with Google, but the email is different`)
-            }
             let user = await this.usersService.getUser({
-                filter: { username: login.username },
+                filter: { username: loginTicket.getPayload().email },
             })
             if (!user) {
                 // New User
@@ -50,7 +40,7 @@ export class GoogleLoginProvider {
                 if (loginTicket.getPayload()?.family_name && loginTicket.getPayload().family_name.length > 0) {
                     name = `${loginTicket.getPayload().given_name} ${loginTicket.getPayload().family_name}`
                 }
-                Logger.log(`User ${login.username} is a new user`, GoogleLoginProvider.name)
+                Logger.log(`User ${loginTicket.getPayload().email} is a new user`, GoogleLoginProvider.name)
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
                     loginTicket.getPayload().email,
                     loginTicket.getPayload().email,
@@ -64,7 +54,7 @@ export class GoogleLoginProvider {
                     loginTicket.getPayload().picture,
                     true,
                     [],
-                    login.payload.access_token,
+                    uuidv4(),
                 )
                 user = await this.usersService.createUser(createUserRequestDto)
             }
@@ -77,14 +67,14 @@ export class GoogleLoginProvider {
                     type: LoginProviderEnum.GOOGLE,
                     accountId: loginTicket.getPayload().email,
                     username: loginTicket.getPayload().email,
-                    accessToken: login.payload.access_token,
+                    accessToken: login.payload.access_token || login.payload.accessToken,
                     payload: login.payload,
                 })
-                Logger.log(`User ${login.username} is adding Google account`, GoogleLoginProvider.name)
+                Logger.log(`User ${loginTicket.getPayload().email} is adding Google account`, GoogleLoginProvider.name)
             } else {
-                user.accounts[index].accessToken = login.payload.access_token
+                user.accounts[index].accessToken = login.payload.access_token || login.payload.accessToken
                 user.accounts[index].payload = login.payload
-                Logger.log(`User ${login.username} is updating Google account`, GoogleLoginProvider.name)
+                Logger.log(`User ${loginTicket.getPayload().email} is updating Google account`, GoogleLoginProvider.name)
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
 

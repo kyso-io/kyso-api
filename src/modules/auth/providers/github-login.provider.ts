@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
 import { ObjectId } from 'mongodb'
+import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../../decorators/autowired'
 import { UnauthorizedError } from '../../../helpers/errorHandling'
 import { GithubReposService } from '../../github-repos/github-repos.service'
@@ -36,7 +37,7 @@ export class GithubLoginProvider {
         try {
             const clientId = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITHUB_CLIENT_ID)
             const clientSecret = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITHUB_CLIENT_SECRET)
-            
+
             const res = await axios.post(
                 `https://github.com/login/oauth/access_token`,
                 {
@@ -57,6 +58,7 @@ export class GithubLoginProvider {
             // Retrieve the token...
             const accessToken = res.data.split('&')[0].split('=')[1]
             const githubUser = await this.githubReposService.getUserByAccessToken(accessToken)
+            login.username = githubUser.login
 
             // Get user's detail
             // Check if the user exists in database, and if not, create it
@@ -78,7 +80,7 @@ export class GithubLoginProvider {
                     githubUser.avatar_url,
                     true,
                     [],
-                    '',
+                    uuidv4(),
                 )
                 user = await this.usersService.createUser(createUserRequestDto)
             }
