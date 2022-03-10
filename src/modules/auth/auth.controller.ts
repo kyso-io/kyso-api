@@ -23,7 +23,7 @@ import {
     Res,
     UnauthorizedException,
 } from '@nestjs/common'
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
@@ -288,6 +288,12 @@ export class AuthController extends GenericController<string> {
 
 
     @Post('/check-permissions')
+    @ApiHeader({
+        name: 'Authorization',
+        description: 'Authorization header with "Bearer: {jwt}"',
+        required: true,
+        example: 'Bearer: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwYXlsb2FkIjp7ImlkIjoiNjIwMzEzMDk0NGI1ZjdlZDFkN2JjMGYyIiwibmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwibmlja25hbWUiOiJwYWxwYXRpbmUiLCJ1c2VybmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwiZW1haWwiOiJwYWxwYXRpbmVAa3lzby5pbyIsInBsYW4iOiJmcmVlIiwicGVybWlzc2lvbnMiOnt9LCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9iaXQubHkvM0lYQUZraSIsImxvY2F0aW9uIjoiIiwibGluayI6IiIsImJpbyI6IltQbGF0Zm9ybSBBZG1pbl0gUGFscGF0aW5lIGlzIGEgcGxhdGZvcm0gYWRtaW4iLCJhY2NvdW50cyI6W3sidHlwZSI6ImdpdGh1YiIsImFjY291bnRJZCI6Ijk4NzQ5OTA5IiwidXNlcm5hbWUiOiJtb3phcnRtYWUifV19LCJpYXQiOjE2NDY5MTEyMDcsImV4cCI6MTY0Njk0MDAwNywiaXNzIjoia3lzbyJ9.ZQr-TbPcoGjEE2njhJ8a8yifgegv0uez8jJR-4AcBII'
+    })
     @ApiBody({
         description: 'entity to check',
         required: true,
