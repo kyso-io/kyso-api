@@ -288,25 +288,17 @@ export class AuthController extends GenericController<string> {
     }
 
 
-    @Post('/check-permissions')
+    @Get('/check-permissions')
     @ApiHeader({
         name: 'Authorization',
         description: 'Authorization header with "Bearer: {jwt}"',
         required: true,
         example: 'Bearer: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwYXlsb2FkIjp7ImlkIjoiNjIwMzEzMDk0NGI1ZjdlZDFkN2JjMGYyIiwibmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwibmlja25hbWUiOiJwYWxwYXRpbmUiLCJ1c2VybmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwiZW1haWwiOiJwYWxwYXRpbmVAa3lzby5pbyIsInBsYW4iOiJmcmVlIiwicGVybWlzc2lvbnMiOnt9LCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9iaXQubHkvM0lYQUZraSIsImxvY2F0aW9uIjoiIiwibGluayI6IiIsImJpbyI6IltQbGF0Zm9ybSBBZG1pbl0gUGFscGF0aW5lIGlzIGEgcGxhdGZvcm0gYWRtaW4iLCJhY2NvdW50cyI6W3sidHlwZSI6ImdpdGh1YiIsImFjY291bnRJZCI6Ijk4NzQ5OTA5IiwidXNlcm5hbWUiOiJtb3phcnRtYWUifV19LCJpYXQiOjE2NDY5MTEyMDcsImV4cCI6MTY0Njk0MDAwNywiaXNzIjoia3lzbyJ9.ZQr-TbPcoGjEE2njhJ8a8yifgegv0uez8jJR-4AcBII'
     })
-    @ApiBody({
-        description: 'entity to check',
-        required: true,
-        examples: {
-            'Check if user has permissions to read a report': {
-                value: {
-                    type: 'report',
-                    id: '6220c2ae395e90e53b5afe39',
-                    permissions: ["KYSO_IO_REPORT_READ"]
-                },
-            },
-        },
+    @ApiHeader({
+        name: 'X-Original-URI',
+        description: 'Original SCS url',
+        required: true
     })
     async checkPermissions(@CurrentToken() requesterUser: Token, @Body() data: any, @Res() response: any) {
         response.status(HttpStatus.OK).send();
