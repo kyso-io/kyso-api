@@ -308,10 +308,7 @@ export class UsersService extends AutowiredService {
     }
 
     public async revokeAllUserAccessToken(userId: string): Promise<KysoUserAccessToken[]> {
-        await this.kysoAccessTokenProvider.updateMany(
-            { user_id: userId },
-            { $set: { status: KysoUserAccessTokenStatus.REVOKED } },
-        )
+        await this.kysoAccessTokenProvider.updateMany({ user_id: userId }, { $set: { status: KysoUserAccessTokenStatus.REVOKED } })
         return this.getAccessTokens(userId)
     }
 

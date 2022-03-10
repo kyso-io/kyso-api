@@ -1,4 +1,5 @@
 import {
+    AddUserAccountDTO,
     CreateKysoAccessTokenDto,
     CreateUserRequestDTO,
     HEADER_X_KYSO_ORGANIZATION,
@@ -17,11 +18,13 @@ import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post,
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { Autowired } from '../../decorators/autowired'
 import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
+import { AuthService } from '../auth/auth.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { UsersService } from './users.service'
 
@@ -40,6 +43,9 @@ import { UsersService } from './users.service'
     required: true,
 })
 export class UsersController extends GenericController<User> {
+    @Autowired({ typeName: 'AuthService' })
+    private authService: AuthService
+
     constructor(private readonly usersService: UsersService) {
         super()
     }
@@ -167,7 +173,10 @@ export class UsersController extends GenericController<User> {
     })
     @ApiResponse({ status: 200, description: `Access Token deleted successfully`, type: KysoUserAccessToken })
     // @Permission([UserPermissionsEnum.EDIT])
-    async deleteUserAccessToken(@CurrentToken() token: Token, @Param('accessTokenId') accessTokenId: string): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+    async deleteUserAccessToken(
+        @CurrentToken() token: Token,
+        @Param('accessTokenId') accessTokenId: string,
+    ): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
         const result: KysoUserAccessToken = await this.usersService.deleteKysoAccessToken(token.id, accessTokenId)
         return new NormalizedResponseDTO(result)
     }
@@ -266,7 +275,7 @@ export class UsersController extends GenericController<User> {
         return new NormalizedResponseDTO(deleted)
     }
 
-    @Patch('/:userId/accounts')
+    @Post('/accounts')
     @ApiOperation({
         summary: `Add an account to an user`,
         description: `Allows adding an account to an user passing its id`,
@@ -278,9 +287,9 @@ export class UsersController extends GenericController<User> {
         schema: { type: 'string' },
     })
     @ApiResponse({ status: 200, description: `Account added successfully` })
-    @Permission([UserPermissionsEnum.EDIT])
-    async addAccount(@Param('userId') userId: string, @Body() userAccount: UserAccount): Promise<boolean> {
-        return this.usersService.addAccount(userId, userAccount)
+    // @Permission([UserPermissionsEnum.EDIT])
+    async addAccount(@CurrentToken() token: Token, @Body() addUserAccountDTO: AddUserAccountDTO): Promise<boolean> {
+        return this.authService.addUserAccount(token, addUserAccountDTO)
     }
 
     @Delete('/:userId/accounts/:provider/:accountId')

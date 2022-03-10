@@ -1,4 +1,4 @@
-import { CreateUserRequestDTO, Login, LoginProviderEnum, Token, User, UserAccount } from '@kyso-io/kyso-model'
+import { AddUserAccountDTO, CreateUserRequestDTO, Login, LoginProviderEnum, Token, User, UserAccount } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { ObjectId } from 'mongodb'
@@ -94,6 +94,36 @@ export class BitbucketLoginProvider {
         } catch (e) {
             Logger.error(`An error occurred loging a user in Bitbucket`, e, BitbucketLoginProvider.name)
             return null
+        }
+    }
+
+    public async addUserAccount(token: Token, addUserAccount: AddUserAccountDTO): Promise<boolean> {
+        try {
+            const bitbucketLoginResponse = await this.bitbucketReposService.login(addUserAccount.code)
+            const accessToken: string = bitbucketLoginResponse.access_token
+            const bitbucketUser: any = await this.bitbucketReposService.getUser(accessToken)
+            const user: User = await this.usersService.getUserById(token.id)
+            const index: number = user.accounts.findIndex(
+                (userAccount: UserAccount) => userAccount.type === LoginProviderEnum.BITBUCKET && userAccount.accountId === bitbucketUser.account_id,
+            )
+            if (index === -1) {
+                user.accounts.push({
+                    type: LoginProviderEnum.BITBUCKET,
+                    accountId: bitbucketUser.account_id,
+                    username: bitbucketUser.username,
+                    accessToken,
+                    payload: bitbucketLoginResponse.data,
+                })
+                Logger.log(`User ${bitbucketUser.username} is adding Bitbucket account`, BitbucketLoginProvider.name)
+            } else {
+                user.accounts[index].accessToken = accessToken
+                Logger.log(`User ${bitbucketUser.username} is updating Bitbucket account`, BitbucketLoginProvider.name)
+            }
+            await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
+            return true
+        } catch (e) {
+            Logger.error(`An error occurred loging a user in Bitbucket`, e, BitbucketLoginProvider.name)
+            return false
         }
     }
 }

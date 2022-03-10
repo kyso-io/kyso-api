@@ -1,4 +1,5 @@
 import {
+    AddUserAccountDTO,
     KysoPermissions,
     KysoRole,
     Login,
@@ -278,6 +279,17 @@ export class AuthService extends AutowiredService {
                 return this.pingIdLoginProvider.login(login)
             case LoginProviderEnum.BITBUCKET:
                 return this.bitbucketLoginProvider.login(login)
+        }
+    }
+
+    public async addUserAccount(token: Token, addUserAccount: AddUserAccountDTO): Promise<boolean> {
+        switch (addUserAccount.provider) {
+            case LoginProviderEnum.GITHUB:
+                return this.githubLoginProvider.addUserAccount(token, addUserAccount)
+                case LoginProviderEnum.BITBUCKET:
+                return this.bitbucketLoginProvider.addUserAccount(token, addUserAccount)
+            default:
+                return null
         }
     }
 
