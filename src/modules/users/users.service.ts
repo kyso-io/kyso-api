@@ -112,7 +112,7 @@ export class UsersService extends AutowiredService {
 
         // Create user organization
         const organizationName: string = userDb.display_name.charAt(0).toUpperCase() + userDb.display_name.slice(1) + "'s Workspace"
-        const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], userDb.email, '', '', true, '', '', '', '')
+        const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], userDb.email, '', '', true, '', '', '', '', uuidv4())
         Logger.log(`Creating new organization ${newOrganization.sluglified_name}`)
         const organizationDb: Organization = await this.organizationsService.createOrganization(newOrganization)
 

@@ -21,6 +21,7 @@ import {
 } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import { Injectable, Logger } from '@nestjs/common'
+import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { PlatformRole } from '../../security/platform-roles'
 import { CommentsService } from '../comments/comments.service'
@@ -512,6 +513,7 @@ export class TestingDataPopulatorService {
             '',
             '',
             '',
+            uuidv4(),
         )
 
         this.DarksideOrganization = await this._createOrganization(darksideOrganization)
@@ -531,6 +533,7 @@ export class TestingDataPopulatorService {
             '',
             '',
             '',
+            uuidv4(),
         )
 
         this.LightsideOrganization = await this._createOrganization(lightsideOrganization)
