@@ -15,6 +15,7 @@ import {
     ForbiddenException,
     Get,
     Headers,
+    HttpStatus,
     Logger,
     Param,
     Post,
@@ -307,7 +308,7 @@ export class AuthController extends GenericController<string> {
             },
         },
     })
-    async checkPermissions(@CurrentToken() requesterUser: Token, @Body() data: any) {
-        return "ok"
+    async checkPermissions(@CurrentToken() requesterUser: Token, @Body() data: any, @Res() response: any) {
+        response.status(HttpStatus.OK).send();
     }
 }
