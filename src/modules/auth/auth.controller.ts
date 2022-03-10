@@ -292,11 +292,11 @@ export class AuthController extends GenericController<string> {
         description: 'entity to check',
         required: true,
         examples: {
-            'Check if user has permissions to access to a report': {
+            'Check if user has permissions to read a report': {
                 value: {
                     type: 'report',
                     id: '6220c2ae395e90e53b5afe39',
-                    permission: ["KYSO_IO_REPORT_READ"]
+                    permissions: ["KYSO_IO_REPORT_READ"]
                 },
             },
         },
