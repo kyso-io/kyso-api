@@ -285,4 +285,22 @@ export class AuthController extends GenericController<string> {
             throw new UnauthorizedException(`The requester user has no rights to access other user permissions`)
         }
     }
+
+    @Post('/check-permissions')
+    @ApiBody({
+        description: 'entity to check',
+        required: true,
+        examples: {
+            'Check if user has permissions to access to a report': {
+                value: {
+                    type: 'report',
+                    id: '6220c2ae395e90e53b5afe39',
+                    permission: ["KYSO_IO_REPORT_READ"]
+                },
+            },
+        },
+    })
+    async checkPermissions(@CurrentToken() requesterUser: Token, @Body() data: any) {
+        return "ok"
+    }
 }
