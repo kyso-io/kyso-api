@@ -296,12 +296,27 @@ export class AuthController extends GenericController<string> {
         example: 'Bearer: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwYXlsb2FkIjp7ImlkIjoiNjIwMzEzMDk0NGI1ZjdlZDFkN2JjMGYyIiwibmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwibmlja25hbWUiOiJwYWxwYXRpbmUiLCJ1c2VybmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwiZW1haWwiOiJwYWxwYXRpbmVAa3lzby5pbyIsInBsYW4iOiJmcmVlIiwicGVybWlzc2lvbnMiOnt9LCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9iaXQubHkvM0lYQUZraSIsImxvY2F0aW9uIjoiIiwibGluayI6IiIsImJpbyI6IltQbGF0Zm9ybSBBZG1pbl0gUGFscGF0aW5lIGlzIGEgcGxhdGZvcm0gYWRtaW4iLCJhY2NvdW50cyI6W3sidHlwZSI6ImdpdGh1YiIsImFjY291bnRJZCI6Ijk4NzQ5OTA5IiwidXNlcm5hbWUiOiJtb3phcnRtYWUifV19LCJpYXQiOjE2NDY5MTEyMDcsImV4cCI6MTY0Njk0MDAwNywiaXNzIjoia3lzbyJ9.ZQr-TbPcoGjEE2njhJ8a8yifgegv0uez8jJR-4AcBII'
     })
     @ApiHeader({
-        name: 'X-Original-URI',
+        name: 'x-original-uri',
         description: 'Original SCS url',
         required: true
     })
-    async checkPermissions(@CurrentToken() requesterUser: Token, @Headers() headers, @Res() response: any) {
-        console.log(headers)
+    async checkPermissions(@CurrentToken() requesterUser: Token, @Headers("x-original-uri") originalUri, @Res() response: any) {
+        console.log(originalUri)
+
+        // URI has the following structure /scs/{organizationName}/{teamName}/reports/{reportId}/...
+        // Remove the first /scs/
+        originalUri = originalUri.replace("/scs/", "")
+
+        // Split by "/"
+        let splittedUri = originalUri.split("/")
+        const organizationName = splittedUri[0]
+        const teamName = splittedUri[1]
+        const reportId = splittedUri[3]
+
+        console.log(`organization ${organizationName}`)
+        console.log(`team ${teamName}`)
+        console.log(`report ${reportId}`)
+        
         response.status(HttpStatus.OK).send();
     }
 }
