@@ -1,11 +1,13 @@
 import {
     AddUserAccountDTO,
+    GlobalPermissionsEnum,
     KysoPermissions,
     KysoRole,
     Login,
     LoginProviderEnum,
     Organization,
     OrganizationMemberJoin,
+    ResourcePermissions,
     Team,
     TeamMemberJoin,
     Token,
@@ -14,6 +16,7 @@ import {
     UserAccount,
 } from '@kyso-io/kyso-model'
 import { Injectable, Logger, Provider } from '@nestjs/common'
+import { Reflector } from '@nestjs/core'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcryptjs'
 import * as mongo from 'mongodb'
@@ -22,6 +25,7 @@ import { AutowiredService } from '../../generic/autowired.generic'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
+import { PERMISSION_KEY } from './annotations/permission.decorator'
 import { PlatformRoleService } from './platform-role.service'
 import { BitbucketLoginProvider } from './providers/bitbucket-login.provider'
 import { GithubLoginProvider } from './providers/github-login.provider'
@@ -261,6 +265,70 @@ export class AuthService extends AutowiredService {
         }
 
         return response
+    }
+
+    static async hasPermissions(tokenPayload: Token, permissionToActivateEndpoint: KysoPermissions[], team: string, organization: string): Promise<boolean> {
+        if (!tokenPayload) {
+            return false
+        }
+
+        const isGlobalAdmin = tokenPayload.permissions.global.find((x) => x === GlobalPermissionsEnum.GLOBAL_ADMIN)
+
+        // triple absurd checking because a GLOBAL ADMIN DESERVES IT
+        if (isGlobalAdmin) {
+            return true
+        }
+
+        if (!permissionToActivateEndpoint) {
+            // If there are no permissions means that is open to authenticated users
+            return true
+        } else {
+            // Check if user has the required permissions in the team
+            let userPermissionsInThatTeam: ResourcePermissions
+            if (team) {
+                userPermissionsInThatTeam = tokenPayload.permissions.teams.find((x) => x.name.toLowerCase() === team.toLowerCase())
+            }
+
+            // Check if user has the required permissions in the organization
+            let userPermissionsInThatOrganization: ResourcePermissions
+            if (organization) {
+                userPermissionsInThatOrganization = tokenPayload.permissions.organizations.find((x) => x.name.toLowerCase() === organization.toLowerCase())
+            }
+
+            // Finally, check the global permissions
+            const userGlobalPermissions = tokenPayload.permissions.global
+
+            let allUserPermissions = []
+
+            if (userPermissionsInThatTeam && userPermissionsInThatTeam?.permissions && userPermissionsInThatTeam.permissions.length > 0) {
+                /** makes no sense, if has organization_inherited, don't have permissions property */
+                // if (!userPermissionsInThatTeam.hasOwnProperty('organization_inherited') || userPermissionsInThatTeam.organization_inherited === false) {
+                allUserPermissions = [...userPermissionsInThatTeam.permissions]
+                //}
+            } else {
+                if (userPermissionsInThatTeam && userPermissionsInThatTeam.organization_inherited) {
+                    // TODO: get organization role of that user and retrieve their permissions
+                    allUserPermissions = [...userPermissionsInThatOrganization.permissions]
+                }
+            }
+
+            if (userPermissionsInThatOrganization) {
+                allUserPermissions = [...allUserPermissions, ...userPermissionsInThatOrganization.permissions]
+            }
+
+            if (userGlobalPermissions) {
+                allUserPermissions = [...allUserPermissions, ...userGlobalPermissions]
+            }
+
+            const hasAllThePermissions = permissionToActivateEndpoint.every((i) => allUserPermissions.includes(i))
+
+            if (hasAllThePermissions) {
+                return true
+            } else {
+                Logger.log(`User ${tokenPayload.username} has no permissions`)
+                return false
+            }
+        }
     }
 
     async login(login: Login): Promise<string> {

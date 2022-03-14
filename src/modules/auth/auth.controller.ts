@@ -6,7 +6,9 @@ import {
     NormalizedResponseDTO,
     Organization,
     PingIdSAMLSpec,
+    ReportPermissionsEnum,
     Token,
+    TokenPermissions,
     User,
 } from '@kyso-io/kyso-model'
 import {
@@ -301,8 +303,6 @@ export class AuthController extends GenericController<string> {
         required: true
     })
     async checkPermissions(@CurrentToken() requesterUser: Token, @Headers("x-original-uri") originalUri, @Res() response: any) {
-        console.log(originalUri)
-
         // URI has the following structure /scs/{organizationName}/{teamName}/reports/{reportId}/...
         // Remove the first /scs/
         originalUri = originalUri.replace("/scs/", "")
@@ -316,7 +316,15 @@ export class AuthController extends GenericController<string> {
         console.log(`organization ${organizationName}`)
         console.log(`team ${teamName}`)
         console.log(`report ${reportId}`)
-        
-        response.status(HttpStatus.OK).send();
+
+        console.log(requesterUser.permissions)
+
+        const userHasPermission = await AuthService.hasPermissions(requesterUser, [ReportPermissionsEnum.READ], teamName, organizationName)
+
+        if(userHasPermission) {
+            response.status(HttpStatus.OK).send();
+        } else {
+            response.status(HttpStatus.FORBIDDEN).send();
+        }        
     }
 }
