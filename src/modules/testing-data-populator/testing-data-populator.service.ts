@@ -268,13 +268,14 @@ export class TestingDataPopulatorService {
     private async createTestingReports() {
         const reportKylosThoughts = new CreateReportDTO(
             'kylos-thoughts',
+            'fran-kyso',
             RepositoryProvider.KYSO,
-            null,
             'main',
             '.',
             this.ProtectedTeamWithCustomRole.id,
             `Kylo's thoughts about to switch from darkside to lightside`,
             'Sometimes the anger flows through me and I want to be at the darkside. But on the other hand, when I see Rey I get doubts and want to be in the lightside!',
+            null,
             null,
         )
 
@@ -282,13 +283,14 @@ export class TestingDataPopulatorService {
 
         const reportMoffGideonPokemonReport = new CreateReportDTO(
             'best-pokemon-ever',
+            'fran-kyso',
             RepositoryProvider.KYSO,
-            null,
             'main',
             '.',
             this.PrivateTeam.id,
             `The Best Pokemon Report by Moff Gideon`,
             `Do you think Pokemon is not suitable for Lord Siths? You're wrong! See my report to know who is the best pokemon ever!`,
+            null,
             null,
         )
 
@@ -304,6 +306,7 @@ export class TestingDataPopulatorService {
             `Engineering details about the construction of the Dark Star for the Imperium`,
             'Make sure that this details dont get leaked as the lightside can really fuck us with that information',
             null,
+            null,
         )
 
         this.DeathStarEngineeringReport = await this._createReport(this.Gideon_OrganizationAdminUser, reportDeathStarEngineering)
@@ -317,6 +320,7 @@ export class TestingDataPopulatorService {
             this.ProtectedTeamWithCustomRole.id,
             `Counterattack plan's to destroy Death Star`,
             `Using the information that Moff Gideon leaked absurdly, in this report we detail how we're going to destroy the Empire`,
+            null,
             null,
         )
 
