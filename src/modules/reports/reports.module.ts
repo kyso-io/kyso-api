@@ -8,6 +8,7 @@ import { VersionsMongoProvider } from './providers/mongo-versions.provider'
 import { FilesS3Provider } from './providers/s3-files.provider'
 import { ReportsController } from './reports.controller'
 import { createProvider, ReportsService } from './reports.service'
+import { SftpService } from './sftp.service'
 
 export class ReportsModule {
     static forRoot(): DynamicModule {
@@ -25,6 +26,7 @@ export class ReportsModule {
                 PinnedReportsMongoProvider,
                 ReportsService,
                 ReportsMongoProvider,
+                SftpService,
                 StarredReportsMongoProvider,
                 VersionsMongoProvider,
             ],

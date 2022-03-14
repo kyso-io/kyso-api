@@ -1,7 +1,5 @@
 import {
     Comment,
-    CreateKysoReportDTO,
-    CreateUIReportDTO,
     File,
     GithubBranch,
     GithubCommit,
@@ -34,11 +32,10 @@ import {
     Req,
     Res,
     UploadedFile,
-    UploadedFiles,
     UseGuards,
     UseInterceptors,
 } from '@nestjs/common'
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express'
+import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -368,11 +365,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Public()
-    async getEmbeddedReportFileContent(
-        @Param('reportId') reportId: string,
-        @Param('hash') hash: string,
-        @Query('path') path: string,
-    ): Promise<Buffer> {
+    async getEmbeddedReportFileContent(@Param('reportId') reportId: string, @Param('hash') hash: string, @Query('path') path: string): Promise<Buffer> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
@@ -403,15 +396,15 @@ export class ReportsController extends GenericController<Report> {
         description: `Created report`,
         type: ReportDTO,
     })
-    @UseInterceptors(FilesInterceptor('files'))
+    @UseInterceptors(FileInterceptor('file'))
     @Permission([ReportPermissionsEnum.CREATE])
-    async createKysoReport(
-        @CurrentToken() token: Token,
-        @Body() createKysoReportDTO: CreateKysoReportDTO,
-        @UploadedFiles() files: any[],
-    ): Promise<NormalizedResponseDTO<Report>> {
+    @Public()
+    async createKysoReport(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Report>> {
         Logger.log(`Called createKysoReport`)
-        const report: Report = await this.reportsService.createKysoReport(token.id, createKysoReportDTO, files)
+        if (!file) {
+            throw new BadRequestException(`Missing file`)
+        }
+        const report: Report = await this.reportsService.createKysoReport(token.id, file)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
@@ -427,15 +420,11 @@ export class ReportsController extends GenericController<Report> {
         description: `Created report`,
         type: ReportDTO,
     })
-    @UseInterceptors(FilesInterceptor('files'))
+    @UseInterceptors(FileInterceptor('file'))
     @Permission([ReportPermissionsEnum.CREATE])
-    async createUIReport(
-        @CurrentToken() token: Token,
-        @Body() createUIReportDTO: CreateUIReportDTO,
-        @UploadedFiles() files: any[],
-    ): Promise<NormalizedResponseDTO<Report>> {
+    async createUIReport(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Report>> {
         Logger.log(`Called createUIReport`)
-        const report: Report = await this.reportsService.createUIReport(token.id, createUIReportDTO, files)
+        const report: Report = await this.reportsService.createUIReport(token.id, file)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
@@ -680,11 +669,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async downloadReport(
-        @CurrentToken() token: Token,
-        @Param('reportId') reportId: string,
-        @Res() response: any,
-    ): Promise<any> {
+    async downloadReport(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Res() response: any): Promise<any> {
         this.reportsService.downloadReport(token, reportId, response)
     }
 
