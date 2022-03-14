@@ -305,6 +305,7 @@ export class AuthController extends GenericController<string> {
     })
     async checkPermissions(@CurrentToken() requesterUser: Token, @Headers('x-original-uri') originalUri, @Res() response: any, @Cookies() cookies: any) {
         console.log(originalUri)
+        console.log(cookies)
 
         // URI has the following structure /scs/{organizationName}/{teamName}/reports/{reportId}/...
         // Remove the first /scs/
