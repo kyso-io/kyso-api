@@ -300,7 +300,8 @@ export class AuthController extends GenericController<string> {
         description: 'Original SCS url',
         required: true
     })
-    async checkPermissions(@CurrentToken() requesterUser: Token, @Body() data: any, @Res() response: any) {
+    async checkPermissions(@CurrentToken() requesterUser: Token, @Headers() headers, @Res() response: any) {
+        console.log(headers)
         response.status(HttpStatus.OK).send();
     }
 }
