@@ -361,7 +361,6 @@ export class AuthController extends GenericController<string> {
 }
 
 function parseJwt(token) {
-    const base64Payload = token.split('.')[1]
-    const payload = Buffer.from(base64Payload, 'base64')
+    const payload = Buffer.from(token, 'base64')
     return JSON.parse(payload.toString())
 }
