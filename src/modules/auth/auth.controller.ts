@@ -27,8 +27,10 @@ import {
     UnauthorizedException,
 } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import JSONTransport from 'nodemailer/lib/json-transport'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
+import { Cookies } from '../../decorators/cookies'
 import { GenericController } from '../../generic/controller.generic'
 import { db } from '../../main'
 import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
@@ -53,16 +55,16 @@ export class AuthController extends GenericController<string> {
     private readonly organizationsService: OrganizationsService
 
     @Autowired({ typeName: 'UserRoleService' })
-    public userRoleService: UserRoleService
+    public readonly userRoleService: UserRoleService
 
     @Autowired({ typeName: 'PlatformRoleService' })
-    public platformRoleService: PlatformRoleService
+    public readonly platformRoleService: PlatformRoleService
 
     @Autowired({ typeName: 'TeamsService' })
-    public teamsService: TeamsService
+    public readonly teamsService: TeamsService
 
     @Autowired({ typeName: 'KysoSettingsService' })
-    public kysoSettingsService: KysoSettingsService
+    public readonly kysoSettingsService: KysoSettingsService
 
     constructor(private readonly authService: AuthService) {
         super()
@@ -70,7 +72,7 @@ export class AuthController extends GenericController<string> {
 
     @Get('/version')
     version(): string {
-        return '0.0.2'
+        return '1.1.0'
     }
 
     @Get('/db')
@@ -112,9 +114,11 @@ export class AuthController extends GenericController<string> {
             },
         },
     })
-    async login(@Body() login: Login): Promise<NormalizedResponseDTO<string>> {
+    async login(@Body() login: Login, @Res() res): Promise<void> {
         const jwt: string = await this.authService.login(login)
-        return new NormalizedResponseDTO(jwt)
+        const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX)
+        res.cookie('kyso-jwt-token', jwt, { httpOnly: true, path: staticContentPrefix })
+        res.send(new NormalizedResponseDTO(jwt))
     }
 
     @Get('/login/sso/ping-saml/:organizationSlug')
@@ -290,36 +294,63 @@ export class AuthController extends GenericController<string> {
     }
 
 
+    
+    
+
     @Get('/check-permissions')
     @ApiHeader({
         name: 'Authorization',
         description: 'Authorization header with "Bearer: {jwt}"',
         required: true,
-        example: 'Bearer: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwYXlsb2FkIjp7ImlkIjoiNjIwMzEzMDk0NGI1ZjdlZDFkN2JjMGYyIiwibmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwibmlja25hbWUiOiJwYWxwYXRpbmUiLCJ1c2VybmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwiZW1haWwiOiJwYWxwYXRpbmVAa3lzby5pbyIsInBsYW4iOiJmcmVlIiwicGVybWlzc2lvbnMiOnt9LCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9iaXQubHkvM0lYQUZraSIsImxvY2F0aW9uIjoiIiwibGluayI6IiIsImJpbyI6IltQbGF0Zm9ybSBBZG1pbl0gUGFscGF0aW5lIGlzIGEgcGxhdGZvcm0gYWRtaW4iLCJhY2NvdW50cyI6W3sidHlwZSI6ImdpdGh1YiIsImFjY291bnRJZCI6Ijk4NzQ5OTA5IiwidXNlcm5hbWUiOiJtb3phcnRtYWUifV19LCJpYXQiOjE2NDY5MTEyMDcsImV4cCI6MTY0Njk0MDAwNywiaXNzIjoia3lzbyJ9.ZQr-TbPcoGjEE2njhJ8a8yifgegv0uez8jJR-4AcBII'
+        example:
+            'Bearer: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwYXlsb2FkIjp7ImlkIjoiNjIwMzEzMDk0NGI1ZjdlZDFkN2JjMGYyIiwibmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwibmlja25hbWUiOiJwYWxwYXRpbmUiLCJ1c2VybmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwiZW1haWwiOiJwYWxwYXRpbmVAa3lzby5pbyIsInBsYW4iOiJmcmVlIiwicGVybWlzc2lvbnMiOnt9LCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9iaXQubHkvM0lYQUZraSIsImxvY2F0aW9uIjoiIiwibGluayI6IiIsImJpbyI6IltQbGF0Zm9ybSBBZG1pbl0gUGFscGF0aW5lIGlzIGEgcGxhdGZvcm0gYWRtaW4iLCJhY2NvdW50cyI6W3sidHlwZSI6ImdpdGh1YiIsImFjY291bnRJZCI6Ijk4NzQ5OTA5IiwidXNlcm5hbWUiOiJtb3phcnRtYWUifV19LCJpYXQiOjE2NDY5MTEyMDcsImV4cCI6MTY0Njk0MDAwNywiaXNzIjoia3lzbyJ9.ZQr-TbPcoGjEE2njhJ8a8yifgegv0uez8jJR-4AcBII',
     })
     @ApiHeader({
         name: 'x-original-uri',
         description: 'Original SCS url',
-        required: true
+        required: true,
     })
-    async checkPermissions(@CurrentToken() requesterUser: Token, @Headers("x-original-uri") originalUri, @Res() response: any) {
+    async checkPermissions(@Headers('x-original-uri') originalUri, @Res() response: any, @Cookies() cookies: any) {
+        console.log(originalUri)
+        console.log(cookies)
+        const decodedToken = parseJwt(cookies['kyso-jwt-token'])
+
+        const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
+            decodedToken.payload.username,
+            this.usersService,
+            this.teamsService,
+            this.organizationsService,
+            this.platformRoleService,
+            this.userRoleService,
+        )
+
+        const token: Token = new Token(
+            decodedToken.payload.id,
+            decodedToken.payload.name,
+            decodedToken.payload.username,
+            decodedToken.payload.display_name,
+            decodedToken.payload.email,
+            decodedToken.payload.plan,
+            decodedToken.payload.avatar_url,
+            decodedToken.payload.location,
+            decodedToken.payload.link,
+            decodedToken.payload.bio,
+            decodedToken.payload.accounts,
+            permissions,
+        )
+
         // URI has the following structure /scs/{organizationName}/{teamName}/reports/{reportId}/...
         // Remove the first /scs/
-        originalUri = originalUri.replace("/scs/", "")
+        const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX)
+        originalUri = originalUri.replace(`${staticContentPrefix}/`, '')
 
         // Split by "/"
-        let splittedUri = originalUri.split("/")
+        let splittedUri = originalUri.split('/')
         const organizationName = splittedUri[0]
         const teamName = splittedUri[1]
         const reportId = splittedUri[3]
 
-        console.log(`organization ${organizationName}`)
-        console.log(`team ${teamName}`)
-        console.log(`report ${reportId}`)
-
-        console.log(requesterUser.permissions)
-
-        const userHasPermission = await AuthService.hasPermissions(requesterUser, [ReportPermissionsEnum.READ], teamName, organizationName)
+        const userHasPermission = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
 
         if(userHasPermission) {
             response.status(HttpStatus.OK).send();
@@ -327,4 +358,10 @@ export class AuthController extends GenericController<string> {
             response.status(HttpStatus.FORBIDDEN).send();
         }        
     }
+}
+
+function parseJwt(token) {
+    const base64Payload = token.split('.')[1]
+    const payload = Buffer.from(base64Payload, 'base64')
+    return JSON.parse(payload.toString())
 }

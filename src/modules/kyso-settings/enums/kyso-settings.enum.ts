@@ -30,6 +30,8 @@ export enum KysoSettingsEnum {
     SFTP_USERNAME = 'SFTP_USERNAME',
     SFTP_PASSWORD = 'SFTP_PASSWORD',
     SFTP_DESTINATION_FOLDER = 'SFTP_DESTINATION_FOLDER',
+    // SCS path
+    STATIC_CONTENT_PREFIX = 'STATIC_CONTENT_PREFIX',
 }
 
 export function getKysoSettingDefaultValue(setting: KysoSettingsEnum) {
@@ -97,6 +99,8 @@ export function getKysoSettingDescription(setting: KysoSettingsEnum) {
             return `SFTP password`
         case KysoSettingsEnum.SFTP_DESTINATION_FOLDER:
             return `SFTP destination folder`
+        case KysoSettingsEnum.STATIC_CONTENT_PREFIX:
+            return `Static content prefix`
         default:
             return 'No description provided'
     }

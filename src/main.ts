@@ -4,6 +4,7 @@ import { NestFactory, Reflector } from '@nestjs/core'
 import { NestExpressApplication } from '@nestjs/platform-express'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import * as bodyParser from 'body-parser'
+import * as cookieParser from 'cookie-parser'
 import * as dotenv from 'dotenv'
 import * as fs from 'fs'
 import * as helmet from 'helmet'
@@ -44,34 +45,31 @@ async function bootstrap() {
         path: dotenv_path,
     })
 
-
     if (process.env.APP_MOUNT_DIR) {
         app_mount_dir = process.env.APP_MOUNT_DIR
     }
-    
+
     await connectToDatabase()
-    
+
     try {
-        const kysoSettingCollection = db.collection("KysoSetting")
-        const mailTransportValue = await kysoSettingCollection.
-            find({ key: KysoSettingsEnum.MAIL_TRANSPORT}).toArray()
-        const mailFromValue = await kysoSettingCollection.
-            find({ key: KysoSettingsEnum.MAIL_FROM}).toArray()
-            
-        if(mailTransportValue.length === 0) {
+        const kysoSettingCollection = db.collection('KysoSetting')
+        const mailTransportValue = await kysoSettingCollection.find({ key: KysoSettingsEnum.MAIL_TRANSPORT }).toArray()
+        const mailFromValue = await kysoSettingCollection.find({ key: KysoSettingsEnum.MAIL_FROM }).toArray()
+
+        if (mailTransportValue.length === 0) {
             // set default value
-            mailTransport = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT)    
-        } else  {
+            mailTransport = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT)
+        } else {
             mailTransport = mailTransportValue[0].value
         }
 
-        if(mailFromValue.length === 0) {
+        if (mailFromValue.length === 0) {
             // set default value
-            mailFrom = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM)    
-        } else  {
+            mailFrom = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM)
+        } else {
             mailFrom = mailFromValue[0].value
         }
-    } catch(ex) {
+    } catch (ex) {
         mailTransport = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT)
         mailFrom = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM)
     }
@@ -79,8 +77,8 @@ async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule)
 
     // Serve files in ./public on the root of the application
-    app.useStaticAssets('./public', {prefix: app_mount_dir + '/'});
-
+    app.useStaticAssets('./public', { prefix: app_mount_dir + '/' })
+    app.use(cookieParser())
     app.use(bodyParser.json({ limit: '500mb' }))
     app.use(bodyParser.urlencoded({ limit: '500mb', extended: true }))
 
