@@ -16,7 +16,6 @@ import {
     ReportDTO,
     ReportPermissionsEnum,
     ReportStatus,
-    ReportType,
     RepositoryProvider,
     ResourcePermissions,
     StarredReport,
@@ -603,15 +602,16 @@ export class ReportsService extends AutowiredService {
         const name: string = slugify(kysoConfigFile.title)
         const reports: Report[] = await this.provider.read({ filter: { sluglified_name: name, team_id: team.id } })
         const reportFiles: File[] = []
+        let version = 1
         let report: Report = null
         if (reports.length > 0) {
             // Existing report
             report = reports[0]
-            extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/`
+            const lastVersion: number = await this.getLastVersionOfReport(report.id)
+            version = lastVersion + 1
+            extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}`
             moveSync(tmpDir, extractedDir, { overwrite: true })
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Checking files...`, ReportsService.name)
-            // Get all files of the report
-            const reportFilesDb: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id }, sort: { version: -1 } })
             for (const entry of zip.getEntries()) {
                 const originalName: string = entry.entryName
                 const localFilePath = join(extractedDir, entry.entryName)
@@ -621,18 +621,8 @@ export class ReportsService extends AutowiredService {
                 const sha: string = sha256File(localFilePath)
                 const size: number = statSync(localFilePath).size
                 const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-                const path_scs =
-                    report?.report_type === ReportType.Website
-                        ? `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${entry.entryName}`
-                        : null
-                let reportFile: File = reportFilesDb.find((reportFile: File) => reportFile.name === originalName)
-                if (reportFile) {
-                    reportFile = new File(report.id, originalName, path_s3, path_scs, size, sha, reportFile.version + 1)
-                    Logger.log(`Report '${report.sluglified_name}': file ${reportFile.name} new version ${reportFile.version}`, ReportsService.name)
-                } else {
-                    reportFile = new File(report.id, originalName, path_s3, path_scs, size, sha, 1)
-                    Logger.log(`Report '${report.sluglified_name}': new file ${reportFile.name}`, ReportsService.name)
-                }
+                const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}/${entry.entryName}`
+                let reportFile = new File(report.id, originalName, path_s3, path_scs, size, sha, version)
                 reportFile = await this.filesMongoProvider.create(reportFile)
                 reportFiles.push(reportFile)
             }
@@ -664,7 +654,7 @@ export class ReportsService extends AutowiredService {
                 report.report_type = kysoConfigFile.type
             }
             report = await this.provider.create(report)
-            extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}`
+            extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}`
             moveSync(tmpDir, extractedDir, { overwrite: true })
             for (const entry of zip.getEntries()) {
                 const originalName: string = entry.entryName
@@ -675,10 +665,7 @@ export class ReportsService extends AutowiredService {
                 const sha: string = sha256File(localFilePath)
                 const size: number = statSync(localFilePath).size
                 const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-                const path_scs =
-                    report?.report_type === ReportType.Website
-                        ? `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${entry.entryName}`
-                        : null
+                const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}/${entry.entryName}`
                 let file: File = new File(report.id, originalName, path_s3, path_scs, size, sha, 1)
                 file = await this.filesMongoProvider.create(file)
                 reportFiles.push(file)
@@ -693,10 +680,8 @@ export class ReportsService extends AutowiredService {
         await this.checkReportTags(report.id, kysoConfigFile.tags)
 
         new Promise<void>(async () => {
-            if (report?.report_type === ReportType.Website) {
-                Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
-                await this.uploadReportToFtp(report.id, extractedDir)
-            }
+            Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
+            await this.uploadReportToFtp(report.id, extractedDir)
 
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to S3...`, ReportsService.name)
             const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
@@ -813,7 +798,8 @@ export class ReportsService extends AutowiredService {
             report.report_type = kysoConfigFile.type
         }
         report = await this.provider.create(report)
-        extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}`
+        const version = 1
+        extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}`
         moveSync(tmpDir, extractedDir, { overwrite: true })
         for (const entry of zip.getEntries()) {
             const originalName: string = entry.entryName
@@ -824,11 +810,8 @@ export class ReportsService extends AutowiredService {
             const sha: string = sha256File(localFilePath)
             const size: number = statSync(localFilePath).size
             const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-            const path_scs =
-                report?.report_type === ReportType.Website
-                    ? `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${entry.entryName}`
-                    : null
-            let file: File = new File(report.id, originalName, path_s3, path_scs, size, sha, 1)
+            const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}/${entry.entryName}`
+            let file: File = new File(report.id, originalName, path_s3, path_scs, size, sha, version)
             file = await this.filesMongoProvider.create(file)
             reportFiles.push(file)
         }
@@ -841,10 +824,8 @@ export class ReportsService extends AutowiredService {
         await this.checkReportTags(report.id, kysoConfigFile.tags)
 
         new Promise<void>(async () => {
-            if (report?.report_type === ReportType.Website) {
-                Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
-                await this.uploadReportToFtp(report.id, extractedDir)
-            }
+            Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
+            await this.uploadReportToFtp(report.id, extractedDir)
 
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to S3...`, ReportsService.name)
             const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
@@ -901,21 +882,26 @@ export class ReportsService extends AutowiredService {
         const localFilePath = `/tmp/${report.id}_${originalName}`
         writeFileSync(localFilePath, file.buffer)
 
-        if (report?.report_type === ReportType.Website) {
-            Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading main file to Ftp...`, ReportsService.name)
-            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-            const client: Client = await this.sftpService.getClient()
-            const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
-            const destinationPath = join(sftpDestinationFolder, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${reportId}/${originalName}`)
-            const result = await client.put(localFilePath, destinationPath)
-            Logger.log(result, ReportsService.name)
-        }
+        const lastVersion: number = await this.getLastVersionOfReport(report.id)
+        const version = lastVersion + 1
+
+        Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading main file to Ftp...`, ReportsService.name)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const client: Client = await this.sftpService.getClient()
+        const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+        const destinationPath = join(
+            sftpDestinationFolder,
+            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${reportId}/${version}/${originalName}`,
+        )
+        const result = await client.put(localFilePath, destinationPath)
+        Logger.log(result, ReportsService.name)
 
         const sha: string = sha256File(localFilePath)
         unlinkSync(localFilePath)
         const size: number = file.size
         const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-        reportFile = new File(report.id, reportFile.name, path_s3, null, size, sha, reportFile.version + 1)
+        const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}/${originalName}`
+        reportFile = new File(report.id, reportFile.name, path_s3, path_scs, size, sha, version)
         Logger.log(`Report '${report.sluglified_name}': file ${reportFile.name} new version ${reportFile.version}`, ReportsService.name)
         reportFile = await this.filesMongoProvider.create(reportFile)
         Logger.log(`Report '${report.sluglified_name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
@@ -1035,7 +1021,7 @@ export class ReportsService extends AutowiredService {
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${sha}'`, ReportsService.name)
 
             const filePaths: string[] = await this.getFilePaths(extractedDir)
-            if (filePaths.length < 2) {
+            if (filePaths.length < 1) {
                 report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                 Logger.error(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
                 // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
@@ -1083,7 +1069,7 @@ export class ReportsService extends AutowiredService {
         return report
     }
 
-    public async downloadGithubRepo(user: User, report: Report, repository: any, sha: string, userAccount: UserAccount): Promise<void> {
+    public async downloadGithubRepo(report: Report, repository: any, sha: string, userAccount: UserAccount): Promise<void> {
         Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name)
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
 
@@ -1214,7 +1200,7 @@ export class ReportsService extends AutowiredService {
             }
 
             const filePaths: string[] = await this.getFilePaths(extractedDir)
-            if (filePaths.length < 2) {
+            if (filePaths.length < 1) {
                 report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                 Logger.error(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
                 throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
@@ -1260,7 +1246,7 @@ export class ReportsService extends AutowiredService {
         return report
     }
 
-    public async downloadBitbucketRepo(user: User, report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
+    public async downloadBitbucketRepo(report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
         Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
 
@@ -1404,7 +1390,10 @@ export class ReportsService extends AutowiredService {
             },
         )
 
-        const extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}`
+        const lastVersion: number = await this.getLastVersionOfReport(report.id)
+        const version = lastVersion + 1
+
+        const extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}`
         moveSync(tmpDir, extractedDir, { overwrite: true })
 
         let tmpFiles: string[] = await this.getFilePaths(extractedDir)
@@ -1414,35 +1403,21 @@ export class ReportsService extends AutowiredService {
 
         await this.checkReportTags(report.id, kysoConfigFile.tags)
 
-        if (report?.report_type === ReportType.Website) {
-            Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
-            await this.uploadReportToFtp(report.id, extractedDir)
-        }
+        Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
+        await this.uploadReportToFtp(report.id, extractedDir)
 
         const s3Client: S3Client = await this.getS3Client()
 
         // Get all report files
-        const reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id }, sort: { version: -1 } })
         for (let i = 0; i < files.length; i++) {
             files[i].filePath = files[i].filePath.replace(tmpDir, extractedDir)
             const originalName: string = files[i].name
             const sha: string = sha256File(files[i].filePath)
             const size: number = statSync(files[i].filePath).size
             const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-            const path_scs =
-                report?.report_type === ReportType.Website
-                    ? `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${originalName}`
-                    : null
-            let reportFile: File = reportFiles.find((reportFile: File) => reportFile.name === originalName)
-            if (reportFile) {
-                reportFile = new File(report.id, originalName, path_s3, path_scs, size, sha, reportFile.version + 1)
-                Logger.log(`Report '${report.sluglified_name}': file ${reportFile.name} new version ${reportFile.version}`, ReportsService.name)
-            } else {
-                reportFile = new File(report.id, originalName, path_s3, path_scs, size, sha, 1)
-                Logger.log(`Report '${report.sluglified_name}': new file ${reportFile.name}`, ReportsService.name)
-            }
+            const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}/${originalName}`
+            let reportFile: File = new File(report.id, originalName, path_s3, path_scs, size, sha, version)
             reportFile = await this.filesMongoProvider.create(reportFile)
-            reportFiles.push(reportFile)
             const zip = new AdmZip()
             const fileContent: Buffer = readFileSync(files[i].filePath)
             zip.addFile(originalName, fileContent)
@@ -1971,11 +1946,12 @@ export class ReportsService extends AutowiredService {
 
     private async uploadReportToFtp(reportId: string, sourcePath: string): Promise<void> {
         const report: Report = await this.getReportById(reportId)
+        const version: number = await this.getLastVersionOfReport(reportId)
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const client: Client = await this.sftpService.getClient()
         const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
-        const destinationPath = join(sftpDestinationFolder, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${reportId}`)
+        const destinationPath = join(sftpDestinationFolder, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${reportId}/${version}`)
         const existsPath: boolean | string = await client.exists(destinationPath)
         if (!existsPath) {
             Logger.log(`Directory ${destinationPath} does not exist. Creating...`, ReportsService.name)
@@ -1985,5 +1961,21 @@ export class ReportsService extends AutowiredService {
         const result: string = await client.uploadDir(sourcePath, destinationPath)
         Logger.log(result, ReportsService.name)
         await client.end()
+    }
+
+    private async getLastVersionOfReport(reportId: string): Promise<number> {
+        const query: any = {
+            filter: {
+                report_id: reportId,
+            },
+            sort: {
+                version: -1,
+            },
+        }
+        const files: File[] = await this.filesMongoProvider.read(query)
+        if (files.length === 0) {
+            return 0
+        }
+        return files[0].version
     }
 }
