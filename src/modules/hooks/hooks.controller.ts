@@ -49,7 +49,7 @@ export class HooksController {
             return
         }
 
-        this.reportsService.downloadGithubRepo(user, report, repository, sha, userAccount)
+        this.reportsService.downloadGithubRepo(report, repository, sha, userAccount)
     }
 
     @Post('bitbucket')
@@ -70,6 +70,6 @@ export class HooksController {
             return
         }
         const sha: string = body.push.changes[0].commits[0].hash
-        this.reportsService.downloadBitbucketRepo(user, report, body.repository.full_name, sha, userAccount)
+        this.reportsService.downloadBitbucketRepo(report, body.repository.full_name, sha, userAccount)
     }
 }
