@@ -27,6 +27,7 @@ import {
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
+import { Cookies } from '../../decorators/cookies'
 import { GenericController } from '../../generic/controller.generic'
 import { db } from '../../main'
 import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
@@ -110,9 +111,11 @@ export class AuthController extends GenericController<string> {
             },
         },
     })
-    async login(@Body() login: Login): Promise<NormalizedResponseDTO<string>> {
+    async login(@Body() login: Login, @Res() res): Promise<void> {
         const jwt: string = await this.authService.login(login)
-        return new NormalizedResponseDTO(jwt)
+        const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX)
+        res.cookie('kyso-jwt-token', jwt, { httpOnly: true, path: staticContentPrefix })
+        res.send(new NormalizedResponseDTO(jwt))
     }
 
     @Get('/login/sso/ping-saml/:organizationSlug')
@@ -287,21 +290,23 @@ export class AuthController extends GenericController<string> {
         }
     }
 
-
     @Get('/check-permissions')
     @ApiHeader({
         name: 'Authorization',
         description: 'Authorization header with "Bearer: {jwt}"',
         required: true,
-        example: 'Bearer: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwYXlsb2FkIjp7ImlkIjoiNjIwMzEzMDk0NGI1ZjdlZDFkN2JjMGYyIiwibmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwibmlja25hbWUiOiJwYWxwYXRpbmUiLCJ1c2VybmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwiZW1haWwiOiJwYWxwYXRpbmVAa3lzby5pbyIsInBsYW4iOiJmcmVlIiwicGVybWlzc2lvbnMiOnt9LCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9iaXQubHkvM0lYQUZraSIsImxvY2F0aW9uIjoiIiwibGluayI6IiIsImJpbyI6IltQbGF0Zm9ybSBBZG1pbl0gUGFscGF0aW5lIGlzIGEgcGxhdGZvcm0gYWRtaW4iLCJhY2NvdW50cyI6W3sidHlwZSI6ImdpdGh1YiIsImFjY291bnRJZCI6Ijk4NzQ5OTA5IiwidXNlcm5hbWUiOiJtb3phcnRtYWUifV19LCJpYXQiOjE2NDY5MTEyMDcsImV4cCI6MTY0Njk0MDAwNywiaXNzIjoia3lzbyJ9.ZQr-TbPcoGjEE2njhJ8a8yifgegv0uez8jJR-4AcBII'
+        example:
+            'Bearer: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwYXlsb2FkIjp7ImlkIjoiNjIwMzEzMDk0NGI1ZjdlZDFkN2JjMGYyIiwibmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwibmlja25hbWUiOiJwYWxwYXRpbmUiLCJ1c2VybmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwiZW1haWwiOiJwYWxwYXRpbmVAa3lzby5pbyIsInBsYW4iOiJmcmVlIiwicGVybWlzc2lvbnMiOnt9LCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9iaXQubHkvM0lYQUZraSIsImxvY2F0aW9uIjoiIiwibGluayI6IiIsImJpbyI6IltQbGF0Zm9ybSBBZG1pbl0gUGFscGF0aW5lIGlzIGEgcGxhdGZvcm0gYWRtaW4iLCJhY2NvdW50cyI6W3sidHlwZSI6ImdpdGh1YiIsImFjY291bnRJZCI6Ijk4NzQ5OTA5IiwidXNlcm5hbWUiOiJtb3phcnRtYWUifV19LCJpYXQiOjE2NDY5MTEyMDcsImV4cCI6MTY0Njk0MDAwNywiaXNzIjoia3lzbyJ9.ZQr-TbPcoGjEE2njhJ8a8yifgegv0uez8jJR-4AcBII',
     })
     @ApiHeader({
         name: 'X-Original-URI',
         description: 'Original SCS url',
-        required: true
+        required: true,
     })
-    async checkPermissions(@CurrentToken() requesterUser: Token, @Headers() headers, @Res() response: any) {
+    async checkPermissions(@CurrentToken() requesterUser: Token, @Headers() headers, @Res() response: any, @Cookies() cookies) {
+        console.log(requesterUser)
         console.log(headers)
-        response.status(HttpStatus.OK).send();
+        console.log(cookies)
+        response.status(HttpStatus.OK).send()
     }
 }
