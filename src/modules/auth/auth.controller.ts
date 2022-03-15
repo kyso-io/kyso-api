@@ -309,7 +309,7 @@ export class AuthController extends GenericController<string> {
         console.log(originalUri)
         console.log(cookies)
 
-        if (!cookies.hasOwnProperty('kyso-token')) {
+        if (!cookies.hasOwnProperty('kyso-jwt-token')) {
             response.status(HttpStatus.FORBIDDEN).send()
             return
         }
