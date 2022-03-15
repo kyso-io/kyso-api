@@ -121,10 +121,31 @@ export class AuthController extends GenericController<string> {
             httpOnly: true,
             path: staticContentPrefix,
             sameSite: 'strict',
-            expire: moment().add(TOKEN_EXPIRATION_TIME, 'hours').toDate(),
+            expires: moment().add(TOKEN_EXPIRATION_TIME, 'hours').toDate(),
         })
-        res.cookie('kyso-jwt-token', jwt)
         res.send(new NormalizedResponseDTO(jwt))
+    }
+
+    @Post('/logout')
+    @ApiOperation({
+        summary: `Log out the user from Kyso`,
+        description: `Log out the user from Kyso`,
+    })
+    @ApiResponse({
+        status: 200,
+        description: `JWT token related to user`,
+        type: String,
+    })
+    async logout(@Res() res): Promise<void> {
+        const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX)
+        res.cookie('kyso-jwt-token', '', {
+            secure: process.env.NODE_ENV !== 'development',
+            httpOnly: true,
+            path: staticContentPrefix,
+            sameSite: 'strict',
+            expires: new Date(0),
+        })
+        res.status(HttpStatus.OK).send()
     }
 
     @Get('/login/sso/ping-saml/:organizationSlug')
