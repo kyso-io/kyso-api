@@ -27,7 +27,6 @@ import {
     UnauthorizedException,
 } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
-import JSONTransport from 'nodemailer/lib/json-transport'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { Cookies } from '../../decorators/cookies'
@@ -293,10 +292,6 @@ export class AuthController extends GenericController<string> {
         }
     }
 
-
-    
-    
-
     @Get('/check-permissions')
     @ApiHeader({
         name: 'Authorization',
@@ -313,6 +308,12 @@ export class AuthController extends GenericController<string> {
     async checkPermissions(@Headers('x-original-uri') originalUri, @Res() response: any, @Cookies() cookies: any) {
         console.log(originalUri)
         console.log(cookies)
+
+        if (!cookies.hasOwnProperty('kyso-token')) {
+            response.status(HttpStatus.FORBIDDEN).send()
+            return
+        }
+
         const decodedToken = parseJwt(cookies['kyso-jwt-token'])
 
         const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
@@ -352,11 +353,11 @@ export class AuthController extends GenericController<string> {
 
         const userHasPermission = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
 
-        if(userHasPermission) {
-            response.status(HttpStatus.OK).send();
+        if (userHasPermission) {
+            response.status(HttpStatus.OK).send()
         } else {
-            response.status(HttpStatus.FORBIDDEN).send();
-        }        
+            response.status(HttpStatus.FORBIDDEN).send()
+        }
     }
 }
 
