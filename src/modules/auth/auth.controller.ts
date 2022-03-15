@@ -8,7 +8,6 @@ import {
     PingIdSAMLSpec,
     ReportPermissionsEnum,
     Token,
-    TokenPermissions,
     User,
 } from '@kyso-io/kyso-model'
 import {
@@ -27,6 +26,7 @@ import {
     UnauthorizedException,
 } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import * as moment from 'moment'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { Cookies } from '../../decorators/cookies'
@@ -38,7 +38,7 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { CurrentToken } from './annotations/current-token.decorator'
-import { AuthService } from './auth.service'
+import { AuthService, TOKEN_EXPIRATION_TIME } from './auth.service'
 import { PlatformRoleService } from './platform-role.service'
 import { UserRoleService } from './user-role.service'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -116,7 +116,14 @@ export class AuthController extends GenericController<string> {
     async login(@Body() login: Login, @Res() res): Promise<void> {
         const jwt: string = await this.authService.login(login)
         const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX)
-        res.cookie('kyso-jwt-token', jwt, { httpOnly: true, path: staticContentPrefix })
+        res.cookie('kyso-jwt-token', jwt, {
+            secure: process.env.NODE_ENV !== 'development',
+            httpOnly: true,
+            path: staticContentPrefix,
+            sameSite: 'strict',
+            expires: moment().add(TOKEN_EXPIRATION_TIME, 'hours').toDate(),
+        })
+        res.cookie('kyso-jwt-token', jwt)
         res.send(new NormalizedResponseDTO(jwt))
     }
 
@@ -306,38 +313,29 @@ export class AuthController extends GenericController<string> {
         required: true,
     })
     async checkPermissions(@Headers('x-original-uri') originalUri, @Res() response: any, @Cookies() cookies: any) {
-        console.log(originalUri)
-        console.log(cookies)
-
-        if (!cookies.hasOwnProperty('kyso-jwt-token')) {
+        if (!originalUri || originalUri.length === 0) {
             response.status(HttpStatus.FORBIDDEN).send()
             return
         }
 
-        const decodedToken = parseJwt(cookies['kyso-jwt-token'])
+        if (!cookies || !cookies['kyso-jwt-token'] || cookies['kyso-jwt-token'].length === 0) {
+            response.status(HttpStatus.FORBIDDEN).send()
+            return
+        }
 
-        const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
-            decodedToken.payload.username,
+        const token: Token = this.authService.evaluateAndDecodeToken(cookies['kyso-jwt-token'])
+        if (!token) {
+            response.status(HttpStatus.FORBIDDEN).send()
+            return
+        }
+
+        token.permissions = await AuthService.buildFinalPermissionsForUser(
+            token.username,
             this.usersService,
             this.teamsService,
             this.organizationsService,
             this.platformRoleService,
             this.userRoleService,
-        )
-
-        const token: Token = new Token(
-            decodedToken.payload.id,
-            decodedToken.payload.name,
-            decodedToken.payload.username,
-            decodedToken.payload.display_name,
-            decodedToken.payload.email,
-            decodedToken.payload.plan,
-            decodedToken.payload.avatar_url,
-            decodedToken.payload.location,
-            decodedToken.payload.link,
-            decodedToken.payload.bio,
-            decodedToken.payload.accounts,
-            permissions,
         )
 
         // URI has the following structure /scs/{organizationName}/{teamName}/reports/{reportId}/...
@@ -346,13 +344,12 @@ export class AuthController extends GenericController<string> {
         originalUri = originalUri.replace(`${staticContentPrefix}/`, '')
 
         // Split by "/"
-        let splittedUri = originalUri.split('/')
+        const splittedUri: string[] = originalUri.split('/')
         const organizationName = splittedUri[0]
         const teamName = splittedUri[1]
-        const reportId = splittedUri[3]
+        const reportName = splittedUri[3]
 
-        const userHasPermission = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
-
+        const userHasPermission: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
         if (userHasPermission) {
             response.status(HttpStatus.OK).send()
         } else {
