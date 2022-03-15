@@ -609,7 +609,7 @@ export class ReportsService extends AutowiredService {
             report = reports[0]
             const lastVersion: number = await this.getLastVersionOfReport(report.id)
             version = lastVersion + 1
-            extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}`
+            extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
             moveSync(tmpDir, extractedDir, { overwrite: true })
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Checking files...`, ReportsService.name)
             for (const entry of zip.getEntries()) {
@@ -621,7 +621,7 @@ export class ReportsService extends AutowiredService {
                 const sha: string = sha256File(localFilePath)
                 const size: number = statSync(localFilePath).size
                 const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-                const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}/${entry.entryName}`
+                const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`
                 let reportFile = new File(report.id, originalName, path_s3, path_scs, size, sha, version)
                 reportFile = await this.filesMongoProvider.create(reportFile)
                 reportFiles.push(reportFile)
@@ -654,7 +654,7 @@ export class ReportsService extends AutowiredService {
                 report.report_type = kysoConfigFile.type
             }
             report = await this.provider.create(report)
-            extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}`
+            extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
             moveSync(tmpDir, extractedDir, { overwrite: true })
             for (const entry of zip.getEntries()) {
                 const originalName: string = entry.entryName
@@ -665,7 +665,7 @@ export class ReportsService extends AutowiredService {
                 const sha: string = sha256File(localFilePath)
                 const size: number = statSync(localFilePath).size
                 const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-                const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}/${entry.entryName}`
+                const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`
                 let file: File = new File(report.id, originalName, path_s3, path_scs, size, sha, 1)
                 file = await this.filesMongoProvider.create(file)
                 reportFiles.push(file)
@@ -799,7 +799,7 @@ export class ReportsService extends AutowiredService {
         }
         report = await this.provider.create(report)
         const version = 1
-        extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}`
+        extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
         moveSync(tmpDir, extractedDir, { overwrite: true })
         for (const entry of zip.getEntries()) {
             const originalName: string = entry.entryName
@@ -810,7 +810,7 @@ export class ReportsService extends AutowiredService {
             const sha: string = sha256File(localFilePath)
             const size: number = statSync(localFilePath).size
             const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-            const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}/${entry.entryName}`
+            const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`
             let file: File = new File(report.id, originalName, path_s3, path_scs, size, sha, version)
             file = await this.filesMongoProvider.create(file)
             reportFiles.push(file)
@@ -891,7 +891,7 @@ export class ReportsService extends AutowiredService {
         const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
         const destinationPath = join(
             sftpDestinationFolder,
-            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${reportId}/${version}/${originalName}`,
+            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`,
         )
         const result = await client.put(localFilePath, destinationPath)
         Logger.log(result, ReportsService.name)
@@ -900,7 +900,7 @@ export class ReportsService extends AutowiredService {
         unlinkSync(localFilePath)
         const size: number = file.size
         const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-        const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}/${originalName}`
+        const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`
         reportFile = new File(report.id, reportFile.name, path_s3, path_scs, size, sha, version)
         Logger.log(`Report '${report.sluglified_name}': file ${reportFile.name} new version ${reportFile.version}`, ReportsService.name)
         reportFile = await this.filesMongoProvider.create(reportFile)
@@ -1393,7 +1393,7 @@ export class ReportsService extends AutowiredService {
         const lastVersion: number = await this.getLastVersionOfReport(report.id)
         const version = lastVersion + 1
 
-        const extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}`
+        const extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
         moveSync(tmpDir, extractedDir, { overwrite: true })
 
         let tmpFiles: string[] = await this.getFilePaths(extractedDir)
@@ -1415,7 +1415,7 @@ export class ReportsService extends AutowiredService {
             const sha: string = sha256File(files[i].filePath)
             const size: number = statSync(files[i].filePath).size
             const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-            const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.id}/${version}/${originalName}`
+            const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`
             let reportFile: File = new File(report.id, originalName, path_s3, path_scs, size, sha, version)
             reportFile = await this.filesMongoProvider.create(reportFile)
             const zip = new AdmZip()
@@ -1951,7 +1951,7 @@ export class ReportsService extends AutowiredService {
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const client: Client = await this.sftpService.getClient()
         const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
-        const destinationPath = join(sftpDestinationFolder, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${reportId}/${version}`)
+        const destinationPath = join(sftpDestinationFolder, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
         const existsPath: boolean | string = await client.exists(destinationPath)
         if (!existsPath) {
             Logger.log(`Directory ${destinationPath} does not exist. Creating...`, ReportsService.name)
