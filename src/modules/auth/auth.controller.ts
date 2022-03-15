@@ -357,8 +357,3 @@ export class AuthController extends GenericController<string> {
         }
     }
 }
-
-function parseJwt(token) {
-    const payload = Buffer.from(token, 'base64')
-    return JSON.parse(payload.toString())
-}
