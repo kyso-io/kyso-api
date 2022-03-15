@@ -1719,6 +1719,7 @@ export class ReportsService extends AutowiredService {
                     path: justFile.name.replace(`${sanitizedPath}/`, ''),
                     hash: justFile.sha,
                     htmlUrl: '',
+                    path_scs: justFile.path_scs,
                 },
             ]
         }
@@ -1738,6 +1739,7 @@ export class ReportsService extends AutowiredService {
                     path: element.name,
                     hash: file.sha,
                     htmlUrl: '',
+                    path_scs: file.path_scs,
                 })
             } else {
                 // File
@@ -1746,6 +1748,7 @@ export class ReportsService extends AutowiredService {
                     path: file.name.replace(`${sanitizedPath}/`, ''),
                     hash: file.sha,
                     htmlUrl: '',
+                    path_scs: file.path_scs,
                 })
             }
         })
@@ -1951,7 +1954,10 @@ export class ReportsService extends AutowiredService {
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const client: Client = await this.sftpService.getClient()
         const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
-        const destinationPath = join(sftpDestinationFolder, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
+        const destinationPath = join(
+            sftpDestinationFolder,
+            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`,
+        )
         const existsPath: boolean | string = await client.exists(destinationPath)
         if (!existsPath) {
             Logger.log(`Directory ${destinationPath} does not exist. Creating...`, ReportsService.name)
