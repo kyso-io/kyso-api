@@ -604,12 +604,13 @@ export class ReportsService extends AutowiredService {
         const reportFiles: File[] = []
         let version = 1
         let report: Report = null
+        const reportPath: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.REPORT_PATH)
         if (reports.length > 0) {
             // Existing report
             report = reports[0]
             const lastVersion: number = await this.getLastVersionOfReport(report.id)
             version = lastVersion + 1
-            extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
+            extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
             moveSync(tmpDir, extractedDir, { overwrite: true })
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Checking files...`, ReportsService.name)
             for (const entry of zip.getEntries()) {
@@ -654,7 +655,7 @@ export class ReportsService extends AutowiredService {
                 report.report_type = kysoConfigFile.type
             }
             report = await this.provider.create(report)
-            extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
+            extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
             moveSync(tmpDir, extractedDir, { overwrite: true })
             for (const entry of zip.getEntries()) {
                 const originalName: string = entry.entryName
@@ -673,9 +674,9 @@ export class ReportsService extends AutowiredService {
         }
 
         let files: string[] = await this.getFilePaths(extractedDir)
-        // Remove /tmp from the paths
-        files = files.map((file: string) => file.replace('/tmp', ''))
-        writeFileSync(`${extractedDir}/kyso.indexer`, files.join('\n'))
+        // Remove '/reportPath' from the paths
+        files = files.map((file: string) => file.replace(reportPath, ''))
+        writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
 
         await this.checkReportTags(report.id, kysoConfigFile.tags)
 
@@ -768,6 +769,7 @@ export class ReportsService extends AutowiredService {
         const reports: Report[] = await this.provider.read({ filter: { sluglified_name: name, team_id: team.id } })
         const reportFiles: File[] = []
         let report: Report = null
+        const reportPath: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.REPORT_PATH)
         if (reports.length > 0) {
             Logger.log(`Report '${name}' already exists in team ${team.sluglified_name}`, ReportsService.name)
             throw new PreconditionFailedException(`Report '${name}' already exists in team ${team.sluglified_name}`)
@@ -799,7 +801,7 @@ export class ReportsService extends AutowiredService {
         }
         report = await this.provider.create(report)
         const version = 1
-        extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
+        extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
         moveSync(tmpDir, extractedDir, { overwrite: true })
         for (const entry of zip.getEntries()) {
             const originalName: string = entry.entryName
@@ -817,9 +819,9 @@ export class ReportsService extends AutowiredService {
         }
 
         let files: string[] = await this.getFilePaths(extractedDir)
-        // Remove /tmp from the paths
-        files = files.map((file: string) => file.replace('/tmp', ''))
-        writeFileSync(`${extractedDir}/kyso.indexer`, files.join('\n'))
+        // Remove '/reportPath' from the paths
+        files = files.map((file: string) => file.replace(reportPath, ''))
+        writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
 
         await this.checkReportTags(report.id, kysoConfigFile.tags)
 
@@ -1393,13 +1395,14 @@ export class ReportsService extends AutowiredService {
         const lastVersion: number = await this.getLastVersionOfReport(report.id)
         const version = lastVersion + 1
 
-        const extractedDir = `/tmp/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
+        const reportPath: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.REPORT_PATH)
+        const extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
         moveSync(tmpDir, extractedDir, { overwrite: true })
 
         let tmpFiles: string[] = await this.getFilePaths(extractedDir)
-        // Remove /tmp from the paths
-        tmpFiles = tmpFiles.map((file: string) => file.replace('/tmp', ''))
-        writeFileSync(`${extractedDir}/kyso.indexer`, tmpFiles.join('\n'))
+        // Remove '/reportPath' from the paths
+        tmpFiles = tmpFiles.map((file: string) => file.replace(reportPath, ''))
+        writeFileSync(join(reportPath, `/${report.id}.indexer`), tmpFiles.join('\n'))
 
         await this.checkReportTags(report.id, kysoConfigFile.tags)
 

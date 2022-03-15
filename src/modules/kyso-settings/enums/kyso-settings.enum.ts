@@ -32,6 +32,8 @@ export enum KysoSettingsEnum {
     SFTP_DESTINATION_FOLDER = 'SFTP_DESTINATION_FOLDER',
     // SCS path
     STATIC_CONTENT_PREFIX = 'STATIC_CONTENT_PREFIX',
+    // Reports path
+    REPORT_PATH = 'REPORT_PATH',
 }
 
 export function getKysoSettingDefaultValue(setting: KysoSettingsEnum) {
@@ -101,6 +103,8 @@ export function getKysoSettingDescription(setting: KysoSettingsEnum) {
             return `SFTP destination folder`
         case KysoSettingsEnum.STATIC_CONTENT_PREFIX:
             return `Static content prefix`
+        case KysoSettingsEnum.REPORT_PATH:
+            return `Path where reports are unzipped`
         default:
             return 'No description provided'
     }
