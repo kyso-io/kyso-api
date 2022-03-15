@@ -38,7 +38,7 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { CurrentToken } from './annotations/current-token.decorator'
-import { AuthService, TOKEN_EXPIRATION_TIME } from './auth.service'
+import { AuthService, TOKEN_EXPIRATION_HOURS } from './auth.service'
 import { PlatformRoleService } from './platform-role.service'
 import { UserRoleService } from './user-role.service'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -121,7 +121,7 @@ export class AuthController extends GenericController<string> {
             httpOnly: true,
             path: staticContentPrefix,
             sameSite: 'strict',
-            expires: moment().add(TOKEN_EXPIRATION_TIME, 'hours').toDate(),
+            expires: moment().add(TOKEN_EXPIRATION_HOURS, 'hours').toDate(),
         })
         res.send(new NormalizedResponseDTO(jwt))
     }

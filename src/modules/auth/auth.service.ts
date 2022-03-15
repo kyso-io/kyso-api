@@ -16,7 +16,6 @@ import {
     UserAccount,
 } from '@kyso-io/kyso-model'
 import { Injectable, Logger, Provider } from '@nestjs/common'
-import { Reflector } from '@nestjs/core'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcryptjs'
 import * as mongo from 'mongodb'
@@ -25,7 +24,6 @@ import { AutowiredService } from '../../generic/autowired.generic'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
-import { PERMISSION_KEY } from './annotations/permission.decorator'
 import { PlatformRoleService } from './platform-role.service'
 import { BitbucketLoginProvider } from './providers/bitbucket-login.provider'
 import { GithubLoginProvider } from './providers/github-login.provider'
@@ -35,7 +33,8 @@ import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provi
 import { PingIdLoginProvider } from './providers/ping-id-login.provider'
 import { UserRoleService } from './user-role.service'
 
-export const TOKEN_EXPIRATION_TIME = '8h'
+export const TOKEN_EXPIRATION_HOURS = 8
+export const TOKEN_EXPIRATION_TIME = `${TOKEN_EXPIRATION_HOURS}h`
 
 function factory(service: AuthService) {
     return service
@@ -354,7 +353,7 @@ export class AuthService extends AutowiredService {
         switch (addUserAccount.provider) {
             case LoginProviderEnum.GITHUB:
                 return this.githubLoginProvider.addUserAccount(token, addUserAccount)
-                case LoginProviderEnum.BITBUCKET:
+            case LoginProviderEnum.BITBUCKET:
                 return this.bitbucketLoginProvider.addUserAccount(token, addUserAccount)
             default:
                 return null
