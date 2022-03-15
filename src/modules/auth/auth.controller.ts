@@ -121,7 +121,7 @@ export class AuthController extends GenericController<string> {
             httpOnly: true,
             path: staticContentPrefix,
             sameSite: 'strict',
-            expires: moment().add(TOKEN_EXPIRATION_TIME, 'hours').toDate(),
+            expire: moment().add(TOKEN_EXPIRATION_TIME, 'hours').toDate(),
         })
         res.cookie('kyso-jwt-token', jwt)
         res.send(new NormalizedResponseDTO(jwt))
