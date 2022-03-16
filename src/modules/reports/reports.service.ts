@@ -1673,7 +1673,7 @@ export class ReportsService extends AutowiredService {
 
         if (sanitizedPath !== '') {
             // Get the files that are in the path
-            reportFiles = reportFiles.filter((file: File) => file.name.startsWith(sanitizedPath + '/'))
+            reportFiles = reportFiles.filter((file: File) => file.name.startsWith(sanitizedPath + '/') || file.name.startsWith(sanitizedPath))
             filesInPath = reportFiles.map((file: File) => {
                 return {
                     ...file,
@@ -1704,11 +1704,12 @@ export class ReportsService extends AutowiredService {
                     hash: justFile.sha,
                     htmlUrl: '',
                     path_scs: justFile.path_scs,
+                    version: justFile.version,
                 },
             ]
         }
 
-        if (result.length === 1 && result[0].name === path) {
+        if (result.length === 1 && result[0].name === path && result[0].children.length > 0) {
             // We are inside a directory
             result = result[0].children
         }
@@ -1724,6 +1725,7 @@ export class ReportsService extends AutowiredService {
                     hash: file.sha,
                     htmlUrl: '',
                     path_scs: file.path_scs,
+                    version: file.version,
                 })
             } else {
                 // File
@@ -1733,6 +1735,7 @@ export class ReportsService extends AutowiredService {
                     hash: file.sha,
                     htmlUrl: '',
                     path_scs: file.path_scs,
+                    version: file.version,
                 })
             }
         })
