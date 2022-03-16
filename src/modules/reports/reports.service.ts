@@ -1635,10 +1635,13 @@ export class ReportsService extends AutowiredService {
                 const buffer: Buffer = await this.streamToBuffer(result.Body as Readable)
                 const reportFileZip: AdmZip = new AdmZip(buffer)
                 const zipEntries: AdmZip.IZipEntry[] = reportFileZip.getEntries()
-                for (const zipEntry of zipEntries) {
-                    Logger.log(`Report '${report.sluglified_name}': adding file '${zipEntry.entryName}' to zip...`, ReportsService.name)
-                    zip.addFile(zipEntry.entryName, reportFileZip.readFile(zipEntry))
+                if (zipEntries.length === 0) {
+                    Logger.error(`Error downloading file '${reportFile.name}' from S3`, ReportsService.name)
+                    continue
                 }
+                const zipEntry: AdmZip.IZipEntry = zipEntries[0]
+                Logger.log(`Report '${report.sluglified_name}': adding file '${reportFile.name}' to zip...`, ReportsService.name)
+                zip.addFile(reportFile.name, reportFileZip.readFile(zipEntry))
             } catch (e) {
                 Logger.error(`An error occurred downloading file '${reportFile.name}' from S3`, e, ReportsService.name)
             }
@@ -1647,6 +1650,7 @@ export class ReportsService extends AutowiredService {
         response.set('Content-Disposition', `attachment; filename=${report.id}.zip`)
         response.set('Content-Type', 'application/zip')
         response.send(zip.toBuffer())
+        Logger.log(`Report '${report.sluglified_name}': zip sent to user`, ReportsService.name)
     }
 
     private async getKysoReportTree(reportId: string, path: string, version: number | null): Promise<GithubFileHash[]> {
