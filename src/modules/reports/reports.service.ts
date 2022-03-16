@@ -494,6 +494,20 @@ export class ReportsService extends AutowiredService {
         const markAsStar: boolean = starredReport.length > 0
         const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: report.id } })
         const tags: Tag[] = await this.tagsService.getTagsOfEntity(report.id, EntityEnum.REPORT)
+
+        const lastVersion: number = await this.getLastVersionOfReport(report.id)
+        let mainFile: File | null = null
+        if (report.main_file && report.main_file.length > 0) {
+            const result = await this.filesMongoProvider.read({
+                filter: {
+                    report_id: report.id,
+                    name: report.main_file,
+                    version: lastVersion,
+                },
+            })
+            mainFile = result.length > 0 ? result[0] : null
+        }
+
         return new ReportDTO(
             report.id,
             report.created_at,
@@ -520,7 +534,9 @@ export class ReportsService extends AutowiredService {
             report.preview_picture,
             report.show_code,
             report.show_output,
-            report.main_file,
+            mainFile ? mainFile.name : null,
+            mainFile ? mainFile.sha : null,
+            mainFile ? mainFile.version : null,
         )
     }
 
