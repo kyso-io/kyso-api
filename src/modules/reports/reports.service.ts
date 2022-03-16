@@ -1612,18 +1612,8 @@ export class ReportsService extends AutowiredService {
     }
 
     private async returnZippedReport(report: Report, response: any): Promise<void> {
-        let reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id } })
-        // Download only the last version of each file
-        const map: Map<string, File> = new Map<string, File>()
-        for (const file of reportFiles) {
-            if (!map.has(file.name)) {
-                map.set(file.name, file)
-            }
-            if (map.get(file.name).version < file.version) {
-                map.set(file.name, file)
-            }
-        }
-        reportFiles = Array.from(map.values())
+        const lastVersion: number = await this.getLastVersionOfReport(report.id)
+        const reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id, version: lastVersion } })
 
         const s3Client: S3Client = await this.getS3Client()
         const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
@@ -1660,14 +1650,12 @@ export class ReportsService extends AutowiredService {
     }
 
     private async getKysoReportTree(reportId: string, path: string, version: number | null): Promise<GithubFileHash[]> {
+        const lastVersion: number = await this.getLastVersionOfReport(reportId)
         const query: any = {
             filter: {
                 report_id: reportId,
+                version: version || lastVersion,
             },
-            sort: { version: 1 },
-        }
-        if (version) {
-            query.filter.version = version
         }
         let reportFiles: File[] = await this.filesMongoProvider.read(query)
         if (reportFiles.length === 0) {
@@ -1677,17 +1665,10 @@ export class ReportsService extends AutowiredService {
         let sanitizedPath = ''
         if (path && (path == './' || path == '/' || path == '.' || path == '/.')) {
             sanitizedPath = ''
-        } else if (path && path.length) {
+        } else if (path && path.length > 0) {
             sanitizedPath = path.replace('./', '').replace(/\/$/, '')
         }
 
-        // Get last version of each file
-        const map: Map<string, File> = new Map<string, File>()
-        for (const reportFile of reportFiles) {
-            map.set(reportFile.name, reportFile)
-        }
-
-        reportFiles = Array.from(map.values())
         let filesInPath: any[] = [...reportFiles]
 
         if (sanitizedPath !== '') {
@@ -1715,7 +1696,7 @@ export class ReportsService extends AutowiredService {
         })
 
         if (result.length === 0) {
-            const justFile = Array.from(map.values()).find((file: File) => file.name.startsWith(sanitizedPath))
+            const justFile: File = reportFiles.find((file: File) => file.name.startsWith(sanitizedPath))
             return [
                 {
                     type: 'file',
