@@ -49,7 +49,7 @@ export class FullTextSearchController {
                         team: "protected-team",
                         organization: "lightside",
                         tags: [],
-                        score: "1.9832"
+                        score: 1.9832
                     },
                     { 
                         title: "Mandalorian's Cred", 
@@ -60,7 +60,7 @@ export class FullTextSearchController {
                         team: "mandalorian-team",
                         organization: "lightside",
                         tags: ["jedi", "creed", "bobba fet"],
-                        score: "1.2832"
+                        score: 1.2832
                     },
                     { 
                         title: "Jupyter Book Example", 
@@ -71,7 +71,7 @@ export class FullTextSearchController {
                         team: "protected-team",
                         organization: "lightside",
                         tags: ["jupyter", "book", "genome"],
-                        score: "1.0832"
+                        score: 1.0832
                     },
                     { 
                         title: "Map bisulfite converted sequence reads", 
@@ -82,7 +82,7 @@ export class FullTextSearchController {
                         team: "protected-team",
                         organization: "lightside",
                         tags: [],
-                        score: "0.9"
+                        score: 0.9
                     },
                     { 
                         title: "Mandalorian's Cred", 
@@ -93,7 +93,7 @@ export class FullTextSearchController {
                         team: "mandalorian-team",
                         organization: "lightside",
                         tags: [],
-                        score: "0.8"
+                        score: 0.8
                     },
                     { 
                         title: "Jupyter Book Example", 
@@ -104,7 +104,7 @@ export class FullTextSearchController {
                         team: "protected-team",
                         organization: "lightside",
                         tags: [],
-                        score: "0.7"
+                        score: 0.7
                     },
                     { 
                         title: "Map bisulfite converted sequence reads", 
@@ -115,7 +115,7 @@ export class FullTextSearchController {
                         team: "protected-team",
                         organization: "lightside",
                         tags: [],
-                        score: "0.6"
+                        score: 0.6
                     },
                     { 
                         title: "Mandalorian's Cred", 
@@ -126,7 +126,7 @@ export class FullTextSearchController {
                         team: "mandalorian-team",
                         organization: "lightside",
                         tags: [],
-                        score: "0.5"
+                        score: 0.5
                     },
                     { 
                         title: "Jupyter Book Example", 
@@ -137,7 +137,7 @@ export class FullTextSearchController {
                         team: "protected-team",
                         organization: "lightside",
                         tags: [],
-                        score: "0.4"
+                        score: 0.4
                     },
                     { 
                         title: "Jupyter Book Example", 
@@ -148,7 +148,7 @@ export class FullTextSearchController {
                         team: "protected-team",
                         organization: "lightside",
                         tags: [],
-                        score: "0.3"
+                        score: 0.3
                     }
                 ],
                 organizations: [
@@ -167,9 +167,11 @@ export class FullTextSearchController {
                     "jedi", "creed", "bobba fet", "jupyter", "book", "genome"
                 ],
                 metadata: {
-                    page: 1,
-                    pages: 5,
-                    perPage: 10,
+                    reports: {
+                        page: 1,
+                        pages: 5,
+                        perPage: 10
+                    }
                 }
             }
         ];
