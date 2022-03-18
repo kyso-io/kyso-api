@@ -494,6 +494,20 @@ export class ReportsService extends AutowiredService {
         const markAsStar: boolean = starredReport.length > 0
         const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: report.id } })
         const tags: Tag[] = await this.tagsService.getTagsOfEntity(report.id, EntityEnum.REPORT)
+
+        const lastVersion: number = await this.getLastVersionOfReport(report.id)
+        let mainFile: File | null = null
+        if (report.main_file && report.main_file.length > 0) {
+            const result = await this.filesMongoProvider.read({
+                filter: {
+                    report_id: report.id,
+                    name: report.main_file,
+                    version: lastVersion,
+                },
+            })
+            mainFile = result.length > 0 ? result[0] : null
+        }
+
         return new ReportDTO(
             report.id,
             report.created_at,
@@ -520,7 +534,9 @@ export class ReportsService extends AutowiredService {
             report.preview_picture,
             report.show_code,
             report.show_output,
-            report.main_file,
+            mainFile ? mainFile.name : null,
+            mainFile ? mainFile.sha : null,
+            mainFile ? mainFile.version : null,
         )
     }
 
@@ -1612,18 +1628,8 @@ export class ReportsService extends AutowiredService {
     }
 
     private async returnZippedReport(report: Report, response: any): Promise<void> {
-        let reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id } })
-        // Download only the last version of each file
-        const map: Map<string, File> = new Map<string, File>()
-        for (const file of reportFiles) {
-            if (!map.has(file.name)) {
-                map.set(file.name, file)
-            }
-            if (map.get(file.name).version < file.version) {
-                map.set(file.name, file)
-            }
-        }
-        reportFiles = Array.from(map.values())
+        const lastVersion: number = await this.getLastVersionOfReport(report.id)
+        const reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id, version: lastVersion } })
 
         const s3Client: S3Client = await this.getS3Client()
         const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
@@ -1645,10 +1651,13 @@ export class ReportsService extends AutowiredService {
                 const buffer: Buffer = await this.streamToBuffer(result.Body as Readable)
                 const reportFileZip: AdmZip = new AdmZip(buffer)
                 const zipEntries: AdmZip.IZipEntry[] = reportFileZip.getEntries()
-                for (const zipEntry of zipEntries) {
-                    Logger.log(`Report '${report.sluglified_name}': adding file '${zipEntry.entryName}' to zip...`, ReportsService.name)
-                    zip.addFile(zipEntry.entryName, reportFileZip.readFile(zipEntry))
+                if (zipEntries.length === 0) {
+                    Logger.error(`Error downloading file '${reportFile.name}' from S3`, ReportsService.name)
+                    continue
                 }
+                const zipEntry: AdmZip.IZipEntry = zipEntries[0]
+                Logger.log(`Report '${report.sluglified_name}': adding file '${reportFile.name}' to zip...`, ReportsService.name)
+                zip.addFile(reportFile.name, reportFileZip.readFile(zipEntry))
             } catch (e) {
                 Logger.error(`An error occurred downloading file '${reportFile.name}' from S3`, e, ReportsService.name)
             }
@@ -1657,17 +1666,16 @@ export class ReportsService extends AutowiredService {
         response.set('Content-Disposition', `attachment; filename=${report.id}.zip`)
         response.set('Content-Type', 'application/zip')
         response.send(zip.toBuffer())
+        Logger.log(`Report '${report.sluglified_name}': zip sent to user`, ReportsService.name)
     }
 
     private async getKysoReportTree(reportId: string, path: string, version: number | null): Promise<GithubFileHash[]> {
+        const lastVersion: number = await this.getLastVersionOfReport(reportId)
         const query: any = {
             filter: {
                 report_id: reportId,
+                version: version || lastVersion,
             },
-            sort: { version: 1 },
-        }
-        if (version) {
-            query.filter.version = version
         }
         let reportFiles: File[] = await this.filesMongoProvider.read(query)
         if (reportFiles.length === 0) {
@@ -1677,22 +1685,15 @@ export class ReportsService extends AutowiredService {
         let sanitizedPath = ''
         if (path && (path == './' || path == '/' || path == '.' || path == '/.')) {
             sanitizedPath = ''
-        } else if (path && path.length) {
+        } else if (path && path.length > 0) {
             sanitizedPath = path.replace('./', '').replace(/\/$/, '')
         }
 
-        // Get last version of each file
-        const map: Map<string, File> = new Map<string, File>()
-        for (const reportFile of reportFiles) {
-            map.set(reportFile.name, reportFile)
-        }
-
-        reportFiles = Array.from(map.values())
         let filesInPath: any[] = [...reportFiles]
 
         if (sanitizedPath !== '') {
             // Get the files that are in the path
-            reportFiles = reportFiles.filter((file: File) => file.name.startsWith(sanitizedPath + '/'))
+            reportFiles = reportFiles.filter((file: File) => file.name.startsWith(sanitizedPath + '/') || file.name.startsWith(sanitizedPath))
             filesInPath = reportFiles.map((file: File) => {
                 return {
                     ...file,
@@ -1715,7 +1716,7 @@ export class ReportsService extends AutowiredService {
         })
 
         if (result.length === 0) {
-            const justFile = Array.from(map.values()).find((file: File) => file.name.startsWith(sanitizedPath))
+            const justFile: File = reportFiles.find((file: File) => file.name.startsWith(sanitizedPath))
             return [
                 {
                     type: 'file',
@@ -1723,11 +1724,12 @@ export class ReportsService extends AutowiredService {
                     hash: justFile.sha,
                     htmlUrl: '',
                     path_scs: justFile.path_scs,
+                    version: justFile.version,
                 },
             ]
         }
 
-        if (result.length === 1 && result[0].name === path) {
+        if (result.length === 1 && result[0].name === path && result[0].children.length > 0) {
             // We are inside a directory
             result = result[0].children
         }
@@ -1743,6 +1745,7 @@ export class ReportsService extends AutowiredService {
                     hash: file.sha,
                     htmlUrl: '',
                     path_scs: file.path_scs,
+                    version: file.version,
                 })
             } else {
                 // File
@@ -1752,6 +1755,7 @@ export class ReportsService extends AutowiredService {
                     hash: file.sha,
                     htmlUrl: '',
                     path_scs: file.path_scs,
+                    version: file.version,
                 })
             }
         })
