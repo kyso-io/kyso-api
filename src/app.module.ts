@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module'
 import { BitbucketReposModule } from './modules/bitbucket-repos/bitbucket-repos.module'
 import { CommentsModule } from './modules/comments/comments.module'
 import { DiscussionsModule } from './modules/discussions/discussions.module'
+import { FullTextSearchModule } from './modules/full-text-search/full-text-search.module'
 import { GithubReposModule } from './modules/github-repos/github-repos.module'
 import { HooksModule } from './modules/hooks/hooks.module'
 import { InvitationsModule } from './modules/invitations/invitations.module'
@@ -54,7 +55,8 @@ import { UsersModule } from './modules/users/users.module'
         TeamsModule.forRoot(),
         TestingDataPopulatorModule,
         UsersModule.forRoot(),
-        KysoSettingsModule.forRoot()
+        KysoSettingsModule.forRoot(),
+        FullTextSearchModule
     ],
 })
 export class AppModule {}
