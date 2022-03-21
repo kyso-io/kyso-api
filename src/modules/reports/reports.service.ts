@@ -1763,8 +1763,8 @@ export class ReportsService extends AutowiredService {
                 },
             ]
         }
-
-        if (result.length === 1 && result[0].name === path && result[0].children.length > 0) {
+        
+        if (result.length === 1 && result[0].children.length > 0) {
             // We are inside a directory
             result = result[0].children
         }
