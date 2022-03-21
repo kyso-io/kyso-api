@@ -172,7 +172,6 @@ export class OrganizationsService extends AutowiredService {
     }
 
     public async updateOrganizationOptions(organizationId: string, options: OrganizationOptions): Promise<Organization> {
-        console.log(options)
         const organizationDb: Organization = await this.getOrganizationById(organizationId)
         if (!organizationDb) {
             throw new PreconditionFailedException('Organization does not exist')

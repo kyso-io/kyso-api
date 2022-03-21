@@ -621,6 +621,7 @@ export class ReportsService extends AutowiredService {
         let version = 1
         let report: Report = null
         const reportPath: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.REPORT_PATH)
+        let isNew = false
         if (reports.length > 0) {
             // Existing report
             report = reports[0]
@@ -671,6 +672,7 @@ export class ReportsService extends AutowiredService {
                 report.report_type = kysoConfigFile.type
             }
             report = await this.provider.create(report)
+            isNew = true
             extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
             moveSync(tmpDir, extractedDir, { overwrite: true })
             for (const entry of zip.getEntries()) {
@@ -724,6 +726,8 @@ export class ReportsService extends AutowiredService {
             Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
 
             rmSync(extractedDir, { recursive: true, force: true })
+
+            await this.sendNewReportMail(report, team, organization, isNew)
         })
 
         return report
@@ -869,9 +873,33 @@ export class ReportsService extends AutowiredService {
             Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
 
             rmSync(extractedDir, { recursive: true, force: true })
+
+            await this.sendNewReportMail(report, team, organization, true)
         })
 
         return report
+    }
+
+    private async sendNewReportMail(report: Report, team: Team, organization: Organization, isNew: boolean): Promise<void> {
+        const user: User = await this.usersService.getUserById(report.user_id)
+        const centralizedMails: boolean = organization?.options?.notifications?.centralized || false
+        const emails: string[] = organization?.options?.notifications?.emails || []
+        const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+        const to = centralizedMails && emails.length > 0 ? emails : user.email
+        this.mailerService
+            .sendMail({
+                to,
+                subject: isNew ? `New report '${report.title}'` : `Updated report '${report.title}'`,
+                html: isNew
+                    ? `New report created to the team <strong>${team.display_name}</strong>: <a href="${frontendUrl}/${organization.sluglified_name}/${team.sluglified_name}/${report.sluglified_name}">${report.title}</a> of the team`
+                    : `Updated report <a href="${frontendUrl}/${organization.sluglified_name}/${team.sluglified_name}/${report.sluglified_name}">${report.title}</a> of the team <strong>${team.display_name}</strong>`,
+            })
+            .then((messageInfo) => {
+                Logger.log(`Report mail ${messageInfo.messageId} sent to ${Array.isArray(to) ? to.join(', ') : to}`, ReportsService.name)
+            })
+            .catch((err) => {
+                Logger.error(`An error occurrend sending report mail to ${Array.isArray(to) ? to.join(', ') : to}`, err, ReportsService.name)
+            })
     }
 
     public async updateMainFileReport(userId: string, reportId: string, file: any): Promise<Report> {
@@ -972,6 +1000,7 @@ export class ReportsService extends AutowiredService {
 
         const reports: Report[] = await this.provider.read({ filter: { sluglified_name: slugify(repository.name), user_id: user.id } })
         let report: Report = null
+        let isNew = false
         if (reports.length > 0) {
             // Existing report
             report = reports[0]
@@ -1006,6 +1035,7 @@ export class ReportsService extends AutowiredService {
             )
             report = await this.provider.create(report)
             Logger.log(`New report '${report.id} ${report.sluglified_name}'`, ReportsService.name)
+            isNew = true
         }
 
         new Promise<void>(async () => {
@@ -1081,7 +1111,7 @@ export class ReportsService extends AutowiredService {
                 return
             }
 
-            this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+            await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove, isNew)
         })
 
         return report
@@ -1125,7 +1155,7 @@ export class ReportsService extends AutowiredService {
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name)
 
-        this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+        await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove, false)
     }
 
     public async createReportFromBitbucketRepository(userId: string, repositoryName: string, branch: string): Promise<Report> {
@@ -1153,6 +1183,7 @@ export class ReportsService extends AutowiredService {
 
         const reports: Report[] = await this.provider.read({ filter: { sluglified_name: bitbucketRepository.name, user_id: user.id } })
         let report: Report = null
+        let isNew = false
         if (reports.length > 0) {
             // Existing report
             report = reports[0]
@@ -1193,6 +1224,7 @@ export class ReportsService extends AutowiredService {
             )
             report = await this.provider.create(report)
             Logger.log(`New report '${report.id} ${report.sluglified_name}'`, ReportsService.name)
+            isNew = true
         }
 
         new Promise<void>(async () => {
@@ -1258,7 +1290,7 @@ export class ReportsService extends AutowiredService {
                 return
             }
 
-            await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+            await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove, isNew)
         })
 
         return report
@@ -1312,7 +1344,7 @@ export class ReportsService extends AutowiredService {
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
 
-        this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+        await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove, false)
     }
 
     private async normalizeFilePaths(
@@ -1381,6 +1413,7 @@ export class ReportsService extends AutowiredService {
         kysoConfigFile: KysoConfigFile,
         files: { name: string; filePath: string }[],
         directoriesToRemove: string[],
+        isNew: boolean,
     ): Promise<void> {
         const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
         const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team } })
@@ -1464,6 +1497,8 @@ export class ReportsService extends AutowiredService {
 
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
         Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
+
+        await this.sendNewReportMail(report, team, organization, isNew)
     }
 
     private async createGithubWebhook(octokit: Octokit, username: string, repositoryName: string) {

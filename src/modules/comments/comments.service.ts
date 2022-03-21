@@ -120,7 +120,12 @@ export class CommentsService extends AutowiredService {
                 }
             })
         }
+        const team: Team = await this.teamsService.getTeamById(discussion.team_id)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
         const creator: User = await this.usersService.getUserById(comment.user_id)
+        const mentionedUsers: User[] = []
+        const centralizedMails: boolean = organization?.options?.notifications?.centralized || false
         for (const userId of userIds) {
             const index: number = discussion.participants.findIndex((participant: string) => participant === userId)
             if (index === -1) {
@@ -129,14 +134,14 @@ export class CommentsService extends AutowiredService {
                     Logger.error(`Could not find user with id ${userId}`, CommentsService.name)
                     continue
                 }
+                mentionedUsers.push(user)
                 await this.discussionsService.addParticipantToDiscussion(discussion.id, userId)
                 if (creator.id === userId) {
                     continue
                 }
-                const team: Team = await this.teamsService.getTeamById(discussion.team_id)
-                const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-                const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-
+                if (centralizedMails) {
+                    continue
+                }
                 this.mailerService
                     .sendMail({
                         to: user.email,
@@ -144,12 +149,31 @@ export class CommentsService extends AutowiredService {
                         html: `User ${creator.display_name} mentioned you in the discussion <a href="${frontendUrl}/${organization.sluglified_name}/${team.sluglified_name}/discussions/${discussion.id}">${discussion.title}</a>`,
                     })
                     .then((messageInfo) => {
-                        Logger.log(`Mention in discussion mail ${messageInfo.messageId} sent to ${user.email}`, UsersService.name)
+                        Logger.log(`Mention in discussion mail ${messageInfo.messageId} sent to ${user.email}`, CommentsService.name)
                     })
                     .catch((err) => {
-                        Logger.error(`An error occurrend sending mention in discussion mail to ${user.email}`, err, UsersService.name)
+                        Logger.error(`An error occurrend sending mention in discussion mail to ${user.email}`, err, CommentsService.name)
                     })
             }
+        }
+        if (centralizedMails && organization.options.notifications.emails.length > 0 && mentionedUsers.length > 0) {
+            const emails: string[] = organization.options.notifications.emails
+            this.mailerService
+                .sendMail({
+                    to: emails,
+                    subject: 'Mentions in a discussion',
+                    html: `User ${creator.display_name} mentioned ${mentionedUsers
+                        .map((u: User) => u.display_name)
+                        .join(',')} in the discussion <a href="${frontendUrl}/${organization.sluglified_name}/${team.sluglified_name}/discussions/${
+                        discussion.id
+                    }">${discussion.title}</a>`,
+                })
+                .then((messageInfo) => {
+                    Logger.log(`Mention in discussion mail ${messageInfo.messageId} sent to ${emails.join(', ')}`, UsersService.name)
+                })
+                .catch((err) => {
+                    Logger.error(`An error occurrend sending mention in discussion mail to ${emails.join(', ')}`, err, UsersService.name)
+                })
         }
     }
 
