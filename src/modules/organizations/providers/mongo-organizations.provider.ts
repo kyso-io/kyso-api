@@ -1,4 +1,4 @@
-import { Organization, OrganizationAuthOptions, OrganizationOptions } from '@kyso-io/kyso-model'
+import { Organization, OrganizationAuthOptions, OrganizationNotifications, OrganizationOptions } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { v4 as uuidv4 } from 'uuid'
 import slug from '../../../helpers/slugify'
@@ -7,7 +7,7 @@ import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
 export class OrganizationsMongoProvider extends MongoProvider<Organization> {
-    version = 4
+    version = 5
 
     constructor() {
         super('Organization', db)
@@ -112,6 +112,41 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
             const data: any = {
                 invitation_code: uuidv4(),
             }
+            await this.update(
+                { _id: this.toObjectId(organization.id) },
+                {
+                    $set: data,
+                },
+            )
+        }
+    }
+
+    public async migrate_from_4_to_5(): Promise<void> {
+        const cursor = await this.getCollection().find({})
+        const allOrganizations: any[] = await cursor.toArray()
+        for (let organization of allOrganizations) {
+            const orgNotifications: OrganizationNotifications = new OrganizationNotifications()
+            orgNotifications.centralized = false
+            orgNotifications.emails = []
+            let data: any = null
+            if (organization.options) {
+                data = {
+                    options: {
+                        ...organization.options,
+                        notifications: orgNotifications,
+                    },
+                }
+            } else {
+                const orgOptions = new OrganizationOptions()
+                const orgAuthOptions = new OrganizationAuthOptions()
+                orgAuthOptions.allow_login_with_github = true
+                orgAuthOptions.allow_login_with_kyso = true
+                orgAuthOptions.allow_login_with_google = true
+                orgAuthOptions.otherProviders = []
+                orgOptions.auth = orgAuthOptions
+                orgOptions.notifications = orgNotifications
+            }
+
             await this.update(
                 { _id: this.toObjectId(organization.id) },
                 {
