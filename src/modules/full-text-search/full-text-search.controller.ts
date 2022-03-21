@@ -2,13 +2,18 @@ import { NormalizedResponseDTO, Tag, FullTextSearchDTO } from '@kyso-io/kyso-mod
 import { Controller, Get, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { Autowired } from '../../decorators/autowired'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { FullTextSearchService } from './full-text-search.service'
 
 @ApiTags('search')
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('search')
 export class FullTextSearchController {
+    @Autowired({ typeName: 'FullTextSearchService' })
+    private searchService: FullTextSearchService
+
     constructor() {}
 
     @Get()
@@ -18,7 +23,7 @@ export class FullTextSearchController {
     })
     @ApiQuery({ name: 'terms', required: true, description: 'Search tearms to perform the search' })
     @ApiQuery({ name: 'page', required: true, description: "Result's page to be retrieved" })
-    @ApiQuery({ name: 'type', required: true, description: 'Type of object to search for', example: 'reports, discussions, comments, members' })
+    @ApiQuery({ name: 'type', required: true, description: 'Type of object to search for', example: 'report, discussion, comment, member' })
     @ApiQuery({ name: 'perPage', required: false, description: 'Number of results per page. 20 if not set' })
     @ApiQuery({ name: 'filter.tags', required: false, description: 'List of tags to filter', example: 'tag1,tag2,tag3' })
     @ApiQuery({ name: 'filter.orgs', required: false, description: 'List or organizations to filter', example: 'lightside,darkside' })
@@ -35,7 +40,14 @@ export class FullTextSearchController {
         @Query('filter.teams') filterTeams: string,
         @Query('filter.people') filterPeople: string,
     ): Promise<NormalizedResponseDTO<FullTextSearchDTO>> {
-        const searchResults: FullTextSearchDTO = {
+        if(!perPage) {
+            perPage = 20
+        }
+
+        const searchResults =  await this.searchService.search(searchTerms, type, page, perPage, filterOrgs, filterTeams, filterTags, filterPeople);
+        return new NormalizedResponseDTO(searchResults, null);
+
+        const searchResultsM: FullTextSearchDTO = {
             reports: {
                 results: [
                     {

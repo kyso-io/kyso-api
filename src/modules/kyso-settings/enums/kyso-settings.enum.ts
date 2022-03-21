@@ -34,6 +34,8 @@ export enum KysoSettingsEnum {
     STATIC_CONTENT_PREFIX = 'STATIC_CONTENT_PREFIX',
     // Reports path
     REPORT_PATH = 'REPORT_PATH',
+    // Internal elasticsearch url
+    ELASTICSEARCH_URL = "ELASTICSEARCH_URL"
 }
 
 export function getKysoSettingDefaultValue(setting: KysoSettingsEnum) {
@@ -52,6 +54,8 @@ export function getKysoSettingDefaultValue(setting: KysoSettingsEnum) {
             return 'smtps://mozart.mae@gmail.com:kys0t3st4cc0unt@smtp.googlemail.com'
         case KysoSettingsEnum.MAIL_FROM:
             return '"KYSO" <mozart.mae@gmail.com>'
+        case KysoSettingsEnum.ELASTICSEARCH_URL:
+            return "http://elasticsearch-master.elasticsearch-lo.svc.cluster.local:9200"
         default:
             return ''
     }
@@ -105,6 +109,8 @@ export function getKysoSettingDescription(setting: KysoSettingsEnum) {
             return `Static content prefix`
         case KysoSettingsEnum.REPORT_PATH:
             return `Path where reports are unzipped`
+        case KysoSettingsEnum.ELASTICSEARCH_URL:
+            return `Internal Kubernetes URL for Elasticsearch`
         default:
             return 'No description provided'
     }

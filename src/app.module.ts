@@ -56,7 +56,7 @@ import { UsersModule } from './modules/users/users.module'
         TestingDataPopulatorModule,
         UsersModule.forRoot(),
         KysoSettingsModule.forRoot(),
-        FullTextSearchModule
+        FullTextSearchModule.forRoot()
     ],
 })
 export class AppModule {}

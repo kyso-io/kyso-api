@@ -1,11 +1,18 @@
-import { Module } from '@nestjs/common'
+import { DynamicModule, Module } from '@nestjs/common'
 import { FullTextSearchController } from './full-text-search.controller';
+import { createProvider, FullTextSearchService } from './full-text-search.service';
 
-
-@Module({
-    providers: [],
-    controllers: [FullTextSearchController],
-    exports: [],
-})
 export class FullTextSearchModule {
+    static forRoot(): DynamicModule {
+        const fullTextSearchProvider = createProvider()
+        
+        return {
+            module: FullTextSearchModule,
+            providers: [
+                FullTextSearchService, fullTextSearchProvider,
+            ],
+            controllers: [FullTextSearchController],
+            exports: [fullTextSearchProvider],
+        }
+    }
 }
