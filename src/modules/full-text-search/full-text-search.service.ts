@@ -63,12 +63,17 @@ export class FullTextSearchService extends AutowiredService {
                             match: {
                                 content: terms
                             }
+                        },
+                        {
+                            bool: {
+                                should: [
+                                    filterOrgs ? await this.buildFilter(allOrgsToFilter, "organizationSlug") : { match: { content: terms } }
+                                    ,filterTeams ? await this.buildFilter(allTeamsToFilter, "teamSlug") : { match: { content: terms } }
+                                    ,filterTags ? await this.buildFilter(allTagsToFilter, "tags") : { match: { content: terms } }
+                                    ,filterPeople ? await this.buildFilter(allPeopleToFilter, "people") : { match: { content: terms } }
+                                ]
+                            }
                         }
-                        // dirty trick...
-                        ,filterOrgs ? await this.buildFilter(allOrgsToFilter, "organizationSlug") : { match: { content: terms } }
-                        ,filterTeams ? await this.buildFilter(allTeamsToFilter, "teamSlug") : { match: { content: terms } }
-                        ,filterTags ? await this.buildFilter(allTagsToFilter, "tags") : { match: { content: terms } }
-                        ,filterPeople ? await this.buildFilter(allPeopleToFilter, "people") : { match: { content: terms } }
                     ]
                 }
             }
