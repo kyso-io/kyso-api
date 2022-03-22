@@ -74,36 +74,35 @@ export class InvitationsService extends AutowiredService {
             throw new PreconditionFailedException(`Invitation for ${createInvitationDto.email} of type ${createInvitationDto.entity} already exists`)
         }
         const invitation: Invitation = await this.provider.create({ creator_id: userId, status: InvitationStatus.Pending, ...createInvitationDto })
-        let subject = null
-        let html = null
         switch (invitation.entity) {
             case InvitationType.Team:
                 const user: User = await this.usersService.getUserById(invitation.creator_id)
                 const team: Team = await this.teamsService.getTeamById(invitation.entity_id)
                 const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-                subject = `Kyso: New invitation to join team ${team.sluglified_name}`
-                html = `User ${user.display_name} has invited you to join the team <strong>${team.sluglified_name}</strong> with the role <strong>${invitation.payload.roles
-                    .map((role: string) => role.replace('-', ' '))
-                    .join(',')
-                    .toUpperCase()}</strong>. <a href="${frontendUrl}/${organization.sluglified_name}/team/${team.sluglified_name}/invitation/${
-                    invitation.id
-                }">Open invitation</a>`
+                this.mailerService
+                    .sendMail({
+                        to: invitation.email,
+                        subject: `Kyso: New invitation to join team ${team.sluglified_name}`,
+                        template: 'invitation/team',
+                        context: {
+                            user,
+                            roles: invitation.payload.roles.map((role: string) => role.replace('-', ' ')).join(','),
+                            frontendUrl,
+                            organization,
+                            team,
+                            invitation,
+                        },
+                    })
+                    .then((messageInfo) => {
+                        Logger.log(`Invitation mail ${messageInfo.messageId} sent to ${invitation.email}`, UsersService.name)
+                    })
+                    .catch((err) => {
+                        Logger.error(`An error occurrend sending invitation welcome mail to ${invitation.email}`, err, UsersService.name)
+                    })
                 break
             case InvitationType.Organization:
                 break
         }
-        this.mailerService
-            .sendMail({
-                to: invitation.email,
-                subject,
-                html,
-            })
-            .then((messageInfo) => {
-                Logger.log(`Invitation mail ${messageInfo.messageId} sent to ${invitation.email}`, UsersService.name)
-            })
-            .catch((err) => {
-                Logger.error(`An error occurrend sending invitation welcome mail to ${invitation.email}`, err, UsersService.name)
-            })
         return invitation
     }
 

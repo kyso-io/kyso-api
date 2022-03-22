@@ -102,7 +102,13 @@ export class DiscussionsService extends AutowiredService {
             .sendMail({
                 to,
                 subject: `New discussion on ${team.display_name}`,
-                html: `New discussion <a href="${frontendUrl}/${organization.sluglified_name}/${team.sluglified_name}/discussions/${discussion.id}">${discussion.title}</a> created on team <strong>${team.display_name}</strong>`,
+                template: 'discussion/new',
+                context: {
+                    frontendUrl,
+                    organization,
+                    team,
+                    discussion,
+                },
             })
             .then((messageInfo) => {
                 Logger.log(`Discussion mail ${messageInfo.messageId} sent to ${Array.isArray(to) ? to.join(', ') : to}`, DiscussionsService.name)
