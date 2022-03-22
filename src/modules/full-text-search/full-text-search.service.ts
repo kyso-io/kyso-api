@@ -1,5 +1,5 @@
 import { FullTextSearchDTO, FullTextSearchMetadata, FullTextSearchResult, FullTextSearchResultType } from '@kyso-io/kyso-model'
-import { Injectable, Provider } from '@nestjs/common'
+import { Injectable, Logger, Provider } from '@nestjs/common'
 import axios from 'axios'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -28,29 +28,72 @@ export class FullTextSearchService extends AutowiredService {
         super()
     }
 
+    private async buildFilter(terms: string[], type: string) {
+        const finalTerms = terms.map(x => { 
+            let res = { match: {} }
+            res.match[type] = x
+            return res
+        })
+
+        return {
+            bool: {
+                should: finalTerms
+            }
+        }
+    }
+
     public async search(terms: string, entity: string, page: number, perPage: number, 
         filterOrgs: string, filterTeams: string, filterTags: string, filterPeople: string): Promise<FullTextSearchDTO> {
         const elasticsearchUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
-        
         // Calculate from
         const fromIndex = ((page - 1) * perPage)
 
-        const res = await axios.post(
-            `${elasticsearchUrl}/kyso-index/${entity}/_search`,
-            {
-                from: fromIndex, 
-                size: perPage,
-                query: {
-                    match: {
-                        content: terms,
-                        organizationSlug: filterOrgs,
-                        teamSlug: filterTeams, 
-                        people: filterPeople,
-                        tags: filterTags
-                    }
+        const allOrgsToFilter: string[] = filterOrgs ? filterOrgs.split(',') : [];
+        const allTeamsToFilter: string[] = filterTeams ? filterTeams.split(','): [];
+        const allTagsToFilter: string[] = filterTags ? filterTags.split(','): [];
+        const allPeopleToFilter: string[] = filterPeople ? filterPeople.split(','): [];
+
+        let query = {
+            from: fromIndex,
+            size: perPage,
+            query: {
+                bool: {
+                    must: [
+                        {
+                            match: {
+                                content: terms
+                            }
+                        }
+                        // dirty trick...
+                        ,filterOrgs ? await this.buildFilter(allOrgsToFilter, "organizationSlug") : { match: { content: terms } }
+                        ,filterTeams ? await this.buildFilter(allTeamsToFilter, "teamSlug") : { match: { content: terms } }
+                        ,filterTags ? await this.buildFilter(allTagsToFilter, "tags") : { match: { content: terms } }
+                        ,filterPeople ? await this.buildFilter(allPeopleToFilter, "people") : { match: { content: terms } }
+                    ]
                 }
             }
-        )
+        };
+
+        // console.log(JSON.stringify(query))
+
+        let res
+        try {
+            res = await axios(
+                `${elasticsearchUrl}/kyso-index/${entity}/_search`,
+                {
+                    method: "post", 
+                    data: query, 
+                    headers: {
+                        'accept': "application/json",
+                        'content-type': "application/json"
+                    }
+                }
+            )
+        } catch(ex) {
+            Logger.log("Error", ex)
+        }
+
+        
 
         // Retrieve aggregations
         const aggregations = await axios.post(
@@ -59,11 +102,7 @@ export class FullTextSearchService extends AutowiredService {
                 size: 0, 
                 query: {
                     match: {
-                        content: terms,
-                        organizationSlug: filterOrgs,
-                        teamSlug: filterTeams, 
-                        people: filterPeople,
-                        tags: filterTags
+                        content: terms
                     }
                 },
                 aggs: {
@@ -129,7 +168,9 @@ export class FullTextSearchService extends AutowiredService {
         const tagsList = aggregations.data.aggregations.tags.buckets.map(x => x.key.name)
         
         const results: FullTextSearchResult[] = res.data.hits.hits.map(x => {
-            return new FullTextSearchResult(x._source.title, x._source.content, x._source.link, x._source.type, x._source.people, 
+            return new FullTextSearchResult(x._source.title, 
+                x._source.content.length > 700 ? x._source.content.substring(0, 700) + "..." : x._source.content, 
+                x._source.link, x._source.type, x._source.people, 
                 x._source.teamSlug, x._source.organizationSlug, x._source.tags, x._score)
         })
 
