@@ -900,7 +900,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.EDIT])
-    @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: ReportDTO })
+    @ApiNormalizedResponse({ status: 200, description: `Updated report`, type: ReportDTO })
     public async deleteBackgroundImage(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
         const report: Report = await this.reportsService.deletePreviewPicture(reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
