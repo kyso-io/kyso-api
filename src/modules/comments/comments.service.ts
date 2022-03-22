@@ -146,7 +146,14 @@ export class CommentsService extends AutowiredService {
                     .sendMail({
                         to: user.email,
                         subject: 'You have been mentioned in a discussion',
-                        html: `User ${creator.display_name} mentioned you in the discussion <a href="${frontendUrl}/${organization.sluglified_name}/${team.sluglified_name}/discussions/${discussion.id}">${discussion.title}</a>`,
+                        template: 'discussion/mention',
+                        context: {
+                            creator,
+                            organization,
+                            team,
+                            discussion,
+                            frontendUrl,
+                        },
                     })
                     .then((messageInfo) => {
                         Logger.log(`Mention in discussion mail ${messageInfo.messageId} sent to ${user.email}`, CommentsService.name)
@@ -154,19 +161,23 @@ export class CommentsService extends AutowiredService {
                     .catch((err) => {
                         Logger.error(`An error occurrend sending mention in discussion mail to ${user.email}`, err, CommentsService.name)
                     })
+                }
             }
-        }
-        if (centralizedMails && organization.options.notifications.emails.length > 0 && mentionedUsers.length > 0) {
-            const emails: string[] = organization.options.notifications.emails
-            this.mailerService
+            if (centralizedMails && organization.options.notifications.emails.length > 0 && mentionedUsers.length > 0) {
+                const emails: string[] = organization.options.notifications.emails
+                this.mailerService
                 .sendMail({
                     to: emails,
                     subject: 'Mentions in a discussion',
-                    html: `User ${creator.display_name} mentioned ${mentionedUsers
-                        .map((u: User) => u.display_name)
-                        .join(',')} in the discussion <a href="${frontendUrl}/${organization.sluglified_name}/${team.sluglified_name}/discussions/${
-                        discussion.id
-                    }">${discussion.title}</a>`,
+                    template: 'discussion/mentions',
+                    context: {
+                        creator,
+                        users: mentionedUsers.map((u: User) => u.display_name).join(','),
+                        organization,
+                        team,
+                        discussion,
+                        frontendUrl,
+                    },
                 })
                 .then((messageInfo) => {
                     Logger.log(`Mention in discussion mail ${messageInfo.messageId} sent to ${emails.join(', ')}`, UsersService.name)

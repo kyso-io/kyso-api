@@ -891,9 +891,13 @@ export class ReportsService extends AutowiredService {
             .sendMail({
                 to,
                 subject: isNew ? `New report '${report.title}'` : `Updated report '${report.title}'`,
-                html: isNew
-                    ? `New report created to the team <strong>${team.display_name}</strong>: <a href="${frontendUrl}/${organization.sluglified_name}/${team.sluglified_name}/${report.sluglified_name}">${report.title}</a> of the team`
-                    : `Updated report <a href="${frontendUrl}/${organization.sluglified_name}/${team.sluglified_name}/${report.sluglified_name}">${report.title}</a> of the team <strong>${team.display_name}</strong>`,
+                template: isNew ? 'report/new' : 'report/updated',
+                context: {
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                },
             })
             .then((messageInfo) => {
                 Logger.log(`Report mail ${messageInfo.messageId} sent to ${Array.isArray(to) ? to.join(', ') : to}`, ReportsService.name)
@@ -1101,7 +1105,7 @@ export class ReportsService extends AutowiredService {
                     .sendMail({
                         to: user.email,
                         subject: 'Error creating report',
-                        html: `You do not have permissions to create reports.`,
+                        template: 'report/error-permissions',
                     })
                     .then(() => {
                         Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)
@@ -1280,7 +1284,7 @@ export class ReportsService extends AutowiredService {
                     .sendMail({
                         to: user.email,
                         subject: 'Error creating report',
-                        html: `You do not have permissions to create reports.`,
+                        template: 'report/error-permissions',
                     })
                     .then(() => {
                         Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)
@@ -1764,7 +1768,7 @@ export class ReportsService extends AutowiredService {
                 },
             ]
         }
-        
+
         if (result.length === 1 && result[0].children.length > 0) {
             // We are inside a directory
             result = result[0].children
