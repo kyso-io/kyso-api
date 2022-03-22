@@ -537,6 +537,7 @@ export class ReportsService extends AutowiredService {
             mainFile ? mainFile.name : null,
             mainFile ? mainFile.sha : null,
             mainFile ? mainFile.version : null,
+            lastVersion,
         )
     }
 
