@@ -1,9 +1,15 @@
-import { NormalizedResponseDTO, Tag, FullTextSearchDTO } from '@kyso-io/kyso-model'
-import { Controller, Get, Query, UseGuards } from '@nestjs/common'
+import { NormalizedResponseDTO, Tag, FullTextSearchDTO, FullTextSearchResult, Token, Team, TeamVisibilityEnum } from '@kyso-io/kyso-model'
+import { Controller, Get, Headers, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
+import { AuthService } from '../auth/auth.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { PlatformRoleService } from '../auth/platform-role.service'
+import { UserRoleService } from '../auth/user-role.service'
+import { OrganizationsService } from '../organizations/organizations.service'
+import { TeamsService } from '../teams/teams.service'
+import { UsersService } from '../users/users.service'
 import { FullTextSearchService } from './full-text-search.service'
 
 @ApiTags('search')
@@ -13,6 +19,24 @@ import { FullTextSearchService } from './full-text-search.service'
 export class FullTextSearchController {
     @Autowired({ typeName: 'FullTextSearchService' })
     private searchService: FullTextSearchService
+
+    @Autowired({ typeName: 'AuthService' })
+    private authService: AuthService
+
+    @Autowired({ typeName: 'UsersService' })
+    private usersService: UsersService
+
+    @Autowired({ typeName: 'TeamsService' })
+    private teamsService: TeamsService
+
+    @Autowired({ typeName: 'OrganizationsService' })
+    private organizationsService: OrganizationsService
+
+    @Autowired({ typeName: 'PlatformRoleService' })
+    private platformRoleService: PlatformRoleService
+
+    @Autowired({ typeName: 'UserRoleService' })
+    private userRoleService: UserRoleService
 
     constructor() {}
 
@@ -39,12 +63,62 @@ export class FullTextSearchController {
         @Query('filter.orgs') filterOrgs: string,
         @Query('filter.teams') filterTeams: string,
         @Query('filter.people') filterPeople: string,
+        @Headers('authorization') authHeader: string
     ): Promise<NormalizedResponseDTO<FullTextSearchDTO>> {
         if(!perPage) {
             perPage = 20
         }
 
-        const searchResults =  await this.searchService.search(searchTerms, type, page, perPage, filterOrgs, filterTeams, filterTags, filterPeople);
-        return new NormalizedResponseDTO(searchResults, null);
+        const searchResults: FullTextSearchDTO =  await this.searchService.search(searchTerms, type, page, perPage, filterOrgs, filterTeams, filterTags, filterPeople);
+
+        // Filter the results to remove all the reports that are private or protected and belongs to an organization or team which the current user
+        // does not belongs
+
+        // Retrieve the current user
+        const token : Token = this.authService.evaluateAndDecodeTokenFromHeader(authHeader)
+        
+        // Retrieve the organizations and teams the current user belongs to
+        token.permissions = await AuthService.buildFinalPermissionsForUser(
+            token.username,
+            this.usersService,
+            this.teamsService,
+            this.organizationsService,
+            this.platformRoleService,
+            this.userRoleService,
+        )
+
+        // Put all the teams in an array
+        const allUserTeams: string[] = token.permissions.teams.map(x => x.name)
+        // const allUserOrganizations: string[] = token.permissions.organizations.map(x => x.name)
+        
+        // Retrieve all the teams involved in the results of this page
+        const resultsTeamsNames: string[] = searchResults.reports.results.map((x: FullTextSearchResult) => {
+            return x.team
+        })
+
+        const bannedTeams: string[] = []
+
+        // Remove duplicates 
+        const uniqueResultsTeamNames = new Set(resultsTeamsNames)
+
+        // Retrieve team information to know if the team is public, private or protected
+        for(const aux of uniqueResultsTeamNames) {
+            const t_aux: Team = await this.teamsService.getTeam({ filter: {sluglified_name: aux} })
+            
+            if(t_aux) {
+                if(t_aux.visibility !== TeamVisibilityEnum.PUBLIC) {
+                    if(!allUserTeams.includes(t_aux.sluglified_name)) {
+                        bannedTeams.push(t_aux.sluglified_name)
+                    }
+                }
+            }
+        }
+
+        // Remove all the bannedTeams from the results
+        const censoredResults = searchResults.reports.results.filter((x: FullTextSearchResult) => {
+            return !bannedTeams.includes(x.team)
+        })
+        
+        return new NormalizedResponseDTO(censoredResults, null);
     }
 }

@@ -66,7 +66,7 @@ export class FullTextSearchService extends AutowiredService {
                         },
                         {
                             bool: {
-                                should: [
+                                must: [
                                     filterOrgs ? await this.buildFilter(allOrgsToFilter, "organizationSlug") : { match: { content: terms } }
                                     ,filterTeams ? await this.buildFilter(allTeamsToFilter, "teamSlug") : { match: { content: terms } }
                                     ,filterTags ? await this.buildFilter(allTagsToFilter, "tags") : { match: { content: terms } }
