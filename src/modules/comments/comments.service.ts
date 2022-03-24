@@ -1,6 +1,7 @@
 import { Comment, CommentPermissionsEnum, Discussion, GlobalPermissionsEnum, Organization, Report, Team, Token, User } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { getFullTemplatePath } from 'src/helpers/templatesHelper'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
@@ -146,7 +147,7 @@ export class CommentsService extends AutowiredService {
                     .sendMail({
                         to: user.email,
                         subject: 'You have been mentioned in a discussion',
-                        template: 'discussion/mention',
+                        template: getFullTemplatePath('discussion/mention'),
                         context: {
                             creator,
                             organization,
@@ -169,7 +170,7 @@ export class CommentsService extends AutowiredService {
                 .sendMail({
                     to: emails,
                     subject: 'Mentions in a discussion',
-                    template: 'discussion/mentions',
+                    template: getFullTemplatePath('discussion/mentions'),
                     context: {
                         creator,
                         users: mentionedUsers.map((u: User) => u.display_name).join(','),

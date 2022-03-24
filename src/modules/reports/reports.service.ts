@@ -39,6 +39,7 @@ import * as glob from 'glob'
 import * as jsYaml from 'js-yaml'
 import { extname, join } from 'path'
 import * as sha256File from 'sha256-file'
+import { getFullTemplatePath } from 'src/helpers/templatesHelper'
 import * as Client from 'ssh2-sftp-client'
 import { Readable } from 'stream'
 import { v4 as uuidv4 } from 'uuid'
@@ -891,7 +892,7 @@ export class ReportsService extends AutowiredService {
             .sendMail({
                 to,
                 subject: isNew ? `New report '${report.title}'` : `Updated report '${report.title}'`,
-                template: isNew ? 'report/new' : 'report/updated',
+                template: isNew ? getFullTemplatePath('report/new') : getFullTemplatePath('report/updated'),
                 context: {
                     organization,
                     team,
@@ -1105,7 +1106,7 @@ export class ReportsService extends AutowiredService {
                     .sendMail({
                         to: user.email,
                         subject: 'Error creating report',
-                        template: 'report/error-permissions',
+                        template: getFullTemplatePath('report/error-permissions'),
                     })
                     .then(() => {
                         Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)
@@ -1284,7 +1285,7 @@ export class ReportsService extends AutowiredService {
                     .sendMail({
                         to: user.email,
                         subject: 'Error creating report',
-                        template: 'report/error-permissions',
+                        template: getFullTemplatePath('report/error-permissions'),
                     })
                     .then(() => {
                         Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)

@@ -15,6 +15,7 @@ import {
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { extname } from 'path'
+import { getFullTemplatePath } from 'src/helpers/templatesHelper'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -134,7 +135,7 @@ export class UsersService extends AutowiredService {
             .sendMail({
                 to: user.email,
                 subject: 'Welcome to Kyso',
-                template: 'user/new',
+                template: getFullTemplatePath('user/new'),
                 context: {
                     user,
                 },

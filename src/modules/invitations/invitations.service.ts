@@ -1,6 +1,7 @@
 import { CreateInvitationDto, Invitation, InvitationStatus, InvitationType, Organization, Team, TeamMember, User } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { getFullTemplatePath } from 'src/helpers/templatesHelper'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
@@ -83,7 +84,7 @@ export class InvitationsService extends AutowiredService {
                     .sendMail({
                         to: invitation.email,
                         subject: `Kyso: New invitation to join team ${team.sluglified_name}`,
-                        template: 'invitation/team',
+                        template: getFullTemplatePath('invitation/team'),
                         context: {
                             user,
                             roles: invitation.payload.roles.map((role: string) => role.replace('-', ' ')).join(','),

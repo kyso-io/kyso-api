@@ -1,6 +1,7 @@
 import { CreateDiscussionRequestDTO, Discussion, Organization, Team, UpdateDiscussionRequestDTO, User } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { getFullTemplatePath } from 'src/helpers/templatesHelper'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
@@ -102,7 +103,7 @@ export class DiscussionsService extends AutowiredService {
             .sendMail({
                 to,
                 subject: `New discussion on ${team.display_name}`,
-                template: 'discussion/new',
+                template: getFullTemplatePath('discussion/new'),
                 context: {
                     frontendUrl,
                     organization,
