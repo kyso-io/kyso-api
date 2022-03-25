@@ -119,6 +119,8 @@ export class FullTextSearchController {
             return !bannedTeams.includes(x.team)
         })
         
-        return new NormalizedResponseDTO(censoredResults, null);
+        searchResults.reports.results = censoredResults
+
+        return new NormalizedResponseDTO(searchResults, null);
     }
 }

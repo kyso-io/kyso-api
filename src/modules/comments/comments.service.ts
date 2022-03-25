@@ -161,11 +161,11 @@ export class CommentsService extends AutowiredService {
                     .catch((err) => {
                         Logger.error(`An error occurrend sending mention in discussion mail to ${user.email}`, err, CommentsService.name)
                     })
-                }
             }
-            if (centralizedMails && organization.options.notifications.emails.length > 0 && mentionedUsers.length > 0) {
-                const emails: string[] = organization.options.notifications.emails
-                this.mailerService
+        }
+        if (centralizedMails && organization.options.notifications.emails.length > 0 && mentionedUsers.length > 0) {
+            const emails: string[] = organization.options.notifications.emails
+            this.mailerService
                 .sendMail({
                     to: emails,
                     subject: 'Mentions in a discussion',

@@ -104,7 +104,7 @@ export class ReportsService extends AutowiredService {
 
     @Autowired({ typeName: 'BitbucketReposService' })
     private bitbucketReposService: BitbucketReposService
-    
+
     @Autowired({ typeName: 'GitlabReposService' })
     private gitlabReposService: GitlabReposService
 
