@@ -53,6 +53,7 @@ import { UserRoleService } from '../auth/user-role.service'
 import { BitbucketReposService } from '../bitbucket-repos/bitbucket-repos.service'
 import { CommentsService } from '../comments/comments.service'
 import { GithubReposService } from '../github-repos/github-repos.service'
+import { GitlabReposService } from '../gitlab-repos/gitlab-repos.service'
 import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
@@ -103,6 +104,9 @@ export class ReportsService extends AutowiredService {
 
     @Autowired({ typeName: 'BitbucketReposService' })
     private bitbucketReposService: BitbucketReposService
+    
+    @Autowired({ typeName: 'GitlabReposService' })
+    private gitlabReposService: GitlabReposService
 
     @Autowired({ typeName: 'UserRoleService' })
     public userRoleService: UserRoleService
@@ -891,7 +895,7 @@ export class ReportsService extends AutowiredService {
             .sendMail({
                 to,
                 subject: isNew ? `New report '${report.title}'` : `Updated report '${report.title}'`,
-                template: isNew ? 'report/new' : 'report/updated',
+                template: isNew ? 'report-new' : 'report-updated',
                 context: {
                     organization,
                     team,
@@ -1105,7 +1109,7 @@ export class ReportsService extends AutowiredService {
                     .sendMail({
                         to: user.email,
                         subject: 'Error creating report',
-                        template: 'report/error-permissions',
+                        template: 'report-error-permissions',
                     })
                     .then(() => {
                         Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)
@@ -1284,7 +1288,7 @@ export class ReportsService extends AutowiredService {
                     .sendMail({
                         to: user.email,
                         subject: 'Error creating report',
-                        template: 'report/error-permissions',
+                        template: 'report-error-permissions',
                     })
                     .then(() => {
                         Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)
@@ -1309,6 +1313,57 @@ export class ReportsService extends AutowiredService {
         try {
             Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
             const buffer: Buffer = await this.bitbucketReposService.downloadRepository(userAccount.accessToken, repositoryName, desiredCommit)
+            if (!buffer) {
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+                Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${desiredCommit}`, ReportsService.name)
+                // throw new PreconditionFailedException(`Could not download repository ${repositoryName} commit ${desiredCommit}`, ReportsService.name)
+                return
+            }
+            Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
+            const zip: AdmZip = new AdmZip(buffer)
+            zip.extractAllTo(extractedDir, true)
+            Logger.log(`Extracted repository '${repositoryName}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
+        } catch (e) {
+            await this.deleteReport(report.id)
+            throw Error(`An error occurred downloading repository '${repositoryName}'`)
+        }
+        Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
+
+        const filePaths: string[] = await this.getFilePaths(extractedDir)
+        if (filePaths.length < 2) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report ${report.id} ${report.sluglified_name}: Repository does not contain any files`, ReportsService.name)
+            // throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: Repository does not contain any files`, ReportsService.name)
+            return
+        }
+
+        // Normalize file paths
+        let files: { name: string; filePath: string }[] = []
+        let kysoConfigFile: KysoConfigFile = null
+        let directoriesToRemove: string[] = []
+        try {
+            const result = await this.normalizeFilePaths(report, filePaths)
+            files = result.files
+            kysoConfigFile = result.kysoConfigFile
+            directoriesToRemove = result.directoriesToRemove
+            Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
+        } catch (e) {
+            await this.deleteReport(report.id)
+            return null
+        }
+        Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
+
+        await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove, false)
+    }
+
+    public async downloadGitlabRepo(report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
+        Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
+        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
+
+        const extractedDir = `/tmp/${uuidv4()}`
+        try {
+            Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
+            const buffer: Buffer = await this.gitlabReposService.downloadRepository(userAccount.accessToken, repositoryName, desiredCommit)
             if (!buffer) {
                 report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                 Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${desiredCommit}`, ReportsService.name)

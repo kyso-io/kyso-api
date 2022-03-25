@@ -146,7 +146,7 @@ export class CommentsService extends AutowiredService {
                     .sendMail({
                         to: user.email,
                         subject: 'You have been mentioned in a discussion',
-                        template: 'discussion/mention',
+                        template: 'discussion-mention',
                         context: {
                             creator,
                             organization,
@@ -169,7 +169,7 @@ export class CommentsService extends AutowiredService {
                 .sendMail({
                     to: emails,
                     subject: 'Mentions in a discussion',
-                    template: 'discussion/mentions',
+                    template: 'discussion-mentions',
                     context: {
                         creator,
                         users: mentionedUsers.map((u: User) => u.display_name).join(','),

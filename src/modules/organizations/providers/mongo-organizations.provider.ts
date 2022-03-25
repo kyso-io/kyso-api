@@ -7,7 +7,7 @@ import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
 export class OrganizationsMongoProvider extends MongoProvider<Organization> {
-    version = 5
+    version = 6
 
     constructor() {
         super('Organization', db)
@@ -145,6 +145,53 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
                 orgAuthOptions.otherProviders = []
                 orgOptions.auth = orgAuthOptions
                 orgOptions.notifications = orgNotifications
+                data = {
+                    options: orgOptions,
+                }
+            }
+
+            await this.update(
+                { _id: this.toObjectId(organization.id) },
+                {
+                    $set: data,
+                },
+            )
+        }
+    }
+
+    public async migrate_from_5_to_6(): Promise<void> {
+        const cursor = await this.getCollection().find({})
+        const allOrganizations: any[] = await cursor.toArray()
+        for (let organization of allOrganizations) {
+            let data: any = null
+            if (organization.options?.auth) {
+                data = {
+                    options: {
+                        ...organization.options,
+                        auth: {
+                            ...organization.options.auth,
+                            allow_login_with_bitbucket: true,
+                            allow_login_with_gitlab: true,
+                        },
+                    },
+                }
+            } else {
+                const orgOptions = new OrganizationOptions()
+                const orgAuthOptions = new OrganizationAuthOptions()
+                orgAuthOptions.allow_login_with_github = true
+                orgAuthOptions.allow_login_with_kyso = true
+                orgAuthOptions.allow_login_with_google = true
+                orgAuthOptions.allow_login_with_bitbucket = true
+                orgAuthOptions.allow_login_with_gitlab = true
+                orgAuthOptions.otherProviders = []
+                orgOptions.auth = orgAuthOptions
+                const orgNotifications: OrganizationNotifications = new OrganizationNotifications()
+                orgNotifications.centralized = false
+                orgNotifications.emails = []
+                orgOptions.notifications = orgNotifications
+                data = {
+                    options: orgOptions,
+                }
             }
 
             await this.update(

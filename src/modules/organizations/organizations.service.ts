@@ -67,7 +67,15 @@ export class OrganizationsService extends AutowiredService {
         // The name of this organization exists?
         const organizations: Organization[] = await this.provider.read({ filter: { sluglified_name: organization.sluglified_name } })
         if (organizations.length > 0) {
-            throw new PreconditionFailedException('The name of the organization must be unique')
+            let i = organizations.length + 1
+            do {
+                organization.sluglified_name = `${organization.sluglified_name}-${i}`
+                const index: number = organizations.findIndex((org: Organization) => org.sluglified_name === organization.sluglified_name)
+                if (index === -1) {
+                    break
+                }
+                i++
+            } while (true);
         }
         return this.provider.create(organization)
     }

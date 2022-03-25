@@ -6,6 +6,7 @@ import { PermissionsGuard } from './guards/permission.guard'
 import { createPlatformRoleProvider, PlatformRoleService } from './platform-role.service'
 import { BitbucketLoginProvider } from './providers/bitbucket-login.provider'
 import { GithubLoginProvider } from './providers/github-login.provider'
+import { GitlabLoginProvider } from './providers/gitlab-login.provider'
 import { GoogleLoginProvider } from './providers/google-login.provider'
 import { KysoLoginProvider } from './providers/kyso-login.provider'
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'
@@ -42,6 +43,7 @@ export class AuthModule {
                 UserRoleMongoProvider,
                 PingIdLoginProvider,
                 BitbucketLoginProvider,
+                GitlabLoginProvider,
             ],
             controllers: [AuthController],
             exports: [dynamicProvider, platformRoleDynamicProvider, userRoleDynamicProvider, PermissionsGuard],

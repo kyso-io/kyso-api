@@ -10,6 +10,7 @@ import { CommentsModule } from './modules/comments/comments.module'
 import { DiscussionsModule } from './modules/discussions/discussions.module'
 import { FullTextSearchModule } from './modules/full-text-search/full-text-search.module'
 import { GithubReposModule } from './modules/github-repos/github-repos.module'
+import { GitlabReposModule } from './modules/gitlab-repos/gitlab-repos.module'
 import { HooksModule } from './modules/hooks/hooks.module'
 import { InvitationsModule } from './modules/invitations/invitations.module'
 import { KysoSettingsModule } from './modules/kyso-settings/kyso-settings.module'
@@ -27,8 +28,11 @@ import { UsersModule } from './modules/users/users.module'
         BitbucketReposModule.forRoot(),
         CommentsModule.forRoot(),
         DiscussionsModule.forRoot(),
+        FullTextSearchModule.forRoot(),
         GithubReposModule.forRoot(),
+        GitlabReposModule.forRoot(),
         HooksModule,
+        KysoSettingsModule.forRoot(),
         InvitationsModule.forRoot(),
         MailerModule.forRootAsync({
             useFactory: () => {
@@ -38,7 +42,7 @@ import { UsersModule } from './modules/users/users.module'
                         from: mailFrom,
                     },
                     template: {
-                        dir: join(__dirname, '../../templates'),
+                        dir: join(__dirname, '../templates'),
                         adapter: new HandlebarsAdapter(),
                         options: {
                             strict: true,
@@ -55,8 +59,6 @@ import { UsersModule } from './modules/users/users.module'
         TeamsModule.forRoot(),
         TestingDataPopulatorModule,
         UsersModule.forRoot(),
-        KysoSettingsModule.forRoot(),
-        FullTextSearchModule.forRoot()
     ],
 })
 export class AppModule {}

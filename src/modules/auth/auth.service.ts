@@ -27,6 +27,7 @@ import { UsersService } from '../users/users.service'
 import { PlatformRoleService } from './platform-role.service'
 import { BitbucketLoginProvider } from './providers/bitbucket-login.provider'
 import { GithubLoginProvider } from './providers/github-login.provider'
+import { GitlabLoginProvider } from './providers/gitlab-login.provider'
 import { GoogleLoginProvider } from './providers/google-login.provider'
 import { KysoLoginProvider } from './providers/kyso-login.provider'
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'
@@ -56,6 +57,7 @@ export class AuthService extends AutowiredService {
     constructor(
         private readonly bitbucketLoginProvider: BitbucketLoginProvider,
         private readonly githubLoginProvider: GithubLoginProvider,
+        private readonly gitlabLoginProvider: GitlabLoginProvider,
         private readonly googleLoginProvider: GoogleLoginProvider,
         private readonly jwtService: JwtService,
         private readonly kysoLoginProvider: KysoLoginProvider,
@@ -335,11 +337,13 @@ export class AuthService extends AutowiredService {
         switch (login.provider) {
             case LoginProviderEnum.KYSO:
             default:
-                return await this.kysoLoginProvider.login(login.password, login.username)
+                return this.kysoLoginProvider.login(login.password, login.username)
             case LoginProviderEnum.KYSO_ACCESS_TOKEN:
-                return await this.kysoLoginProvider.loginWithAccessToken(login.password, login.username)
+                return this.kysoLoginProvider.loginWithAccessToken(login.password, login.username)
             case LoginProviderEnum.GITHUB:
-                return await this.githubLoginProvider.login(login)
+                return this.githubLoginProvider.login(login)
+            case LoginProviderEnum.GITLAB:
+                return this.gitlabLoginProvider.login(login)
             case LoginProviderEnum.GOOGLE:
                 return this.googleLoginProvider.login(login)
             case LoginProviderEnum.PING_ID_SAML:

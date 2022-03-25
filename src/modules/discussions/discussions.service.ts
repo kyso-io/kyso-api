@@ -102,7 +102,7 @@ export class DiscussionsService extends AutowiredService {
             .sendMail({
                 to,
                 subject: `New discussion on ${team.display_name}`,
-                template: 'discussion/new',
+                template: 'discussion-new',
                 context: {
                     frontendUrl,
                     organization,

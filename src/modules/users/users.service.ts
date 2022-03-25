@@ -134,7 +134,7 @@ export class UsersService extends AutowiredService {
             .sendMail({
                 to: user.email,
                 subject: 'Welcome to Kyso',
-                template: 'user/new',
+                template: 'user-new',
                 context: {
                     user,
                 },
