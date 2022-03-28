@@ -15,6 +15,9 @@ RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,gid=1000,required\
   npm ci
 # Copy the sources
 COPY src ./src/
+# Copy the templates
+COPY templates ./templates/
+
 # Build the application (leaves result on ./dist)
 RUN npm run build
 # Execute `npm ci` (not install) for production with an externally mounted npmrc
