@@ -33,6 +33,8 @@ import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { exec } = require('child_process')
+
+const mailPrefix = process.env.POPULATE_TEST_DATA_MAIL_PREFIX ? process.env.POPULATE_TEST_DATA_MAIL_PREFIX : "lo"
 @Injectable()
 export class TestingDataPopulatorService {
     private Rey_TeamAdminUser: User
@@ -127,7 +129,7 @@ export class TestingDataPopulatorService {
 
     private async checkIfAlreadyExists() {
         // I assume only these two usernames exist if they were created by the test data populator
-        const testUsersByUsername = await this.usersService.getUsers({ filter: { $or: [{ email: 'rey@kyso.io' }, { email: 'kylo@kyso.io' }] } })
+        const testUsersByUsername = await this.usersService.getUsers({ filter: { $or: [{ email: `${mailPrefix}+rey@dev.kyso.io` }, { email: `${mailPrefix}+kylo@dev.kyso.io` }] } })
         if (testUsersByUsername.length === 2) {
             return true
         }
@@ -135,11 +137,13 @@ export class TestingDataPopulatorService {
     }
 
     private async createTestingUsers() {
+        
+
         const rey_TestTeamAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-            'rey@kyso.io',
-            'rey@kyso.io',
-            'rey@kyso.io',
-            'rey',
+            `${mailPrefix}+rey@dev.kyso.io`,
+            'skywalker',
+            'Rey Skywalker',
+            'Rey',
             LoginProviderEnum.KYSO,
             '[Team Admin] Rey is a Team Admin',
             '',
@@ -152,10 +156,10 @@ export class TestingDataPopulatorService {
         )
 
         const kylo_TestTeamContributorUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-            'kylo@kyso.io',
-            'kylo@kyso.io',
-            'kylo@kyso.io',
+            `${mailPrefix}+kylo@dev.kyso.io`,
             'kyloren',
+            'Ben Solo',
+            'Kylo Ren',
             LoginProviderEnum.KYSO,
             '[Team Contributor] Kylo Ren is a Team Contributor',
             '',
@@ -168,10 +172,10 @@ export class TestingDataPopulatorService {
         )
 
         const chewbacca_TestTeamReaderUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-            'chewbacca@kyso.io',
-            'chewbacca@kyso.io',
-            'chewbacca@kyso.io',
-            'chewbacca',
+            `${mailPrefix}+chewbacca@dev.kyso.io`,
+            'chewie',
+            'GRWAAAAAAWWLLL Chewbacca',
+            'Chewbacca',
             LoginProviderEnum.KYSO,
             '[Team Reader] Chewbacca is a Team Reader',
             '',
@@ -184,10 +188,10 @@ export class TestingDataPopulatorService {
         )
 
         const gideon_TestOrganizationAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-            'gideon@kyso.io',
-            'gideon@kyso.io',
-            'gideon@kyso.io',
-            'moffgideon',
+            `${mailPrefix}+gideon@dev.kyso.io`,
+            'gideon',
+            'The Greatest Moff Giddeon',
+            'Moff Gideon',
             LoginProviderEnum.KYSO,
             '[Organization Admin] Moff Gideon is an Organization Admin',
             '',
@@ -200,9 +204,9 @@ export class TestingDataPopulatorService {
         )
 
         const palpatine_TestPlatformAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-            'palpatine@kyso.io',
-            'palpatine@kyso.io',
-            'palpatine@kyso.io',
+            `${mailPrefix}+palpatine@dev.kyso.io`,
+            `palpatine`,
+            'Lord Palpatine',
             'palpatine',
             LoginProviderEnum.KYSO,
             '[Platform Admin] Palpatine is a platform admin',
@@ -216,9 +220,9 @@ export class TestingDataPopulatorService {
         )
 
         const babyYoda_TestOrganizationAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-            'baby_yoda@kyso.io',
-            'baby_yoda@kyso.io',
-            'baby_yoda@kyso.io',
+            `${mailPrefix}+baby_yoda@dev.kyso.io`,
+            'the-real-baby-yoda',
+            'Grogu aka Baby Yoda',
             'Baby Yoda',
             LoginProviderEnum.KYSO,
             '[Organization Admin] Baby Yoda is an Organization Admin',
