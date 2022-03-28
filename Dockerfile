@@ -42,6 +42,8 @@ COPY --chown=node:node --from=builder /app/dist ./dist
 COPY --chown=node:node public/ ./public/
 # Copy the sources ... FIXME(sto): this should not be needed!!!
 COPY --chown=node:node src/ ./src/
+# Copy the templates ... FIXME(sto): this should not be needed!!!
+COPY --chown=node:node templates/ ./templates/
 # Create link to the sources from dist ... FIXME(sto): again, this is wrong
 RUN ln -s ../src ./dist/
 # Container command
