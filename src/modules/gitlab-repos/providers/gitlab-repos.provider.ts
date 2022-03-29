@@ -36,12 +36,11 @@ export class GitlabReposProvider {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
 
-    // private readonly URL = 'https://gitlab.com'
-    private readonly URL = 'https://gitlab.kyso.io'
+    private readonly URL = 'https://gitlab.com'
 
     constructor() {}
 
-    public async getAccessToken(code: string): Promise<GitlabAccessToken> {
+    public async getAccessToken(code: string, redirectUri?: string): Promise<GitlabAccessToken> {
         const clientId: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITLAB_CLIENT_ID)
         if (!clientId || clientId.length === 0) {
             throw new Error('Gitlab client id not found')
@@ -50,8 +49,13 @@ export class GitlabReposProvider {
         if (!clientSecret || clientSecret.length === 0) {
             throw new Error('Gitlab client secret not found')
         }
-        // const url = `${this.URL}/oauth/token?client_id=${clientId}&client_secret=${clientSecret}&code=${code}&grant_type=authorization_code&redirect_uri=https://kyso.io/oauth/gitlab/callback`
-        const url = `${this.URL}/oauth/token?client_id=${clientId}&client_secret=${clientSecret}&code=${code}&grant_type=authorization_code&redirect_uri=https://lo.kyso.io/oauth/gitlab/callback`
+        if (!redirectUri) {
+            redirectUri = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITLAB_REDIRECT_URI)
+            if (!redirectUri || redirectUri.length === 0) {
+                throw new Error('Gitlab redirect uri not found')
+            }
+        }
+        const url = `${this.URL}/oauth/token?client_id=${clientId}&client_secret=${clientSecret}&code=${code}&grant_type=authorization_code&redirect_uri=${redirectUri}`
         const result: AxiosResponse<GitlabAccessToken> = await axios.post<GitlabAccessToken>(
             url,
             {},
@@ -71,8 +75,11 @@ export class GitlabReposProvider {
         if (!clientSecret || clientSecret.length === 0) {
             throw new Error('Gitlab client secret not found')
         }
-        // const url = `${this.URL}/oauth/token?client_id=${clientId}&client_secret=${clientSecret}&refresh_token=${refreshToken}&grant_type=refresh_token&redirect_uri=https://kyso.io/oauth/gitlab/callback`
-        const url = `${this.URL}/oauth/token?client_id=${clientId}&client_secret=${clientSecret}&refresh_token=${refreshToken}&grant_type=refresh_token&redirect_uri=https://lo.kyso.io/oauth/gitlab/callback`
+        const redirectUri: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITLAB_REDIRECT_URI)
+        if (!redirectUri || redirectUri.length === 0) {
+            throw new Error('Gitlab redirect uri not found')
+        }
+        const url = `${this.URL}/oauth/token?client_id=${clientId}&client_secret=${clientSecret}&refresh_token=${refreshToken}&grant_type=refresh_token&redirect_uri=${redirectUri}`
         const result: AxiosResponse<GitlabAccessToken> = await axios.post<GitlabAccessToken>(
             url,
             {},
@@ -117,8 +124,10 @@ export class GitlabReposProvider {
         return result.data
     }
 
-    public async getRepository(accessToken: string, repositoryId: number): Promise<GitlabRepository> {
-        const url = `${this.URL}/api/v4/projects/${repositoryId}`
+    public async getRepository(accessToken: string, repositoryId: number | string): Promise<GitlabRepository> {
+        // repository.id
+        // repository.path_with_namespace
+        const url = `${this.URL}/api/v4/projects/${encodeURIComponent(repositoryId)}`
         const result: AxiosResponse<GitlabRepository> = await axios.get<GitlabRepository>(url, {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -128,7 +137,7 @@ export class GitlabReposProvider {
     }
 
     public async getRepositoryTree(accessToken: string, repositoryId: number, branch: string, path: string, recursive: boolean): Promise<GitlabFile[]> {
-        const url = `${this.URL}/api/v4/projects/${repositoryId}/repository/tree?${branch && branch.length > 0 ? `ref=${branch}` : ''}${
+        const url = `${this.URL}/api/v4/projects/${encodeURIComponent(repositoryId)}/repository/tree?${branch && branch.length > 0 ? `ref=${branch}` : ''}${
             path ? `&path=${path}` : ''
         }${recursive ? '&recursive=true' : ''}`
         const result: AxiosResponse<GitlabFile[]> = await axios.get<GitlabFile[]>(url, {
@@ -140,7 +149,7 @@ export class GitlabReposProvider {
     }
 
     public async getBranches(accessToken: string, repositoryId: number): Promise<GitlabBranch[]> {
-        const url = `${this.URL}/api/v4/projects/${repositoryId}/repository/branches`
+        const url = `${this.URL}/api/v4/projects/${encodeURIComponent(repositoryId)}/repository/branches`
         const result: AxiosResponse<GitlabBranch[]> = await axios.get<GitlabBranch[]>(url, {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -150,7 +159,9 @@ export class GitlabReposProvider {
     }
 
     public async getCommits(accessToken: string, repositoryId: number, branch: string): Promise<GitlabCommit[]> {
-        const url = `${this.URL}/api/v4/projects/${repositoryId}/repository/commits?${branch && branch.length > 0 ? `ref_name=${branch}` : ''}`
+        const url = `${this.URL}/api/v4/projects/${encodeURIComponent(repositoryId)}/repository/commits?${
+            branch && branch.length > 0 ? `ref_name=${branch}` : ''
+        }`
         const result: AxiosResponse<GitlabCommit[]> = await axios.get<GitlabCommit[]>(url, {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -180,7 +191,9 @@ export class GitlabReposProvider {
     }
 
     public async getFileContent(accessToken: string, repositoryId: number, path: string, commit: string): Promise<Buffer> {
-        const url = `${this.URL}/api/v4/projects/${repositoryId}/repository/files/${path}${commit && commit.length > 0 ? `?ref=${commit}` : ''}`
+        const url = `${this.URL}/api/v4/projects/${encodeURIComponent(repositoryId)}/repository/files/${path}${
+            commit && commit.length > 0 ? `?ref=${commit}` : ''
+        }`
         const result: AxiosResponse<GitlabFileContent> = await axios.get<GitlabFileContent>(url, {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -206,8 +219,10 @@ export class GitlabReposProvider {
         return parseConfig(format, content)
     }
 
-    public async downloadRepository(accessToken: string, repositoryId: string, commit: string): Promise<Buffer> {
-        const url = `${this.URL}/api/v4/projects/${repositoryId}/repository/archive.zip${commit && commit.length > 0 ? `?sha=${commit}` : ''}`
+    public async downloadRepository(accessToken: string, repositoryId: number | string, commit: string): Promise<Buffer> {
+        const url = `${this.URL}/api/v4/projects/${encodeURIComponent(repositoryId)}/repository/archive.zip${
+            commit && commit.length > 0 ? `?sha=${commit}` : ''
+        }`
         const result: AxiosResponse<Buffer> = await axios.get(url, {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -218,12 +233,28 @@ export class GitlabReposProvider {
     }
 
     public async getRepositoryWeebHooks(accessToken: string, repositoryId: number): Promise<GitlabWeebHook[]> {
-        const url = `${this.URL}/api/v4/projects/${repositoryId}/hooks`
+        const url = `${this.URL}/api/v4/projects/${encodeURIComponent(repositoryId)}/hooks`
         const result: AxiosResponse<GitlabWeebHook[]> = await axios.get<GitlabWeebHook[]>(url, {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
             },
         })
+        return result.data
+    }
+
+    public async createWebhookGivenRepository(accessToken: string, repositoryId: number | string, webhookUrl: string): Promise<GitlabWeebHook> {
+        const url = `${this.URL}/api/v4/projects/${encodeURIComponent(repositoryId)}/hooks`
+        const result: AxiosResponse<GitlabWeebHook> = await axios.post<GitlabWeebHook>(
+            url,
+            {
+                url: webhookUrl,
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            },
+        )
         return result.data
     }
 }

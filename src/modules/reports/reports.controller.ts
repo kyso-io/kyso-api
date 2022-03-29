@@ -25,6 +25,7 @@ import {
     Get,
     Logger,
     Param,
+    ParseIntPipe,
     Patch,
     Post,
     PreconditionFailedException,
@@ -495,6 +496,29 @@ export class ReportsController extends GenericController<Report> {
         }
         Logger.log(`Called createReportFromBitbucketRepository`)
         const report: Report = await this.reportsService.createReportFromBitbucketRepository(token.id, name, branch)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
+    @Post('/gitlab')
+    @ApiOperation({
+        summary: `Create a new report based on gitlab repository`,
+        description: `By passing the appropiate parameters you can create a new report referencing a gitlab repository`,
+    })
+    @ApiResponse({
+        status: 201,
+        description: `Created report`,
+        type: ReportDTO,
+    })
+    async createReportFromGitlabRepository(
+        @CurrentToken() token: Token,
+        @Query('id') id: string,
+        @Query('branch') branch: string,
+    ): Promise<NormalizedResponseDTO<Report>> {
+        Logger.log(`Called createReportFromGitlabRepository`)
+        console.log(id)
+        const report: Report = await this.reportsService.createReportFromGitlabRepository(token.id, id, branch)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)

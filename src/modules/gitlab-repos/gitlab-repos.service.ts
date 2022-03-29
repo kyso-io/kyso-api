@@ -1,5 +1,6 @@
-import { GithubBranch, GithubCommit, GithubFileHash, GithubRepository, KysoConfigFile } from '@kyso-io/kyso-model'
-import { Injectable, Provider } from '@nestjs/common'
+import { GithubBranch, GithubCommit, GithubFileHash, GithubRepository, KysoConfigFile, UserAccount } from '@kyso-io/kyso-model'
+import { Injectable, Logger, Provider } from '@nestjs/common'
+import * as moment from 'moment'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { GitlabAccessToken } from './interfaces/gitlab-access-token'
 import { GitlabBranch } from './interfaces/gitlab-branch'
@@ -8,6 +9,7 @@ import { GitlabFile } from './interfaces/gitlab-file'
 import { GitlabRepository } from './interfaces/gitlab-repository'
 import { GitlabUser } from './interfaces/gitlab-user'
 import { GitlabUserEmail } from './interfaces/gitlab-user-email'
+import { GitlabWeebHook } from './interfaces/gitlab-webhook'
 import { GitlabReposProvider } from './providers/gitlab-repos.provider'
 
 function factory(service: GitlabReposService) {
@@ -23,7 +25,7 @@ export function createProvider(): Provider<GitlabReposService> {
 }
 
 const gitlabRepositoryToGithubRepository = (repository: GitlabRepository): GithubRepository => ({
-    id: repository.id,
+    id: repository.id, // repository.path_with_namespace
     owner: repository?.owner ? repository.owner.username : '',
     name: repository.name,
     fullName: repository.name_with_namespace,
@@ -40,12 +42,20 @@ export class GitlabReposService extends AutowiredService {
         super()
     }
 
-    public async getAccessToken(code: string): Promise<GitlabAccessToken> {
-        return this.provider.getAccessToken(code)
+    public async getAccessToken(code: string, redirectUri?: string): Promise<GitlabAccessToken> {
+        return this.provider.getAccessToken(code, redirectUri)
     }
 
     public async refreshAccessToken(refreshToken: string): Promise<GitlabAccessToken> {
         return this.provider.refreshAccessToken(refreshToken)
+    }
+
+    public checkAccessTokenValidity(userAccount: UserAccount): Promise<GitlabAccessToken> {
+        if (moment().isAfter(moment((userAccount.payload.created_at + userAccount.payload.expires_in) * 1000))) {
+            Logger.log(`Gitlab access token is expired for user ${userAccount.username}. Refreshing token...`, 'GitlabReposService')
+            return this.refreshAccessToken(userAccount.payload.refresh_token)
+        }
+        return userAccount.payload
     }
 
     public async getUser(accessToken: string): Promise<GitlabUser> {
@@ -62,7 +72,7 @@ export class GitlabReposService extends AutowiredService {
         return repositories.map((repository: GitlabRepository) => gitlabRepositoryToGithubRepository(repository))
     }
 
-    public async getRepository(accessToken: string, repositoryId: number): Promise<GithubRepository> {
+    public async getRepository(accessToken: string, repositoryId: number | string): Promise<GithubRepository> {
         const repository: GitlabRepository = await this.provider.getRepository(accessToken, repositoryId)
         return gitlabRepositoryToGithubRepository(repository)
     }
@@ -70,7 +80,7 @@ export class GitlabReposService extends AutowiredService {
     public async getRepositoryTree(accessToken: string, repositoryId: number, branch: string, path: string, recursive: boolean): Promise<GithubFileHash[]> {
         const tree: GitlabFile[] = await this.provider.getRepositoryTree(accessToken, repositoryId, branch, path, recursive)
         return tree.map((file: GitlabFile) => ({
-            type: null,
+            type: file.type === 'tree' ? 'dir' : 'file',
             path: file.path,
             hash: file.id,
             htmlUrl: null,
@@ -117,7 +127,11 @@ export class GitlabReposService extends AutowiredService {
         return this.provider.getConfigFile(accessToken, repositoryId, commit)
     }
 
-    public async downloadRepository(accessToken: string, repositoryId: string, commit: string): Promise<Buffer> {
+    public async downloadRepository(accessToken: string, repositoryId: number | string, commit: string): Promise<Buffer> {
         return this.provider.downloadRepository(accessToken, repositoryId, commit)
+    }
+
+    public async createWebhookGivenRepository(accessToken: string, repositoryId: number | string, webhookUrl: string): Promise<GitlabWeebHook> {
+        return this.provider.createWebhookGivenRepository(accessToken, repositoryId, webhookUrl)
     }
 }

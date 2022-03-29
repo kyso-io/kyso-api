@@ -4,6 +4,7 @@ import {
     KysoPermissions,
     KysoUserAccessToken,
     KysoUserAccessTokenStatus,
+    LoginProviderEnum,
     Organization,
     Team,
     TeamVisibilityEnum,
@@ -14,13 +15,16 @@ import {
 } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ObjectId } from 'mongodb'
 import { extname } from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { PlatformRole } from '../../security/platform-roles'
 import { AuthService } from '../auth/auth.service'
+import { GitlabLoginProvider } from '../auth/providers/gitlab-login.provider'
 import { CommentsService } from '../comments/comments.service'
+import { GitlabAccessToken } from '../gitlab-repos/interfaces/gitlab-access-token'
 import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
@@ -343,5 +347,20 @@ export class UsersService extends AutowiredService {
         } else {
             return null
         }
+    }
+
+    public async updateGitlabUserAccount(userId: string, userAccount: UserAccount, gitlabAccessToken: GitlabAccessToken): Promise<UserAccount> {
+        const user: User = await this.getUserById(userId)
+        const index: number = user.accounts.findIndex((uc: UserAccount) => uc.type === LoginProviderEnum.GITLAB && uc.accountId === userAccount.accountId)
+        if (index > -1) {
+            user.accounts[index].accessToken = gitlabAccessToken.access_token
+            user.accounts[index].payload = gitlabAccessToken
+            Logger.log(`User ${user.username} is updating Gitlab account`, GitlabLoginProvider.name)
+        } else {
+            user.accounts.push(userAccount)
+            Logger.log(`User ${user.username} is adding Gitlab account`, GitlabLoginProvider.name)
+        }
+        await this.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
+        return userAccount
     }
 }

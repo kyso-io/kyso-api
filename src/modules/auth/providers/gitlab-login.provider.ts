@@ -7,7 +7,6 @@ import { Autowired } from '../../../decorators/autowired'
 import { GitlabReposService } from '../../gitlab-repos/gitlab-repos.service'
 import { GitlabAccessToken } from '../../gitlab-repos/interfaces/gitlab-access-token'
 import { GitlabUser } from '../../gitlab-repos/interfaces/gitlab-user'
-import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 import { UsersService } from '../../users/users.service'
 
 export const TOKEN_EXPIRATION_TIME = '8h'
@@ -20,14 +19,11 @@ export class GitlabLoginProvider {
     @Autowired({ typeName: 'GitlabReposService' })
     private gitlabReposService: GitlabReposService
 
-    @Autowired({ typeName: 'KysoSettingsService' })
-    private kysoSettingsService: KysoSettingsService
-
     constructor(private readonly jwtService: JwtService) {}
 
     async login(login: Login): Promise<string> {
         try {
-            const accessToken: GitlabAccessToken = await this.gitlabReposService.getAccessToken(login.password)
+            const accessToken: GitlabAccessToken = await this.gitlabReposService.getAccessToken(login.password, login.payload)
             const gitlabUser: GitlabUser = await this.gitlabReposService.getUserByAccessToken(accessToken.access_token)
             login.username = gitlabUser.username
 

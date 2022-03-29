@@ -19,6 +19,7 @@ export enum KysoSettingsEnum {
     // Gitlab configuration
     AUTH_GITLAB_CLIENT_ID = 'AUTH_GITLAB_CLIENT_ID',
     AUTH_GITLAB_CLIENT_SECRET = 'AUTH_GITLAB_CLIENT_SECRET',
+    AUTH_GITLAB_REDIRECT_URI = 'AUTH_GITLAB_REDIRECT_URI',
     /* Needed to build a webhook with github. Needs to be a public URL as well,
      * because Github don't allow you to make a webhook vs localhost for security :()
      */
@@ -92,6 +93,8 @@ export function getKysoSettingDescription(setting: KysoSettingsEnum) {
             return 'Client ID used for OAUTH2 authentication using Gitlab provider'
         case KysoSettingsEnum.AUTH_GITLAB_CLIENT_SECRET:
             return 'Secret used for OAUTH2 authentication using Gitlab provider'
+        case KysoSettingsEnum.AUTH_GITLAB_REDIRECT_URI:
+            return 'Redirect URI used for OAUTH2 authentication using Gitlab provider'
         case KysoSettingsEnum.KYSO_FILES_CLOUDFRONT_URL:
             return 'https://d1kser01wv8mbw.cloudfront.net'
         case KysoSettingsEnum.BASE_URL:

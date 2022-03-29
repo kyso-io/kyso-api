@@ -1,4 +1,4 @@
-export interface GitlabUser {
+export class GitlabUser {
     id: number
     username: string
     name: string

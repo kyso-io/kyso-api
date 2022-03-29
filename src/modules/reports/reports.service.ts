@@ -54,6 +54,8 @@ import { BitbucketReposService } from '../bitbucket-repos/bitbucket-repos.servic
 import { CommentsService } from '../comments/comments.service'
 import { GithubReposService } from '../github-repos/github-repos.service'
 import { GitlabReposService } from '../gitlab-repos/gitlab-repos.service'
+import { GitlabAccessToken } from '../gitlab-repos/interfaces/gitlab-access-token'
+import { GitlabWeebHook } from '../gitlab-repos/interfaces/gitlab-webhook'
 import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
@@ -326,6 +328,16 @@ export class ReportsService extends AutowiredService {
                     throw new PreconditionFailedException('User does not have a bitbucket account')
                 }
                 return this.bitbucketReposService.getBranches(userAccount.accessToken, report.name_provider)
+            case RepositoryProvider.GITLAB:
+                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITLAB)
+                if (!userAccount) {
+                    throw new PreconditionFailedException('User does not have a gitlab account')
+                }
+                const gitlabAccessToken: GitlabAccessToken = await this.gitlabReposService.checkAccessTokenValidity(userAccount)
+                if (gitlabAccessToken.access_token !== userAccount.accessToken) {
+                    userAccount = await this.usersService.updateGitlabUserAccount(user.id, userAccount, gitlabAccessToken)
+                }
+                return this.gitlabReposService.getBranches(userAccount.accessToken, parseInt(report.provider_id, 10))
             default:
                 return []
         }
@@ -395,6 +407,16 @@ export class ReportsService extends AutowiredService {
                     null,
                 )
                 return result?.data ? result.data : []
+            case RepositoryProvider.GITLAB:
+                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITLAB)
+                if (!userAccount) {
+                    throw new PreconditionFailedException('User does not have a gitlab account')
+                }
+                const gitlabAccessToken: GitlabAccessToken = await this.gitlabReposService.checkAccessTokenValidity(userAccount)
+                if (gitlabAccessToken.access_token !== userAccount.accessToken) {
+                    userAccount = await this.usersService.updateGitlabUserAccount(user.id, userAccount, gitlabAccessToken)
+                }
+                return this.gitlabReposService.getRepositoryTree(gitlabAccessToken.access_token, parseInt(report.provider_id, 10), branch, path, false)
             default:
                 return null
         }
@@ -410,6 +432,7 @@ export class ReportsService extends AutowiredService {
         switch (report.provider) {
             case RepositoryProvider.KYSO:
             case RepositoryProvider.KYSO_CLI:
+            case RepositoryProvider.GITLAB:
                 return this.getKysoFileContent(report.id, hash)
             case RepositoryProvider.GITHUB:
                 userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
@@ -423,6 +446,16 @@ export class ReportsService extends AutowiredService {
                     throw new PreconditionFailedException('User does not have a bitbucket account')
                 }
                 return this.bitbucketReposService.getFileContent(userAccount.accessToken, report.name_provider, hash, filePath)
+            case RepositoryProvider.GITLAB:
+                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITLAB)
+                if (!userAccount) {
+                    throw new PreconditionFailedException('User does not have a gitlab account')
+                }
+                const gitlabAccessToken: GitlabAccessToken = await this.gitlabReposService.checkAccessTokenValidity(userAccount)
+                if (gitlabAccessToken.access_token !== userAccount.accessToken) {
+                    userAccount = await this.usersService.updateGitlabUserAccount(user.id, userAccount, gitlabAccessToken)
+                }
+                return this.gitlabReposService.getFileContent(userAccount.accessToken, parseInt(report.provider_id, 10), filePath, hash)
             default:
                 return null
         }
@@ -540,6 +573,7 @@ export class ReportsService extends AutowiredService {
             report.show_output,
             mainFile ? mainFile.name : null,
             mainFile ? mainFile.sha : null,
+            mainFile ? mainFile.path_scs : null,
             mainFile ? mainFile.version : null,
             lastVersion,
         )
@@ -1275,6 +1309,150 @@ export class ReportsService extends AutowiredService {
                 kysoConfigFile = result.kysoConfigFile
                 directoriesToRemove = result.directoriesToRemove
                 Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
+            } catch (e) {
+                await this.deleteReport(report.id)
+                return null
+            }
+
+            const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
+            if (!userHasPermission) {
+                Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+                await this.deleteReport(report.id)
+                this.mailerService
+                    .sendMail({
+                        to: user.email,
+                        subject: 'Error creating report',
+                        template: 'report-error-permissions',
+                    })
+                    .then(() => {
+                        Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)
+                    })
+                    .catch((err) => {
+                        Logger.error(`Error sending mail 'Invalid permissions for creating report' to ${user.display_name}`, err, UsersService.name)
+                    })
+                return
+            }
+
+            await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove, isNew)
+        })
+
+        return report
+    }
+
+    public async createReportFromGitlabRepository(userId: string, repositoryId: number | string, branch: string): Promise<Report> {
+        const user: User = await this.usersService.getUserById(userId)
+        if (!user) {
+            throw new NotFoundError(`User ${userId} does not exist`)
+        }
+        const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITLAB)
+        if (!userAccount) {
+            throw new PreconditionFailedException(`User ${user.display_name} does not have a Gitlab account`)
+        }
+        if (!userAccount.username || userAccount.username.length === 0) {
+            throw new PreconditionFailedException(`User ${user.display_name} does not have a Gitlab username`)
+        }
+        if (!userAccount.accessToken || userAccount.accessToken.length === 0) {
+            throw new PreconditionFailedException(`User ${user.display_name} does not have a Gitlab access token`)
+        }
+
+        let gitlabRepository: GithubRepository = null
+        try {
+            gitlabRepository = await this.gitlabReposService.getRepository(userAccount.accessToken, repositoryId)
+        } catch (e) {
+            throw new PreconditionFailedException(`User ${user.display_name} does not have a Gitlab repository '${repositoryId}'`)
+        }
+
+        const reports: Report[] = await this.provider.read({ filter: { sluglified_name: gitlabRepository.name, user_id: user.id } })
+        let report: Report = null
+        let isNew = false
+        if (reports.length > 0) {
+            // Existing report
+            report = reports[0]
+            if (report.status === ReportStatus.Processing) {
+                Logger.log(`Report '${report.id} ${report.sluglified_name}' is being imported`, ReportsService.name)
+                return report
+            }
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
+            Logger.log(`Report '${report.id} ${report.sluglified_name}' already imported. Updating files...`, ReportsService.name)
+        } else {
+            let webhook: GitlabWeebHook = null
+            try {
+                const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL)
+                let hookUrl = `${baseUrl}/v1/hooks/gitlab`
+                if (process.env.NODE_ENV === 'development') {
+                    hookUrl = 'https://smee.io/kyso-gitlab-hook-test'
+                }
+                webhook = await this.gitlabReposService.createWebhookGivenRepository(userAccount.accessToken, repositoryId, hookUrl)
+                Logger.log(`Created webhook for repository '${repositoryId}' with id ${webhook.id}`, ReportsService.name)
+            } catch (e) {
+                Logger.error(`Error creating webhook for repository '${repositoryId}'`, e, ReportsService.name)
+                // throw Error(`An error occurred creating webhook for repository '${repositoryId}'`)
+            }
+            report = new Report(
+                slugify(gitlabRepository.name),
+                gitlabRepository.id.toString(),
+                webhook.id.toString(),
+                RepositoryProvider.GITLAB,
+                gitlabRepository.name,
+                userAccount.username,
+                gitlabRepository.defaultBranch,
+                null,
+                0,
+                false,
+                gitlabRepository.description,
+                user.id,
+                null,
+                gitlabRepository.name,
+                [],
+                null,
+                false,
+                false,
+                null,
+            )
+            report = await this.provider.create(report)
+            Logger.log(`New report '${report.id} ${report.sluglified_name}'`, ReportsService.name)
+            isNew = true
+        }
+
+        new Promise<void>(async () => {
+            const desiredCommit: string = branch && branch.length > 0 ? branch : gitlabRepository.defaultBranch
+            const extractedDir = `/tmp/${uuidv4()}`
+            try {
+                Logger.log(`Downloading and extrating repository ${repositoryId}' commit '${desiredCommit}'`, ReportsService.name)
+                const buffer: Buffer = await this.gitlabReposService.downloadRepository(userAccount.accessToken, repositoryId, desiredCommit)
+                if (!buffer) {
+                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+                    Logger.error(`Report '${report.id} ${repositoryId}': Could not download commit ${desiredCommit}`, ReportsService.name)
+                    // throw new PreconditionFailedException(`Could not download repository ${repositoryId} commit ${desiredCommit}`, ReportsService.name)
+                    return
+                }
+                Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
+                const zip: AdmZip = new AdmZip(buffer)
+                zip.extractAllTo('/tmp', true)
+                moveSync(`/tmp/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
+                Logger.log(`Extracted repository '${repositoryId}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
+            } catch (e) {
+                await this.deleteReport(report.id)
+                throw Error(`An error occurred downloading repository '${repositoryId}'`)
+            }
+
+            const filePaths: string[] = await this.getFilePaths(extractedDir)
+            if (filePaths.length < 1) {
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+                Logger.error(`Report ${report.id} ${repositoryId}: Repository does not contain any files`, ReportsService.name)
+                throw new PreconditionFailedException(`Report ${report.id} ${repositoryId}: Repository does not contain any files`, ReportsService.name)
+            }
+
+            // Normalize file paths
+            let files: { name: string; filePath: string }[] = []
+            let kysoConfigFile: KysoConfigFile = null
+            let directoriesToRemove: string[] = []
+            try {
+                const result = await this.normalizeFilePaths(report, filePaths)
+                files = result.files
+                kysoConfigFile = result.kysoConfigFile
+                directoriesToRemove = result.directoriesToRemove
+                Logger.log(`Downloaded ${files.length} files from repository ${repositoryId}' commit '${desiredCommit}'`, ReportsService.name)
             } catch (e) {
                 await this.deleteReport(report.id)
                 return null
