@@ -8,7 +8,7 @@ import {
 } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, Patch, Post, PreconditionFailedException, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
-import { InvalidInputError } from 'src/helpers/errorHandling'
+import { InvalidInputError } from '../../helpers/errorHandling'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'

@@ -55,9 +55,9 @@ export function getKysoSettingDefaultValue(setting: KysoSettingsEnum) {
         case KysoSettingsEnum.AWS_REGION:
             return 'us-east-1'
         case KysoSettingsEnum.MAIL_TRANSPORT:
-            return 'smtps://mozart.mae@gmail.com:kys0t3st4cc0unt@smtp.googlemail.com'
+            return 'smtps://dev@dev.kyso.io:sphere6wrap&toxic@mailu.kyso.io'
         case KysoSettingsEnum.MAIL_FROM:
-            return '"KYSO" <mozart.mae@gmail.com>'
+            return '"kyso" <dev@dev.kyso.io>'
         case KysoSettingsEnum.ELASTICSEARCH_URL:
             return "http://elasticsearch-master.elasticsearch-lo.svc.cluster.local:9200"
         default:

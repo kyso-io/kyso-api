@@ -98,6 +98,7 @@ export class DiscussionsService extends AutowiredService {
         const emails: string[] = organization?.options?.notifications?.emails || []
         const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
         const to = centralizedMails && emails.length > 0 ? emails : author.email
+
         this.mailerService
             .sendMail({
                 to,
