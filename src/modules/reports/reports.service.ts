@@ -260,6 +260,10 @@ export class ReportsService extends AutowiredService {
         if (author_ids.indexOf(userId) === -1) {
             author_ids.push(userId)
         }
+        if (updateReportRequestDTO?.tags) {
+            await this.checkReportTags(report.id, updateReportRequestDTO.tags || [])
+            delete updateReportRequestDTO.tags
+        }
         return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { ...updateReportRequestDTO, author_ids } })
     }
 
