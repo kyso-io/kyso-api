@@ -9,6 +9,7 @@ import {
     ReportPermissionsEnum,
     Token,
     User,
+    VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model'
 import {
     Body,
@@ -245,6 +246,17 @@ export class AuthController extends GenericController<string> {
     public async signUp(@Body() data: CreateUserRequestDTO): Promise<NormalizedResponseDTO<User>> {
         const user: User = await this.usersService.createUser(data)
         return new NormalizedResponseDTO(user)
+    }
+
+    @Post('/verify-email')
+    @ApiOperation({
+        summary: `Verify an user's email address`,
+        description: `Allows new users to verify their email address`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Verified user`, type: Boolean })
+    public async verifyEmail(@Body() data: VerifyEmailRequestDTO): Promise<NormalizedResponseDTO<boolean>> {
+        const result: boolean = await this.usersService.verifyEmail(data)
+        return new NormalizedResponseDTO(result)
     }
 
     @Post('/refresh-token')

@@ -77,7 +77,7 @@ export class GithubLoginProvider {
                     '',
                     'free',
                     githubUser.avatar_url,
-                    true,
+                    false,
                     [],
                     uuidv4(),
                 )

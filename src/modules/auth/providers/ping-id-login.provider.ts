@@ -37,7 +37,7 @@ export class PingIdLoginProvider {
                     '',
                     'free',
                     portrait,
-                    true,
+                    false,
                     [],
                     login.password,
                 )

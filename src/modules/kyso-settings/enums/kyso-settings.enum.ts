@@ -39,7 +39,10 @@ export enum KysoSettingsEnum {
     // Reports path
     REPORT_PATH = 'REPORT_PATH',
     // Internal elasticsearch url
-    ELASTICSEARCH_URL = "ELASTICSEARCH_URL"
+    ELASTICSEARCH_URL = 'ELASTICSEARCH_URL',
+    // FRONTEND_URL
+    // Verification email duration
+    DURATION_HOURS_TOKEN_EMAIL_VERIFICATION = 'DURATION_HOURS_TOKEN_EMAIL_VERIFICATION',
 }
 
 export function getKysoSettingDefaultValue(setting: KysoSettingsEnum) {
@@ -59,7 +62,9 @@ export function getKysoSettingDefaultValue(setting: KysoSettingsEnum) {
         case KysoSettingsEnum.MAIL_FROM:
             return '"kyso" <dev@dev.kyso.io>'
         case KysoSettingsEnum.ELASTICSEARCH_URL:
-            return "http://elasticsearch-master.elasticsearch-lo.svc.cluster.local:9200"
+            return 'http://elasticsearch-master.elasticsearch-lo.svc.cluster.local:9200'
+        case KysoSettingsEnum.DURATION_HOURS_TOKEN_EMAIL_VERIFICATION:
+            return '2'
         default:
             return ''
     }
@@ -121,6 +126,8 @@ export function getKysoSettingDescription(setting: KysoSettingsEnum) {
             return `Path where reports are unzipped`
         case KysoSettingsEnum.ELASTICSEARCH_URL:
             return `Internal Kubernetes URL for Elasticsearch`
+        case KysoSettingsEnum.DURATION_HOURS_TOKEN_EMAIL_VERIFICATION:
+            return `Duration in hours for token email verification`
         default:
             return 'No description provided'
     }

@@ -5,6 +5,7 @@ import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { Permission } from '../auth/annotations/permission.decorator'
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { KysoSettingsEnum } from './enums/kyso-settings.enum'
 import { KysoSettingsService } from './kyso-settings.service'
@@ -61,6 +62,7 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
     }
 
     @Patch('/:key')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Updates provided key by provided value`,
         description: `Updates provided key by provided value`,

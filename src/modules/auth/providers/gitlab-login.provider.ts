@@ -45,7 +45,7 @@ export class GitlabLoginProvider {
                     '',
                     'free',
                     gitlabUser.avatar_url,
-                    true,
+                    false,
                     [],
                     uuidv4(),
                 )

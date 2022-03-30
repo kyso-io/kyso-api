@@ -48,6 +48,7 @@ import slugify from '../../helpers/slugify'
 import { Validators } from '../../helpers/validators'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CommentsService } from '../comments/comments.service'
 import { OrganizationsService } from '../organizations/organizations.service'
@@ -388,6 +389,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Post('/kyso')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Create a new report sending the files`,
         description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
@@ -412,6 +414,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Post('/ui')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Create a new report sending the files`,
         description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
@@ -432,6 +435,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Post('/ui/main-file/:reportId')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Update the main file of the report`,
         description: `By passing the appropiate parameters you can update the main file of report`,
@@ -455,6 +459,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Post('/github/:repositoryName')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Create a new report based on github repository`,
         description: `By passing the appropiate parameters you can create a new report referencing a github repository`,
@@ -477,6 +482,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Post('/bitbucket')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Create a new report based on bitbucket repository`,
         description: `By passing the appropiate parameters you can create a new report referencing a bitbucket repository`,
@@ -502,6 +508,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Post('/gitlab')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Create a new report based on gitlab repository`,
         description: `By passing the appropiate parameters you can create a new report referencing a gitlab repository`,
@@ -525,6 +532,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Patch('/:reportId')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Update the specific report`,
         description: `Allows updating content from the specified report`,
@@ -555,6 +563,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Delete('/:reportId')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Delete a report`,
         description: `Allows deleting a specific report`,
@@ -573,6 +582,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Patch('/:reportId/pin')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Toggles global pin for the specified report`,
         description: `Allows pinning and unpinning of the specified report globally`,
@@ -597,6 +607,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Patch('/:reportId/user-pin')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Toggles the user's pin the specified report`,
         description: `Allows pinning and unpinning of the specified report for a user`,
@@ -620,6 +631,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Patch('/:reportId/user-star')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Toggles the user's star of the specified report`,
         description: `Allows starring and unstarring the specified report for a user`,
@@ -645,6 +657,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Get('/:reportName/:teamName/pull')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Pull a report from S3`,
         description: `Pull a report from S3. This will download all files from S3 in zip format.`,
@@ -677,6 +690,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Get('/:reportId/download')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Download a report from S3`,
         description: `Download a report from S3. This will download all files from S3 in zip format.`,
@@ -886,6 +900,7 @@ export class ReportsController extends GenericController<Report> {
         }),
     )
     @Post('/:reportId/preview-picture')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Upload a profile picture for a report`,
         description: `Allows uploading a profile picture for a report passing its id and image`,
@@ -913,6 +928,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Delete('/:reportId/preview-picture')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: `Delete a profile picture for a report`,
         description: `Allows deleting a profile picture for a report passing its id`,

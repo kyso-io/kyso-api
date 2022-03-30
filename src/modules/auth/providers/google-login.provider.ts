@@ -52,7 +52,7 @@ export class GoogleLoginProvider {
                     '',
                     'free',
                     loginTicket.getPayload().picture,
-                    true,
+                    false,
                     [],
                     uuidv4(),
                 )

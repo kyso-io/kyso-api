@@ -42,7 +42,7 @@ export class BitbucketLoginProvider {
                     '',
                     'free',
                     bitbucketUser.links?.avatar?.href,
-                    true,
+                    false,
                     [],
                     uuidv4(),
                 )

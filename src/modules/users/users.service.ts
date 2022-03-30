@@ -12,9 +12,12 @@ import {
     UpdateUserRequestDTO,
     User,
     UserAccount,
+    UserVerification,
+    VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import * as moment from 'moment'
 import { ObjectId } from 'mongodb'
 import { extname } from 'path'
 import { v4 as uuidv4 } from 'uuid'
@@ -32,6 +35,7 @@ import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
 import { KysoUserAccessTokensMongoProvider } from './providers/mongo-kyso-user-access-token.provider'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
+import { UserVerificationMongoProvider } from './providers/user-verification-mongo.provider'
 
 function factory(service: UsersService) {
     return service
@@ -63,6 +67,7 @@ export class UsersService extends AutowiredService {
     private kysoSettingsService: KysoSettingsService
 
     constructor(
+        private readonly userVerificationMongoProvider: UserVerificationMongoProvider,
         private readonly mailerService: MailerService,
         private readonly provider: UsersMongoProvider,
         private readonly kysoAccessTokenProvider: KysoUserAccessTokensMongoProvider,
@@ -144,10 +149,33 @@ export class UsersService extends AutowiredService {
                 },
             })
             .then(() => {
-                Logger.log(`Welcome mail sent to ${user.display_name}`, UsersService.name)
+                Logger.log(`Welcome e-mail sent to ${user.display_name}`, UsersService.name)
             })
             .catch((err) => {
-                Logger.error(`Error sending welcome mail to ${user.display_name}`, err, UsersService.name)
+                Logger.error(`Error sending welcome e-mail to ${user.display_name}`, err, UsersService.name)
+            })
+
+        // Link to verify user email
+        const hours: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_TOKEN_EMAIL_VERIFICATION)
+        const userVerification: UserVerification = new UserVerification(user.email, uuidv4(), user.id, moment().add(hours, 'hours').toDate())
+        await this.userVerificationMongoProvider.create(userVerification)
+
+        this.mailerService
+            .sendMail({
+                to: user.email,
+                subject: 'Verify your e-mail',
+                template: 'verify-email',
+                context: {
+                    user,
+                    userVerification,
+                    frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+                },
+            })
+            .then(() => {
+                Logger.log(`Verify account e-mail sent to ${user.display_name}`, UsersService.name)
+            })
+            .catch((err) => {
+                Logger.error(`Error sending verify account e-mail to ${user.display_name}`, err, UsersService.name)
             })
 
         return user
@@ -362,5 +390,27 @@ export class UsersService extends AutowiredService {
         }
         await this.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
         return userAccount
+    }
+
+    public async verifyEmail(data: VerifyEmailRequestDTO): Promise<boolean> {
+        const result: UserVerification[] = await this.userVerificationMongoProvider.read({
+            filter: {
+                $and: [{ email: data.email }, { token: data.token }, { verified_at: null }],
+            },
+        })
+        if (result.length === 0) {
+            throw new PreconditionFailedException('Token not found')
+        }
+        const userVerification: UserVerification = result[0]
+        const user: User = await this.getUserById(userVerification.user_id)
+        if (user.email_verified) {
+            throw new PreconditionFailedException('Email already verified')
+        }
+        if (moment().isAfter(userVerification.expires_at)) {
+            throw new PreconditionFailedException('Token expired')
+        }
+        await this.provider.update({ _id: new ObjectId(user.id) }, { $set: { email_verified: true } })
+        await this.userVerificationMongoProvider.updateOne({ _id: new ObjectId(userVerification.id) }, { $set: { verified_at: new Date() } })
+        return true
     }
 }

@@ -18,6 +18,7 @@ import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { CommentsService } from '../comments/comments.service'
 import { RelationsService } from '../relations/relations.service'
 import { DiscussionsService } from './discussions.service'
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 
 @ApiTags('discussions')
 @ApiExtraModels(Discussion)
@@ -122,6 +123,7 @@ export class DiscussionsController extends GenericController<Discussion> {
     }
 
     @Post()
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: 'Create discussion',
         description: 'Create discussion',
@@ -135,6 +137,7 @@ export class DiscussionsController extends GenericController<Discussion> {
     }
 
     @Patch('/:discussionId')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: 'Update discussion',
         description: 'Update discussion',
@@ -158,6 +161,7 @@ export class DiscussionsController extends GenericController<Discussion> {
     }
 
     @Delete('/:discussionId')
+    @UseGuards(EmailVerifiedGuard)
     @ApiOperation({
         summary: 'Delete discussion',
         description: 'Delete discussion',

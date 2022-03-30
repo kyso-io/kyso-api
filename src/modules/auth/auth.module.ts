@@ -2,6 +2,7 @@ import { DynamicModule, Global } from '@nestjs/common'
 import { JwtModule } from '@nestjs/jwt'
 import { AuthController } from './auth.controller'
 import { AuthService, createProvider } from './auth.service'
+import { EmailVerifiedGuard } from './guards/email-verified.guard'
 import { PermissionsGuard } from './guards/permission.guard'
 import { createPlatformRoleProvider, PlatformRoleService } from './platform-role.service'
 import { BitbucketLoginProvider } from './providers/bitbucket-login.provider'
@@ -30,23 +31,24 @@ export class AuthModule {
             module: AuthModule,
             providers: [
                 AuthService,
-                PlatformRoleService,
-                UserRoleService,
+                BitbucketLoginProvider,
                 dynamicProvider,
-                userRoleDynamicProvider,
-                platformRoleDynamicProvider,
+                EmailVerifiedGuard,
                 GithubLoginProvider,
+                GitlabLoginProvider,
                 GoogleLoginProvider,
                 KysoLoginProvider,
-                PlatformRoleMongoProvider,
                 PermissionsGuard,
-                UserRoleMongoProvider,
                 PingIdLoginProvider,
-                BitbucketLoginProvider,
-                GitlabLoginProvider,
+                platformRoleDynamicProvider,
+                PlatformRoleMongoProvider,
+                PlatformRoleService,
+                userRoleDynamicProvider,
+                UserRoleMongoProvider,
+                UserRoleService,
             ],
             controllers: [AuthController],
-            exports: [dynamicProvider, platformRoleDynamicProvider, userRoleDynamicProvider, PermissionsGuard],
+            exports: [dynamicProvider, EmailVerifiedGuard, PermissionsGuard, platformRoleDynamicProvider, userRoleDynamicProvider],
         }
     }
 }

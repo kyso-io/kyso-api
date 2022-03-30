@@ -732,14 +732,13 @@ export class ReportsService extends AutowiredService {
                 file = await this.filesMongoProvider.create(file)
                 reportFiles.push(file)
             }
+            await this.checkReportTags(report.id, kysoConfigFile.tags)
         }
 
         let files: string[] = await this.getFilePaths(extractedDir)
         // Remove '/reportPath' from the paths
         files = files.map((file: string) => file.replace(reportPath, ''))
         writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
-
-        await this.checkReportTags(report.id, kysoConfigFile.tags)
 
         new Promise<void>(async () => {
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
@@ -1695,7 +1694,9 @@ export class ReportsService extends AutowiredService {
         tmpFiles = tmpFiles.map((file: string) => file.replace(reportPath, ''))
         writeFileSync(join(reportPath, `/${report.id}.indexer`), tmpFiles.join('\n'))
 
-        await this.checkReportTags(report.id, kysoConfigFile.tags)
+        if (isNew) {
+            await this.checkReportTags(report.id, kysoConfigFile.tags)
+        }
 
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
         await this.uploadReportToFtp(report.id, extractedDir)
