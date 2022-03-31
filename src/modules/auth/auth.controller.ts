@@ -259,6 +259,18 @@ export class AuthController extends GenericController<string> {
         return new NormalizedResponseDTO(result)
     }
 
+    @Post('/send-verification-email')
+    @ApiOperation({
+        summary: `Send an email to verify an user's email address`,
+        description: `Allows new users to send an email to verify their email address`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Sent email`, type: Boolean })
+    public async sendVerifyEmail(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<boolean>> {
+        const user: User = await this.usersService.getUserById(token.id)
+        const result: boolean = await this.usersService.sendVerificationEmail(user)
+        return new NormalizedResponseDTO(result)
+    }
+
     @Post('/refresh-token')
     @ApiBearerAuth()
     @ApiOperation({
@@ -346,6 +358,11 @@ export class AuthController extends GenericController<string> {
         required: true,
     })
     async checkPermissions(@Headers('x-original-uri') originalUri, @Res() response: any, @Cookies() cookies: any) {
+        if (process.env.NODE_ENV === 'development') {
+            response.status(HttpStatus.OK).send()
+            return
+        }
+
         if (!originalUri || originalUri.length === 0) {
             response.status(HttpStatus.FORBIDDEN).send()
             return

@@ -155,30 +155,43 @@ export class UsersService extends AutowiredService {
                 Logger.error(`Error sending welcome e-mail to ${user.display_name}`, err, UsersService.name)
             })
 
+        await this.sendVerificationEmail(user)
+
+        return user
+    }
+
+    public async sendVerificationEmail(user: User): Promise<boolean> {
+        if (user.email_verified) {
+            Logger.log(`User ${user.display_name} already verified. Email is not sent...`, UsersService.name)
+            return true
+        }
+
         // Link to verify user email
         const hours: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_TOKEN_EMAIL_VERIFICATION)
         const userVerification: UserVerification = new UserVerification(user.email, uuidv4(), user.id, moment().add(hours, 'hours').toDate())
         await this.userVerificationMongoProvider.create(userVerification)
 
-        this.mailerService
-            .sendMail({
-                to: user.email,
-                subject: 'Verify your e-mail',
-                template: 'verify-email',
-                context: {
-                    user,
-                    userVerification,
-                    frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-                },
-            })
-            .then(() => {
-                Logger.log(`Verify account e-mail sent to ${user.display_name}`, UsersService.name)
-            })
-            .catch((err) => {
-                Logger.error(`Error sending verify account e-mail to ${user.display_name}`, err, UsersService.name)
-            })
-
-        return user
+        return new Promise<boolean>(async (resolve) => {
+            this.mailerService
+                .sendMail({
+                    to: user.email,
+                    subject: 'Verify your account',
+                    template: 'verify-email',
+                    context: {
+                        user,
+                        userVerification,
+                        frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+                    },
+                })
+                .then(() => {
+                    Logger.log(`Verify account e-mail sent to ${user.display_name}`, UsersService.name)
+                    resolve(true)
+                })
+                .catch((err) => {
+                    Logger.error(`Error sending verify account e-mail to ${user.display_name}`, err, UsersService.name)
+                    resolve(false)
+                })
+        })
     }
 
     async deleteUser(id: string): Promise<boolean> {
@@ -395,19 +408,22 @@ export class UsersService extends AutowiredService {
     public async verifyEmail(data: VerifyEmailRequestDTO): Promise<boolean> {
         const result: UserVerification[] = await this.userVerificationMongoProvider.read({
             filter: {
-                $and: [{ email: data.email }, { token: data.token }, { verified_at: null }],
+                $and: [{ email: data.email }, { token: data.token }],
             },
         })
         if (result.length === 0) {
             throw new PreconditionFailedException('Token not found')
         }
         const userVerification: UserVerification = result[0]
+        if (userVerification.verified_at !== null) {
+            throw new PreconditionFailedException('Verification token already used')
+        }
         const user: User = await this.getUserById(userVerification.user_id)
         if (user.email_verified) {
             throw new PreconditionFailedException('Email already verified')
         }
         if (moment().isAfter(userVerification.expires_at)) {
-            throw new PreconditionFailedException('Token expired')
+            throw new PreconditionFailedException('Verification token expired')
         }
         await this.provider.update({ _id: new ObjectId(user.id) }, { $set: { email_verified: true } })
         await this.userVerificationMongoProvider.updateOne({ _id: new ObjectId(userVerification.id) }, { $set: { verified_at: new Date() } })

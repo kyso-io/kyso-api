@@ -113,6 +113,7 @@ export class GithubLoginProvider {
                 user.location,
                 user.link,
                 user.bio,
+                user.email_verified,
                 user.accounts.map((userAccount: UserAccount) => ({
                     type: userAccount.type,
                     accountId: userAccount.accountId,

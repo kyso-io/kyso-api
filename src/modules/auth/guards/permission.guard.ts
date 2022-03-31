@@ -1,4 +1,4 @@
-import { GlobalPermissionsEnum, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, ResourcePermissions, Token, TokenPermissions } from '@kyso-io/kyso-model'
+import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, Token, TokenPermissions } from '@kyso-io/kyso-model'
 import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { Autowired } from '../../../decorators/autowired'
@@ -42,8 +42,15 @@ export class PermissionsGuard implements CanActivate {
         try {
             const request = context.switchToHttp().getRequest()
 
+            if (!request.headers.hasOwnProperty('authorization') || request.headers['authorization'] === null || request.headers['authorization'] === '') {
+                return false
+            }
+
             // Get the token
             const tokenPayload: Token = this.authService.evaluateAndDecodeTokenFromHeader(request.headers.authorization)
+            if (!tokenPayload) {
+                return false
+            }
 
             // Get permissions of the requester user
             const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
