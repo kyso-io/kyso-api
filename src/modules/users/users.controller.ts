@@ -373,7 +373,7 @@ export class UsersController extends GenericController<User> {
         summary: `Verify captcha`,
         description: `Allows verifying captcha`,
     })
-    @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: boolean })
+    @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: Boolean })
     public async verifyCaptcha(@CurrentToken() token: Token, @Body() data: VerifyCaptchaRequestDto): Promise<NormalizedResponseDTO<boolean>> {
         const success: boolean = await this.usersService.verifyCaptcha(token.id, data)
         return new NormalizedResponseDTO(success)
