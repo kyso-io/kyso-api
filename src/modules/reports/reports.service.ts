@@ -287,20 +287,24 @@ export class ReportsService extends AutowiredService {
         // Delete relations with starred reports
         await this.starredReportsMongoProvider.deleteMany({ report_id: reportId })
 
-        const s3Client: S3Client = await this.getS3Client()
+        // Delete report in SFTP
+        this.deleteReportFromFtp(report.id)
 
-        // Delete report files in S3
-        const reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id } })
-        for (const file of reportFiles) {
-            if (file?.path_s3 && file.path_s3.length > 0) {
-                Logger.log(`Report '${report.sluglified_name}': deleting file ${file.name} in S3...`, ReportsService.name)
-                const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
-                    Bucket: s3Bucket,
-                    Key: file.path_s3,
-                })
-                await s3Client.send(deleteObjectCommand)
+        new Promise<void>(async () => {
+            // Delete report files in S3
+            const s3Client: S3Client = await this.getS3Client()
+            const reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id } })
+            for (const file of reportFiles) {
+                if (file?.path_s3 && file.path_s3.length > 0) {
+                    Logger.log(`Report '${report.sluglified_name}': deleting file ${file.name} in S3...`, ReportsService.name)
+                    const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
+                        Bucket: s3Bucket,
+                        Key: file.path_s3,
+                    })
+                    await s3Client.send(deleteObjectCommand)
+                }
             }
-        }
+        })
 
         // Delete files
         await this.filesMongoProvider.deleteMany({ report_id: reportId })
@@ -2261,6 +2265,27 @@ export class ReportsService extends AutowiredService {
         const result: string = await client.uploadDir(sourcePath, destinationPath)
         Logger.log(result, ReportsService.name)
         await client.end()
+    }
+
+    private async deleteReportFromFtp(reportId: string): Promise<void> {
+        const report: Report = await this.getReportById(reportId)
+        try {
+            const team: Team = await this.teamsService.getTeamById(report.team_id)
+            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            const client: Client = await this.sftpService.getClient()
+            const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+            const destinationPath = join(sftpDestinationFolder, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}`)
+            const existsPath: boolean | string = await client.exists(destinationPath)
+            if (!existsPath) {
+                Logger.log(`Directory ${destinationPath} does not exist. Creating...`, ReportsService.name)
+                return
+            }
+            const result: string = await client.rmdir(destinationPath, true)
+            Logger.log(result, ReportsService.name)
+            await client.end()
+        } catch (e) {
+            Logger.error(`Error deleting report ${report.id} ${report.title} from SFTP`, e, ReportsService.name)
+        }
     }
 
     private async getLastVersionOfReport(reportId: string): Promise<number> {
