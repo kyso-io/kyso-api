@@ -684,9 +684,18 @@ export class ReportsController extends GenericController<Report> {
         @CurrentToken() token: Token,
         @Param('reportName') reportName: string,
         @Param('teamName') teamName: string,
+        @Query('version') versionStr: string,
         @Res() response: any,
     ): Promise<any> {
-        this.reportsService.pullReport(token, slugify(reportName), teamName, response)
+        let version: number | null = null
+        if (versionStr) {
+            try {
+                version = parseInt(versionStr, 10)
+            } catch (e) {
+                Logger.error(`An error occurred while parsing the storeId`, e, ReportsController.name)
+            }
+        }
+        this.reportsService.pullReport(token, slugify(reportName), teamName, version, response)
     }
 
     @Get('/:reportId/download')

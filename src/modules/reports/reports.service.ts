@@ -1849,7 +1849,7 @@ export class ReportsService extends AutowiredService {
         })
     }
 
-    public async pullReport(token: Token, reportName: string, teamName: string, response: any): Promise<void> {
+    public async pullReport(token: Token, reportName: string, teamName: string, version: number | null, response: any): Promise<void> {
         let isGlobalAdmin = false
         if (token.permissions.global?.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)) {
             isGlobalAdmin = true
@@ -1875,7 +1875,7 @@ export class ReportsService extends AutowiredService {
         }
         const report: Report = reports[0]
 
-        this.returnZippedReport(report, response)
+        this.returnZippedReport(report, version, response)
     }
 
     public async downloadReport(token: Token, reportId: string, response: any): Promise<void> {
@@ -1902,12 +1902,21 @@ export class ReportsService extends AutowiredService {
             response.status(401).send(`User does not have permission to download report ${report.sluglified_name}`)
             return
         }
-        this.returnZippedReport(report, response)
+        this.returnZippedReport(report, null, response)
     }
 
-    private async returnZippedReport(report: Report, response: any): Promise<void> {
-        const lastVersion: number = await this.getLastVersionOfReport(report.id)
-        const reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id, version: lastVersion } })
+    private async returnZippedReport(report: Report, version: number | null, response: any): Promise<void> {
+        const filter: any = { report_id: report.id }
+        if (version) {
+            filter.version = version
+        } else {
+            filter.version = await this.getLastVersionOfReport(report.id)
+        }
+        const reportFiles: File[] = await this.filesMongoProvider.read({ filter })
+        if (reportFiles.length === 0) {
+            response.status(404).send(`Report '${report.sluglified_name}' does not have version '${filter.version}'`)
+            return
+        }
 
         const s3Client: S3Client = await this.getS3Client()
         const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
