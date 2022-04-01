@@ -739,11 +739,6 @@ export class ReportsService extends AutowiredService {
             await this.checkReportTags(report.id, kysoConfigFile.tags)
         }
 
-        let files: string[] = await this.getFilePaths(extractedDir)
-        // Remove '/reportPath' from the paths
-        files = files.map((file: string) => file.replace(reportPath, ''))
-        writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
-
         new Promise<void>(async () => {
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
             await this.uploadReportToFtp(report.id, extractedDir)
@@ -771,7 +766,10 @@ export class ReportsService extends AutowiredService {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
             Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
 
-            rmSync(extractedDir, { recursive: true, force: true })
+            let files: string[] = await this.getFilePaths(extractedDir)
+            // Remove '/reportPath' from the paths
+            files = files.map((file: string) => file.replace(reportPath, ''))
+            writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
 
             await this.sendNewReportMail(report, team, organization, isNew)
         })
@@ -884,11 +882,6 @@ export class ReportsService extends AutowiredService {
             reportFiles.push(file)
         }
 
-        let files: string[] = await this.getFilePaths(extractedDir)
-        // Remove '/reportPath' from the paths
-        files = files.map((file: string) => file.replace(reportPath, ''))
-        writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
-
         await this.checkReportTags(report.id, kysoConfigFile.tags)
 
         new Promise<void>(async () => {
@@ -918,7 +911,10 @@ export class ReportsService extends AutowiredService {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
             Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
 
-            rmSync(extractedDir, { recursive: true, force: true })
+            let files: string[] = await this.getFilePaths(extractedDir)
+            // Remove '/reportPath' from the paths
+            files = files.map((file: string) => file.replace(reportPath, ''))
+            writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
 
             await this.sendNewReportMail(report, team, organization, true)
         })
@@ -1693,11 +1689,6 @@ export class ReportsService extends AutowiredService {
         const extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
         moveSync(tmpDir, extractedDir, { overwrite: true })
 
-        let tmpFiles: string[] = await this.getFilePaths(extractedDir)
-        // Remove '/reportPath' from the paths
-        tmpFiles = tmpFiles.map((file: string) => file.replace(reportPath, ''))
-        writeFileSync(join(reportPath, `/${report.id}.indexer`), tmpFiles.join('\n'))
-
         if (isNew) {
             await this.checkReportTags(report.id, kysoConfigFile.tags)
         }
@@ -1735,12 +1726,15 @@ export class ReportsService extends AutowiredService {
             unlinkSync(outputFilePath)
         }
 
-        // Delete directories
-        for (let i = 0; i < directoriesToRemove.length; i++) {
-            rmSync(directoriesToRemove[i], { recursive: true, force: true })
-        }
-        // Delete extracted directory of github project
-        rmSync(extractedDir, { recursive: true, force: true })
+        // // Delete directories
+        // for (let i = 0; i < directoriesToRemove.length; i++) {
+        //     rmSync(directoriesToRemove[i], { recursive: true, force: true })
+        // }
+        
+        let tmpFiles: string[] = await this.getFilePaths(extractedDir)
+        // Remove '/reportPath' from the paths
+        tmpFiles = tmpFiles.map((file: string) => file.replace(reportPath, ''))
+        writeFileSync(join(reportPath, `/${report.id}.indexer`), tmpFiles.join('\n'))
 
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
         Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
