@@ -38,6 +38,7 @@ import { Permission } from '../auth/annotations/permission.decorator'
 import { AuthService } from '../auth/auth.service'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { TeamsService } from './teams.service'
 
 @ApiTags('teams')
@@ -212,7 +213,7 @@ export class TeamsController extends GenericController<Team> {
     }
 
     @Patch('/:teamId/members/:userId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Add a member to a team`,
         description: `Allows adding a member to a team passing its name and the user's name`,
@@ -237,7 +238,7 @@ export class TeamsController extends GenericController<Team> {
     }
 
     @Delete('/:teamId/members/:userId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Remove a member from a team`,
         description: `Allows removing a member from a team passing its id and the user's id`,
@@ -262,7 +263,7 @@ export class TeamsController extends GenericController<Team> {
     }
 
     @Patch('/:teamId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Update the specified team`,
         description: `Allows updating content from the specified team`,
@@ -294,7 +295,7 @@ export class TeamsController extends GenericController<Team> {
     }
 
     @Post()
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create a new team`,
         description: `Allows creating a new team`,
@@ -334,7 +335,7 @@ export class TeamsController extends GenericController<Team> {
     }
 
     @Patch('/:teamId/members-roles')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Add roles to members of a team`,
         description: `Allows adding a role to a member of a team passing its id`,
@@ -353,7 +354,7 @@ export class TeamsController extends GenericController<Team> {
     }
 
     @Delete('/:teamId/members-roles/:userId/:role')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Remove a role from a member of a team`,
         description: `Allows removing a role from a member of a team passing its id and the user's id`,
@@ -420,7 +421,7 @@ export class TeamsController extends GenericController<Team> {
         }),
     )
     @Post('/:teamId/profile-picture')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Upload a profile picture for a team`,
         description: `Allows uploading a profile picture for a team passing its id and image`,
@@ -442,7 +443,7 @@ export class TeamsController extends GenericController<Team> {
     }
 
     @Delete('/:teamId/profile-picture')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a profile picture for a team`,
         description: `Allows deleting a profile picture for a team passing its id`,
@@ -460,7 +461,7 @@ export class TeamsController extends GenericController<Team> {
     }
 
     @Delete('/:teamId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a team`,
         description: `Allows deleting a team passing its id`,

@@ -5,7 +5,7 @@ import { UsersService } from '../../users/users.service'
 import { AuthService } from '../auth.service'
 
 @Injectable()
-export class EmailVerifiedGuard implements CanActivate {
+export class SolvedCaptchaGuard implements CanActivate {
     @Autowired({ typeName: 'AuthService' })
     private readonly authService: AuthService
 
@@ -25,8 +25,8 @@ export class EmailVerifiedGuard implements CanActivate {
         if (!user) {
             throw new ForbiddenException('User not found with this jwt token')
         }
-        if (!user.email_verified) {
-            throw new ForbiddenException('Email not verified')
+        if (user.show_captcha) {
+            throw new ForbiddenException('Captcha not solved')
         }
         return true
     }

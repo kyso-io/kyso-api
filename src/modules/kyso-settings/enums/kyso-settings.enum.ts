@@ -43,6 +43,7 @@ export enum KysoSettingsEnum {
     // FRONTEND_URL
     // Verification email duration
     DURATION_HOURS_TOKEN_EMAIL_VERIFICATION = 'DURATION_HOURS_TOKEN_EMAIL_VERIFICATION',
+    RECAPTCHA2_SECRET_KEY = 'RECAPTCHA2_SECRET_KEY',
 }
 
 export function getKysoSettingDefaultValue(setting: KysoSettingsEnum) {
@@ -128,6 +129,8 @@ export function getKysoSettingDescription(setting: KysoSettingsEnum) {
             return `Internal Kubernetes URL for Elasticsearch`
         case KysoSettingsEnum.DURATION_HOURS_TOKEN_EMAIL_VERIFICATION:
             return `Duration in hours for token email verification`
+        case KysoSettingsEnum.RECAPTCHA2_SECRET_KEY:
+            return `Recaptcha2 secret key`
         default:
             return 'No description provided'
     }

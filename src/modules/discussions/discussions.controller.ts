@@ -8,17 +8,18 @@ import {
 } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, Patch, Post, PreconditionFailedException, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
-import { InvalidInputError } from '../../helpers/errorHandling'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
+import { InvalidInputError } from '../../helpers/errorHandling'
 import { QueryParser } from '../../helpers/queryParser'
 import { Permission } from '../auth/annotations/permission.decorator'
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { CommentsService } from '../comments/comments.service'
 import { RelationsService } from '../relations/relations.service'
 import { DiscussionsService } from './discussions.service'
-import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 
 @ApiTags('discussions')
 @ApiExtraModels(Discussion)
@@ -123,7 +124,7 @@ export class DiscussionsController extends GenericController<Discussion> {
     }
 
     @Post()
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: 'Create discussion',
         description: 'Create discussion',
@@ -137,7 +138,7 @@ export class DiscussionsController extends GenericController<Discussion> {
     }
 
     @Patch('/:discussionId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: 'Update discussion',
         description: 'Update discussion',
@@ -161,7 +162,7 @@ export class DiscussionsController extends GenericController<Discussion> {
     }
 
     @Delete('/:discussionId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: 'Delete discussion',
         description: 'Delete discussion',

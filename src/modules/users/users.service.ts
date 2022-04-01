@@ -13,10 +13,12 @@ import {
     User,
     UserAccount,
     UserVerification,
+    VerifyCaptchaRequestDto,
     VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import axios from 'axios'
 import * as moment from 'moment'
 import { ObjectId } from 'mongodb'
 import { extname } from 'path'
@@ -428,5 +430,16 @@ export class UsersService extends AutowiredService {
         await this.provider.update({ _id: new ObjectId(user.id) }, { $set: { email_verified: true } })
         await this.userVerificationMongoProvider.updateOne({ _id: new ObjectId(userVerification.id) }, { $set: { verified_at: new Date() } })
         return true
+    }
+
+    public async verifyCaptcha(userId: string, data: VerifyCaptchaRequestDto): Promise<boolean> {
+        const secret: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.RECAPTCHA2_SECRET_KEY)
+        const response: any = await axios.post(`https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${data.token}`)
+        console.log(response.data)
+        if (response.data.success) {
+            await this.provider.update({ _id: new ObjectId(userId) }, { $set: { show_captcha: false } })
+            return true
+        }
+        return false
     }
 }

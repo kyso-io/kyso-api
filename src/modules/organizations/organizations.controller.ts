@@ -33,6 +33,7 @@ import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { OrganizationsService } from './organizations.service'
 
 @ApiTags('organizations')
@@ -70,7 +71,7 @@ export class OrganizationsController extends GenericController<Organization> {
     }
 
     @Delete('/:organizationId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete an organization`,
         description: `Allows deleting an organization passing its id`,
@@ -107,7 +108,7 @@ export class OrganizationsController extends GenericController<Organization> {
     }
 
     @Post()
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create a new organization`,
         description: `By passing the appropiate parameters you can create a new organization`,
@@ -120,7 +121,7 @@ export class OrganizationsController extends GenericController<Organization> {
     }
 
     @Patch('/:organizationId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Update an organization`,
         description: `By passing the appropiate parameters you can update an organization`,
@@ -136,7 +137,7 @@ export class OrganizationsController extends GenericController<Organization> {
     }
 
     @Patch('/:organizationId/options')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Update organization options`,
         description: `By passing the appropiate parameters you can update an organization's options`,
@@ -179,7 +180,7 @@ export class OrganizationsController extends GenericController<Organization> {
     }
 
     @Post('/members')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Add user to an organization`,
         description: `By passing the appropiate parameters you can add a user to an organization`,
@@ -192,7 +193,7 @@ export class OrganizationsController extends GenericController<Organization> {
     }
 
     @Post('/:organizationName/join/:invitationCode')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Add user to an organization`,
         description: `By passing the appropiate parameters you can add a user to an organization`,
@@ -214,7 +215,7 @@ export class OrganizationsController extends GenericController<Organization> {
     }
 
     @Delete('/:organizationId/members/:userId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Remove user from the organization`,
         description: `By passing the appropiate parameters you can remove a user from the organization`,
@@ -242,7 +243,7 @@ export class OrganizationsController extends GenericController<Organization> {
     }
 
     @Post('/:organizationId/members-roles')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Update the members of an organization`,
         description: `By passing the appropiate parameters you can update the roles of the members of an organization`,
@@ -264,7 +265,7 @@ export class OrganizationsController extends GenericController<Organization> {
     }
 
     @Delete('/:organizationId/members-roles/:userId/:role')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Remove a user's role in an organization`,
         description: `By passing the appropiate parameters you can remove a role of a member in an organization`,
@@ -309,7 +310,7 @@ export class OrganizationsController extends GenericController<Organization> {
         }),
     )
     @Post('/:organizationId/profile-picture')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Upload a profile picture for a organization`,
         description: `Allows uploading a profile picture for a organization passing its id and image`,
@@ -331,7 +332,7 @@ export class OrganizationsController extends GenericController<Organization> {
     }
 
     @Delete('/:organizationId/profile-picture')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a profile picture for a organization`,
         description: `Allows deleting a profile picture for a organization passing its id`,

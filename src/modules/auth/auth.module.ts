@@ -4,6 +4,7 @@ import { AuthController } from './auth.controller'
 import { AuthService, createProvider } from './auth.service'
 import { EmailVerifiedGuard } from './guards/email-verified.guard'
 import { PermissionsGuard } from './guards/permission.guard'
+import { SolvedCaptchaGuard } from './guards/solved-captcha.guard'
 import { createPlatformRoleProvider, PlatformRoleService } from './platform-role.service'
 import { BitbucketLoginProvider } from './providers/bitbucket-login.provider'
 import { GithubLoginProvider } from './providers/github-login.provider'
@@ -43,12 +44,13 @@ export class AuthModule {
                 platformRoleDynamicProvider,
                 PlatformRoleMongoProvider,
                 PlatformRoleService,
+                SolvedCaptchaGuard,
                 userRoleDynamicProvider,
                 UserRoleMongoProvider,
                 UserRoleService,
             ],
             controllers: [AuthController],
-            exports: [dynamicProvider, EmailVerifiedGuard, PermissionsGuard, platformRoleDynamicProvider, userRoleDynamicProvider],
+            exports: [dynamicProvider, EmailVerifiedGuard, PermissionsGuard, platformRoleDynamicProvider, SolvedCaptchaGuard, userRoleDynamicProvider],
         }
     }
 }

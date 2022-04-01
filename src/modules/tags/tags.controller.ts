@@ -7,6 +7,7 @@ import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { TagsService } from '../tags/tags.service'
 
 @ApiTags('tags')
@@ -78,7 +79,7 @@ export class TagsController extends GenericController<Tag> {
     }
 
     @Patch('/:tagId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Update the specified tag`,
         description: `Allows updating content from the specified tag`,
@@ -104,7 +105,7 @@ export class TagsController extends GenericController<Tag> {
     }
 
     @Post()
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create a new tag`,
         description: `Allows creating a new tag`,
@@ -120,7 +121,7 @@ export class TagsController extends GenericController<Tag> {
     }
 
     @Delete('/:tagId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a tag`,
         description: `Allows deleting a tag passing its id`,
@@ -138,7 +139,7 @@ export class TagsController extends GenericController<Tag> {
     }
 
     @Post('/:tagId/assign/:entityId/:entityType')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Assign a tag to an entity`,
         description: `Allows assigning a tag to an entity`,
@@ -172,7 +173,7 @@ export class TagsController extends GenericController<Tag> {
     }
 
     @Delete('/:tagId/unassign/:entityId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Assign a tag to an entity`,
         description: `Allows assigning a tag to an entity`,

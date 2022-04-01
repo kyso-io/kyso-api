@@ -67,6 +67,7 @@ export const CurrentToken = createParamDecorator(async (data: unknown, ctx: Exec
                 decodedToken.payload.link,
                 decodedToken.payload.bio,
                 decodedToken.email_verified,
+                decodedToken.show_captcha,
                 decodedToken.payload.accounts,
                 permissions,
             )

@@ -12,6 +12,7 @@ import {
     User,
     UserDTO,
     UserPermissionsEnum,
+    VerifyCaptchaRequestDto,
 } from '@kyso-io/kyso-model'
 import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
@@ -26,6 +27,7 @@ import { Permission } from '../auth/annotations/permission.decorator'
 import { AuthService } from '../auth/auth.service'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { UsersService } from './users.service'
 
 @ApiTags('users')
@@ -121,7 +123,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Post('/access-token')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Creates an access token for the specified user`,
         description: `Creates an access token for the specified user`,
@@ -150,7 +152,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Patch('/access-token/revoke-all')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Revoke all user access tokens`,
         description: `Revoke all user access tokens`,
@@ -163,7 +165,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Delete('/access-token/:accessTokenId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Deletes an access token`,
         description: `Deletes an access token`,
@@ -228,7 +230,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Post()
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Creates an user`,
         description: `If requester has UserPermissionsEnum.CREATE permission, creates an user`,
@@ -240,7 +242,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Patch('/:userId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Update an user`,
         description: `Allows updating an user passing its id`,
@@ -262,7 +264,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Delete('/:id')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a user`,
         description: `Allows deleting a specific user passing its id`,
@@ -282,7 +284,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Post('/accounts')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Add an account to an user`,
         description: `Allows adding an account to an user passing its id`,
@@ -300,7 +302,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Delete('/:userId/accounts/:provider/:accountId')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Remove an account from an user`,
         description: `Allows removing an account from an user passing its username`,
@@ -340,7 +342,7 @@ export class UsersController extends GenericController<User> {
         }),
     )
     @Post('/profile-picture')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Upload a profile picture for a team`,
         description: `Allows uploading a profile picture for a user the image`,
@@ -355,7 +357,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Delete('/profile-picture')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a profile picture for a team`,
         description: `Allows deleting a profile picture for a user`,
@@ -364,5 +366,16 @@ export class UsersController extends GenericController<User> {
     public async deleteBackgroundImage(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<UserDTO>> {
         const user: User = await this.usersService.deleteProfilePicture(token)
         return new NormalizedResponseDTO(UserDTO.fromUser(user))
+    }
+
+    @Post('verify-captcha')
+    @ApiOperation({
+        summary: `Verify captcha`,
+        description: `Allows verifying captcha`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: boolean })
+    public async verifyCaptcha(@CurrentToken() token: Token, @Body() data: VerifyCaptchaRequestDto): Promise<NormalizedResponseDTO<boolean>> {
+        const success: boolean = await this.usersService.verifyCaptcha(token.id, data)
+        return new NormalizedResponseDTO(success)
     }
 }

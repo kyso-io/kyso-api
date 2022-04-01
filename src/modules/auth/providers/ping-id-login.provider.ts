@@ -56,6 +56,7 @@ export class PingIdLoginProvider {
                 user.link,
                 user.bio,
                 user.email_verified,
+                user.show_captcha,
                 user.accounts.map((userAccount: UserAccount) => ({
                     type: userAccount.type,
                     accountId: userAccount.accountId,

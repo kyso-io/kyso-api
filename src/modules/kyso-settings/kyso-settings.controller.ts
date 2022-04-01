@@ -7,6 +7,7 @@ import { GenericController } from '../../generic/controller.generic'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { KysoSettingsEnum } from './enums/kyso-settings.enum'
 import { KysoSettingsService } from './kyso-settings.service'
 
@@ -62,7 +63,7 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
     }
 
     @Patch('/:key')
-    @UseGuards(EmailVerifiedGuard)
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Updates provided key by provided value`,
         description: `Updates provided key by provided value`,
