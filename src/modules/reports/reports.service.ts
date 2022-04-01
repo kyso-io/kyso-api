@@ -2260,7 +2260,7 @@ export class ReportsService extends AutowiredService {
         if (!existsPath) {
             Logger.log(`Directory ${destinationPath} does not exist. Creating...`, ReportsService.name)
             await client.mkdir(destinationPath, true)
-            Logger.log(`Created directory ${destinationPath}`, ReportsService.name)
+            Logger.log(`Created directory ${destinationPath} in ftp`, ReportsService.name)
         }
         const result: string = await client.uploadDir(sourcePath, destinationPath)
         Logger.log(result, ReportsService.name)
@@ -2281,6 +2281,7 @@ export class ReportsService extends AutowiredService {
                 return
             }
             const result: string = await client.rmdir(destinationPath, true)
+            Logger.log(`Deleted directory ${destinationPath} of report ${report.id} ${report.title} from ftp`, ReportsService.name)
             Logger.log(result, ReportsService.name)
             await client.end()
         } catch (e) {
