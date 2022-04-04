@@ -44,6 +44,7 @@ export enum KysoSettingsEnum {
     // Verification email duration
     DURATION_HOURS_TOKEN_EMAIL_VERIFICATION = 'DURATION_HOURS_TOKEN_EMAIL_VERIFICATION',
     RECAPTCHA2_ENABLED = 'RECAPTCHA2_ENABLED',
+    RECAPTCHA2_SITE_KEY = 'RECAPTCHA2_SITE_KEY',
     RECAPTCHA2_SECRET_KEY = 'RECAPTCHA2_SECRET_KEY',
 }
 
@@ -69,6 +70,12 @@ export function getKysoSettingDefaultValue(setting: KysoSettingsEnum) {
             return '2'
         case KysoSettingsEnum.RECAPTCHA2_ENABLED:
             return 'false'
+        case KysoSettingsEnum.RECAPTCHA2_SITE_KEY:
+            // Development default's https://developers.google.com/recaptcha/docs/faq#id-like-to-run-automated-tests-with-recaptcha.-what-should-i-do
+            return '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
+        case KysoSettingsEnum.RECAPTCHA2_SECRET_KEY:
+            // Development default's https://developers.google.com/recaptcha/docs/faq#id-like-to-run-automated-tests-with-recaptcha.-what-should-i-do
+            return '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe'
         default:
             return ''
     }
@@ -134,6 +141,8 @@ export function getKysoSettingDescription(setting: KysoSettingsEnum) {
             return `Duration in hours for token email verification`
         case KysoSettingsEnum.RECAPTCHA2_ENABLED:
             return `Enables recaptcha globally in the platform`
+        case KysoSettingsEnum.RECAPTCHA2_SITE_KEY:
+            return `Recaptcha2 site key`
         case KysoSettingsEnum.RECAPTCHA2_SECRET_KEY:
             return `Recaptcha2 secret key`
         default:
