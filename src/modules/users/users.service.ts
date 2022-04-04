@@ -435,7 +435,6 @@ export class UsersService extends AutowiredService {
     public async verifyCaptcha(userId: string, data: VerifyCaptchaRequestDto): Promise<boolean> {
         const secret: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.RECAPTCHA2_SECRET_KEY)
         const response: any = await axios.post(`https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${data.token}`)
-        console.log(response.data)
         if (response.data.success) {
             await this.provider.update({ _id: new ObjectId(userId) }, { $set: { show_captcha: false } })
             return true

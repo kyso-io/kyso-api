@@ -508,7 +508,6 @@ export class ReportsService extends AutowiredService {
                 }
             }
         }
-        console.log(kysoConfigFile)
         if (!kysoConfigFile) {
             Logger.error(`No kyso.{yml,yaml,json} file found`, ReportsService.name)
             throw new PreconditionFailedException(`No kyso.{yml,yaml,json} file found`)
@@ -598,6 +597,21 @@ export class ReportsService extends AutowiredService {
                 let file: File = new File(report.id, originalName, path_scs, size, sha, 1)
                 file = await this.filesMongoProvider.create(file)
                 reportFiles.push(file)
+                if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
+                    const s3Client: S3Client = await this.getS3Client()
+                    const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+                    const key = `${uuidv4()}${extname(originalName)}`
+                    await s3Client.send(
+                        new PutObjectCommand({
+                            Bucket: s3Bucket,
+                            Key: key,
+                            Body: readFileSync(localFilePath),
+                        }),
+                    )
+                    const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
+                    report.preview_picture = preview_picture
+                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+                }
             }
             await this.checkReportTags(report.id, kysoConfigFile.tags)
         }
@@ -720,6 +734,21 @@ export class ReportsService extends AutowiredService {
             let file: File = new File(report.id, originalName, path_scs, size, sha, version)
             file = await this.filesMongoProvider.create(file)
             reportFiles.push(file)
+            if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
+                const s3Client: S3Client = await this.getS3Client()
+                const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+                const key = `${uuidv4()}${extname(originalName)}`
+                await s3Client.send(
+                    new PutObjectCommand({
+                        Bucket: s3Bucket,
+                        Key: key,
+                        Body: readFileSync(localFilePath),
+                    }),
+                )
+                const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
+                report.preview_picture = preview_picture
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+            }
         }
 
         await this.checkReportTags(report.id, kysoConfigFile.tags)
@@ -982,7 +1011,7 @@ export class ReportsService extends AutowiredService {
                 return
             }
 
-            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, isNew)
+            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, isNew)
         })
 
         return report
@@ -1013,12 +1042,10 @@ export class ReportsService extends AutowiredService {
         // Normalize file paths
         let files: { name: string; filePath: string }[] = []
         let kysoConfigFile: KysoConfigFile = null
-        let directoriesToRemove: string[] = []
         try {
             const result = await this.normalizeFilePaths(report, filePaths)
             files = result.files
             kysoConfigFile = result.kysoConfigFile
-            directoriesToRemove = result.directoriesToRemove
             Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name)
         } catch (e) {
             await this.deleteReport(report.id)
@@ -1026,7 +1053,7 @@ export class ReportsService extends AutowiredService {
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name)
 
-        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, false)
+        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, false)
     }
 
     public async createReportFromBitbucketRepository(userId: string, repositoryName: string, branch: string): Promise<Report> {
@@ -1122,12 +1149,10 @@ export class ReportsService extends AutowiredService {
             // Normalize file paths
             let files: { name: string; filePath: string }[] = []
             let kysoConfigFile: KysoConfigFile = null
-            let directoriesToRemove: string[] = []
             try {
                 const result = await this.normalizeFilePaths(report, filePaths)
                 files = result.files
                 kysoConfigFile = result.kysoConfigFile
-                directoriesToRemove = result.directoriesToRemove
                 Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
             } catch (e) {
                 await this.deleteReport(report.id)
@@ -1153,7 +1178,7 @@ export class ReportsService extends AutowiredService {
                 return
             }
 
-            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, isNew)
+            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, isNew)
         })
 
         return report
@@ -1252,12 +1277,10 @@ export class ReportsService extends AutowiredService {
             // Normalize file paths
             let files: { name: string; filePath: string }[] = []
             let kysoConfigFile: KysoConfigFile = null
-            let directoriesToRemove: string[] = []
             try {
                 const result = await this.normalizeFilePaths(report, filePaths)
                 files = result.files
                 kysoConfigFile = result.kysoConfigFile
-                directoriesToRemove = result.directoriesToRemove
                 Logger.log(`Downloaded ${files.length} files from repository ${repositoryId}' commit '${desiredCommit}'`, ReportsService.name)
             } catch (e) {
                 await this.deleteReport(report.id)
@@ -1283,7 +1306,7 @@ export class ReportsService extends AutowiredService {
                 return
             }
 
-            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, isNew)
+            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, isNew)
         })
 
         return report
@@ -1324,12 +1347,10 @@ export class ReportsService extends AutowiredService {
         // Normalize file paths
         let files: { name: string; filePath: string }[] = []
         let kysoConfigFile: KysoConfigFile = null
-        let directoriesToRemove: string[] = []
         try {
             const result = await this.normalizeFilePaths(report, filePaths)
             files = result.files
             kysoConfigFile = result.kysoConfigFile
-            directoriesToRemove = result.directoriesToRemove
             Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
         } catch (e) {
             await this.deleteReport(report.id)
@@ -1337,7 +1358,7 @@ export class ReportsService extends AutowiredService {
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
 
-        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, false)
+        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, false)
     }
 
     public async downloadGitlabRepo(report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
@@ -1386,7 +1407,7 @@ export class ReportsService extends AutowiredService {
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
 
-        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, false)
+        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, false)
     }
 
     private async normalizeFilePaths(
@@ -1449,7 +1470,13 @@ export class ReportsService extends AutowiredService {
         return { files, kysoConfigFile, directoriesToRemove }
     }
 
-    private async uploadRepositoryFilesToSCS(report: Report, tmpDir: string, kysoConfigFile: KysoConfigFile, isNew: boolean): Promise<void> {
+    private async uploadRepositoryFilesToSCS(
+        report: Report,
+        tmpDir: string,
+        kysoConfigFile: KysoConfigFile,
+        files: { name: string; filePath: string }[],
+        isNew: boolean,
+    ): Promise<void> {
         const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team } })
         if (!team) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
@@ -1488,6 +1515,32 @@ export class ReportsService extends AutowiredService {
 
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
         await this.uploadReportToFtp(report.id, extractedDir)
+
+        // Get all report files
+        for (let i = 0; i < files.length; i++) {
+            files[i].filePath = files[i].filePath.replace(tmpDir, extractedDir)
+            const originalName: string = files[i].name
+            const sha: string = sha256File(files[i].filePath)
+            const size: number = statSync(files[i].filePath).size
+            const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`
+            let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version)
+            reportFile = await this.filesMongoProvider.create(reportFile)
+            if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
+                const s3Client: S3Client = await this.getS3Client()
+                const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+                const key = `${uuidv4()}${extname(originalName)}`
+                await s3Client.send(
+                    new PutObjectCommand({
+                        Bucket: s3Bucket,
+                        Key: key,
+                        Body: readFileSync(files[i].filePath),
+                    }),
+                )
+                const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
+                report.preview_picture = preview_picture
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+            }
+        }
 
         let tmpFiles: string[] = await this.getFilePaths(extractedDir)
         // Remove '/reportPath' from the paths
