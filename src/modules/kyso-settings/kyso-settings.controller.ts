@@ -13,7 +13,6 @@ import { KysoSettingsService } from './kyso-settings.service'
 
 @ApiTags('kyso-settings')
 @ApiExtraModels(KysoSetting)
-@UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('kyso-settings')
 export class KysoSettingsController extends GenericController<KysoSetting> {
@@ -32,10 +31,43 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
         type: KysoSetting,
         isArray: true,
     })
+    @UseGuards(PermissionsGuard)
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
     public async getAllSettings(): Promise<NormalizedResponseDTO<KysoSetting[]>> {
         const settings: KysoSetting[] = await this.kysoSettingsService.getAll()
         return new NormalizedResponseDTO(settings)
+    }
+
+    @Get('/public')
+    @ApiOperation({
+        summary: `Get all the public settings`,
+        description: `Get all the public settings`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `List of public settings`,
+        type: KysoSetting,
+        isArray: true,
+    })
+    public async getOnlyPublicSettings(): Promise<NormalizedResponseDTO<KysoSetting[]>> {
+        const allSettings: KysoSetting[] = await this.kysoSettingsService.getAll()
+
+        // Filter all settings to only client_id
+        const filteredSettings = allSettings.filter((x: KysoSetting) => {
+            switch(x.key) {
+                case KysoSettingsEnum.AUTH_BITBUCKET_CLIENT_ID:
+                case KysoSettingsEnum.AUTH_GITHUB_CLIENT_ID:
+                case KysoSettingsEnum.AUTH_GITLAB_CLIENT_ID:
+                case KysoSettingsEnum.AUTH_GOOGLE_CLIENT_ID:
+                case KysoSettingsEnum.RECAPTCHA2_SITE_KEY:
+                case KysoSettingsEnum.KYSO_FILES_CLOUDFRONT_URL:
+                case KysoSettingsEnum.RECAPTCHA2_ENABLED:
+                    return true
+                default:
+                    return false
+            }
+        })
+        return new NormalizedResponseDTO(filteredSettings)
     }
 
     @Get('/:key')
