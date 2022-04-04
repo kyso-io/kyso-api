@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
     Comment,
     CreateReportDTO,
@@ -33,7 +33,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException, Precondition
 import { Octokit } from '@octokit/rest'
 import * as AdmZip from 'adm-zip'
 import axios, { AxiosResponse } from 'axios'
-import { lstatSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'fs'
+import { lstatSync, readFileSync, statSync, writeFileSync } from 'fs'
 import { moveSync } from 'fs-extra'
 import * as glob from 'glob'
 import * as jsYaml from 'js-yaml'
@@ -268,8 +268,6 @@ export class ReportsService extends AutowiredService {
     }
 
     public async deleteReport(reportId: string): Promise<Report> {
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
@@ -289,22 +287,6 @@ export class ReportsService extends AutowiredService {
 
         // Delete report in SFTP
         this.deleteReportFromFtp(report.id)
-
-        new Promise<void>(async () => {
-            // Delete report files in S3
-            const s3Client: S3Client = await this.getS3Client()
-            const reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id } })
-            for (const file of reportFiles) {
-                if (file?.path_s3 && file.path_s3.length > 0) {
-                    Logger.log(`Report '${report.sluglified_name}': deleting file ${file.name} in S3...`, ReportsService.name)
-                    const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
-                        Bucket: s3Bucket,
-                        Key: file.path_s3,
-                    })
-                    await s3Client.send(deleteObjectCommand)
-                }
-            }
-        })
 
         // Delete files
         await this.filesMongoProvider.deleteMany({ report_id: reportId })
@@ -685,9 +667,8 @@ export class ReportsService extends AutowiredService {
                 }
                 const sha: string = sha256File(localFilePath)
                 const size: number = statSync(localFilePath).size
-                const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
                 const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`
-                let reportFile = new File(report.id, originalName, path_s3, path_scs, size, sha, version)
+                let reportFile = new File(report.id, originalName, path_scs, size, sha, version)
                 reportFile = await this.filesMongoProvider.create(reportFile)
                 reportFiles.push(reportFile)
             }
@@ -730,9 +711,8 @@ export class ReportsService extends AutowiredService {
                 }
                 const sha: string = sha256File(localFilePath)
                 const size: number = statSync(localFilePath).size
-                const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
                 const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`
-                let file: File = new File(report.id, originalName, path_s3, path_scs, size, sha, 1)
+                let file: File = new File(report.id, originalName, path_scs, size, sha, 1)
                 file = await this.filesMongoProvider.create(file)
                 reportFiles.push(file)
             }
@@ -742,27 +722,6 @@ export class ReportsService extends AutowiredService {
         new Promise<void>(async () => {
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
             await this.uploadReportToFtp(report.id, extractedDir)
-
-            Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to S3...`, ReportsService.name)
-            const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-            const s3Client: S3Client = await this.getS3Client()
-            for (const entry of zip.getEntries()) {
-                if (entry.isDirectory) {
-                    continue
-                }
-                const reportFile: File = reportFiles.find((reportFile: File) => reportFile.name === entry.entryName)
-                Logger.log(`Report '${report.sluglified_name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
-                const zip = new AdmZip()
-                zip.addFile(entry.name, entry.getData())
-                await s3Client.send(
-                    new PutObjectCommand({
-                        Bucket: s3Bucket,
-                        Key: reportFile.path_s3,
-                        Body: zip.toBuffer(),
-                    }),
-                )
-                Logger.log(`Report '${report.sluglified_name}': uploaded file '${reportFile.name}' to S3 with key '${reportFile.path_s3}'`, ReportsService.name)
-            }
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
             Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
 
@@ -875,9 +834,8 @@ export class ReportsService extends AutowiredService {
             }
             const sha: string = sha256File(localFilePath)
             const size: number = statSync(localFilePath).size
-            const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
             const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`
-            let file: File = new File(report.id, originalName, path_s3, path_scs, size, sha, version)
+            let file: File = new File(report.id, originalName, path_scs, size, sha, version)
             file = await this.filesMongoProvider.create(file)
             reportFiles.push(file)
         }
@@ -887,27 +845,6 @@ export class ReportsService extends AutowiredService {
         new Promise<void>(async () => {
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
             await this.uploadReportToFtp(report.id, extractedDir)
-
-            Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to S3...`, ReportsService.name)
-            const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-            const s3Client: S3Client = await this.getS3Client()
-            for (const entry of zip.getEntries()) {
-                if (entry.isDirectory) {
-                    continue
-                }
-                const reportFile: File = reportFiles.find((reportFile: File) => reportFile.name === entry.entryName)
-                Logger.log(`Report '${report.sluglified_name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
-                const zip = new AdmZip()
-                zip.addFile(entry.name, entry.getData())
-                await s3Client.send(
-                    new PutObjectCommand({
-                        Bucket: s3Bucket,
-                        Key: reportFile.path_s3,
-                        Body: zip.toBuffer(),
-                    }),
-                )
-                Logger.log(`Report '${report.sluglified_name}': uploaded file '${reportFile.name}' to S3 with key '${reportFile.path_s3}'`, ReportsService.name)
-            }
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
             Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
 
@@ -962,51 +899,59 @@ export class ReportsService extends AutowiredService {
         if (!team) {
             throw new ForbiddenException(`User '${userId}' is not allowed to update report '${report.id}'`)
         }
-        const files: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id, name: report.main_file } })
+        const lastVersion: number = await this.getLastVersionOfReport(report.id)
+        const files: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id, name: report.main_file, version: lastVersion } })
         if (files.length === 0) {
             throw new NotFoundException(`File with name '${report.main_file}' not found`)
         }
-        let reportFile: File = files[0]
-
-        const zip = new AdmZip()
-        const originalName: string = reportFile.name
-        zip.addFile(originalName, file.buffer)
-        const localFilePath = `/tmp/${report.id}_${originalName}`
-        writeFileSync(localFilePath, file.buffer)
-
-        const lastVersion: number = await this.getLastVersionOfReport(report.id)
-        const version = lastVersion + 1
+        let mainFileReport: File = files[0]
 
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading main file to Ftp...`, ReportsService.name)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const client: Client = await this.sftpService.getClient()
         const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
-        const destinationPath = join(
+        const ftpReportPath: string = join(
             sftpDestinationFolder,
-            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`,
+            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion}`,
         )
-        const result = await client.put(localFilePath, destinationPath)
+        const exists = await client.exists(ftpReportPath)
+        if (!exists) {
+            throw new PreconditionFailedException(`Report '${report.id} ${report.sluglified_name}': Destination path '${ftpReportPath}' not found`)
+        }
+        const localReportPath: string = join(
+            '/tmp',
+            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion}`,
+        )
+        const resultDownload = await client.downloadDir(ftpReportPath, localReportPath)
+        Logger.log(resultDownload, ReportsService.name)
+        Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded version ${lastVersion} from Ftp`, ReportsService.name)
+        const mainFileReportLocalPath = join(localReportPath, mainFileReport.name)
+        writeFileSync(mainFileReportLocalPath, file.buffer)
+        const destinationPathNewVersion: string = join(
+            sftpDestinationFolder,
+            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion + 1}`,
+        )
+        const result = await client.uploadDir(localReportPath, destinationPathNewVersion)
         Logger.log(result, ReportsService.name)
-
-        const sha: string = sha256File(localFilePath)
-        unlinkSync(localFilePath)
-        const size: number = file.size
-        const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-        const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`
-        reportFile = new File(report.id, reportFile.name, path_s3, path_scs, size, sha, version)
-        Logger.log(`Report '${report.sluglified_name}': file ${reportFile.name} new version ${reportFile.version}`, ReportsService.name)
-        reportFile = await this.filesMongoProvider.create(reportFile)
-        Logger.log(`Report '${report.sluglified_name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
-        const s3Client: S3Client = await this.getS3Client()
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-        await s3Client.send(
-            new PutObjectCommand({
-                Bucket: s3Bucket,
-                Key: path_s3,
-                Body: zip.toBuffer(),
-            }),
-        )
-        Logger.log(`Report '${report.sluglified_name}': uploaded file '${report.sluglified_name}' to S3 with key '${reportFile.path_s3}'`, ReportsService.name)
+        // Create new version for each file
+        const filesLastVersion: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id, version: lastVersion } })
+        for (const fileLastVersion of filesLastVersion) {
+            let sha: string = fileLastVersion.sha
+            let size: number = fileLastVersion.size
+            if (fileLastVersion.id === mainFileReport.id) {
+                sha = sha256File(mainFileReportLocalPath)
+                size = statSync(mainFileReportLocalPath).size
+            }
+            const parts: string[] = fileLastVersion.path_scs.split('/')
+            parts[4] = `${lastVersion + 1}`
+            const path_scs: string = parts.join('/')
+            let fileNewVersion: File = new File(report.id, fileLastVersion.name, path_scs, size, sha, lastVersion + 1)
+            fileNewVersion = await this.filesMongoProvider.create(fileNewVersion)
+            Logger.log(
+                `Report '${report.id} ${report.sluglified_name}': Created new version ${lastVersion + 1} for file '${fileLastVersion.name}'`,
+                ReportsService.name,
+            )
+        }
         return report
     }
 
@@ -1696,41 +1641,11 @@ export class ReportsService extends AutowiredService {
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
         await this.uploadReportToFtp(report.id, extractedDir)
 
-        const s3Client: S3Client = await this.getS3Client()
-
-        // Get all report files
-        for (let i = 0; i < files.length; i++) {
-            files[i].filePath = files[i].filePath.replace(tmpDir, extractedDir)
-            const originalName: string = files[i].name
-            const sha: string = sha256File(files[i].filePath)
-            const size: number = statSync(files[i].filePath).size
-            const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-            const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`
-            let reportFile: File = new File(report.id, originalName, path_s3, path_scs, size, sha, version)
-            reportFile = await this.filesMongoProvider.create(reportFile)
-            const zip = new AdmZip()
-            const fileContent: Buffer = readFileSync(files[i].filePath)
-            zip.addFile(originalName, fileContent)
-            const outputFilePath = `/tmp/${uuidv4()}.zip`
-            zip.writeZip(outputFilePath)
-            Logger.log(`Report '${report.sluglified_name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
-            await s3Client.send(
-                new PutObjectCommand({
-                    Bucket: s3Bucket,
-                    Key: reportFile.path_s3,
-                    Body: readFileSync(outputFilePath),
-                }),
-            )
-            Logger.log(`Report '${report.sluglified_name}': uploaded file '${reportFile.name}' to S3 with key '${reportFile.path_s3}'`, ReportsService.name)
-            // Delete zip file
-            unlinkSync(outputFilePath)
-        }
-
         // // Delete directories
         // for (let i = 0; i < directoriesToRemove.length; i++) {
         //     rmSync(directoriesToRemove[i], { recursive: true, force: true })
         // }
-        
+
         let tmpFiles: string[] = await this.getFilePaths(extractedDir)
         // Remove '/reportPath' from the paths
         tmpFiles = tmpFiles.map((file: string) => file.replace(reportPath, ''))
@@ -1916,37 +1831,26 @@ export class ReportsService extends AutowiredService {
             return
         }
 
-        const s3Client: S3Client = await this.getS3Client()
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-
         const zip: AdmZip = new AdmZip()
-        Logger.log(`Report '${report.sluglified_name}': downloading ${reportFiles.length} files from S3...`, ReportsService.name)
-        for (const reportFile of reportFiles) {
-            try {
-                Logger.log(`Report '${report.sluglified_name}': downloading file ${reportFile.name}...`, ReportsService.name)
-                const getObjectCommand: GetObjectCommand = new GetObjectCommand({
-                    Bucket: s3Bucket,
-                    Key: reportFile.path_s3,
-                })
-                const result = await s3Client.send(getObjectCommand)
-                if (!result || !result.hasOwnProperty('Body') || result.Body == null) {
-                    Logger.error(`Error downloading file '${reportFile.name}' from S3`, ReportsService.name)
-                    continue
-                }
-                const buffer: Buffer = await this.streamToBuffer(result.Body as Readable)
-                const reportFileZip: AdmZip = new AdmZip(buffer)
-                const zipEntries: AdmZip.IZipEntry[] = reportFileZip.getEntries()
-                if (zipEntries.length === 0) {
-                    Logger.error(`Error downloading file '${reportFile.name}' from S3`, ReportsService.name)
-                    continue
-                }
-                const zipEntry: AdmZip.IZipEntry = zipEntries[0]
-                Logger.log(`Report '${report.sluglified_name}': adding file '${reportFile.name}' to zip...`, ReportsService.name)
-                zip.addFile(reportFile.name, reportFileZip.readFile(zipEntry))
-            } catch (e) {
-                Logger.error(`An error occurred downloading file '${reportFile.name}' from S3`, e, ReportsService.name)
-            }
+        Logger.log(`Report '${report.sluglified_name}': downloading ${reportFiles.length} files from Ftp...`, ReportsService.name)
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const client: Client = await this.sftpService.getClient()
+        const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+        const destinationPath = join(
+            sftpDestinationFolder,
+            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${filter.version}`,
+        )
+        const existsPath: boolean | string = await client.exists(destinationPath)
+        if (!existsPath) {
+            Logger.log(`Directory ${destinationPath} does not exist. Creating...`, ReportsService.name)
+            return
         }
+
+        const localPath = `/tmp/${report.id}`
+        const result = await client.downloadDir(destinationPath, localPath)
+        Logger.log(result, ReportsService.name)
+        zip.addLocalFolder(localPath)
 
         response.set('Content-Disposition', `attachment; filename=${report.id}.zip`)
         response.set('Content-Type', 'application/zip')
@@ -2059,25 +1963,14 @@ export class ReportsService extends AutowiredService {
         }
         const reportFile: File = files[files.length - 1]
         try {
-            const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-            const getObjectCommand: GetObjectCommand = new GetObjectCommand({
-                Bucket: s3Bucket,
-                Key: reportFile.path_s3,
-            })
-            const s3Client: S3Client = await this.getS3Client()
-            const result = await s3Client.send(getObjectCommand)
-            if (!result || !result.hasOwnProperty('Body') || result.Body == null) {
-                Logger.error(`Error downloading file '${reportFile.name}' from S3`, ReportsService.name)
+            const client: Client = await this.sftpService.getClient()
+            const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+            const destinationPath = join(sftpDestinationFolder, reportFile.path_scs)
+            const existsPath: boolean | string = await client.exists(destinationPath)
+            if (!existsPath) {
                 return null
             }
-            // return this.streamToBuffer(result.Body as Readable)
-            const buffer: Buffer = await this.streamToBuffer(result.Body as Readable)
-            const reportFileZip: AdmZip = new AdmZip(buffer)
-            const zipEntries: AdmZip.IZipEntry[] = reportFileZip.getEntries()
-            if (zipEntries.length === 0) {
-                return null
-            }
-            return zipEntries[0].getData()
+            return (await client.get(destinationPath)) as Buffer
         } catch (e) {
             Logger.error(`An error occurred while downloading file '${reportFile.name}' from S3`, e, ReportsService.name)
             return null

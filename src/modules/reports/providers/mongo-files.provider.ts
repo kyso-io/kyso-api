@@ -5,7 +5,7 @@ import { db } from '../../../main'
 import { MongoProvider } from '../../../providers/mongo.provider'
 @Injectable()
 export class FilesMongoProvider extends MongoProvider<File> {
-    version = 2
+    version = 3
 
     constructor() {
         super('File', db)
@@ -41,5 +41,9 @@ export class FilesMongoProvider extends MongoProvider<File> {
                 },
             )
         }
+    }
+
+    public async migrate_from_2_to_3() {
+        await this.getCollection().updateMany({}, { $unset: { path_s3: '' } })
     }
 }
