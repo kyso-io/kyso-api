@@ -4,7 +4,6 @@ import {
     CreateReportDTO,
     File,
     GithubBranch,
-    GithubCommit,
     GithubFileHash,
     GithubRepository,
     GlobalPermissionsEnum,
@@ -40,7 +39,6 @@ import * as jsYaml from 'js-yaml'
 import { extname, join } from 'path'
 import * as sha256File from 'sha256-file'
 import * as Client from 'ssh2-sftp-client'
-import { Readable } from 'stream'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -54,8 +52,6 @@ import { BitbucketReposService } from '../bitbucket-repos/bitbucket-repos.servic
 import { CommentsService } from '../comments/comments.service'
 import { GithubReposService } from '../github-repos/github-repos.service'
 import { GitlabReposService } from '../gitlab-repos/gitlab-repos.service'
-import { GitlabAccessToken } from '../gitlab-repos/interfaces/gitlab-access-token'
-import { GitlabWeebHook } from '../gitlab-repos/interfaces/gitlab-webhook'
 import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
@@ -227,7 +223,6 @@ export class ReportsService extends AutowiredService {
         const report: Report = new Report(
             createReportDto.name,
             null,
-            null,
             createReportDto.provider,
             createReportDto.name,
             createReportDto.username_provider,
@@ -291,163 +286,51 @@ export class ReportsService extends AutowiredService {
         // Delete files
         await this.filesMongoProvider.deleteMany({ report_id: reportId })
 
+        // Delete preview image
+        await this.deletePreviewPicture(reportId)
+
         await this.provider.deleteOne({ _id: this.provider.toObjectId(reportId) })
         return report
     }
 
-    public async getBranches(userId: string, reportId: string): Promise<GithubBranch[]> {
+    public async getBranches(reportId: string): Promise<GithubBranch[]> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
         }
-        const user: User = await this.usersService.getUserById(userId)
-        let userAccount: UserAccount = null
-        switch (report.provider) {
-            case RepositoryProvider.KYSO:
-            case RepositoryProvider.KYSO_CLI:
-                return this.localReportsService.getReportVersions(report.id)
-            case RepositoryProvider.GITHUB:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a github account')
-                }
-                return this.githubReposService.getBranches(userAccount.accessToken, userAccount.username, report.name_provider)
-            case RepositoryProvider.BITBUCKET:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a bitbucket account')
-                }
-                return this.bitbucketReposService.getBranches(userAccount.accessToken, report.name_provider)
-            case RepositoryProvider.GITLAB:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITLAB)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a gitlab account')
-                }
-                const gitlabAccessToken: GitlabAccessToken = await this.gitlabReposService.checkAccessTokenValidity(userAccount)
-                if (gitlabAccessToken.access_token !== userAccount.accessToken) {
-                    userAccount = await this.usersService.updateGitlabUserAccount(user.id, userAccount, gitlabAccessToken)
-                }
-                return this.gitlabReposService.getBranches(userAccount.accessToken, parseInt(report.provider_id, 10))
-            default:
-                return []
-        }
+        return this.localReportsService.getReportVersions(report.id)
     }
 
-    public async getCommits(userId: string, reportId: string, branch: string): Promise<GithubCommit[]> {
-        const report: Report = await this.getReportById(reportId)
-        if (!report) {
-            throw new PreconditionFailedException('The specified report could not be found')
-        }
-        const user: User = await this.usersService.getUserById(userId)
-        let userAccount: UserAccount = null
-        switch (report.provider) {
-            case RepositoryProvider.KYSO:
-            case RepositoryProvider.KYSO_CLI:
-                throw new PreconditionFailedException({
-                    message: 'This functionality is not available in S3',
-                })
-            case RepositoryProvider.GITHUB:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a github account')
-                }
-                return this.githubReposService.getCommits(userAccount.accessToken, userAccount.username, report.name_provider, branch)
-            case RepositoryProvider.BITBUCKET:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a bitbucket account')
-                }
-                return this.bitbucketReposService.getCommits(userAccount.accessToken, report.name_provider, branch)
-        }
-    }
-
-    public async getReportTree(
-        userId: string,
-        reportId: string,
-        branch: string,
-        path: string,
-        version: number | null,
-    ): Promise<GithubFileHash | GithubFileHash[]> {
+    public async getReportTree(reportId: string, path: string, version: number | null): Promise<GithubFileHash | GithubFileHash[]> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
         }
-        const user: User = await this.usersService.getUserById(userId)
-        let userAccount: UserAccount = null
-        switch (report.provider) {
-            case RepositoryProvider.KYSO:
-            case RepositoryProvider.KYSO_CLI:
-                return this.getKysoReportTree(report.id, path, version)
-            case RepositoryProvider.GITHUB:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a github account')
-                }
-                return this.githubReposService.getFileHash(userAccount.accessToken, path, userAccount.username, report.name_provider, branch)
-            case RepositoryProvider.BITBUCKET:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a bitbucket account')
-                }
-                const result = await this.bitbucketReposService.getRootFilesAndFoldersByCommit(
-                    userAccount.accessToken,
-                    report.name_provider,
-                    branch,
-                    path,
-                    null,
-                )
-                return result?.data ? result.data : []
-            case RepositoryProvider.GITLAB:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITLAB)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a gitlab account')
-                }
-                const gitlabAccessToken: GitlabAccessToken = await this.gitlabReposService.checkAccessTokenValidity(userAccount)
-                if (gitlabAccessToken.access_token !== userAccount.accessToken) {
-                    userAccount = await this.usersService.updateGitlabUserAccount(user.id, userAccount, gitlabAccessToken)
-                }
-                return this.gitlabReposService.getRepositoryTree(gitlabAccessToken.access_token, parseInt(report.provider_id, 10), branch, path, false)
-            default:
-                return null
-        }
+        return this.getKysoReportTree(report.id, path, version)
     }
 
-    public async getReportFileContent(userId: string, reportId: string, hash: string, filePath: string): Promise<Buffer> {
-        const report: Report = await this.getReportById(reportId)
-        if (!report) {
-            throw new PreconditionFailedException('The specified report could not be found')
+    public async getReportFileContent(id: string): Promise<Buffer> {
+        const files: File[] = await this.filesMongoProvider.read({
+            filter: {
+                _id: this.provider.toObjectId(id),
+            },
+        })
+        if (files.length === 0) {
+            return null
         }
-        const user: User = await this.usersService.getUserById(userId)
-        let userAccount: UserAccount = null
-        switch (report.provider) {
-            case RepositoryProvider.KYSO:
-            case RepositoryProvider.KYSO_CLI:
-            case RepositoryProvider.GITLAB:
-                return this.getKysoFileContent(report.id, hash)
-            case RepositoryProvider.GITHUB:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a github account')
-                }
-                return this.githubReposService.getFileContent(userAccount.accessToken, hash, userAccount.username, report.name_provider)
-            case RepositoryProvider.BITBUCKET:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a bitbucket account')
-                }
-                return this.bitbucketReposService.getFileContent(userAccount.accessToken, report.name_provider, hash, filePath)
-            case RepositoryProvider.GITLAB:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITLAB)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a gitlab account')
-                }
-                const gitlabAccessToken: GitlabAccessToken = await this.gitlabReposService.checkAccessTokenValidity(userAccount)
-                if (gitlabAccessToken.access_token !== userAccount.accessToken) {
-                    userAccount = await this.usersService.updateGitlabUserAccount(user.id, userAccount, gitlabAccessToken)
-                }
-                return this.gitlabReposService.getFileContent(userAccount.accessToken, parseInt(report.provider_id, 10), filePath, hash)
-            default:
+        const reportFile: File = files[0]
+        try {
+            const client: Client = await this.sftpService.getClient()
+            const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+            const destinationPath = join(sftpDestinationFolder, reportFile.path_scs)
+            const existsPath: boolean | string = await client.exists(destinationPath)
+            if (!existsPath) {
                 return null
+            }
+            return (await client.get(destinationPath)) as Buffer
+        } catch (e) {
+            Logger.error(`An error occurred while downloading file '${reportFile.name}' from SCS`, e, ReportsService.name)
+            return null
         }
     }
 
@@ -562,7 +445,7 @@ export class ReportsService extends AutowiredService {
             report.show_code,
             report.show_output,
             mainFile ? mainFile.name : null,
-            mainFile ? mainFile.sha : null,
+            mainFile ? mainFile.id : null,
             mainFile ? mainFile.path_scs : null,
             mainFile ? mainFile.version : null,
             lastVersion,
@@ -625,6 +508,7 @@ export class ReportsService extends AutowiredService {
                 }
             }
         }
+        console.log(kysoConfigFile)
         if (!kysoConfigFile) {
             Logger.error(`No kyso.{yml,yaml,json} file found`, ReportsService.name)
             throw new PreconditionFailedException(`No kyso.{yml,yaml,json} file found`)
@@ -677,7 +561,6 @@ export class ReportsService extends AutowiredService {
             // New report
             report = new Report(
                 name,
-                null,
                 null,
                 RepositoryProvider.KYSO_CLI,
                 name,
@@ -800,7 +683,6 @@ export class ReportsService extends AutowiredService {
         Logger.log(`Creating new report '${name}'`, ReportsService.name)
         report = new Report(
             name,
-            null,
             null,
             RepositoryProvider.KYSO,
             name,
@@ -1002,11 +884,9 @@ export class ReportsService extends AutowiredService {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
             Logger.log(`Report '${report.id} ${report.sluglified_name}' already imported. Updating files...`, ReportsService.name)
         } else {
-            const webhook = await this.createGithubWebhook(octokit, userAccount.username, repository.name)
             report = new Report(
                 slugify(repository.name),
                 repository.id.toString(),
-                webhook.id.toString(),
                 RepositoryProvider.GITHUB,
                 repository.name,
                 repository.owner.login,
@@ -1102,7 +982,7 @@ export class ReportsService extends AutowiredService {
                 return
             }
 
-            await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove, isNew)
+            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, isNew)
         })
 
         return report
@@ -1146,7 +1026,7 @@ export class ReportsService extends AutowiredService {
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name)
 
-        await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove, false)
+        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, false)
     }
 
     public async createReportFromBitbucketRepository(userId: string, repositoryName: string, branch: string): Promise<Report> {
@@ -1185,17 +1065,9 @@ export class ReportsService extends AutowiredService {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
             Logger.log(`Report '${report.id} ${report.sluglified_name}' already imported. Updating files...`, ReportsService.name)
         } else {
-            let webhook: any = null
-            try {
-                webhook = await this.bitbucketReposService.createWebhook(userAccount.accessToken, repositoryName)
-                Logger.log(`Created webhook for repository '${repositoryName}' with id ${webhook.id}`, ReportsService.name)
-            } catch (e) {
-                throw Error(`An error occurred creating webhook for repository '${repositoryName}'`)
-            }
             report = new Report(
                 slugify(bitbucketRepository.name),
                 bitbucketRepository.id,
-                webhook.uuid,
                 RepositoryProvider.BITBUCKET,
                 bitbucketRepository.name,
                 userAccount.username,
@@ -1281,7 +1153,7 @@ export class ReportsService extends AutowiredService {
                 return
             }
 
-            await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove, isNew)
+            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, isNew)
         })
 
         return report
@@ -1323,23 +1195,9 @@ export class ReportsService extends AutowiredService {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
             Logger.log(`Report '${report.id} ${report.sluglified_name}' already imported. Updating files...`, ReportsService.name)
         } else {
-            let webhook: GitlabWeebHook = null
-            try {
-                const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL)
-                let hookUrl = `${baseUrl}/v1/hooks/gitlab`
-                if (process.env.NODE_ENV === 'development') {
-                    hookUrl = 'https://smee.io/kyso-gitlab-hook-test'
-                }
-                webhook = await this.gitlabReposService.createWebhookGivenRepository(userAccount.accessToken, repositoryId, hookUrl)
-                Logger.log(`Created webhook for repository '${repositoryId}' with id ${webhook.id}`, ReportsService.name)
-            } catch (e) {
-                Logger.error(`Error creating webhook for repository '${repositoryId}'`, e, ReportsService.name)
-                // throw Error(`An error occurred creating webhook for repository '${repositoryId}'`)
-            }
             report = new Report(
                 slugify(gitlabRepository.name),
                 gitlabRepository.id.toString(),
-                webhook.id.toString(),
                 RepositoryProvider.GITLAB,
                 gitlabRepository.name,
                 userAccount.username,
@@ -1425,7 +1283,7 @@ export class ReportsService extends AutowiredService {
                 return
             }
 
-            await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove, isNew)
+            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, isNew)
         })
 
         return report
@@ -1479,7 +1337,7 @@ export class ReportsService extends AutowiredService {
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
 
-        await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove, false)
+        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, false)
     }
 
     public async downloadGitlabRepo(report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
@@ -1517,12 +1375,10 @@ export class ReportsService extends AutowiredService {
         // Normalize file paths
         let files: { name: string; filePath: string }[] = []
         let kysoConfigFile: KysoConfigFile = null
-        let directoriesToRemove: string[] = []
         try {
             const result = await this.normalizeFilePaths(report, filePaths)
             files = result.files
             kysoConfigFile = result.kysoConfigFile
-            directoriesToRemove = result.directoriesToRemove
             Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
         } catch (e) {
             await this.deleteReport(report.id)
@@ -1530,7 +1386,7 @@ export class ReportsService extends AutowiredService {
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
 
-        await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove, false)
+        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, false)
     }
 
     private async normalizeFilePaths(
@@ -1593,15 +1449,7 @@ export class ReportsService extends AutowiredService {
         return { files, kysoConfigFile, directoriesToRemove }
     }
 
-    private async uploadRepositoryFilesToS3(
-        report: Report,
-        tmpDir: string,
-        kysoConfigFile: KysoConfigFile,
-        files: { name: string; filePath: string }[],
-        directoriesToRemove: string[],
-        isNew: boolean,
-    ): Promise<void> {
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+    private async uploadRepositoryFilesToSCS(report: Report, tmpDir: string, kysoConfigFile: KysoConfigFile, isNew: boolean): Promise<void> {
         const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team } })
         if (!team) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
@@ -1641,11 +1489,6 @@ export class ReportsService extends AutowiredService {
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
         await this.uploadReportToFtp(report.id, extractedDir)
 
-        // // Delete directories
-        // for (let i = 0; i < directoriesToRemove.length; i++) {
-        //     rmSync(directoriesToRemove[i], { recursive: true, force: true })
-        // }
-
         let tmpFiles: string[] = await this.getFilePaths(extractedDir)
         // Remove '/reportPath' from the paths
         tmpFiles = tmpFiles.map((file: string) => file.replace(reportPath, ''))
@@ -1655,45 +1498,6 @@ export class ReportsService extends AutowiredService {
         Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
 
         await this.sendNewReportMail(report, team, organization, isNew)
-    }
-
-    private async createGithubWebhook(octokit: Octokit, username: string, repositoryName: string) {
-        try {
-            const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL)
-
-            let hookUrl = `${baseUrl}/v1/hooks/github`
-            if (process.env.NODE_ENV === 'development') {
-                hookUrl = 'https://smee.io/kyso-github-hook-test'
-            }
-            const githubWeekHooks = await octokit.repos.listWebhooks({
-                owner: username,
-                repo: repositoryName,
-            })
-            // Check if hook already exists
-            let githubWebHook = githubWeekHooks.data.find((element) => element.config.url === hookUrl)
-            if (!githubWebHook) {
-                // Create hook
-                const resultCreateWebHook = await octokit.repos.createWebhook({
-                    owner: username,
-                    repo: repositoryName,
-                    name: 'web',
-                    config: {
-                        url: hookUrl,
-                        content_type: 'json',
-                    },
-                    events: ['push'],
-                    active: true,
-                })
-                githubWebHook = resultCreateWebHook.data
-                Logger.log(`Hook created for repository ${repositoryName}'`, ReportsService.name)
-            } else {
-                Logger.log(`Hook already exists for repository '${repositoryName}'`, ReportsService.name)
-            }
-            return githubWebHook
-        } catch (e) {
-            Logger.error(`Error creating webhook por repository: '${repositoryName}'`, e, ReportsService.name)
-            return null
-        }
     }
 
     private async downloadGithubFiles(commit: string, extractedDir: string, repository: any, accessToken: string): Promise<boolean> {
@@ -1751,15 +1555,6 @@ export class ReportsService extends AutowiredService {
             reportTags.push(tag)
         }
         return reportTags
-    }
-
-    private streamToBuffer(stream: Readable): Promise<Buffer> {
-        return new Promise((resolve, reject) => {
-            const chunks = []
-            stream.on('data', (chunk: any) => chunks.push(chunk))
-            stream.on('error', reject)
-            stream.on('end', () => resolve(Buffer.concat(chunks)))
-        })
     }
 
     public async pullReport(token: Token, reportName: string, teamName: string, version: number | null, response: any): Promise<void> {
@@ -1908,6 +1703,7 @@ export class ReportsService extends AutowiredService {
             const justFile: File = reportFiles.find((file: File) => file.name.startsWith(sanitizedPath))
             return [
                 {
+                    id: justFile.id,
                     type: 'file',
                     path: justFile.name.replace(`${sanitizedPath}/`, ''),
                     hash: justFile.sha,
@@ -1929,6 +1725,7 @@ export class ReportsService extends AutowiredService {
             if (element.children.length > 0) {
                 // Directory
                 tree.push({
+                    id: null,
                     type: 'dir',
                     path: element.name,
                     hash: file.sha,
@@ -1939,6 +1736,7 @@ export class ReportsService extends AutowiredService {
             } else {
                 // File
                 tree.push({
+                    id: file.id,
                     type: 'file',
                     path: file.name.replace(`${sanitizedPath}/`, ''),
                     hash: file.sha,
@@ -1972,7 +1770,7 @@ export class ReportsService extends AutowiredService {
             }
             return (await client.get(destinationPath)) as Buffer
         } catch (e) {
-            Logger.error(`An error occurred while downloading file '${reportFile.name}' from S3`, e, ReportsService.name)
+            Logger.error(`An error occurred while downloading file '${reportFile.name}' from SCS`, e, ReportsService.name)
             return null
         }
     }

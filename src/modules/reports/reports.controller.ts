@@ -2,18 +2,15 @@ import {
     Comment,
     File,
     GithubBranch,
-    GithubCommit,
     GithubFileHash,
     GlobalPermissionsEnum,
     HEADER_X_KYSO_ORGANIZATION,
     HEADER_X_KYSO_TEAM,
     NormalizedResponseDTO,
-    Organization,
     Report,
     ReportDTO,
     ReportPermissionsEnum,
     Team,
-    TeamVisibilityEnum,
     Token,
     UpdateReportRequestDTO,
 } from '@kyso-io/kyso-model'
@@ -44,7 +41,6 @@ import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
 import slugify from '../../helpers/slugify'
-import { Validators } from '../../helpers/validators'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
@@ -291,101 +287,6 @@ export class ReportsController extends GenericController<Report> {
     async checkReport(@Param('reportName') reportName: string, @Param('teamId') teamId: string): Promise<boolean> {
         const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: slugify(reportName), team_id: teamId } })
         return report != null
-    }
-
-    @Get('/embedded/:reportId/file/:hash')
-    @ApiOperation({
-        summary: `Get content of a file`,
-        description: `By passing the hash of a file, get its raw content directly from the source.`,
-    })
-    @ApiParam({
-        name: 'reportId',
-        required: true,
-        description: 'Name of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @ApiParam({
-        name: 'hash',
-        required: true,
-        description: 'Hash of the file to access',
-        schema: { type: 'string' },
-    })
-    @Public()
-    async getEmbeddedReportFileContent(@Param('reportId') reportId: string, @Param('hash') hash: string, @Query('path') path: string): Promise<Buffer> {
-        const report: Report = await this.reportsService.getReportById(reportId)
-        if (!report) {
-            throw new PreconditionFailedException('The specified report could not be found')
-        }
-        const team: Team = await this.teamsService.getTeamById(report.team_id)
-        if (!team) {
-            throw new PreconditionFailedException('Team not found')
-        }
-        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            throw new PreconditionFailedException(`Report is not public`)
-        }
-        if (!Validators.isValidSha(hash)) {
-            throw new PreconditionFailedException({
-                message: 'Hash is not a valid sha. Must have 40 hexadecimal characters.',
-            })
-        }
-        // We use the identifier of the user who created the report
-        return this.reportsService.getReportFileContent(report.user_id, reportId, hash, path)
-    }
-
-    @Get('/embedded/:organizationName/:teamName/:reportName')
-    @ApiOperation({
-        summary: `Get a report`,
-        description: `Allows fetching content of a specific report passing its id`,
-    })
-    @ApiNormalizedResponse({
-        status: 200,
-        description: `Report matching id`,
-        type: ReportDTO,
-    })
-    @ApiParam({
-        name: 'organizationName',
-        required: true,
-        description: 'Name of the organization to fetch',
-        schema: { type: 'string' },
-    })
-    @ApiParam({
-        name: 'teamName',
-        required: true,
-        description: 'Name of the team to fetch',
-        schema: { type: 'string' },
-    })
-    @ApiParam({
-        name: 'reportName',
-        required: true,
-        description: 'Name of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @Public()
-    async getEmbeddedReport(
-        @Param('organizationName') organizationName: string,
-        @Param('teamName') teamName: string,
-        @Param('reportName') reportName: string,
-    ): Promise<NormalizedResponseDTO<ReportDTO>> {
-        const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
-        if (!organization) {
-            throw new PreconditionFailedException('Organization not found')
-        }
-        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: teamName, organization_id: organization.id } })
-        if (!team) {
-            throw new PreconditionFailedException('Team not found')
-        }
-        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            throw new PreconditionFailedException(`Report is not public`)
-        }
-        const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: reportName, team_id: team.id } })
-        if (!report) {
-            throw new PreconditionFailedException('Report not found')
-        }
-        await this.reportsService.increaseViews({ _id: new ObjectId(report.id) })
-        report.views++
-        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
-        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, null)
-        return new NormalizedResponseDTO(reportDto, relations)
     }
 
     @Post('/kyso')
@@ -659,8 +560,8 @@ export class ReportsController extends GenericController<Report> {
     @Get('/:reportName/:teamName/pull')
     @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
-        summary: `Pull a report from S3`,
-        description: `Pull a report from S3. This will download all files from S3 in zip format.`,
+        summary: `Pull a report from SCS`,
+        description: `Pull a report from SCS. This will download all files from SCS in zip format.`,
     })
     @ApiNormalizedResponse({
         status: 200,
@@ -701,8 +602,8 @@ export class ReportsController extends GenericController<Report> {
     @Get('/:reportId/download')
     @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
-        summary: `Download a report from S3`,
-        description: `Download a report from S3. This will download all files from S3 in zip format.`,
+        summary: `Download a report from SCS`,
+        description: `Download a report from SCS. This will download all files from SCS in zip format.`,
     })
     @ApiNormalizedResponse({
         status: 200,
@@ -789,46 +690,13 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getBranches(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<GithubBranch[]>> {
-        const branches: GithubBranch[] = await this.reportsService.getBranches(token.id, reportId)
+    async getBranches(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<GithubBranch[]>> {
+        const branches: GithubBranch[] = await this.reportsService.getBranches(reportId)
         return new NormalizedResponseDTO(branches)
     }
 
-    @Get('/:reportId/:branch/commits')
-    @ApiOperation({
-        summary: `Get commits of a report imported from a git provider`,
-        description: `By passing in the appropriate options you can see the commits of a branch for the repository the specified report is linked to`,
-    })
-    @ApiParam({
-        name: 'reportId',
-        required: true,
-        description: 'Id of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @ApiParam({
-        name: 'branch',
-        required: true,
-        description: 'GithubBranch to start listing commits from. Accepts slashes',
-        schema: { type: 'string' },
-    })
-    @ApiNormalizedResponse({
-        status: 200,
-        description: `Branches of the specified report`,
-        type: GithubCommit,
-        isArray: true,
-    })
-    @Permission([ReportPermissionsEnum.READ])
-    async getCommits(
-        @CurrentToken() token: Token,
-        @Param('reportId') reportId: string,
-        @Param('branch') branch: string,
-    ): Promise<NormalizedResponseDTO<GithubCommit[]>> {
-        const commits: any[] = await this.reportsService.getCommits(token.id, reportId, branch)
-        return new NormalizedResponseDTO(commits)
-    }
-
     // todo: this function name is confusing?
-    @Get('/:reportId/:branch/tree')
+    @Get('/:reportId/tree')
     @ApiOperation({
         summary: `Explore a report tree`,
         description: `Get hash of a file for a given report. If the file is a folder, will get information about the files in it too (non-recursively). Path is currently ignored for local reports.`,
@@ -844,17 +712,9 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @ApiParam({
-        name: 'branch',
-        required: true,
-        description: 'GithubBranch of the repository to fetch data from. Accepts slashes.',
-        schema: { type: 'string' },
-    })
     @Permission([ReportPermissionsEnum.READ])
     async getReportTree(
-        @CurrentToken() token: Token,
         @Param('reportId') reportId: string,
-        @Param('branch') branch: string,
         @Query('path') path: string,
         @Query('version') versionStr: string,
     ): Promise<NormalizedResponseDTO<GithubFileHash | GithubFileHash[]>> {
@@ -862,11 +722,11 @@ export class ReportsController extends GenericController<Report> {
         if (versionStr && !isNaN(Number(versionStr))) {
             version = parseInt(versionStr, 10)
         }
-        const hash: GithubFileHash | GithubFileHash[] = await this.reportsService.getReportTree(token.id, reportId, branch, path, version)
+        const hash: GithubFileHash | GithubFileHash[] = await this.reportsService.getReportTree(reportId, path, version)
         return new NormalizedResponseDTO(hash)
     }
 
-    @Get('/:reportId/file/:hash')
+    @Get('/file/:id')
     @ApiOperation({
         summary: `Get content of a file`,
         description: `By passing the hash of a file, get its raw content directly from the source.`,
@@ -884,18 +744,8 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async getReportFileContent(
-        @CurrentToken() token: Token,
-        @Param('reportId') reportId: string,
-        @Param('hash') hash: string,
-        @Query('path') path: string,
-    ): Promise<Buffer> {
-        if (!Validators.isValidSha(hash)) {
-            throw new PreconditionFailedException({
-                message: 'Hash is not a valid sha. Must have 40 hexadecimal characters.',
-            })
-        }
-        return this.reportsService.getReportFileContent(token.id, reportId, hash, path)
+    async getReportFileContent(@Param('id') id: string): Promise<Buffer> {
+        return this.reportsService.getReportFileContent(id)
     }
 
     @UseInterceptors(

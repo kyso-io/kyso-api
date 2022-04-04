@@ -80,6 +80,7 @@ export class GitlabReposService extends AutowiredService {
     public async getRepositoryTree(accessToken: string, repositoryId: number, branch: string, path: string, recursive: boolean): Promise<GithubFileHash[]> {
         const tree: GitlabFile[] = await this.provider.getRepositoryTree(accessToken, repositoryId, branch, path, recursive)
         return tree.map((file: GitlabFile) => ({
+            id: file.id,
             type: file.type === 'tree' ? 'dir' : 'file',
             path: file.path,
             hash: file.id,
