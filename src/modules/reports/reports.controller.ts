@@ -7,10 +7,12 @@ import {
     HEADER_X_KYSO_ORGANIZATION,
     HEADER_X_KYSO_TEAM,
     NormalizedResponseDTO,
+    Organization,
     Report,
     ReportDTO,
     ReportPermissionsEnum,
     Team,
+    TeamVisibilityEnum,
     Token,
     UpdateReportRequestDTO,
 } from '@kyso-io/kyso-model'
@@ -287,6 +289,62 @@ export class ReportsController extends GenericController<Report> {
     async checkReport(@Param('reportName') reportName: string, @Param('teamId') teamId: string): Promise<boolean> {
         const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: slugify(reportName), team_id: teamId } })
         return report != null
+    }
+
+    @Get('/embedded/:organizationName/:teamName/:reportName')
+    @ApiOperation({
+        summary: `Get a report`,
+        description: `Allows fetching content of a specific report passing its id`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Report matching id`,
+        type: ReportDTO,
+    })
+    @ApiParam({
+        name: 'organizationName',
+        required: true,
+        description: 'Name of the organization to fetch',
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'teamName',
+        required: true,
+        description: 'Name of the team to fetch',
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'reportName',
+        required: true,
+        description: 'Name of the report to fetch',
+        schema: { type: 'string' },
+    })
+    @Public()
+    async getEmbeddedReport(
+        @Param('organizationName') organizationName: string,
+        @Param('teamName') teamName: string,
+        @Param('reportName') reportName: string,
+    ): Promise<NormalizedResponseDTO<ReportDTO>> {
+        const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
+        if (!organization) {
+            throw new PreconditionFailedException('Organization not found')
+        }
+        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: teamName, organization_id: organization.id } })
+        if (!team) {
+            throw new PreconditionFailedException('Team not found')
+        }
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            throw new PreconditionFailedException(`Report is not public`)
+        }
+        const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: reportName, team_id: team.id } })
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        await this.reportsService.increaseViews({ _id: new ObjectId(report.id) })
+        report.views++
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, null)
+        return new NormalizedResponseDTO(reportDto, relations)
     }
 
     @Post('/kyso')
