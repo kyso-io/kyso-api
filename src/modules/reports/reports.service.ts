@@ -33,7 +33,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException, Precondition
 import { Octokit } from '@octokit/rest'
 import * as AdmZip from 'adm-zip'
 import axios, { AxiosResponse } from 'axios'
-import { lstatSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'fs'
+import { lstatSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs'
 import { moveSync } from 'fs-extra'
 import * as glob from 'glob'
 import * as jsYaml from 'js-yaml'
@@ -735,6 +735,21 @@ export class ReportsService extends AutowiredService {
                 let file: File = new File(report.id, originalName, path_s3, path_scs, size, sha, 1)
                 file = await this.filesMongoProvider.create(file)
                 reportFiles.push(file)
+                if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
+                    const s3Client: S3Client = await this.getS3Client()
+                    const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+                    const key = path_s3.replace('.zip', '')
+                    await s3Client.send(
+                        new PutObjectCommand({
+                            Bucket: s3Bucket,
+                            Key: key,
+                            Body: readFileSync(localFilePath),
+                        }),
+                    )
+                    const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
+                    report.preview_picture = preview_picture
+                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+                }
             }
             await this.checkReportTags(report.id, kysoConfigFile.tags)
         }
@@ -880,6 +895,21 @@ export class ReportsService extends AutowiredService {
             let file: File = new File(report.id, originalName, path_s3, path_scs, size, sha, version)
             file = await this.filesMongoProvider.create(file)
             reportFiles.push(file)
+            if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
+                const s3Client: S3Client = await this.getS3Client()
+                const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+                const key = path_s3.replace('.zip', '')
+                await s3Client.send(
+                    new PutObjectCommand({
+                        Bucket: s3Bucket,
+                        Key: key,
+                        Body: readFileSync(localFilePath),
+                    }),
+                )
+                const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
+                report.preview_picture = preview_picture
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+            }
         }
 
         await this.checkReportTags(report.id, kysoConfigFile.tags)
@@ -1724,13 +1754,28 @@ export class ReportsService extends AutowiredService {
             Logger.log(`Report '${report.sluglified_name}': uploaded file '${reportFile.name}' to S3 with key '${reportFile.path_s3}'`, ReportsService.name)
             // Delete zip file
             unlinkSync(outputFilePath)
+            if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
+                const s3Client: S3Client = await this.getS3Client()
+                const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+                const key = path_s3.replace('.zip', '')
+                await s3Client.send(
+                    new PutObjectCommand({
+                        Bucket: s3Bucket,
+                        Key: key,
+                        Body: readFileSync(files[i].filePath),
+                    }),
+                )
+                const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
+                report.preview_picture = preview_picture
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+            }
         }
 
         // // Delete directories
         // for (let i = 0; i < directoriesToRemove.length; i++) {
         //     rmSync(directoriesToRemove[i], { recursive: true, force: true })
         // }
-        
+
         let tmpFiles: string[] = await this.getFilePaths(extractedDir)
         // Remove '/reportPath' from the paths
         tmpFiles = tmpFiles.map((file: string) => file.replace(reportPath, ''))
