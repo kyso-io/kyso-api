@@ -21,7 +21,9 @@ import {
     Body,
     Controller,
     Delete,
+    ForbiddenException,
     Get,
+    Headers,
     Logger,
     Param,
     Patch,
@@ -45,6 +47,7 @@ import { QueryParser } from '../../helpers/queryParser'
 import slugify from '../../helpers/slugify'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
+import { AuthService } from '../auth/auth.service'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
@@ -56,7 +59,6 @@ import { ReportsService } from './reports.service'
 
 @ApiExtraModels(Report, NormalizedResponseDTO)
 @ApiTags('reports')
-@UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('reports')
 @ApiHeader({
@@ -90,6 +92,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Get()
+    @UseGuards(PermissionsGuard)
     @ApiOperation({
         summary: `Search and fetch reports`,
         description: `By passing the appropiate parameters you can fetch and filter the reports available to the authenticated user.<br />
@@ -170,6 +173,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Get('/pinned')
+    @UseGuards(PermissionsGuard)
     @ApiOperation({
         summary: `Get pinned reports for a user`,
         description: `Allows fetching pinned reports of a specific user passing its id`,
@@ -216,12 +220,23 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.READ])
-    async getReport(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
+    async getReport(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+    ): Promise<NormalizedResponseDTO<ReportDTO>> {
         await this.reportsService.increaseViews({ _id: new ObjectId(reportId) })
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
         }
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
@@ -245,11 +260,23 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.READ])
-    async getComments(@Param('reportId') reportId: string, @Req() req): Promise<NormalizedResponseDTO<Comment[]>> {
+    async getComments(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @Req() req,
+    ): Promise<NormalizedResponseDTO<Comment[]>> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
         }
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) {
@@ -264,6 +291,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Get('/:reportName/:teamId/exists')
+    @UseGuards(PermissionsGuard)
     @ApiOperation({
         summary: `Check if report exists`,
         description: `Allows checking if a report exists passing its name and team name`,
@@ -292,6 +320,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Get('/embedded/:organizationName/:teamName/:reportName')
+    @Public()
     @ApiOperation({
         summary: `Get a report`,
         description: `Allows fetching content of a specific report passing its id`,
@@ -319,7 +348,6 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
-    @Public()
     async getEmbeddedReport(
         @Param('organizationName') organizationName: string,
         @Param('teamName') teamName: string,
@@ -348,7 +376,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Post('/kyso')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create a new report sending the files`,
         description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
@@ -373,7 +401,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Post('/ui')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create a new report sending the files`,
         description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
@@ -394,7 +422,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Post('/ui/main-file/:reportId')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Update the main file of the report`,
         description: `By passing the appropiate parameters you can update the main file of report`,
@@ -418,7 +446,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Post('/github/:repositoryName')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create a new report based on github repository`,
         description: `By passing the appropiate parameters you can create a new report referencing a github repository`,
@@ -441,7 +469,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Post('/bitbucket')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create a new report based on bitbucket repository`,
         description: `By passing the appropiate parameters you can create a new report referencing a bitbucket repository`,
@@ -467,7 +495,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Post('/gitlab')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create a new report based on gitlab repository`,
         description: `By passing the appropiate parameters you can create a new report referencing a gitlab repository`,
@@ -491,7 +519,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Patch('/:reportId')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Update the specific report`,
         description: `Allows updating content from the specified report`,
@@ -522,7 +550,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Delete('/:reportId')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a report`,
         description: `Allows deleting a specific report`,
@@ -541,7 +569,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Patch('/:reportId/pin')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Toggles global pin for the specified report`,
         description: `Allows pinning and unpinning of the specified report globally`,
@@ -566,7 +594,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Patch('/:reportId/user-pin')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Toggles the user's pin the specified report`,
         description: `Allows pinning and unpinning of the specified report for a user`,
@@ -590,7 +618,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Patch('/:reportId/user-star')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Toggles the user's star of the specified report`,
         description: `Allows starring and unstarring the specified report for a user`,
@@ -606,8 +634,6 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to pin',
         schema: { type: 'string' },
     })
-    // No permission required, any user can vote any report
-    // @Permission([ReportPermissionsEnum.EDIT])
     async toggleUserStar(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.toggleUserStar(token.id, reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
@@ -638,23 +664,40 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the team to pull',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.READ])
     async pullReport(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
         @Param('reportName') reportName: string,
-        @Param('teamName') teamName: string,
+        @Param('teamName') teamNameParam: string,
         @Query('version') versionStr: string,
         @Res() response: any,
     ): Promise<any> {
+        const report: Report = await this.reportsService.getReport({
+            filter: {
+                name: reportName,
+                team: teamNameParam,
+            },
+        })
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
         let version: number | null = null
         if (versionStr) {
             try {
                 version = parseInt(versionStr, 10)
             } catch (e) {
-                Logger.error(`An error occurred while parsing the storeId`, e, ReportsController.name)
+                Logger.error(`An error occurred while parsing the version`, e, ReportsController.name)
             }
         }
-        this.reportsService.pullReport(token, slugify(reportName), teamName, version, response)
+        this.reportsService.pullReport(token, reportName, teamNameParam, version, response)
     }
 
     @Get('/:reportId/download')
@@ -674,9 +717,34 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to pull',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.READ])
-    async downloadReport(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Res() response: any): Promise<any> {
-        this.reportsService.downloadReport(token, reportId, response)
+    async downloadReport(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @Query('version') versionStr: string,
+        @Res() response: any,
+    ): Promise<any> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
+        let version: number | null = null
+        if (versionStr) {
+            try {
+                version = parseInt(versionStr, 10)
+            } catch (e) {
+                Logger.error(`An error occurred while parsing the version`, e, ReportsController.name)
+            }
+        }
+        this.reportsService.downloadReport(reportId, version, response)
     }
 
     @Get('/:reportId/files')
@@ -695,8 +763,24 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.READ])
-    async getReportFiles(@Param('reportId') reportId: string, @Query('version') version: string): Promise<NormalizedResponseDTO<File>> {
+    async getReportFiles(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @Query('version') version: string,
+    ): Promise<NormalizedResponseDTO<File>> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
         const files: File[] = await this.reportsService.getReportFiles(reportId, version)
         return new NormalizedResponseDTO(files)
     }
@@ -712,11 +796,24 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.READ])
     async getReportVersions(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
         @Param('reportId') reportId: string,
         @Req() req,
     ): Promise<NormalizedResponseDTO<{ version: number; created_at: Date; num_files: number }>> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) {
             query.sort = { created_at: -1 }
@@ -747,8 +844,23 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.READ])
-    async getBranches(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<GithubBranch[]>> {
+    async getBranches(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+    ): Promise<NormalizedResponseDTO<GithubBranch[]>> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
         const branches: GithubBranch[] = await this.reportsService.getBranches(reportId)
         return new NormalizedResponseDTO(branches)
     }
@@ -770,12 +882,25 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.READ])
     async getReportTree(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
         @Param('reportId') reportId: string,
         @Query('path') path: string,
         @Query('version') versionStr: string,
     ): Promise<NormalizedResponseDTO<GithubFileHash | GithubFileHash[]>> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
         let version: number | null
         if (versionStr && !isNaN(Number(versionStr))) {
             version = parseInt(versionStr, 10)
@@ -787,23 +912,36 @@ export class ReportsController extends GenericController<Report> {
     @Get('/file/:id')
     @ApiOperation({
         summary: `Get content of a file`,
-        description: `By passing the hash of a file, get its raw content directly from the source.`,
+        description: `By passing the id a file, get its raw content directly from the source.`,
     })
     @ApiParam({
-        name: 'reportId',
+        name: 'id',
         required: true,
-        description: 'Name of the report to fetch',
+        description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @ApiParam({
-        name: 'hash',
-        required: true,
-        description: 'Hash of the file to access',
-        schema: { type: 'string' },
-    })
-    @Permission([ReportPermissionsEnum.READ])
-    async getReportFileContent(@Param('id') id: string): Promise<Buffer> {
-        return this.reportsService.getReportFileContent(id)
+    async getReportFileContent(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('id') id: string,
+    ): Promise<Buffer> {
+        const file: File = await this.reportsService.getFileById(id)
+        if (!file) {
+            throw new PreconditionFailedException('File not found')
+        }
+        const report: Report = await this.reportsService.getReportById(file.report_id)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
+        return this.reportsService.getReportFileContent(file)
     }
 
     @UseInterceptors(
@@ -817,7 +955,7 @@ export class ReportsController extends GenericController<Report> {
         }),
     )
     @Post('/:reportId/preview-picture')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Upload a profile picture for a report`,
         description: `Allows uploading a profile picture for a report passing its id and image`,
@@ -845,7 +983,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Delete('/:reportId/preview-picture')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a profile picture for a report`,
         description: `Allows deleting a profile picture for a report passing its id`,
@@ -887,13 +1025,21 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the team to fetch',
         schema: { type: 'string' },
     })
-    // @Permission([ReportPermissionsEnum.READ])
     async getReportByName(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
         @Param('reportName') reportName: string,
-        @Param('teamName') teamName: string,
+        @Param('teamName') teamNameParam: string,
     ): Promise<NormalizedResponseDTO<ReportDTO>> {
-        const report: Report = await this.reportsService.getReportByName(reportName, teamName)
+        const report: Report = await this.reportsService.getReportByName(reportName, teamNameParam)
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         return new NormalizedResponseDTO(reportDto, relations)

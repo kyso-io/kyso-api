@@ -309,27 +309,27 @@ export class ReportsService extends AutowiredService {
         return this.getKysoReportTree(report.id, path, version)
     }
 
-    public async getReportFileContent(id: string): Promise<Buffer> {
+    public async getFileById(id: string): Promise<File> {
         const files: File[] = await this.filesMongoProvider.read({
             filter: {
                 _id: this.provider.toObjectId(id),
             },
         })
-        if (files.length === 0) {
-            return null
-        }
-        const reportFile: File = files[0]
+        return files.length > 0 ? files[0] : null
+    }
+
+    public async getReportFileContent(file: File): Promise<Buffer> {
         try {
             const client: Client = await this.sftpService.getClient()
             const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
-            const destinationPath = join(sftpDestinationFolder, reportFile.path_scs)
+            const destinationPath = join(sftpDestinationFolder, file.path_scs)
             const existsPath: boolean | string = await client.exists(destinationPath)
             if (!existsPath) {
                 return null
             }
             return (await client.get(destinationPath)) as Buffer
         } catch (e) {
-            Logger.error(`An error occurred while downloading file '${reportFile.name}' from SCS`, e, ReportsService.name)
+            Logger.error(`An error occurred while downloading file '${file.name}' from SCS`, e, ReportsService.name)
             return null
         }
     }
@@ -1639,31 +1639,13 @@ export class ReportsService extends AutowiredService {
         this.returnZippedReport(report, version, response)
     }
 
-    public async downloadReport(token: Token, reportId: string, response: any): Promise<void> {
-        let isGlobalAdmin = false
-        if (token.permissions.global?.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)) {
-            isGlobalAdmin = true
-        }
-
+    public async downloadReport(reportId: string, version: number | null, response: any): Promise<void> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             response.status(404).send(`Report '${reportId}' not found`)
             return
         }
-
-        const team: Team = await this.teamsService.getTeamById(report.team_id)
-        if (!team) {
-            response.status(404).send(`Team '${report.team_id}' not found`)
-            return
-        }
-
-        const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
-        const index: number = teams.findIndex((t: Team) => t.id === team.id)
-        if (!isGlobalAdmin && index === -1) {
-            response.status(401).send(`User does not have permission to download report ${report.sluglified_name}`)
-            return
-        }
-        this.returnZippedReport(report, null, response)
+        this.returnZippedReport(report, version, response)
     }
 
     private async returnZippedReport(report: Report, version: number | null, response: any): Promise<void> {
