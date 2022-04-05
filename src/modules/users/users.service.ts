@@ -1,6 +1,7 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
     CreateUserRequestDTO,
+    EmailUserChangePasswordDTO,
     KysoPermissions,
     KysoUserAccessToken,
     KysoUserAccessTokenStatus,
@@ -12,6 +13,8 @@ import {
     UpdateUserRequestDTO,
     User,
     UserAccount,
+    UserChangePasswordDTO,
+    UserForgotPassword,
     UserVerification,
     VerifyCaptchaRequestDto,
     VerifyEmailRequestDTO,
@@ -37,6 +40,7 @@ import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
 import { KysoUserAccessTokensMongoProvider } from './providers/mongo-kyso-user-access-token.provider'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
+import { UserChangePasswordMongoProvider } from './providers/user-change-password-mongo.provider'
 import { UserVerificationMongoProvider } from './providers/user-verification-mongo.provider'
 
 function factory(service: UsersService) {
@@ -69,10 +73,11 @@ export class UsersService extends AutowiredService {
     private kysoSettingsService: KysoSettingsService
 
     constructor(
-        private readonly userVerificationMongoProvider: UserVerificationMongoProvider,
+        private readonly kysoAccessTokenProvider: KysoUserAccessTokensMongoProvider,
         private readonly mailerService: MailerService,
         private readonly provider: UsersMongoProvider,
-        private readonly kysoAccessTokenProvider: KysoUserAccessTokensMongoProvider,
+        private readonly userChangePasswordMongoProvider: UserChangePasswordMongoProvider,
+        private readonly userVerificationMongoProvider: UserVerificationMongoProvider,
     ) {
         super()
     }
@@ -445,5 +450,77 @@ export class UsersService extends AutowiredService {
             }
             return false
         }
+    }
+
+    public async changePassword(userChangePasswordDto: UserChangePasswordDTO): Promise<boolean> {
+        const result: UserForgotPassword[] = await this.userChangePasswordMongoProvider.read({
+            filter: {
+                $and: [{ email: userChangePasswordDto.email }, { token: userChangePasswordDto.token }],
+            },
+        })
+        if (result.length === 0) {
+            throw new PreconditionFailedException('Token not found')
+        }
+        const userForgotPassword: UserForgotPassword = result[0]
+        if (userForgotPassword.modified_at !== null) {
+            throw new PreconditionFailedException('Recovery password token already used')
+        }
+        if (moment().isAfter(userForgotPassword.expires_at)) {
+            throw new PreconditionFailedException('Recovery password token expired')
+        }
+        const user: User = await this.getUserById(userForgotPassword.user_id)
+        const areEquals: boolean = await AuthService.isPasswordCorrect(userChangePasswordDto.password, user.hashed_password)
+        if (areEquals) {
+            throw new PreconditionFailedException('New password must be different from the old one')
+        }
+        await this.provider.updateOne(
+            { _id: new ObjectId(user.id) },
+            { $set: { hashed_password: AuthService.hashPassword(userChangePasswordDto.password), show_captcha: false } },
+        )
+        await this.userChangePasswordMongoProvider.updateOne({ _id: new ObjectId(userForgotPassword.id) }, { $set: { modified_at: new Date() } })
+        return true
+    }
+
+    public async sendEmailRecoveryPassword(emailUserChangePasswordDTO: EmailUserChangePasswordDTO): Promise<boolean> {
+        const user: User = await this.getUser({
+            filter: {
+                email: emailUserChangePasswordDTO.email,
+            },
+        })
+        if (!user) {
+            throw new PreconditionFailedException('User not registered')
+        }
+
+        const validCaptcha: boolean = await this.verifyCaptcha(user.id, { token: emailUserChangePasswordDTO.captchaToken })
+        if (!validCaptcha) {
+            throw new PreconditionFailedException('Invalid captcha')
+        }
+
+        // Link to change user password
+        const minutes: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_MINUTES_TOKEN_RECOVERY_PASSWORD)
+        let userForgotPassword: UserForgotPassword = new UserForgotPassword(user.email, uuidv4(), user.id, moment().add(minutes, 'minutes').toDate())
+        userForgotPassword = await this.userChangePasswordMongoProvider.create(userForgotPassword)
+
+        return new Promise<boolean>(async (resolve) => {
+            this.mailerService
+                .sendMail({
+                    to: user.email,
+                    subject: 'Change password',
+                    template: 'change-password',
+                    context: {
+                        user,
+                        userForgotPassword,
+                        frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+                    },
+                })
+                .then(() => {
+                    Logger.log(`Recovery password e-mail sent to ${user.display_name}`, UsersService.name)
+                    resolve(true)
+                })
+                .catch((err) => {
+                    Logger.error(`Error sending recovery password e-mail to ${user.display_name}`, err, UsersService.name)
+                    resolve(false)
+                })
+        })
     }
 }

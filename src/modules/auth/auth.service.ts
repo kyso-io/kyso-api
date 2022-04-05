@@ -14,7 +14,6 @@ import {
     TokenPermissions,
     User,
     UserAccount,
-    VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model'
 import { Injectable, Logger, Provider } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'

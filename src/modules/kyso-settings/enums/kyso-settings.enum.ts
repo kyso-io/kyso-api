@@ -43,6 +43,7 @@ export enum KysoSettingsEnum {
     // FRONTEND_URL
     // Verification email duration
     DURATION_HOURS_TOKEN_EMAIL_VERIFICATION = 'DURATION_HOURS_TOKEN_EMAIL_VERIFICATION',
+    DURATION_MINUTES_TOKEN_RECOVERY_PASSWORD = 'DURATION_MINUTES_TOKEN_RECOVERY_PASSWORD',
     RECAPTCHA2_ENABLED = 'RECAPTCHA2_ENABLED',
     RECAPTCHA2_SITE_KEY = 'RECAPTCHA2_SITE_KEY',
     RECAPTCHA2_SECRET_KEY = 'RECAPTCHA2_SECRET_KEY',
@@ -141,6 +142,8 @@ export function getKysoSettingDescription(setting: KysoSettingsEnum) {
             return `Duration in hours for token email verification`
         case KysoSettingsEnum.RECAPTCHA2_ENABLED:
             return `Enables recaptcha globally in the platform`
+        case KysoSettingsEnum.DURATION_MINUTES_TOKEN_RECOVERY_PASSWORD:
+            return `Duration in minutes for token recovery password`
         case KysoSettingsEnum.RECAPTCHA2_SITE_KEY:
             return `Recaptcha2 site key`
         case KysoSettingsEnum.RECAPTCHA2_SECRET_KEY:
