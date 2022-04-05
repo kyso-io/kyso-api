@@ -440,6 +440,7 @@ export class UsersService extends AutowiredService {
     public async verifyCaptcha(userId: string, data: VerifyCaptchaRequestDto): Promise<boolean> {
         const recaptchaEnabled: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.RECAPTCHA2_ENABLED)
         if (recaptchaEnabled.toLowerCase() === 'false') {
+            await this.provider.update({ _id: new ObjectId(userId) }, { $set: { show_captcha: false } })
             return true
         } else {
             const secret: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.RECAPTCHA2_SECRET_KEY)
