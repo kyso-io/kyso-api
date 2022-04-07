@@ -47,6 +47,7 @@ export enum KysoSettingsEnum {
     RECAPTCHA2_ENABLED = 'RECAPTCHA2_ENABLED',
     RECAPTCHA2_SITE_KEY = 'RECAPTCHA2_SITE_KEY',
     RECAPTCHA2_SECRET_KEY = 'RECAPTCHA2_SECRET_KEY',
+    SERVICE_DESK_EMAIL = 'SERVICE_DESK_EMAIL',
 }
 
 export function getKysoSettingDefaultValue(setting: KysoSettingsEnum) {
@@ -148,6 +149,8 @@ export function getKysoSettingDescription(setting: KysoSettingsEnum) {
             return `Recaptcha2 site key`
         case KysoSettingsEnum.RECAPTCHA2_SECRET_KEY:
             return `Recaptcha2 secret key`
+        case KysoSettingsEnum.SERVICE_DESK_EMAIL:
+            return `Service desk email`
         default:
             return 'No description provided'
     }
