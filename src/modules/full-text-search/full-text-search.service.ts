@@ -176,7 +176,8 @@ export class FullTextSearchService extends AutowiredService {
             return new FullTextSearchResult(x._source.title, 
                 x._source.content.length > 700 ? x._source.content.substring(0, 700) + "..." : x._source.content, 
                 x._source.link, x._source.type, x._source.people, 
-                x._source.teamSlug, x._source.organizationSlug, x._source.tags, x._score)
+                x._source.teamSlug, x._source.organizationSlug, x._source.tags, x._source.entityId,
+                x._source.version, x._source.filePath, x._score)
         })
 
         const reportResult = new FullTextSearchResultType(results, organizationsList, teamsList, tagsList, 
