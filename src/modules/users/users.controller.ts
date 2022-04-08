@@ -2,6 +2,7 @@ import {
     AddUserAccountDTO,
     CreateKysoAccessTokenDto,
     CreateUserRequestDTO,
+    EmailUserChangePasswordDTO,
     HEADER_X_KYSO_ORGANIZATION,
     HEADER_X_KYSO_TEAM,
     KysoPermissions,
@@ -10,6 +11,7 @@ import {
     Token,
     UpdateUserRequestDTO,
     User,
+    UserChangePasswordDTO,
     UserDTO,
     UserPermissionsEnum,
     VerifyCaptchaRequestDto,
@@ -376,6 +378,22 @@ export class UsersController extends GenericController<User> {
     @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: Boolean })
     public async verifyCaptcha(@CurrentToken() token: Token, @Body() data: VerifyCaptchaRequestDto): Promise<NormalizedResponseDTO<boolean>> {
         const success: boolean = await this.usersService.verifyCaptcha(token.id, data)
+        return new NormalizedResponseDTO(success)
+    }
+
+    @Post('email-recovery-password')
+    @Public()
+    @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: Boolean })
+    public async sendEmailRecoveryPassword(@Body() emailUserChangePasswordDTO: EmailUserChangePasswordDTO): Promise<NormalizedResponseDTO<boolean>> {
+        const success: boolean = await this.usersService.sendEmailRecoveryPassword(emailUserChangePasswordDTO)
+        return new NormalizedResponseDTO(success)
+    }
+
+    @Post('change-password')
+    @Public()
+    @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: Boolean })
+    public async changePassword(@Body() userChangePasswordDto: UserChangePasswordDTO): Promise<NormalizedResponseDTO<boolean>> {
+        const success: boolean = await this.usersService.changePassword(userChangePasswordDto)
         return new NormalizedResponseDTO(success)
     }
 }

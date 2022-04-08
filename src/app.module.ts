@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module'
 import { BitbucketReposModule } from './modules/bitbucket-repos/bitbucket-repos.module'
 import { CommentsModule } from './modules/comments/comments.module'
 import { DiscussionsModule } from './modules/discussions/discussions.module'
+import { FeedbackModule } from './modules/feedback/feedback.module'
 import { FullTextSearchModule } from './modules/full-text-search/full-text-search.module'
 import { GithubReposModule } from './modules/github-repos/github-repos.module'
 import { GitlabReposModule } from './modules/gitlab-repos/gitlab-repos.module'
@@ -27,6 +28,7 @@ import { UsersModule } from './modules/users/users.module'
         BitbucketReposModule.forRoot(),
         CommentsModule.forRoot(),
         DiscussionsModule.forRoot(),
+        FeedbackModule,
         FullTextSearchModule.forRoot(),
         GithubReposModule.forRoot(),
         GitlabReposModule.forRoot(),

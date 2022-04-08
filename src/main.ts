@@ -53,7 +53,7 @@ async function bootstrap() {
     await connectToDatabase()
 
     try {
-        const kysoSettingCollection = db.collection('KysoSetting')
+        const kysoSettingCollection = db.collection('KysoSettings')
         const mailTransportValue = await kysoSettingCollection.find({ key: KysoSettingsEnum.MAIL_TRANSPORT }).toArray()
         const mailFromValue = await kysoSettingCollection.find({ key: KysoSettingsEnum.MAIL_FROM }).toArray()
 
