@@ -1,7 +1,7 @@
+import { KysoSettingsEnum } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import * as Client from 'ssh2-sftp-client'
 import { Autowired } from '../../decorators/autowired'
-import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 
 @Injectable()

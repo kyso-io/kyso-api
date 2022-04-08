@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
+import { KysoSettingsEnum } from '@kyso-io/kyso-model'
 import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common'
 import { NestFactory, Reflector } from '@nestjs/core'
 import { NestExpressApplication } from '@nestjs/platform-express'
@@ -13,7 +14,7 @@ import { RedocModule, RedocOptions } from 'nestjs-redoc'
 import { AppModule } from './app.module'
 import { getSingletons, registerSingleton } from './decorators/autowired'
 import { TransformInterceptor } from './interceptors/exclude.interceptor'
-import { getKysoSettingDefaultValue, KysoSettingsEnum } from './modules/kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsService } from './modules/kyso-settings/kyso-settings.service'
 import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service'
 const { NodeTracerProvider } = require('@opentelemetry/sdk-trace-node')
 const { NestInstrumentation } = require('@opentelemetry/instrumentation-nestjs-core')
@@ -58,20 +59,20 @@ async function bootstrap() {
 
         if (mailTransportValue.length === 0) {
             // set default value
-            mailTransport = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT)
+            mailTransport = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT)
         } else {
             mailTransport = mailTransportValue[0].value
         }
 
         if (mailFromValue.length === 0) {
             // set default value
-            mailFrom = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM)
+            mailFrom = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM)
         } else {
             mailFrom = mailFromValue[0].value
         }
     } catch (ex) {
-        mailTransport = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT)
-        mailFrom = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM)
+        mailTransport = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT)
+        mailFrom = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM)
     }
 
     const app = await NestFactory.create<NestExpressApplication>(AppModule)

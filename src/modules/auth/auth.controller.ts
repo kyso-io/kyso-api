@@ -1,6 +1,7 @@
 import {
     AuthProviderSpec,
     CreateUserRequestDTO,
+    KysoSettingsEnum,
     Login,
     LoginProviderEnum,
     NormalizedResponseDTO,
@@ -33,7 +34,6 @@ import { Autowired } from '../../decorators/autowired'
 import { Cookies } from '../../decorators/cookies'
 import { GenericController } from '../../generic/controller.generic'
 import { db } from '../../main'
-import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'

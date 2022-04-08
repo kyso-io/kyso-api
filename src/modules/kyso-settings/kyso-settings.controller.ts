@@ -1,4 +1,4 @@
-import { GlobalPermissionsEnum, KysoSetting, NormalizedResponseDTO } from '@kyso-io/kyso-model'
+import { GlobalPermissionsEnum, KysoSetting, KysoSettingsEnum, NormalizedResponseDTO } from '@kyso-io/kyso-model'
 import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -8,7 +8,6 @@ import { Permission } from '../auth/annotations/permission.decorator'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
-import { KysoSettingsEnum } from './enums/kyso-settings.enum'
 import { KysoSettingsService } from './kyso-settings.service'
 
 @ApiTags('kyso-settings')
@@ -62,6 +61,9 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
                 case KysoSettingsEnum.RECAPTCHA2_SITE_KEY:
                 case KysoSettingsEnum.KYSO_FILES_CLOUDFRONT_URL:
                 case KysoSettingsEnum.RECAPTCHA2_ENABLED:
+                case KysoSettingsEnum.BASE_URL:
+                case KysoSettingsEnum.BITBUCKET_API:
+                case KysoSettingsEnum.STATIC_CONTENT_PREFIX:
                     return true
                 default:
                     return false

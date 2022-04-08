@@ -66,12 +66,12 @@ export abstract class MongoProvider<T> {
         if (this.indices.length === 0) {
             return
         }
-        Logger.log(`Checking indices for '${this.baseCollection}' collection`, MongoProvider.name)
+        Logger.log(`Checking indexes for '${this.baseCollection}' collection`, MongoProvider.name)
         for (const element of this.indices) {
             try {
                 await this.getCollection().createIndex(element.keys, element.options)
             } catch (e) {
-                Logger.error(`Error checking indices for '${this.baseCollection}' collection`, e, MongoProvider.name)
+                Logger.error(`Error checking indexes for '${this.baseCollection}' collection`, e, MongoProvider.name)
             }
         }
     }

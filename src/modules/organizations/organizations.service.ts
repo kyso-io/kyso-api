@@ -2,6 +2,7 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client
 import {
     AddUserOrganizationDto,
     KysoRole,
+    KysoSettingsEnum,
     Organization,
     OrganizationMember,
     OrganizationMemberJoin,
@@ -16,7 +17,6 @@ import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { PlatformRole } from '../../security/platform-roles'
-import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'

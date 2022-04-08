@@ -8,6 +8,7 @@ import {
     GithubRepository,
     GlobalPermissionsEnum,
     KysoConfigFile,
+    KysoSettingsEnum,
     LoginProviderEnum,
     Organization,
     PinnedReport,
@@ -52,7 +53,6 @@ import { BitbucketReposService } from '../bitbucket-repos/bitbucket-repos.servic
 import { CommentsService } from '../comments/comments.service'
 import { GithubReposService } from '../github-repos/github-repos.service'
 import { GitlabReposService } from '../gitlab-repos/gitlab-repos.service'
-import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TagsService } from '../tags/tags.service'

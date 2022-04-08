@@ -5,7 +5,7 @@ import { OAuth2Client } from 'google-auth-library'
 import { ObjectId } from 'mongodb'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../../decorators/autowired'
-import { KysoSettingsEnum } from '../../kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsEnum } from "@kyso-io/kyso-model"
 import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 import { UsersService } from '../../users/users.service'
 

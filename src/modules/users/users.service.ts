@@ -2,6 +2,7 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client
 import {
     CreateUserRequestDTO,
     KysoPermissions,
+    KysoSettingsEnum,
     KysoUserAccessToken,
     KysoUserAccessTokenStatus,
     LoginProviderEnum,
@@ -30,7 +31,6 @@ import { AuthService } from '../auth/auth.service'
 import { GitlabLoginProvider } from '../auth/providers/gitlab-login.provider'
 import { CommentsService } from '../comments/comments.service'
 import { GitlabAccessToken } from '../gitlab-repos/interfaces/gitlab-access-token'
-import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
