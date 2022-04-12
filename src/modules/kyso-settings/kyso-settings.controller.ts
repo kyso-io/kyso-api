@@ -64,6 +64,11 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
                 case KysoSettingsEnum.BASE_URL:
                 case KysoSettingsEnum.BITBUCKET_API:
                 case KysoSettingsEnum.STATIC_CONTENT_PREFIX:
+                case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_BITBUCKET:
+                case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITLAB:
+                case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITHUB:
+                case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GOOGLE:
+                case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_KYSO:
                     return true
                 default:
                     return false
