@@ -6,7 +6,7 @@ import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
 export class ReportsMongoProvider extends MongoProvider<Report> {
-    version = 4
+    version = 5
 
     constructor() {
         super('Report', db, [
@@ -73,7 +73,7 @@ export class ReportsMongoProvider extends MongoProvider<Report> {
             )
         }
     }
-    
+
     public async migrate_from_3_to_4(): Promise<void> {
         const cursor = await this.getCollection().find({})
         const allReports: any[] = await cursor.toArray()
@@ -90,4 +90,7 @@ export class ReportsMongoProvider extends MongoProvider<Report> {
         }
     }
 
+    public async migrate_from_4_to_5() {
+        await this.getCollection().updateMany({}, { $unset: { hook_id: '' } })
+    }
 }

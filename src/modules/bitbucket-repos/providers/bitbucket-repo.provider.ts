@@ -1,7 +1,7 @@
 import { GithubRepository } from '@kyso-io/kyso-model'
 import { Injectable } from '@nestjs/common'
 import { Autowired } from '../../../decorators/autowired'
-import { KysoSettingsEnum } from '../../kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsEnum } from "@kyso-io/kyso-model"
 import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 import { CreateBitbucketWebhookDto } from '../classes/create-bitbucket-webhook.dto'
 // eslint-disable-next-line @typescript-eslint/no-var-requires

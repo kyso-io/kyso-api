@@ -15,6 +15,9 @@ RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,gid=1000,required\
   npm ci
 # Copy the sources
 COPY src ./src/
+# Copy the templates
+COPY templates ./templates/
+
 # Build the application (leaves result on ./dist)
 RUN npm run build
 # Execute `npm ci` (not install) for production with an externally mounted npmrc
@@ -39,6 +42,8 @@ COPY --chown=node:node --from=builder /app/dist ./dist
 COPY --chown=node:node public/ ./public/
 # Copy the sources ... FIXME(sto): this should not be needed!!!
 COPY --chown=node:node src/ ./src/
+# Copy the templates ... FIXME(sto): this should not be needed!!!
+COPY --chown=node:node templates/ ./templates/
 # Create link to the sources from dist ... FIXME(sto): again, this is wrong
 RUN ln -s ../src ./dist/
 # Container command

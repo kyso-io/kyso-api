@@ -2,6 +2,7 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client
 import {
     AddUserOrganizationDto,
     KysoRole,
+    KysoSettingsEnum,
     Organization,
     OrganizationMember,
     OrganizationMemberJoin,
@@ -10,13 +11,12 @@ import {
     UpdateOrganizationMembersDTO,
     User,
 } from '@kyso-io/kyso-model'
-import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import { extname } from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { PlatformRole } from '../../security/platform-roles'
-import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
@@ -67,7 +67,15 @@ export class OrganizationsService extends AutowiredService {
         // The name of this organization exists?
         const organizations: Organization[] = await this.provider.read({ filter: { sluglified_name: organization.sluglified_name } })
         if (organizations.length > 0) {
-            throw new PreconditionFailedException('The name of the organization must be unique')
+            let i = organizations.length + 1
+            do {
+                organization.sluglified_name = `${organization.sluglified_name}-${i}`
+                const index: number = organizations.findIndex((org: Organization) => org.sluglified_name === organization.sluglified_name)
+                if (index === -1) {
+                    break
+                }
+                i++
+            } while (true);
         }
         return this.provider.create(organization)
     }
@@ -172,7 +180,6 @@ export class OrganizationsService extends AutowiredService {
     }
 
     public async updateOrganizationOptions(organizationId: string, options: OrganizationOptions): Promise<Organization> {
-        console.log(options)
         const organizationDb: Organization = await this.getOrganizationById(organizationId)
         if (!organizationDb) {
             throw new PreconditionFailedException('Organization does not exist')
@@ -224,13 +231,6 @@ export class OrganizationsService extends AutowiredService {
         if (!user) {
             throw new PreconditionFailedException('User does not exist')
         }
-
-        const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
-        const member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id)
-        if (member) {
-            throw new PreconditionFailedException('User already belongs to the organization')
-        }
-
         const validRoles: string[] = [
             PlatformRole.TEAM_ADMIN_ROLE.name,
             PlatformRole.TEAM_CONTRIBUTOR_ROLE.name,
@@ -241,10 +241,45 @@ export class OrganizationsService extends AutowiredService {
         if (!validRoles.includes(addUserOrganizationDto.role)) {
             throw new PreconditionFailedException('Invalid role')
         }
-
-        const newMember: OrganizationMemberJoin = new OrganizationMemberJoin(organization.id, user.id, [addUserOrganizationDto.role], true)
-        await this.organizationMemberProvider.create(newMember)
+        const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
+        let member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id)
+        if (member) {
+            // Check if member has the role
+            if (!member.role_names.includes(addUserOrganizationDto.role)) {
+                member.role_names.push(addUserOrganizationDto.role)
+                await this.organizationMemberProvider.updateOne({ _id: this.provider.toObjectId(member.id) }, { role_names: member.role_names })
+            }
+        } else {
+            const newMember: OrganizationMemberJoin = new OrganizationMemberJoin(organization.id, user.id, [addUserOrganizationDto.role], true)
+            await this.organizationMemberProvider.create(newMember)
+        }
         return this.getOrganizationMembers(organization.id)
+    }
+
+    public async addUserToOrganization(userId: string, organizationName: string, invitationCode: string): Promise<boolean> {
+        const organization: Organization = await this.getOrganization({
+            filter: {
+                sluglified_name: organizationName,
+            },
+        })
+        if (!organization) {
+            throw new NotFoundException('Organization does not exist')
+        }
+        if (organization.invitation_code !== invitationCode) {
+            throw new BadRequestException('Invalid invitation code')
+        }
+        const user: User = await this.usersService.getUserById(userId)
+        if (!user) {
+            throw new NotFoundException('User does not exist')
+        }
+        const role: string = PlatformRole.TEAM_READER_ROLE.name
+        const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
+        let member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id)
+        if (!member) {
+            const newMember: OrganizationMemberJoin = new OrganizationMemberJoin(organization.id, user.id, [role], true)
+            await this.organizationMemberProvider.create(newMember)
+        }
+        return true
     }
 
     public async removeMemberFromOrganization(organizationId: string, userId: string): Promise<OrganizationMember[]> {

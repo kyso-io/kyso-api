@@ -5,7 +5,9 @@ import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { InvitationsService } from './invitations.service'
 
 @ApiTags('invitations')
@@ -67,6 +69,7 @@ export class InvitationsController extends GenericController<Invitation> {
     }
 
     @Post()
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create an invitation`,
         description: `Create an invitation`,
@@ -82,6 +85,7 @@ export class InvitationsController extends GenericController<Invitation> {
     }
 
     @Patch('/accept-invitation/:invitationId')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Accept an invitation`,
         description: `Accept an invitation`,
@@ -103,6 +107,7 @@ export class InvitationsController extends GenericController<Invitation> {
     }
 
     @Patch('/reject-invitation/:invitationId')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Reject an invitation`,
         description: `Reject an invitation`,
@@ -124,6 +129,7 @@ export class InvitationsController extends GenericController<Invitation> {
     }
 
     @Delete('/:id')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete an invitation`,
         description: `Delete an invitation`,

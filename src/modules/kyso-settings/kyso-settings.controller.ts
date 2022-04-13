@@ -1,17 +1,17 @@
-import { GlobalPermissionsEnum, KysoSetting, NormalizedResponseDTO } from '@kyso-io/kyso-model'
+import { GlobalPermissionsEnum, KysoSetting, KysoSettingsEnum, NormalizedResponseDTO } from '@kyso-io/kyso-model'
 import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { Permission } from '../auth/annotations/permission.decorator'
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
-import { KysoSettingsEnum } from './enums/kyso-settings.enum'
+import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { KysoSettingsService } from './kyso-settings.service'
 
 @ApiTags('kyso-settings')
 @ApiExtraModels(KysoSetting)
-@UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('kyso-settings')
 export class KysoSettingsController extends GenericController<KysoSetting> {
@@ -30,10 +30,51 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
         type: KysoSetting,
         isArray: true,
     })
+    @UseGuards(PermissionsGuard)
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
     public async getAllSettings(): Promise<NormalizedResponseDTO<KysoSetting[]>> {
         const settings: KysoSetting[] = await this.kysoSettingsService.getAll()
         return new NormalizedResponseDTO(settings)
+    }
+
+    @Get('/public')
+    @ApiOperation({
+        summary: `Get all the public settings`,
+        description: `Get all the public settings`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `List of public settings`,
+        type: KysoSetting,
+        isArray: true,
+    })
+    public async getOnlyPublicSettings(): Promise<NormalizedResponseDTO<KysoSetting[]>> {
+        const allSettings: KysoSetting[] = await this.kysoSettingsService.getAll()
+
+        // Filter all settings to only client_id
+        const filteredSettings = allSettings.filter((x: KysoSetting) => {
+            switch (x.key) {
+                case KysoSettingsEnum.AUTH_BITBUCKET_CLIENT_ID:
+                case KysoSettingsEnum.AUTH_GITHUB_CLIENT_ID:
+                case KysoSettingsEnum.AUTH_GITLAB_CLIENT_ID:
+                case KysoSettingsEnum.AUTH_GOOGLE_CLIENT_ID:
+                case KysoSettingsEnum.RECAPTCHA2_SITE_KEY:
+                case KysoSettingsEnum.KYSO_FILES_CLOUDFRONT_URL:
+                case KysoSettingsEnum.RECAPTCHA2_ENABLED:
+                case KysoSettingsEnum.BASE_URL:
+                case KysoSettingsEnum.BITBUCKET_API:
+                case KysoSettingsEnum.STATIC_CONTENT_PREFIX:
+                case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_BITBUCKET:
+                case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITLAB:
+                case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITHUB:
+                case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GOOGLE:
+                case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_KYSO:
+                    return true
+                default:
+                    return false
+            }
+        })
+        return new NormalizedResponseDTO(filteredSettings)
     }
 
     @Get('/:key')
@@ -61,6 +102,7 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
     }
 
     @Patch('/:key')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Updates provided key by provided value`,
         description: `Updates provided key by provided value`,

@@ -44,6 +44,10 @@ export class TagsService extends AutowiredService {
         return this.provider.read(query)
     }
 
+    public async getTagAssigns(query: any): Promise<TagAssign[]> {
+        return this.tagsAssignMongoProvider.read(query)
+    }
+
     public async updateTag(filterQuery: any, updateQuery: any): Promise<Tag> {
         return this.provider.update(filterQuery, updateQuery)
     }

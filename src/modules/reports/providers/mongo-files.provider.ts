@@ -5,8 +5,8 @@ import { db } from '../../../main'
 import { MongoProvider } from '../../../providers/mongo.provider'
 @Injectable()
 export class FilesMongoProvider extends MongoProvider<File> {
-    version = 1
-    
+    version = 3
+
     constructor() {
         super('File', db)
     }
@@ -25,5 +25,25 @@ export class FilesMongoProvider extends MongoProvider<File> {
                 message: "The specified file couldn't be found",
             })
         return files[0]
+    }
+
+    public async migrate_from_1_to_2() {
+        const cursor = await this.getCollection().find({})
+        const files: File[] = await cursor.toArray()
+        for (let file of files) {
+            const data: any = {
+                path_scs: null,
+            }
+            await this.update(
+                { _id: this.toObjectId(file.id) },
+                {
+                    $set: data,
+                },
+            )
+        }
+    }
+
+    public async migrate_from_2_to_3() {
+        await this.getCollection().updateMany({}, { $unset: { path_s3: '' } })
     }
 }

@@ -1,11 +1,15 @@
 import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, NormalizedResponseDTO, Tag, TagAssign, TagRequestDTO } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
-import { Body, Controller, Delete, Get, Param, Patch, Post, PreconditionFailedException, UseGuards } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, PreconditionFailedException, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
+import { QueryParser } from '../../helpers/queryParser'
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { TagsService } from '../tags/tags.service'
 
 @ApiTags('tags')
@@ -34,8 +38,42 @@ export class TagsController extends GenericController<Tag> {
         description: `Allows fetching all tags`,
     })
     @ApiNormalizedResponse({ status: 200, description: `Get all available tags`, type: Tag, isArray: true })
-    public async getTags(): Promise<NormalizedResponseDTO<Tag[]>> {
-        const tags: Tag[] = await this.tagsService.getTags({})
+    public async getTags(@Req() req): Promise<NormalizedResponseDTO<Tag[]>> {
+        const query = QueryParser.toQueryObject(req.url)
+        if (!query.sort) {
+            query.sort = { created_at: -1 }
+        }
+        if (!query.filter) {
+            query.filter = {}
+        }
+        if (!query.filter.hasOwnProperty('entityId')) {
+            throw new BadRequestException('entityId is required')
+        }
+        if (!query.filter.hasOwnProperty('type')) {
+            throw new BadRequestException('type is required')
+        }
+        const tagAssigns: TagAssign[] = await this.tagsService.getTagAssigns({
+            filter: {
+                entityId: query.filter.entityId,
+                type: query.filter.type,
+            },
+        })
+        delete query.filter.entityId
+        delete query.filter.type
+        if (tagAssigns.length > 0) {
+            query.filter._id = {
+                $in: tagAssigns.map((tagAssign: TagAssign) => new ObjectId(tagAssign.tag_id)),
+            }
+        }
+
+        if (query?.filter?.$text) {
+            const newFilter = { ...query.filter }
+            newFilter.name = { $regex: `${query.filter.$text.$search}`, $options: 'i' }
+            delete newFilter.$text
+            query.filter = newFilter
+        }
+
+        const tags: Tag[] = await this.tagsService.getTags(query)
         return new NormalizedResponseDTO(tags)
     }
 
@@ -77,6 +115,7 @@ export class TagsController extends GenericController<Tag> {
     }
 
     @Patch('/:tagId')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Update the specified tag`,
         description: `Allows updating content from the specified tag`,
@@ -102,6 +141,7 @@ export class TagsController extends GenericController<Tag> {
     }
 
     @Post()
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create a new tag`,
         description: `Allows creating a new tag`,
@@ -117,6 +157,7 @@ export class TagsController extends GenericController<Tag> {
     }
 
     @Delete('/:tagId')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a tag`,
         description: `Allows deleting a tag passing its id`,
@@ -134,6 +175,7 @@ export class TagsController extends GenericController<Tag> {
     }
 
     @Post('/:tagId/assign/:entityId/:entityType')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Assign a tag to an entity`,
         description: `Allows assigning a tag to an entity`,
@@ -167,6 +209,7 @@ export class TagsController extends GenericController<Tag> {
     }
 
     @Delete('/:tagId/unassign/:entityId')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Assign a tag to an entity`,
         description: `Allows assigning a tag to an entity`,

@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
+import { KysoSettingsEnum } from '@kyso-io/kyso-model'
 import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common'
 import { NestFactory, Reflector } from '@nestjs/core'
 import { NestExpressApplication } from '@nestjs/platform-express'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import * as bodyParser from 'body-parser'
+import * as cookieParser from 'cookie-parser'
 import * as dotenv from 'dotenv'
 import * as fs from 'fs'
 import * as helmet from 'helmet'
@@ -12,7 +14,7 @@ import { RedocModule, RedocOptions } from 'nestjs-redoc'
 import { AppModule } from './app.module'
 import { getSingletons, registerSingleton } from './decorators/autowired'
 import { TransformInterceptor } from './interceptors/exclude.interceptor'
-import { getKysoSettingDefaultValue, KysoSettingsEnum } from './modules/kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsService } from './modules/kyso-settings/kyso-settings.service'
 import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service'
 const { NodeTracerProvider } = require('@opentelemetry/sdk-trace-node')
 const { NestInstrumentation } = require('@opentelemetry/instrumentation-nestjs-core')
@@ -44,43 +46,40 @@ async function bootstrap() {
         path: dotenv_path,
     })
 
-
     if (process.env.APP_MOUNT_DIR) {
         app_mount_dir = process.env.APP_MOUNT_DIR
     }
-    
+
     await connectToDatabase()
-    
+
     try {
-        const kysoSettingCollection = db.collection("KysoSetting")
-        const mailTransportValue = await kysoSettingCollection.
-            find({ key: KysoSettingsEnum.MAIL_TRANSPORT}).toArray()
-        const mailFromValue = await kysoSettingCollection.
-            find({ key: KysoSettingsEnum.MAIL_FROM}).toArray()
-            
-        if(mailTransportValue.length === 0) {
+        const kysoSettingCollection = db.collection('KysoSettings')
+        const mailTransportValue = await kysoSettingCollection.find({ key: KysoSettingsEnum.MAIL_TRANSPORT }).toArray()
+        const mailFromValue = await kysoSettingCollection.find({ key: KysoSettingsEnum.MAIL_FROM }).toArray()
+
+        if (mailTransportValue.length === 0) {
             // set default value
-            mailTransport = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT)    
-        } else  {
+            mailTransport = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT)
+        } else {
             mailTransport = mailTransportValue[0].value
         }
 
-        if(mailFromValue.length === 0) {
+        if (mailFromValue.length === 0) {
             // set default value
-            mailFrom = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM)    
-        } else  {
+            mailFrom = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM)
+        } else {
             mailFrom = mailFromValue[0].value
         }
-    } catch(ex) {
-        mailTransport = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT)
-        mailFrom = getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM)
+    } catch (ex) {
+        mailTransport = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT)
+        mailFrom = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM)
     }
 
     const app = await NestFactory.create<NestExpressApplication>(AppModule)
 
     // Serve files in ./public on the root of the application
-    app.useStaticAssets('./public', {prefix: app_mount_dir + '/'});
-
+    app.useStaticAssets('./public', { prefix: app_mount_dir + '/' })
+    app.use(cookieParser())
     app.use(bodyParser.json({ limit: '500mb' }))
     app.use(bodyParser.urlencoded({ limit: '500mb', extended: true }))
 

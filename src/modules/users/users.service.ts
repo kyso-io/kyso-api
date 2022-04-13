@@ -1,9 +1,12 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
     CreateUserRequestDTO,
+    EmailUserChangePasswordDTO,
     KysoPermissions,
+    KysoSettingsEnum,
     KysoUserAccessToken,
     KysoUserAccessTokenStatus,
+    LoginProviderEnum,
     Organization,
     Team,
     TeamVisibilityEnum,
@@ -11,23 +14,34 @@ import {
     UpdateUserRequestDTO,
     User,
     UserAccount,
+    UserChangePasswordDTO,
+    UserForgotPassword,
+    UserVerification,
+    VerifyCaptchaRequestDto,
+    VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import axios from 'axios'
+import * as moment from 'moment'
+import { ObjectId } from 'mongodb'
 import { extname } from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { PlatformRole } from '../../security/platform-roles'
 import { AuthService } from '../auth/auth.service'
+import { GitlabLoginProvider } from '../auth/providers/gitlab-login.provider'
 import { CommentsService } from '../comments/comments.service'
-import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
+import { GitlabAccessToken } from '../gitlab-repos/interfaces/gitlab-access-token'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
 import { KysoUserAccessTokensMongoProvider } from './providers/mongo-kyso-user-access-token.provider'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
+import { UserChangePasswordMongoProvider } from './providers/user-change-password-mongo.provider'
+import { UserVerificationMongoProvider } from './providers/user-verification-mongo.provider'
 
 function factory(service: UsersService) {
     return service
@@ -59,9 +73,11 @@ export class UsersService extends AutowiredService {
     private kysoSettingsService: KysoSettingsService
 
     constructor(
+        private readonly kysoAccessTokenProvider: KysoUserAccessTokensMongoProvider,
         private readonly mailerService: MailerService,
         private readonly provider: UsersMongoProvider,
-        private readonly kysoAccessTokenProvider: KysoUserAccessTokensMongoProvider,
+        private readonly userChangePasswordMongoProvider: UserChangePasswordMongoProvider,
+        private readonly userVerificationMongoProvider: UserVerificationMongoProvider,
     ) {
         super()
     }
@@ -93,13 +109,13 @@ export class UsersService extends AutowiredService {
 
     async createUser(userToCreate: CreateUserRequestDTO): Promise<User> {
         // exists a prev user with same email?
-        const user: User = await this.getUser({ filter: { username: userToCreate.username } })
+        const userDb: User = await this.getUser({ filter: { username: userToCreate.username } })
 
         if (!userToCreate.password) {
             throw new PreconditionFailedException(null, 'Password unset')
         }
 
-        if (user) {
+        if (userDb) {
             throw new PreconditionFailedException(null, 'User already exists')
         }
 
@@ -108,42 +124,81 @@ export class UsersService extends AutowiredService {
         const newUser: User = User.fromCreateUserRequest(userToCreate)
         newUser.hashed_password = AuthService.hashPassword(userToCreate.password)
         Logger.log(`Creating new user ${userToCreate.display_name}...`)
-        const userDb: User = await this.provider.create(newUser)
+        const user: User = await this.provider.create(newUser)
 
         // Create user organization
-        const organizationName: string = userDb.display_name.charAt(0).toUpperCase() + userDb.display_name.slice(1) + "'s Workspace"
-        const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], userDb.email, '', '', true, '', '', '', '')
+        const organizationName: string = user.display_name.charAt(0).toUpperCase() + user.display_name.slice(1) + "'s Workspace"
+        const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], user.email, '', '', true, '', '', '', '', uuidv4())
         Logger.log(`Creating new organization ${newOrganization.sluglified_name}`)
         const organizationDb: Organization = await this.organizationsService.createOrganization(newOrganization)
 
         // Add user to organization as admin
-        Logger.log(`Adding ${userDb.display_name} to organization ${organizationDb.sluglified_name} with role ${PlatformRole.ORGANIZATION_ADMIN_ROLE.name}...`)
-        await this.organizationsService.addMembersById(organizationDb.id, [userDb.id], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name])
+        Logger.log(`Adding ${user.display_name} to organization ${organizationDb.sluglified_name} with role ${PlatformRole.ORGANIZATION_ADMIN_ROLE.name}...`)
+        await this.organizationsService.addMembersById(organizationDb.id, [user.id], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name])
 
         // Create user team
-        const teamName: string = userDb.display_name.charAt(0).toUpperCase() + userDb.display_name.slice(1) + "'s Private"
+        const teamName: string = user.display_name.charAt(0).toUpperCase() + user.display_name.slice(1) + "'s Private"
         const newUserTeam: Team = new Team(teamName, '', '', '', '', [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
         Logger.log(`Creating new team ${newUserTeam.sluglified_name}...`)
         const userTeamDb: Team = await this.teamsService.createTeam(newUserTeam)
 
         // Add user to team as admin
-        Logger.log(`Adding ${userDb.display_name} to team ${userTeamDb.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}...`)
-        await this.teamsService.addMembersById(userTeamDb.id, [userDb.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
+        Logger.log(`Adding ${user.display_name} to team ${userTeamDb.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}...`)
+        await this.teamsService.addMembersById(userTeamDb.id, [user.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
 
         this.mailerService
             .sendMail({
-                to: userDb.email,
+                to: user.email,
                 subject: 'Welcome to Kyso',
-                html: `Welcome to Kyso, ${userDb.display_name}!`,
+                template: 'user-new',
+                context: {
+                    user,
+                },
             })
             .then(() => {
-                Logger.log(`Welcome mail sent to ${userDb.display_name}`, UsersService.name)
+                Logger.log(`Welcome e-mail sent to ${user.display_name}`, UsersService.name)
             })
             .catch((err) => {
-                Logger.error(`Error sending welcome mail to ${userDb.display_name}`, err, UsersService.name)
+                Logger.error(`Error sending welcome e-mail to ${user.display_name}`, err, UsersService.name)
             })
 
-        return userDb
+        await this.sendVerificationEmail(user)
+
+        return user
+    }
+
+    public async sendVerificationEmail(user: User): Promise<boolean> {
+        if (user.email_verified) {
+            Logger.log(`User ${user.display_name} already verified. Email is not sent...`, UsersService.name)
+            return true
+        }
+
+        // Link to verify user email
+        const hours: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_TOKEN_EMAIL_VERIFICATION)
+        const userVerification: UserVerification = new UserVerification(user.email, uuidv4(), user.id, moment().add(hours, 'hours').toDate())
+        await this.userVerificationMongoProvider.create(userVerification)
+
+        return new Promise<boolean>(async (resolve) => {
+            this.mailerService
+                .sendMail({
+                    to: user.email,
+                    subject: 'Verify your account',
+                    template: 'verify-email',
+                    context: {
+                        user,
+                        userVerification,
+                        frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+                    },
+                })
+                .then(() => {
+                    Logger.log(`Verify account e-mail sent to ${user.display_name}`, UsersService.name)
+                    resolve(true)
+                })
+                .catch((err) => {
+                    Logger.error(`Error sending verify account e-mail to ${user.display_name}`, err, UsersService.name)
+                    resolve(false)
+                })
+        })
     }
 
     async deleteUser(id: string): Promise<boolean> {
@@ -308,10 +363,7 @@ export class UsersService extends AutowiredService {
     }
 
     public async revokeAllUserAccessToken(userId: string): Promise<KysoUserAccessToken[]> {
-        await this.kysoAccessTokenProvider.updateMany(
-            { user_id: userId },
-            { $set: { status: KysoUserAccessTokenStatus.REVOKED } },
-        )
+        await this.kysoAccessTokenProvider.updateMany({ user_id: userId }, { $set: { status: KysoUserAccessTokenStatus.REVOKED } })
         return this.getAccessTokens(userId)
     }
 
@@ -343,5 +395,133 @@ export class UsersService extends AutowiredService {
         } else {
             return null
         }
+    }
+
+    public async updateGitlabUserAccount(userId: string, userAccount: UserAccount, gitlabAccessToken: GitlabAccessToken): Promise<UserAccount> {
+        const user: User = await this.getUserById(userId)
+        const index: number = user.accounts.findIndex((uc: UserAccount) => uc.type === LoginProviderEnum.GITLAB && uc.accountId === userAccount.accountId)
+        if (index > -1) {
+            user.accounts[index].accessToken = gitlabAccessToken.access_token
+            user.accounts[index].payload = gitlabAccessToken
+            Logger.log(`User ${user.username} is updating Gitlab account`, GitlabLoginProvider.name)
+        } else {
+            user.accounts.push(userAccount)
+            Logger.log(`User ${user.username} is adding Gitlab account`, GitlabLoginProvider.name)
+        }
+        await this.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
+        return userAccount
+    }
+
+    public async verifyEmail(data: VerifyEmailRequestDTO): Promise<boolean> {
+        const result: UserVerification[] = await this.userVerificationMongoProvider.read({
+            filter: {
+                $and: [{ email: data.email }, { token: data.token }],
+            },
+        })
+        if (result.length === 0) {
+            throw new PreconditionFailedException('Token not found')
+        }
+        const userVerification: UserVerification = result[0]
+        if (userVerification.verified_at !== null) {
+            throw new PreconditionFailedException('Verification token already used')
+        }
+        const user: User = await this.getUserById(userVerification.user_id)
+        if (user.email_verified) {
+            throw new PreconditionFailedException('Email already verified')
+        }
+        if (moment().isAfter(userVerification.expires_at)) {
+            throw new PreconditionFailedException('Verification token expired')
+        }
+        await this.provider.update({ _id: new ObjectId(user.id) }, { $set: { email_verified: true } })
+        await this.userVerificationMongoProvider.updateOne({ _id: new ObjectId(userVerification.id) }, { $set: { verified_at: new Date() } })
+        return true
+    }
+
+    public async verifyCaptcha(userId: string, data: VerifyCaptchaRequestDto): Promise<boolean> {
+        const recaptchaEnabled: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.RECAPTCHA2_ENABLED)
+        if (recaptchaEnabled.toLowerCase() === 'false') {
+            await this.provider.update({ _id: new ObjectId(userId) }, { $set: { show_captcha: false } })
+            return true
+        } else {
+            const secret: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.RECAPTCHA2_SECRET_KEY)
+            const response: any = await axios.post(`https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${data.token}`)
+            if (response.data.success) {
+                await this.provider.update({ _id: new ObjectId(userId) }, { $set: { show_captcha: false } })
+                return true
+            }
+            return false
+        }
+    }
+
+    public async changePassword(userChangePasswordDto: UserChangePasswordDTO): Promise<boolean> {
+        const result: UserForgotPassword[] = await this.userChangePasswordMongoProvider.read({
+            filter: {
+                $and: [{ email: userChangePasswordDto.email }, { token: userChangePasswordDto.token }],
+            },
+        })
+        if (result.length === 0) {
+            throw new PreconditionFailedException('Token not found')
+        }
+        const userForgotPassword: UserForgotPassword = result[0]
+        if (userForgotPassword.modified_at !== null) {
+            throw new PreconditionFailedException('Recovery password token already used')
+        }
+        if (moment().isAfter(userForgotPassword.expires_at)) {
+            throw new PreconditionFailedException('Recovery password token expired')
+        }
+        const user: User = await this.getUserById(userForgotPassword.user_id)
+        const areEquals: boolean = await AuthService.isPasswordCorrect(userChangePasswordDto.password, user.hashed_password)
+        if (areEquals) {
+            throw new PreconditionFailedException('New password must be different from the old one')
+        }
+        await this.provider.updateOne(
+            { _id: new ObjectId(user.id) },
+            { $set: { hashed_password: AuthService.hashPassword(userChangePasswordDto.password), show_captcha: false } },
+        )
+        await this.userChangePasswordMongoProvider.updateOne({ _id: new ObjectId(userForgotPassword.id) }, { $set: { modified_at: new Date() } })
+        return true
+    }
+
+    public async sendEmailRecoveryPassword(emailUserChangePasswordDTO: EmailUserChangePasswordDTO): Promise<boolean> {
+        const user: User = await this.getUser({
+            filter: {
+                email: emailUserChangePasswordDTO.email,
+            },
+        })
+        if (!user) {
+            throw new PreconditionFailedException('User not registered')
+        }
+
+        const validCaptcha: boolean = await this.verifyCaptcha(user.id, { token: emailUserChangePasswordDTO.captchaToken })
+        if (!validCaptcha) {
+            throw new PreconditionFailedException('Invalid captcha')
+        }
+
+        // Link to change user password
+        const minutes: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_MINUTES_TOKEN_RECOVERY_PASSWORD)
+        let userForgotPassword: UserForgotPassword = new UserForgotPassword(user.email, uuidv4(), user.id, moment().add(minutes, 'minutes').toDate())
+        userForgotPassword = await this.userChangePasswordMongoProvider.create(userForgotPassword)
+
+        return new Promise<boolean>(async (resolve) => {
+            this.mailerService
+                .sendMail({
+                    to: user.email,
+                    subject: 'Change password',
+                    template: 'change-password',
+                    context: {
+                        user,
+                        userForgotPassword,
+                        frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+                    },
+                })
+                .then(() => {
+                    Logger.log(`Recovery password e-mail sent to ${user.display_name}`, UsersService.name)
+                    resolve(true)
+                })
+                .catch((err) => {
+                    Logger.error(`Error sending recovery password e-mail to ${user.display_name}`, err, UsersService.name)
+                    resolve(false)
+                })
+        })
     }
 }

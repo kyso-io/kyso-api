@@ -1,13 +1,16 @@
 import {
     AuthProviderSpec,
     CreateUserRequestDTO,
+    KysoSettingsEnum,
     Login,
     LoginProviderEnum,
     NormalizedResponseDTO,
     Organization,
     PingIdSAMLSpec,
+    ReportPermissionsEnum,
     Token,
     User,
+    VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model'
 import {
     Body,
@@ -15,6 +18,7 @@ import {
     ForbiddenException,
     Get,
     Headers,
+    HttpStatus,
     Logger,
     Param,
     Post,
@@ -23,18 +27,19 @@ import {
     Res,
     UnauthorizedException,
 } from '@nestjs/common'
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import * as moment from 'moment'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
+import { Cookies } from '../../decorators/cookies'
 import { GenericController } from '../../generic/controller.generic'
 import { db } from '../../main'
-import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { CurrentToken } from './annotations/current-token.decorator'
-import { AuthService } from './auth.service'
+import { AuthService, TOKEN_EXPIRATION_HOURS } from './auth.service'
 import { PlatformRoleService } from './platform-role.service'
 import { UserRoleService } from './user-role.service'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -50,16 +55,16 @@ export class AuthController extends GenericController<string> {
     private readonly organizationsService: OrganizationsService
 
     @Autowired({ typeName: 'UserRoleService' })
-    public userRoleService: UserRoleService
+    public readonly userRoleService: UserRoleService
 
     @Autowired({ typeName: 'PlatformRoleService' })
-    public platformRoleService: PlatformRoleService
+    public readonly platformRoleService: PlatformRoleService
 
     @Autowired({ typeName: 'TeamsService' })
-    public teamsService: TeamsService
+    public readonly teamsService: TeamsService
 
     @Autowired({ typeName: 'KysoSettingsService' })
-    public kysoSettingsService: KysoSettingsService
+    public readonly kysoSettingsService: KysoSettingsService
 
     constructor(private readonly authService: AuthService) {
         super()
@@ -67,7 +72,7 @@ export class AuthController extends GenericController<string> {
 
     @Get('/version')
     version(): string {
-        return '0.0.2'
+        return '1.1.0'
     }
 
     @Get('/db')
@@ -109,9 +114,39 @@ export class AuthController extends GenericController<string> {
             },
         },
     })
-    async login(@Body() login: Login): Promise<NormalizedResponseDTO<string>> {
+    async login(@Body() login: Login, @Res() res): Promise<void> {
         const jwt: string = await this.authService.login(login)
-        return new NormalizedResponseDTO(jwt)
+        const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX)
+        res.cookie('kyso-jwt-token', jwt, {
+            secure: process.env.NODE_ENV !== 'development',
+            httpOnly: true,
+            path: staticContentPrefix,
+            sameSite: 'strict',
+            expires: moment().add(TOKEN_EXPIRATION_HOURS, 'hours').toDate(),
+        })
+        res.send(new NormalizedResponseDTO(jwt))
+    }
+
+    @Post('/logout')
+    @ApiOperation({
+        summary: `Log out the user from Kyso`,
+        description: `Log out the user from Kyso`,
+    })
+    @ApiResponse({
+        status: 200,
+        description: `JWT token related to user`,
+        type: String,
+    })
+    async logout(@Res() res): Promise<void> {
+        const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX)
+        res.cookie('kyso-jwt-token', '', {
+            secure: process.env.NODE_ENV !== 'development',
+            httpOnly: true,
+            path: staticContentPrefix,
+            sameSite: 'strict',
+            expires: new Date(0),
+        })
+        res.status(HttpStatus.OK).send()
     }
 
     @Get('/login/sso/ping-saml/:organizationSlug')
@@ -213,6 +248,29 @@ export class AuthController extends GenericController<string> {
         return new NormalizedResponseDTO(user)
     }
 
+    @Post('/verify-email')
+    @ApiOperation({
+        summary: `Verify an user's email address`,
+        description: `Allows new users to verify their email address`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Verified user`, type: Boolean })
+    public async verifyEmail(@Body() data: VerifyEmailRequestDTO): Promise<NormalizedResponseDTO<boolean>> {
+        const result: boolean = await this.usersService.verifyEmail(data)
+        return new NormalizedResponseDTO(result)
+    }
+
+    @Post('/send-verification-email')
+    @ApiOperation({
+        summary: `Send an email to verify an user's email address`,
+        description: `Allows new users to send an email to verify their email address`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Sent email`, type: Boolean })
+    public async sendVerifyEmail(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<boolean>> {
+        const user: User = await this.usersService.getUserById(token.id)
+        const result: boolean = await this.usersService.sendVerificationEmail(user)
+        return new NormalizedResponseDTO(result)
+    }
+
     @Post('/refresh-token')
     @ApiBearerAuth()
     @ApiOperation({
@@ -286,21 +344,66 @@ export class AuthController extends GenericController<string> {
         }
     }
 
-    @Post('/check-permissions')
-    @ApiBody({
-        description: 'entity to check',
+    @Get('/check-permissions')
+    @ApiHeader({
+        name: 'Authorization',
+        description: 'Authorization header with "Bearer: {jwt}"',
         required: true,
-        examples: {
-            'Check if user has permissions to access to a report': {
-                value: {
-                    type: 'report',
-                    id: '6220c2ae395e90e53b5afe39',
-                    permission: ["KYSO_IO_REPORT_READ"]
-                },
-            },
-        },
+        example:
+            'Bearer: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwYXlsb2FkIjp7ImlkIjoiNjIwMzEzMDk0NGI1ZjdlZDFkN2JjMGYyIiwibmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwibmlja25hbWUiOiJwYWxwYXRpbmUiLCJ1c2VybmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwiZW1haWwiOiJwYWxwYXRpbmVAa3lzby5pbyIsInBsYW4iOiJmcmVlIiwicGVybWlzc2lvbnMiOnt9LCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9iaXQubHkvM0lYQUZraSIsImxvY2F0aW9uIjoiIiwibGluayI6IiIsImJpbyI6IltQbGF0Zm9ybSBBZG1pbl0gUGFscGF0aW5lIGlzIGEgcGxhdGZvcm0gYWRtaW4iLCJhY2NvdW50cyI6W3sidHlwZSI6ImdpdGh1YiIsImFjY291bnRJZCI6Ijk4NzQ5OTA5IiwidXNlcm5hbWUiOiJtb3phcnRtYWUifV19LCJpYXQiOjE2NDY5MTEyMDcsImV4cCI6MTY0Njk0MDAwNywiaXNzIjoia3lzbyJ9.ZQr-TbPcoGjEE2njhJ8a8yifgegv0uez8jJR-4AcBII',
     })
-    async checkPermissions(@CurrentToken() requesterUser: Token, @Body() data: any) {
-        return "ok"
+    @ApiHeader({
+        name: 'x-original-uri',
+        description: 'Original SCS url',
+        required: true,
+    })
+    async checkPermissions(@Headers('x-original-uri') originalUri, @Res() response: any, @Cookies() cookies: any) {
+        if (process.env.NODE_ENV === 'development') {
+            response.status(HttpStatus.OK).send()
+            return
+        }
+
+        if (!originalUri || originalUri.length === 0) {
+            response.status(HttpStatus.FORBIDDEN).send()
+            return
+        }
+
+        if (!cookies || !cookies['kyso-jwt-token'] || cookies['kyso-jwt-token'].length === 0) {
+            response.status(HttpStatus.FORBIDDEN).send()
+            return
+        }
+
+        const token: Token = this.authService.evaluateAndDecodeToken(cookies['kyso-jwt-token'])
+        if (!token) {
+            response.status(HttpStatus.FORBIDDEN).send()
+            return
+        }
+
+        token.permissions = await AuthService.buildFinalPermissionsForUser(
+            token.username,
+            this.usersService,
+            this.teamsService,
+            this.organizationsService,
+            this.platformRoleService,
+            this.userRoleService,
+        )
+
+        // URI has the following structure /scs/{organizationName}/{teamName}/reports/{reportId}/...
+        // Remove the first /scs/
+        const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX)
+        originalUri = originalUri.replace(`${staticContentPrefix}/`, '')
+
+        // Split by "/"
+        const splittedUri: string[] = originalUri.split('/')
+        const organizationName = splittedUri[0]
+        const teamName = splittedUri[1]
+        const reportName = splittedUri[3]
+
+        const userHasPermission: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+        if (userHasPermission) {
+            response.status(HttpStatus.OK).send()
+        } else {
+            response.status(HttpStatus.FORBIDDEN).send()
+        }
     }
 }

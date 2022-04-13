@@ -8,8 +8,10 @@ import { AuthModule } from './modules/auth/auth.module'
 import { BitbucketReposModule } from './modules/bitbucket-repos/bitbucket-repos.module'
 import { CommentsModule } from './modules/comments/comments.module'
 import { DiscussionsModule } from './modules/discussions/discussions.module'
+import { FeedbackModule } from './modules/feedback/feedback.module'
+import { FullTextSearchModule } from './modules/full-text-search/full-text-search.module'
 import { GithubReposModule } from './modules/github-repos/github-repos.module'
-import { HooksModule } from './modules/hooks/hooks.module'
+import { GitlabReposModule } from './modules/gitlab-repos/gitlab-repos.module'
 import { InvitationsModule } from './modules/invitations/invitations.module'
 import { KysoSettingsModule } from './modules/kyso-settings/kyso-settings.module'
 import { OrganizationsModule } from './modules/organizations/organizations.module'
@@ -26,8 +28,11 @@ import { UsersModule } from './modules/users/users.module'
         BitbucketReposModule.forRoot(),
         CommentsModule.forRoot(),
         DiscussionsModule.forRoot(),
+        FeedbackModule,
+        FullTextSearchModule.forRoot(),
         GithubReposModule.forRoot(),
-        HooksModule,
+        GitlabReposModule.forRoot(),
+        KysoSettingsModule.forRoot(),
         InvitationsModule.forRoot(),
         MailerModule.forRootAsync({
             useFactory: () => {
@@ -37,7 +42,7 @@ import { UsersModule } from './modules/users/users.module'
                         from: mailFrom,
                     },
                     template: {
-                        dir: join(__dirname, '../../templates'),
+                        dir: join(__dirname, '../templates'),
                         adapter: new HandlebarsAdapter(),
                         options: {
                             strict: true,
@@ -54,7 +59,6 @@ import { UsersModule } from './modules/users/users.module'
         TeamsModule.forRoot(),
         TestingDataPopulatorModule,
         UsersModule.forRoot(),
-        KysoSettingsModule.forRoot()
     ],
 })
 export class AppModule {}

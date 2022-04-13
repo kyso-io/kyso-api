@@ -1,12 +1,13 @@
-import { Organization, OrganizationAuthOptions, OrganizationOptions } from '@kyso-io/kyso-model'
+import { Organization, OrganizationAuthOptions, OrganizationNotifications, OrganizationOptions } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
+import { v4 as uuidv4 } from 'uuid'
 import slug from '../../../helpers/slugify'
 import { db } from '../../../main'
 import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
 export class OrganizationsMongoProvider extends MongoProvider<Organization> {
-    version = 3
+    version = 6
 
     constructor() {
         super('Organization', db)
@@ -34,24 +35,24 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
 
         const orgOptions = new OrganizationOptions()
         const orgAuthOptions = new OrganizationAuthOptions()
-        orgAuthOptions.allow_login_with_github = true 
-        orgAuthOptions.allow_login_with_kyso = true 
-        orgAuthOptions.allow_login_with_google = true 
+        orgAuthOptions.allow_login_with_github = true
+        orgAuthOptions.allow_login_with_kyso = true
+        orgAuthOptions.allow_login_with_google = true
         orgAuthOptions.otherProviders = []
         orgOptions.auth = orgAuthOptions
 
-        for(let org of allOrganizations) {
+        for (let org of allOrganizations) {
             org.options = orgOptions
 
             // If options does not exist, set the default value
-            if(!org.options) {
+            if (!org.options) {
                 org.options = orgOptions
-                
+
                 const data: any = {}
                 data.options = orgOptions
-                
+
                 Logger.log(`Migrating organization ${org.display_name} from version 1 to version 2`)
-                
+
                 // Add the default value
                 await this.update(
                     { _id: this.toObjectId(org.id) },
@@ -63,14 +64,14 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
         }
 
         // Update database to new version
-        await this.saveModelVersion(2)        
+        await this.saveModelVersion(2)
     }
 
     /**
      * Refactored properties:
      *     - nickname to display_name
      *     - name to sluglified_name
-     * 
+     *
      * This migration do:
      *     - Iterates through every document in Organization collection
      *     - For each of them:
@@ -78,18 +79,18 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
      *         - Updates new display_name with nickname value
      *         - Updates new sluglified_name with name value, but sluglifing it
      *         - Updates name value as well but sluglifing it
-     * 
+     *
      * This migration DOES NOT DELETE name nor nickname, to be backwards compatible, but these properties are deprecated and will be deleted in next migrations
      */
-     async migrate_from_2_to_3() {
+    async migrate_from_2_to_3() {
         const cursor = await this.getCollection().find({})
         const allOrganizations: any[] = await cursor.toArray()
-        
-        for(let organization of allOrganizations) {
+
+        for (let organization of allOrganizations) {
             const data: any = {
                 sluglified_name: slug(organization.name),
                 name: slug(organization.name),
-                display_name: organization.nickname
+                display_name: organization.nickname,
             }
 
             await this.update(
@@ -101,6 +102,104 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
         }
 
         // This is made automatically, so don't need to add it explicitly
-        // await this.saveModelVersion(3)      
+        // await this.saveModelVersion(3)
+    }
+
+    public async migrate_from_3_to_4() {
+        const cursor = await this.getCollection().find({})
+        const allOrganizations: any[] = await cursor.toArray()
+        for (let organization of allOrganizations) {
+            const data: any = {
+                invitation_code: uuidv4(),
+            }
+            await this.update(
+                { _id: this.toObjectId(organization.id) },
+                {
+                    $set: data,
+                },
+            )
+        }
+    }
+
+    public async migrate_from_4_to_5(): Promise<void> {
+        const cursor = await this.getCollection().find({})
+        const allOrganizations: any[] = await cursor.toArray()
+        for (let organization of allOrganizations) {
+            const orgNotifications: OrganizationNotifications = new OrganizationNotifications()
+            orgNotifications.centralized = false
+            orgNotifications.emails = []
+            let data: any = null
+            if (organization.options) {
+                data = {
+                    options: {
+                        ...organization.options,
+                        notifications: orgNotifications,
+                    },
+                }
+            } else {
+                const orgOptions = new OrganizationOptions()
+                const orgAuthOptions = new OrganizationAuthOptions()
+                orgAuthOptions.allow_login_with_github = true
+                orgAuthOptions.allow_login_with_kyso = true
+                orgAuthOptions.allow_login_with_google = true
+                orgAuthOptions.otherProviders = []
+                orgOptions.auth = orgAuthOptions
+                orgOptions.notifications = orgNotifications
+                data = {
+                    options: orgOptions,
+                }
+            }
+
+            await this.update(
+                { _id: this.toObjectId(organization.id) },
+                {
+                    $set: data,
+                },
+            )
+        }
+    }
+
+    public async migrate_from_5_to_6(): Promise<void> {
+        const cursor = await this.getCollection().find({})
+        const allOrganizations: any[] = await cursor.toArray()
+        for (let organization of allOrganizations) {
+            let data: any = null
+            if (organization.options?.auth) {
+                data = {
+                    options: {
+                        ...organization.options,
+                        auth: {
+                            ...organization.options.auth,
+                            allow_login_with_bitbucket: true,
+                            allow_login_with_gitlab: true,
+                        },
+                    },
+                }
+            } else {
+                const orgOptions = new OrganizationOptions()
+                const orgAuthOptions = new OrganizationAuthOptions()
+                orgAuthOptions.allow_login_with_github = true
+                orgAuthOptions.allow_login_with_kyso = true
+                orgAuthOptions.allow_login_with_google = true
+                orgAuthOptions.allow_login_with_bitbucket = true
+                orgAuthOptions.allow_login_with_gitlab = true
+                orgAuthOptions.otherProviders = []
+                orgOptions.auth = orgAuthOptions
+                const orgNotifications: OrganizationNotifications = new OrganizationNotifications()
+                orgNotifications.centralized = false
+                orgNotifications.emails = []
+                orgOptions.notifications = orgNotifications
+                data = {
+                    options: orgOptions,
+                }
+            }
+
+            await this.update(
+                { _id: this.toObjectId(organization.id) },
+                {
+                    $set: data,
+                },
+            )
+        }
     }
 }

@@ -21,6 +21,7 @@ import {
 } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import { Injectable, Logger } from '@nestjs/common'
+import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { PlatformRole } from '../../security/platform-roles'
 import { CommentsService } from '../comments/comments.service'
@@ -32,6 +33,8 @@ import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { exec } = require('child_process')
+
+const mailPrefix = process.env.POPULATE_TEST_DATA_MAIL_PREFIX ? process.env.POPULATE_TEST_DATA_MAIL_PREFIX : "lo"
 @Injectable()
 export class TestingDataPopulatorService {
     private Rey_TeamAdminUser: User
@@ -126,7 +129,7 @@ export class TestingDataPopulatorService {
 
     private async checkIfAlreadyExists() {
         // I assume only these two usernames exist if they were created by the test data populator
-        const testUsersByUsername = await this.usersService.getUsers({ filter: { $or: [{ email: 'rey@kyso.io' }, { email: 'kylo@kyso.io' }] } })
+        const testUsersByUsername = await this.usersService.getUsers({ filter: { $or: [{ email: `${mailPrefix}+rey@dev.kyso.io` }, { email: `${mailPrefix}+kylo@dev.kyso.io` }] } })
         if (testUsersByUsername.length === 2) {
             return true
         }
@@ -134,11 +137,13 @@ export class TestingDataPopulatorService {
     }
 
     private async createTestingUsers() {
+        
+
         const rey_TestTeamAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-            'rey@kyso.io',
-            'rey@kyso.io',
-            'rey@kyso.io',
-            'rey',
+            `${mailPrefix}+rey@dev.kyso.io`,
+            'skywalker',
+            'Rey Skywalker',
+            'Rey',
             LoginProviderEnum.KYSO,
             '[Team Admin] Rey is a Team Admin',
             '',
@@ -151,10 +156,10 @@ export class TestingDataPopulatorService {
         )
 
         const kylo_TestTeamContributorUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-            'kylo@kyso.io',
-            'kylo@kyso.io',
-            'kylo@kyso.io',
+            `${mailPrefix}+kylo@dev.kyso.io`,
             'kyloren',
+            'Ben Solo',
+            'Kylo Ren',
             LoginProviderEnum.KYSO,
             '[Team Contributor] Kylo Ren is a Team Contributor',
             '',
@@ -167,10 +172,10 @@ export class TestingDataPopulatorService {
         )
 
         const chewbacca_TestTeamReaderUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-            'chewbacca@kyso.io',
-            'chewbacca@kyso.io',
-            'chewbacca@kyso.io',
-            'chewbacca',
+            `${mailPrefix}+chewbacca@dev.kyso.io`,
+            'chewie',
+            'GRWAAAAAAWWLLL Chewbacca',
+            'Chewbacca',
             LoginProviderEnum.KYSO,
             '[Team Reader] Chewbacca is a Team Reader',
             '',
@@ -183,10 +188,10 @@ export class TestingDataPopulatorService {
         )
 
         const gideon_TestOrganizationAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-            'gideon@kyso.io',
-            'gideon@kyso.io',
-            'gideon@kyso.io',
-            'moffgideon',
+            `${mailPrefix}+gideon@dev.kyso.io`,
+            'gideon',
+            'The Greatest Moff Giddeon',
+            'Moff Gideon',
             LoginProviderEnum.KYSO,
             '[Organization Admin] Moff Gideon is an Organization Admin',
             '',
@@ -199,9 +204,9 @@ export class TestingDataPopulatorService {
         )
 
         const palpatine_TestPlatformAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-            'palpatine@kyso.io',
-            'palpatine@kyso.io',
-            'palpatine@kyso.io',
+            `${mailPrefix}+palpatine@dev.kyso.io`,
+            `palpatine`,
+            'Lord Palpatine',
             'palpatine',
             LoginProviderEnum.KYSO,
             '[Platform Admin] Palpatine is a platform admin',
@@ -215,9 +220,9 @@ export class TestingDataPopulatorService {
         )
 
         const babyYoda_TestOrganizationAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-            'baby_yoda@kyso.io',
-            'baby_yoda@kyso.io',
-            'baby_yoda@kyso.io',
+            `${mailPrefix}+baby_yoda@dev.kyso.io`,
+            'the-real-baby-yoda',
+            'Grogu aka Baby Yoda',
             'Baby Yoda',
             LoginProviderEnum.KYSO,
             '[Organization Admin] Baby Yoda is an Organization Admin',
@@ -267,13 +272,14 @@ export class TestingDataPopulatorService {
     private async createTestingReports() {
         const reportKylosThoughts = new CreateReportDTO(
             'kylos-thoughts',
+            'fran-kyso',
             RepositoryProvider.KYSO,
-            null,
             'main',
             '.',
             this.ProtectedTeamWithCustomRole.id,
             `Kylo's thoughts about to switch from darkside to lightside`,
             'Sometimes the anger flows through me and I want to be at the darkside. But on the other hand, when I see Rey I get doubts and want to be in the lightside!',
+            null,
             null,
         )
 
@@ -281,13 +287,14 @@ export class TestingDataPopulatorService {
 
         const reportMoffGideonPokemonReport = new CreateReportDTO(
             'best-pokemon-ever',
+            'fran-kyso',
             RepositoryProvider.KYSO,
-            null,
             'main',
             '.',
             this.PrivateTeam.id,
             `The Best Pokemon Report by Moff Gideon`,
             `Do you think Pokemon is not suitable for Lord Siths? You're wrong! See my report to know who is the best pokemon ever!`,
+            null,
             null,
         )
 
@@ -303,6 +310,7 @@ export class TestingDataPopulatorService {
             `Engineering details about the construction of the Dark Star for the Imperium`,
             'Make sure that this details dont get leaked as the lightside can really fuck us with that information',
             null,
+            null,
         )
 
         this.DeathStarEngineeringReport = await this._createReport(this.Gideon_OrganizationAdminUser, reportDeathStarEngineering)
@@ -316,6 +324,7 @@ export class TestingDataPopulatorService {
             this.ProtectedTeamWithCustomRole.id,
             `Counterattack plan's to destroy Death Star`,
             `Using the information that Moff Gideon leaked absurdly, in this report we detail how we're going to destroy the Empire`,
+            null,
             null,
         )
 
@@ -512,6 +521,7 @@ export class TestingDataPopulatorService {
             '',
             '',
             '',
+            uuidv4(),
         )
 
         this.DarksideOrganization = await this._createOrganization(darksideOrganization)
@@ -531,6 +541,7 @@ export class TestingDataPopulatorService {
             '',
             '',
             '',
+            uuidv4(),
         )
 
         this.LightsideOrganization = await this._createOrganization(lightsideOrganization)

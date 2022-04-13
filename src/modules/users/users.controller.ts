@@ -1,6 +1,8 @@
 import {
+    AddUserAccountDTO,
     CreateKysoAccessTokenDto,
     CreateUserRequestDTO,
+    EmailUserChangePasswordDTO,
     HEADER_X_KYSO_ORGANIZATION,
     HEADER_X_KYSO_TEAM,
     KysoPermissions,
@@ -9,20 +11,25 @@ import {
     Token,
     UpdateUserRequestDTO,
     User,
-    UserAccount,
+    UserChangePasswordDTO,
     UserDTO,
     UserPermissionsEnum,
+    VerifyCaptchaRequestDto,
 } from '@kyso-io/kyso-model'
 import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { Autowired } from '../../decorators/autowired'
 import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
+import { AuthService } from '../auth/auth.service'
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { UsersService } from './users.service'
 
 @ApiTags('users')
@@ -40,6 +47,9 @@ import { UsersService } from './users.service'
     required: true,
 })
 export class UsersController extends GenericController<User> {
+    @Autowired({ typeName: 'AuthService' })
+    private authService: AuthService
+
     constructor(private readonly usersService: UsersService) {
         super()
     }
@@ -115,6 +125,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Post('/access-token')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Creates an access token for the specified user`,
         description: `Creates an access token for the specified user`,
@@ -143,6 +154,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Patch('/access-token/revoke-all')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Revoke all user access tokens`,
         description: `Revoke all user access tokens`,
@@ -155,6 +167,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Delete('/access-token/:accessTokenId')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Deletes an access token`,
         description: `Deletes an access token`,
@@ -167,7 +180,10 @@ export class UsersController extends GenericController<User> {
     })
     @ApiResponse({ status: 200, description: `Access Token deleted successfully`, type: KysoUserAccessToken })
     // @Permission([UserPermissionsEnum.EDIT])
-    async deleteUserAccessToken(@CurrentToken() token: Token, @Param('accessTokenId') accessTokenId: string): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+    async deleteUserAccessToken(
+        @CurrentToken() token: Token,
+        @Param('accessTokenId') accessTokenId: string,
+    ): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
         const result: KysoUserAccessToken = await this.usersService.deleteKysoAccessToken(token.id, accessTokenId)
         return new NormalizedResponseDTO(result)
     }
@@ -216,6 +232,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Post()
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Creates an user`,
         description: `If requester has UserPermissionsEnum.CREATE permission, creates an user`,
@@ -227,6 +244,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Patch('/:userId')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Update an user`,
         description: `Allows updating an user passing its id`,
@@ -248,6 +266,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Delete('/:id')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a user`,
         description: `Allows deleting a specific user passing its id`,
@@ -266,7 +285,8 @@ export class UsersController extends GenericController<User> {
         return new NormalizedResponseDTO(deleted)
     }
 
-    @Patch('/:userId/accounts')
+    @Post('/accounts')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Add an account to an user`,
         description: `Allows adding an account to an user passing its id`,
@@ -278,12 +298,13 @@ export class UsersController extends GenericController<User> {
         schema: { type: 'string' },
     })
     @ApiResponse({ status: 200, description: `Account added successfully` })
-    @Permission([UserPermissionsEnum.EDIT])
-    async addAccount(@Param('userId') userId: string, @Body() userAccount: UserAccount): Promise<boolean> {
-        return this.usersService.addAccount(userId, userAccount)
+    // @Permission([UserPermissionsEnum.EDIT])
+    async addAccount(@CurrentToken() token: Token, @Body() addUserAccountDTO: AddUserAccountDTO): Promise<boolean> {
+        return this.authService.addUserAccount(token, addUserAccountDTO)
     }
 
     @Delete('/:userId/accounts/:provider/:accountId')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Remove an account from an user`,
         description: `Allows removing an account from an user passing its username`,
@@ -323,6 +344,7 @@ export class UsersController extends GenericController<User> {
         }),
     )
     @Post('/profile-picture')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Upload a profile picture for a team`,
         description: `Allows uploading a profile picture for a user the image`,
@@ -337,6 +359,7 @@ export class UsersController extends GenericController<User> {
     }
 
     @Delete('/profile-picture')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a profile picture for a team`,
         description: `Allows deleting a profile picture for a user`,
@@ -345,5 +368,32 @@ export class UsersController extends GenericController<User> {
     public async deleteBackgroundImage(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<UserDTO>> {
         const user: User = await this.usersService.deleteProfilePicture(token)
         return new NormalizedResponseDTO(UserDTO.fromUser(user))
+    }
+
+    @Post('verify-captcha')
+    @ApiOperation({
+        summary: `Verify captcha`,
+        description: `Allows verifying captcha`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: Boolean })
+    public async verifyCaptcha(@CurrentToken() token: Token, @Body() data: VerifyCaptchaRequestDto): Promise<NormalizedResponseDTO<boolean>> {
+        const success: boolean = await this.usersService.verifyCaptcha(token.id, data)
+        return new NormalizedResponseDTO(success)
+    }
+
+    @Post('email-recovery-password')
+    @Public()
+    @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: Boolean })
+    public async sendEmailRecoveryPassword(@Body() emailUserChangePasswordDTO: EmailUserChangePasswordDTO): Promise<NormalizedResponseDTO<boolean>> {
+        const success: boolean = await this.usersService.sendEmailRecoveryPassword(emailUserChangePasswordDTO)
+        return new NormalizedResponseDTO(success)
+    }
+
+    @Post('change-password')
+    @Public()
+    @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: Boolean })
+    public async changePassword(@Body() userChangePasswordDto: UserChangePasswordDTO): Promise<NormalizedResponseDTO<boolean>> {
+        const success: boolean = await this.usersService.changePassword(userChangePasswordDto)
+        return new NormalizedResponseDTO(success)
     }
 }

@@ -1,15 +1,15 @@
-import { CreateUserRequestDTO, Login, LoginProviderEnum, Token, User, UserAccount } from '@kyso-io/kyso-model'
+import { AddUserAccountDTO, CreateUserRequestDTO, Login, LoginProviderEnum, Token, User, UserAccount } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
 import { ObjectId } from 'mongodb'
+import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../../decorators/autowired'
 import { UnauthorizedError } from '../../../helpers/errorHandling'
 import { GithubReposService } from '../../github-repos/github-repos.service'
-import { KysoSettingsEnum } from '../../kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsEnum } from "@kyso-io/kyso-model"
 import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 import { UsersService } from '../../users/users.service'
-import { GoogleLoginProvider } from './google-login.provider'
 
 export const TOKEN_EXPIRATION_TIME = '8h'
 
@@ -36,7 +36,7 @@ export class GithubLoginProvider {
         try {
             const clientId = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITHUB_CLIENT_ID)
             const clientSecret = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITHUB_CLIENT_SECRET)
-            
+
             const res = await axios.post(
                 `https://github.com/login/oauth/access_token`,
                 {
@@ -57,6 +57,7 @@ export class GithubLoginProvider {
             // Retrieve the token...
             const accessToken = res.data.split('&')[0].split('=')[1]
             const githubUser = await this.githubReposService.getUserByAccessToken(accessToken)
+            login.username = githubUser.login
 
             // Get user's detail
             // Check if the user exists in database, and if not, create it
@@ -76,9 +77,9 @@ export class GithubLoginProvider {
                     '',
                     'free',
                     githubUser.avatar_url,
-                    true,
+                    false,
                     [],
-                    '',
+                    uuidv4(),
                 )
                 user = await this.usersService.createUser(createUserRequestDto)
             }
@@ -94,10 +95,10 @@ export class GithubLoginProvider {
                     accessToken,
                     payload: null,
                 })
-                Logger.log(`User ${login.username} is adding Google account`, GoogleLoginProvider.name)
+                Logger.log(`User ${login.username} is adding Github account`, GithubLoginProvider.name)
             } else {
                 user.accounts[index].accessToken = accessToken
-                Logger.log(`User ${login.username} is updating Google account`, GoogleLoginProvider.name)
+                Logger.log(`User ${login.username} is updating Github account`, GithubLoginProvider.name)
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
 
@@ -112,6 +113,8 @@ export class GithubLoginProvider {
                 user.location,
                 user.link,
                 user.bio,
+                user.email_verified,
+                user.show_captcha,
                 user.accounts.map((userAccount: UserAccount) => ({
                     type: userAccount.type,
                     accountId: userAccount.accountId,
@@ -128,6 +131,57 @@ export class GithubLoginProvider {
         } catch (e) {
             console.log(e)
             return null
+        }
+    }
+
+    public async addUserAccount(token: Token, addUserAccount: AddUserAccountDTO): Promise<boolean> {
+        try {
+            const clientId = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITHUB_CLIENT_ID)
+            const clientSecret = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GITHUB_CLIENT_SECRET)
+
+            const res = await axios.post(
+                `https://github.com/login/oauth/access_token`,
+                {
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    code: addUserAccount.code,
+                },
+                {
+                    headers: { 'content-type': 'application/json' },
+                },
+            )
+            if (res.data.includes('error_description')) {
+                // We got an error. Thanks Github for returning an error as a 200 ;)
+                Logger.error(`Error getting access_token: ${res.data}`)
+                throw new UnauthorizedError('')
+            }
+
+            // Retrieve the token...
+            const accessToken = res.data.split('&')[0].split('=')[1]
+            const githubUser = await this.githubReposService.getUserByAccessToken(accessToken)
+
+            const user: User = await this.usersService.getUserById(token.id)
+            const index: number = user.accounts.findIndex(
+                (userAccount: UserAccount) => userAccount.type === LoginProviderEnum.GITHUB && userAccount.accountId === githubUser.id,
+            )
+            if (index === -1) {
+                user.accounts.push({
+                    type: LoginProviderEnum.GITHUB,
+                    accountId: githubUser.id,
+                    username: githubUser.login,
+                    accessToken,
+                    payload: null,
+                })
+                Logger.log(`User ${user.username} is adding Github account`, GithubLoginProvider.name)
+            } else {
+                user.accounts[index].accessToken = accessToken
+                Logger.log(`User ${user.username} is updating Github account`, GithubLoginProvider.name)
+            }
+            await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
+            return true
+        } catch (e) {
+            console.log(e)
+            return false
         }
     }
 }

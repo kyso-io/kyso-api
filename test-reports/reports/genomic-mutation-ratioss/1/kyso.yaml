@@ -1,0 +1,9 @@
+main: "main.ipynb"
+author: "kyle@kyso.io"
+organization: "lightside"
+team: "protected-team"
+title: "Graphing of genomic mutation ratios"
+description: "Using plotly to plot out synonymous mutations (Ks Plot) and fractionation biases."
+preview: "images/preview.png"
+tags: ["plotly", "genomics", "rna"]
+importPath: "./"

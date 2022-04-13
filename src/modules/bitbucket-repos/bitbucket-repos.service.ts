@@ -1,7 +1,7 @@
 import { Injectable, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
-import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
+import { KysoSettingsEnum } from '@kyso-io/kyso-model'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { BitbucketReposProvider } from './providers/bitbucket-repo.provider'
 

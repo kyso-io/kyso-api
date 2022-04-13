@@ -1,10 +1,14 @@
 import {
+    AddUserAccountDTO,
+    GlobalPermissionsEnum,
     KysoPermissions,
     KysoRole,
+    KysoSettingsEnum,
     Login,
     LoginProviderEnum,
     Organization,
     OrganizationMemberJoin,
+    ResourcePermissions,
     Team,
     TeamMemberJoin,
     Token,
@@ -12,25 +16,28 @@ import {
     User,
     UserAccount,
 } from '@kyso-io/kyso-model'
-import { Injectable, Logger, Provider } from '@nestjs/common'
+import { ForbiddenException, Injectable, Logger, Provider } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcryptjs'
 import * as mongo from 'mongodb'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { PlatformRoleService } from './platform-role.service'
 import { BitbucketLoginProvider } from './providers/bitbucket-login.provider'
 import { GithubLoginProvider } from './providers/github-login.provider'
+import { GitlabLoginProvider } from './providers/gitlab-login.provider'
 import { GoogleLoginProvider } from './providers/google-login.provider'
 import { KysoLoginProvider } from './providers/kyso-login.provider'
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider'
 import { PingIdLoginProvider } from './providers/ping-id-login.provider'
 import { UserRoleService } from './user-role.service'
 
-export const TOKEN_EXPIRATION_TIME = '8h'
+export const TOKEN_EXPIRATION_HOURS = 8
+export const TOKEN_EXPIRATION_TIME = `${TOKEN_EXPIRATION_HOURS}h`
 
 function factory(service: AuthService) {
     return service
@@ -49,9 +56,13 @@ export class AuthService extends AutowiredService {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
+    @Autowired({ typeName: 'KysoSettingsService' })
+    private kysoSettingsService: KysoSettingsService
+
     constructor(
         private readonly bitbucketLoginProvider: BitbucketLoginProvider,
         private readonly githubLoginProvider: GithubLoginProvider,
+        private readonly gitlabLoginProvider: GitlabLoginProvider,
         private readonly googleLoginProvider: GoogleLoginProvider,
         private readonly jwtService: JwtService,
         private readonly kysoLoginProvider: KysoLoginProvider,
@@ -262,22 +273,137 @@ export class AuthService extends AutowiredService {
         return response
     }
 
+    static async hasPermissions(tokenPayload: Token, permissionToActivateEndpoint: KysoPermissions[], team: string, organization: string): Promise<boolean> {
+        if (!tokenPayload) {
+            return false
+        }
+
+        const isGlobalAdmin = tokenPayload.permissions.global.find((x) => x === GlobalPermissionsEnum.GLOBAL_ADMIN)
+
+        // triple absurd checking because a GLOBAL ADMIN DESERVES IT
+        if (isGlobalAdmin) {
+            return true
+        }
+
+        if (!permissionToActivateEndpoint) {
+            // If there are no permissions means that is open to authenticated users
+            return true
+        } else {
+            // Check if user has the required permissions in the team
+            let userPermissionsInThatTeam: ResourcePermissions
+            if (team) {
+                userPermissionsInThatTeam = tokenPayload.permissions.teams.find((x) => x.name.toLowerCase() === team.toLowerCase())
+            }
+
+            // Check if user has the required permissions in the organization
+            let userPermissionsInThatOrganization: ResourcePermissions
+            if (organization) {
+                userPermissionsInThatOrganization = tokenPayload.permissions.organizations.find((x) => x.name.toLowerCase() === organization.toLowerCase())
+            }
+
+            // Finally, check the global permissions
+            const userGlobalPermissions = tokenPayload.permissions.global
+
+            let allUserPermissions = []
+
+            if (userPermissionsInThatTeam && userPermissionsInThatTeam?.permissions && userPermissionsInThatTeam.permissions.length > 0) {
+                /** makes no sense, if has organization_inherited, don't have permissions property */
+                // if (!userPermissionsInThatTeam.hasOwnProperty('organization_inherited') || userPermissionsInThatTeam.organization_inherited === false) {
+                allUserPermissions = [...userPermissionsInThatTeam.permissions]
+                //}
+            } else {
+                if (userPermissionsInThatTeam && userPermissionsInThatTeam.organization_inherited) {
+                    // TODO: get organization role of that user and retrieve their permissions
+                    allUserPermissions = [...userPermissionsInThatOrganization.permissions]
+                }
+            }
+
+            if (userPermissionsInThatOrganization) {
+                allUserPermissions = [...allUserPermissions, ...userPermissionsInThatOrganization.permissions]
+            }
+
+            if (userGlobalPermissions) {
+                allUserPermissions = [...allUserPermissions, ...userGlobalPermissions]
+            }
+
+            const hasAllThePermissions = permissionToActivateEndpoint.every((i) => allUserPermissions.includes(i))
+
+            if (hasAllThePermissions) {
+                return true
+            } else {
+                Logger.log(`User ${tokenPayload.username} has no permissions`)
+                return false
+            }
+        }
+    }
+
     async login(login: Login): Promise<string> {
         Logger.log(`Logging user ${login.username}`)
+        
         switch (login.provider) {
             case LoginProviderEnum.KYSO:
             default:
-                return await this.kysoLoginProvider.login(login.password, login.username)
+                const isKysoAuthEnabled = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_KYSO) === 'true' ? true : false;
+                
+                if(isKysoAuthEnabled) {
+                    return this.kysoLoginProvider.login(login.password, login.username)
+                } else {
+                    throw new ForbiddenException(null, "Kyso authentication is disabled globally for that instance. Forbidden");
+                }
+            
             case LoginProviderEnum.KYSO_ACCESS_TOKEN:
-                return await this.kysoLoginProvider.loginWithAccessToken(login.password, login.username)
+                return this.kysoLoginProvider.loginWithAccessToken(login.password, login.username)
+            
             case LoginProviderEnum.GITHUB:
-                return await this.githubLoginProvider.login(login)
+                const isGithubAuthEnabled = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITHUB) === 'true' ? true : false;
+                
+                if(isGithubAuthEnabled) {
+                    return this.githubLoginProvider.login(login)
+                } else {
+                    throw new ForbiddenException(null, "Github authentication is disabled globally for that instance. Forbidden");
+                }
+                
+            case LoginProviderEnum.GITLAB:
+                const isGitlabAuthEnabled = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITLAB) === 'true' ? true : false;
+                
+                if(isGitlabAuthEnabled) {
+                    return this.gitlabLoginProvider.login(login)
+                } else {
+                    throw new ForbiddenException(null, "Gitlab authentication is disabled globally for that instance. Forbidden");
+                }
+
             case LoginProviderEnum.GOOGLE:
-                return this.googleLoginProvider.login(login)
+                const isGoogleAuthEnabled = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GOOGLE) === 'true' ? true : false;
+                
+                if(isGoogleAuthEnabled) {
+                    return this.googleLoginProvider.login(login)
+                } else {
+                    throw new ForbiddenException(null, "Google authentication is disabled globally for that instance. Forbidden");
+                }
+            
+            case LoginProviderEnum.BITBUCKET:
+                const isBitbucketAuthEnabled = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_BITBUCKET) === 'true' ? true : false;
+                
+                if(isBitbucketAuthEnabled) {
+                    return this.bitbucketLoginProvider.login(login)
+                } else {
+                    throw new ForbiddenException(null, "Bitbucket authentication is disabled globally for that instance. Forbidden");
+                }
+
             case LoginProviderEnum.PING_ID_SAML:
                 return this.pingIdLoginProvider.login(login)
+            
+        }
+    }
+
+    public async addUserAccount(token: Token, addUserAccount: AddUserAccountDTO): Promise<boolean> {
+        switch (addUserAccount.provider) {
+            case LoginProviderEnum.GITHUB:
+                return this.githubLoginProvider.addUserAccount(token, addUserAccount)
             case LoginProviderEnum.BITBUCKET:
-                return this.bitbucketLoginProvider.login(login)
+                return this.bitbucketLoginProvider.addUserAccount(token, addUserAccount)
+            default:
+                return null
         }
     }
 
@@ -324,6 +450,8 @@ export class AuthService extends AutowiredService {
             user.location,
             user.link,
             user.bio,
+            user.email_verified,
+            user.show_captcha,
             user.accounts.map((userAccount: UserAccount) => ({
                 type: userAccount.type,
                 accountId: userAccount.accountId,

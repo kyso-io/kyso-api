@@ -1,6 +1,6 @@
+import { KysoSettingsEnum } from '@kyso-io/kyso-model'
 import { Injectable } from '@nestjs/common'
 import { Autowired } from '../../../decorators/autowired'
-import { KysoSettingsEnum } from '../../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 const AWS = require('aws-sdk')
 

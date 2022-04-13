@@ -5,7 +5,9 @@ import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { GenericController } from '../../generic/controller.generic'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { CommentsService } from './comments.service'
 
 @ApiTags('comments')
@@ -55,6 +57,7 @@ export class CommentsController extends GenericController<Comment> {
     }
 
     @Post()
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create a comment`,
         description: `Allows creating a new comment`,
@@ -71,6 +74,7 @@ export class CommentsController extends GenericController<Comment> {
     }
 
     @Patch('/:commentId')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Update a comment`,
         description: `Allows updating a comment`,
@@ -98,6 +102,7 @@ export class CommentsController extends GenericController<Comment> {
     }
 
     @Delete('/:commentId')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a comment`,
         description: `Allows deleting a comment passing its identificator`,

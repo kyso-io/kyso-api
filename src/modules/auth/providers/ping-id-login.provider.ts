@@ -37,7 +37,7 @@ export class PingIdLoginProvider {
                     '',
                     'free',
                     portrait,
-                    true,
+                    false,
                     [],
                     login.password,
                 )
@@ -55,6 +55,8 @@ export class PingIdLoginProvider {
                 user.location,
                 user.link,
                 user.bio,
+                user.email_verified,
+                user.show_captcha,
                 user.accounts.map((userAccount: UserAccount) => ({
                     type: userAccount.type,
                     accountId: userAccount.accountId,

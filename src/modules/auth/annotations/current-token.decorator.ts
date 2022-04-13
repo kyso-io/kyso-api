@@ -42,34 +42,40 @@ export const CurrentToken = createParamDecorator(async (data: unknown, ctx: Exec
     const aux: AuxCurrentTokenDecoratorClass = new AuxCurrentTokenDecoratorClass()
 
     try {
-        const splittedToken = request.headers.authorization.split('Bearer ')
-        const decodedToken = parseJwt(splittedToken[1])
+        if (request.headers?.authorization && request.headers.authorization.startsWith('Bearer ')) {
+            const splittedToken = request.headers.authorization.split('Bearer ')
+            const decodedToken = parseJwt(splittedToken[1])
 
-        const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
-            decodedToken.payload.username,
-            aux.usersService,
-            aux.teamsService /*this.teamsService*/,
-            aux.organizationsService /*this.organizationsService*/,
-            aux.platformRoleService /*this.platformRoleProvider*/,
-            aux.userRoleService /*this.userRoleProvider*/,
-        )
+            const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
+                decodedToken.payload.username,
+                aux.usersService,
+                aux.teamsService /*this.teamsService*/,
+                aux.organizationsService /*this.organizationsService*/,
+                aux.platformRoleService /*this.platformRoleProvider*/,
+                aux.userRoleService /*this.userRoleProvider*/,
+            )
 
-        const token: Token = new Token(
-            decodedToken.payload.id,
-            decodedToken.payload.name,
-            decodedToken.payload.username,
-            decodedToken.payload.display_name,
-            decodedToken.payload.email,
-            decodedToken.payload.plan,
-            decodedToken.payload.avatar_url,
-            decodedToken.payload.location,
-            decodedToken.payload.link,
-            decodedToken.payload.bio,
-            decodedToken.payload.accounts,
-            permissions,
-        )
+            const token: Token = new Token(
+                decodedToken.payload.id,
+                decodedToken.payload.name,
+                decodedToken.payload.username,
+                decodedToken.payload.display_name,
+                decodedToken.payload.email,
+                decodedToken.payload.plan,
+                decodedToken.payload.avatar_url,
+                decodedToken.payload.location,
+                decodedToken.payload.link,
+                decodedToken.payload.bio,
+                decodedToken.email_verified,
+                decodedToken.show_captcha,
+                decodedToken.payload.accounts,
+                permissions,
+            )
 
-        return token
+            return token
+        } else {
+            return null
+        }
     } catch (ex) {
         Logger.error('Error at CurrentToken', ex)
         return undefined

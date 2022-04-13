@@ -1,8 +1,11 @@
-import { CreateDiscussionRequestDTO, Discussion, Team, UpdateDiscussionRequestDTO, User } from '@kyso-io/kyso-model'
-import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
+import { CreateDiscussionRequestDTO, Discussion, Organization, Team, UpdateDiscussionRequestDTO, User } from '@kyso-io/kyso-model'
+import { MailerService } from '@nestjs-modules/mailer'
+import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
-import { CommentsService } from '../comments/comments.service'
+import { KysoSettingsEnum } from '@kyso-io/kyso-model'
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
+import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { DiscussionsMongoProvider } from './providers/discussions-mongo.provider'
@@ -24,13 +27,16 @@ export class DiscussionsService extends AutowiredService {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
-    @Autowired({ typeName: 'CommentsService' })
-    private commentsService: CommentsService
-
     @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
 
-    constructor(private readonly provider: DiscussionsMongoProvider) {
+    @Autowired({ typeName: 'OrganizationsService' })
+    private organizationsService: OrganizationsService
+
+    @Autowired({ typeName: 'KysoSettingsService' })
+    private kysoSettingsService: KysoSettingsService
+
+    constructor(private readonly mailerService: MailerService, private readonly provider: DiscussionsMongoProvider) {
         super()
     }
 
@@ -65,11 +71,13 @@ export class DiscussionsService extends AutowiredService {
             throw new PreconditionFailedException('Team not found')
         }
 
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+
         if (!data.assignees || data.assignees.length === 0) {
             data.assignees = [data.user_id]
         }
 
-        const discussion: Discussion = new Discussion(
+        let discussion: Discussion = new Discussion(
             data.answered,
             data.assignees,
             data.user_id,
@@ -84,7 +92,33 @@ export class DiscussionsService extends AutowiredService {
             data.title,
             data.url_name,
         )
-        return this.provider.create(discussion)
+        discussion = await this.provider.create(discussion)
+
+        const centralizedMails: boolean = organization?.options?.notifications?.centralized || false
+        const emails: string[] = organization?.options?.notifications?.emails || []
+        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+        const to = centralizedMails && emails.length > 0 ? emails : author.email
+
+        this.mailerService
+            .sendMail({
+                to,
+                subject: `New discussion on ${team.display_name}`,
+                template: 'discussion-new',
+                context: {
+                    frontendUrl,
+                    organization,
+                    team,
+                    discussion,
+                },
+            })
+            .then((messageInfo) => {
+                Logger.log(`Discussion mail ${messageInfo.messageId} sent to ${Array.isArray(to) ? to.join(', ') : to}`, DiscussionsService.name)
+            })
+            .catch((err) => {
+                Logger.error(`An error occurred sending discussion mail to ${Array.isArray(to) ? to.join(', ') : to}`, err, DiscussionsService.name)
+            })
+
+        return discussion
     }
 
     public async addParticipantToDiscussion(reportId: string, userId: string): Promise<Discussion> {

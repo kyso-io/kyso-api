@@ -1,17 +1,16 @@
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
     Comment,
-    CreateKysoReportDTO,
     CreateReportDTO,
-    CreateUIReportDTO,
     File,
     GithubBranch,
-    GithubCommit,
     GithubFileHash,
     GithubRepository,
     GlobalPermissionsEnum,
     KysoConfigFile,
+    KysoSettingsEnum,
     LoginProviderEnum,
+    Organization,
     PinnedReport,
     Report,
     ReportDTO,
@@ -30,16 +29,17 @@ import {
 } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import { MailerService } from '@nestjs-modules/mailer'
-import { Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ForbiddenException, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Octokit } from '@octokit/rest'
 import * as AdmZip from 'adm-zip'
 import axios, { AxiosResponse } from 'axios'
-import { lstatSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'fs'
+import { lstatSync, readFileSync, statSync, writeFileSync } from 'fs'
+import { moveSync } from 'fs-extra'
 import * as glob from 'glob'
 import * as jsYaml from 'js-yaml'
-import { extname } from 'path'
+import { extname, join } from 'path'
 import * as sha256File from 'sha256-file'
-import { Readable } from 'stream'
+import * as Client from 'ssh2-sftp-client'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -52,7 +52,7 @@ import { UserRoleService } from '../auth/user-role.service'
 import { BitbucketReposService } from '../bitbucket-repos/bitbucket-repos.service'
 import { CommentsService } from '../comments/comments.service'
 import { GithubReposService } from '../github-repos/github-repos.service'
-import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
+import { GitlabReposService } from '../gitlab-repos/gitlab-repos.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TagsService } from '../tags/tags.service'
@@ -63,6 +63,7 @@ import { FilesMongoProvider } from './providers/mongo-files.provider'
 import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider'
 import { ReportsMongoProvider } from './providers/mongo-reports.provider'
 import { StarredReportsMongoProvider } from './providers/mongo-starred-reports.provider'
+import { SftpService } from './sftp.service'
 
 function factory(service: ReportsService) {
     return service
@@ -102,6 +103,9 @@ export class ReportsService extends AutowiredService {
     @Autowired({ typeName: 'BitbucketReposService' })
     private bitbucketReposService: BitbucketReposService
 
+    @Autowired({ typeName: 'GitlabReposService' })
+    private gitlabReposService: GitlabReposService
+
     @Autowired({ typeName: 'UserRoleService' })
     public userRoleService: UserRoleService
 
@@ -117,6 +121,7 @@ export class ReportsService extends AutowiredService {
         private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider,
         private readonly starredReportsMongoProvider: StarredReportsMongoProvider,
         private readonly filesMongoProvider: FilesMongoProvider,
+        private readonly sftpService: SftpService,
     ) {
         super()
     }
@@ -218,7 +223,6 @@ export class ReportsService extends AutowiredService {
         const report: Report = new Report(
             createReportDto.name,
             null,
-            null,
             createReportDto.provider,
             createReportDto.name,
             createReportDto.username_provider,
@@ -251,12 +255,14 @@ export class ReportsService extends AutowiredService {
         if (author_ids.indexOf(userId) === -1) {
             author_ids.push(userId)
         }
+        if (updateReportRequestDTO?.tags) {
+            await this.checkReportTags(report.id, updateReportRequestDTO.tags || [])
+            delete updateReportRequestDTO.tags
+        }
         return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { ...updateReportRequestDTO, author_ids } })
     }
 
     public async deleteReport(reportId: string): Promise<Report> {
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
@@ -274,150 +280,57 @@ export class ReportsService extends AutowiredService {
         // Delete relations with starred reports
         await this.starredReportsMongoProvider.deleteMany({ report_id: reportId })
 
-        const s3Client: S3Client = await this.getS3Client()
-
-        // Delete report files in S3
-        const reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id } })
-        for (const file of reportFiles) {
-            if (file?.path_s3 && file.path_s3.length > 0) {
-                Logger.log(`Report '${report.sluglified_name}': deleting file ${file.name} in S3...`, ReportsService.name)
-                const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
-                    Bucket: s3Bucket,
-                    Key: file.path_s3,
-                })
-                await s3Client.send(deleteObjectCommand)
-            }
-        }
+        // Delete report in SFTP
+        this.deleteReportFromFtp(report.id)
 
         // Delete files
         await this.filesMongoProvider.deleteMany({ report_id: reportId })
+
+        // Delete preview image
+        await this.deletePreviewPicture(reportId)
 
         await this.provider.deleteOne({ _id: this.provider.toObjectId(reportId) })
         return report
     }
 
-    public async getBranches(userId: string, reportId: string): Promise<GithubBranch[]> {
+    public async getBranches(reportId: string): Promise<GithubBranch[]> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('The specified report could not be found')
         }
-        const user: User = await this.usersService.getUserById(userId)
-        let userAccount: UserAccount = null
-        switch (report.provider) {
-            case RepositoryProvider.KYSO:
-            case RepositoryProvider.KYSO_CLI:
-                return this.localReportsService.getReportVersions(report.id)
-            case RepositoryProvider.GITHUB:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a github account')
-                }
-                return this.githubReposService.getBranches(userAccount.accessToken, userAccount.username, report.name_provider)
-            case RepositoryProvider.BITBUCKET:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a bitbucket account')
-                }
-                return this.bitbucketReposService.getBranches(userAccount.accessToken, report.name_provider)
-            default:
-                return []
-        }
+        return this.localReportsService.getReportVersions(report.id)
     }
 
-    public async getCommits(userId: string, reportId: string, branch: string): Promise<GithubCommit[]> {
-        const report: Report = await this.getReportById(reportId)
-        if (!report) {
-            throw new PreconditionFailedException('The specified report could not be found')
-        }
-        const user: User = await this.usersService.getUserById(userId)
-        let userAccount: UserAccount = null
-        switch (report.provider) {
-            case RepositoryProvider.KYSO:
-            case RepositoryProvider.KYSO_CLI:
-                throw new PreconditionFailedException({
-                    message: 'This functionality is not available in S3',
-                })
-            case RepositoryProvider.GITHUB:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a github account')
-                }
-                return this.githubReposService.getCommits(userAccount.accessToken, userAccount.username, report.name_provider, branch)
-            case RepositoryProvider.BITBUCKET:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a bitbucket account')
-                }
-                return this.bitbucketReposService.getCommits(userAccount.accessToken, report.name_provider, branch)
-        }
-    }
-
-    public async getReportTree(
-        userId: string,
-        reportId: string,
-        branch: string,
-        path: string,
-        version: number | null,
-    ): Promise<GithubFileHash | GithubFileHash[]> {
+    public async getReportTree(reportId: string, path: string, version: number | null): Promise<GithubFileHash | GithubFileHash[]> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
         }
-        const user: User = await this.usersService.getUserById(userId)
-        let userAccount: UserAccount = null
-        switch (report.provider) {
-            case RepositoryProvider.KYSO:
-            case RepositoryProvider.KYSO_CLI:
-                return this.getKysoReportTree(report.id, path, version)
-            case RepositoryProvider.GITHUB:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a github account')
-                }
-                return this.githubReposService.getFileHash(userAccount.accessToken, path, userAccount.username, report.name_provider, branch)
-            case RepositoryProvider.BITBUCKET:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a bitbucket account')
-                }
-                const result = await this.bitbucketReposService.getRootFilesAndFoldersByCommit(
-                    userAccount.accessToken,
-                    report.name_provider,
-                    branch,
-                    path,
-                    null,
-                )
-                return result?.data ? result.data : []
-            default:
-                return null
-        }
+        return this.getKysoReportTree(report.id, path, version)
     }
 
-    public async getReportFileContent(userId: string, reportId: string, hash: string, filePath: string): Promise<Buffer> {
-        const report: Report = await this.getReportById(reportId)
-        if (!report) {
-            throw new PreconditionFailedException('The specified report could not be found')
-        }
-        const user: User = await this.usersService.getUserById(userId)
-        let userAccount: UserAccount = null
-        switch (report.provider) {
-            case RepositoryProvider.KYSO:
-            case RepositoryProvider.KYSO_CLI:
-                return this.getKysoFileContent(report.id, hash)
-            case RepositoryProvider.GITHUB:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a github account')
-                }
-                return this.githubReposService.getFileContent(userAccount.accessToken, hash, userAccount.username, report.name_provider)
-            case RepositoryProvider.BITBUCKET:
-                userAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
-                if (!userAccount) {
-                    throw new PreconditionFailedException('User does not have a bitbucket account')
-                }
-                return this.bitbucketReposService.getFileContent(userAccount.accessToken, report.name_provider, hash, filePath)
-            default:
+    public async getFileById(id: string): Promise<File> {
+        const files: File[] = await this.filesMongoProvider.read({
+            filter: {
+                _id: this.provider.toObjectId(id),
+            },
+        })
+        return files.length > 0 ? files[0] : null
+    }
+
+    public async getReportFileContent(file: File): Promise<Buffer> {
+        try {
+            const client: Client = await this.sftpService.getClient()
+            const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+            const destinationPath = join(sftpDestinationFolder, file.path_scs)
+            const existsPath: boolean | string = await client.exists(destinationPath)
+            if (!existsPath) {
                 return null
+            }
+            return (await client.get(destinationPath)) as Buffer
+        } catch (e) {
+            Logger.error(`An error occurred while downloading file '${file.name}' from SCS`, e, ReportsService.name)
+            return null
         }
     }
 
@@ -491,6 +404,20 @@ export class ReportsService extends AutowiredService {
         const markAsStar: boolean = starredReport.length > 0
         const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: report.id } })
         const tags: Tag[] = await this.tagsService.getTagsOfEntity(report.id, EntityEnum.REPORT)
+
+        const lastVersion: number = await this.getLastVersionOfReport(report.id)
+        let mainFile: File | null = null
+        if (report.main_file && report.main_file.length > 0) {
+            const result = await this.filesMongoProvider.read({
+                filter: {
+                    report_id: report.id,
+                    name: report.main_file,
+                    version: lastVersion,
+                },
+            })
+            mainFile = result.length > 0 ? result[0] : null
+        }
+
         return new ReportDTO(
             report.id,
             report.created_at,
@@ -517,7 +444,11 @@ export class ReportsService extends AutowiredService {
             report.preview_picture,
             report.show_code,
             report.show_output,
-            report.main_file,
+            mainFile ? mainFile.name : null,
+            mainFile ? mainFile.id : null,
+            mainFile ? mainFile.path_scs : null,
+            mainFile ? mainFile.version : null,
+            lastVersion,
         )
     }
 
@@ -544,165 +475,34 @@ export class ReportsService extends AutowiredService {
         await this.provider.update(filter, { $inc: { views: 1 } })
     }
 
-    public async createKysoReport(userId: string, createKysoReportDTO: CreateKysoReportDTO, files: Express.Multer.File[]): Promise<Report> {
+    public async createKysoReport(userId: string, file: Express.Multer.File): Promise<Report> {
         Logger.log('Creating report')
         const user: User = await this.usersService.getUserById(userId)
         Logger.log(`By user: ${user.email}`)
         const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
         Logger.log(`is global admin?: ${isGlobalAdmin}`)
 
-        const kysoFiles: Express.Multer.File[] = files.filter(
-            (file: Express.Multer.File) =>
-                file.originalname.endsWith('kyso.json') || file.originalname.endsWith('kyso.yaml') || file.originalname.endsWith('kyso.yml'),
-        )
+        const tmpDir = `/tmp/${uuidv4()}`
+        const zip = new AdmZip(file.buffer)
+        zip.extractAllTo(tmpDir, true)
 
-        if (kysoFiles.length === 0) {
-            Logger.error(`No kyso file provided`)
-            throw new PreconditionFailedException('No kyso file provided')
-        }
-
-        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: createKysoReportDTO.team } })
-        Logger.log(`Team: ${team.sluglified_name}`)
-        if (!team) {
-            Logger.error(`Team ${createKysoReportDTO.team} does not exist`)
-            throw new PreconditionFailedException(`Team ${createKysoReportDTO.team} does not exist`)
-        }
-        const userHasPermission: boolean = await this.checkCreateReportPermission(userId, createKysoReportDTO.team)
-        if (!userHasPermission) {
-            Logger.error(`User ${user.username} does not have permission to create report in team ${createKysoReportDTO.team}`)
-            throw new PreconditionFailedException(`User ${user.username} does not have permission to create report in team ${createKysoReportDTO.team}`)
-        }
-
-        const name: string = slugify(createKysoReportDTO.title)
-        const reports: Report[] = await this.provider.read({ filter: { sluglified_name: name, team_id: team.id } })
-        const reportFiles: File[] = []
-        let report: Report = null
-        if (reports.length > 0) {
-            // Existing report
-            report = reports[0]
-            Logger.log(`Report '${report.id} ${report.sluglified_name}': Checking files...`, ReportsService.name)
-            // Get all files of the report
-            const reportFilesDb: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id }, sort: { version: -1 } })
-            for (let i = 0; i < files.length; i++) {
-                const originalName: string = createKysoReportDTO.original_names[i]
-                const sha: string = createKysoReportDTO.original_shas[i]
-                const size: number = parseInt(createKysoReportDTO.original_sizes[i], 10)
-                const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-                let reportFile: File = reportFilesDb.find((reportFile: File) => reportFile.name === originalName)
-                if (reportFile) {
-                    reportFile = new File(report.id, originalName, path_s3, size, sha, reportFile.version + 1)
-                    Logger.log(`Report '${report.sluglified_name}': file ${reportFile.name} new version ${reportFile.version}`, ReportsService.name)
-                } else {
-                    reportFile = new File(report.id, originalName, path_s3, size, sha, 1)
-                    Logger.log(`Report '${report.sluglified_name}': new file ${reportFile.name}`, ReportsService.name)
-                }
-                reportFile = await this.filesMongoProvider.create(reportFile)
-                reportFiles.push(reportFile)
-            }
-        } else {
-            Logger.log(`Creating new report '${name}'`, ReportsService.name)
-            // New report
-            report = new Report(
-                name,
-                null,
-                null,
-                RepositoryProvider.KYSO_CLI,
-                name,
-                null,
-                null,
-                null,
-                0,
-                false,
-                createKysoReportDTO.description,
-                userId,
-                team.id,
-                createKysoReportDTO.title,
-                [],
-                null,
-                false,
-                false,
-                createKysoReportDTO.main_file || null,
-            )
-            report.report_type = 'kyso-cli'
-            report = await this.provider.create(report)
-            for (let i = 0; i < files.length; i++) {
-                const originalName: string = createKysoReportDTO.original_names[i]
-                const sha: string = createKysoReportDTO.original_shas[i]
-                const size: number = parseInt(createKysoReportDTO.original_sizes[i], 10)
-                const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-                let file: File = new File(report.id, originalName, path_s3, size, sha, 1)
-                file = await this.filesMongoProvider.create(file)
-                reportFiles.push(file)
-            }
-        }
-
-        await this.checkReportTags(report.id, createKysoReportDTO.tags)
-
-        new Promise<void>(async () => {
-            Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to S3...`, ReportsService.name)
-            const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-            const s3Client: S3Client = await this.getS3Client()
-            for (let i = 0; i < files.length; i++) {
-                const reportFile: File = reportFiles.find((reportFile: File) => reportFile.name === createKysoReportDTO.original_names[i])
-                Logger.log(`Report '${report.sluglified_name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
-                await s3Client.send(
-                    new PutObjectCommand({
-                        Bucket: s3Bucket,
-                        Key: reportFile.path_s3,
-                        Body: files[i].buffer,
-                    }),
-                )
-                Logger.log(`Report '${report.sluglified_name}': uploaded file '${reportFile.name}' to S3 with key '${reportFile.path_s3}'`, ReportsService.name)
-            }
-            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
-            Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
-        })
-
-        return report
-    }
-
-    public async createUIReport(userId: string, createUIReportDTO: CreateUIReportDTO, files: any[]): Promise<Report> {
-        const user: User = await this.usersService.getUserById(userId)
-
-        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: createUIReportDTO.team } })
-        Logger.log(`Team: ${team.sluglified_name}`)
-        if (!team) {
-            Logger.error(`Team ${createUIReportDTO.team} does not exist`)
-            throw new PreconditionFailedException(`Team ${createUIReportDTO.team} does not exist`)
-        }
-        const userHasPermission: boolean = await this.checkCreateReportPermission(userId, createUIReportDTO.team)
-        if (!userHasPermission) {
-            Logger.error(`User ${user.username} does not have permission to create report in team ${createUIReportDTO.team}`)
-            throw new PreconditionFailedException(`User ${user.username} does not have permission to create report in team ${createUIReportDTO.team}`)
-        }
-
-        const sluglified_name: string = slugify(createUIReportDTO.title)
-        const reports: Report[] = await this.provider.read({ filter: { sluglified_name, team_id: team.id } })
-        const s3Client: S3Client = await this.getS3Client()
         let kysoConfigFile: KysoConfigFile = null
-        for (let i = 0; i < files.length; i++) {
-            const originalName: string = files[i].originalname
+        for (const entry of zip.getEntries()) {
+            const originalName: string = entry.name
+            const localFilePath = join(tmpDir, entry.entryName)
             if (originalName.endsWith('kyso.json')) {
-                const localFilePath = `/tmp/${uuidv4()}_${originalName}`
                 try {
-                    writeFileSync(localFilePath, files[i].buffer)
                     kysoConfigFile = JSON.parse(readFileSync(localFilePath).toString())
-                    unlinkSync(localFilePath)
                     break
                 } catch (e: any) {
-                    unlinkSync(localFilePath)
                     Logger.error(`An error occurred parsing kyso.json`, e, ReportsService.name)
                     throw new PreconditionFailedException(`An error occurred parsing kyso.json`)
                 }
             } else if (originalName.endsWith('kyso.yml') || originalName.endsWith('kyso.yaml')) {
-                const localFilePath = `/tmp/${uuidv4()}_${originalName}`
                 try {
-                    writeFileSync(localFilePath, files[i].buffer)
                     kysoConfigFile = jsYaml.load(readFileSync(localFilePath).toString()) as KysoConfigFile
-                    unlinkSync(localFilePath)
                     break
                 } catch (e: any) {
-                    unlinkSync(localFilePath)
                     Logger.error(`An error occurred parsing kyso.{yml,yaml}`, e, ReportsService.name)
                     throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}`)
                 }
@@ -713,119 +513,356 @@ export class ReportsService extends AutowiredService {
             throw new PreconditionFailedException(`No kyso.{yml,yaml,json} file found`)
         }
 
+        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team } })
+        Logger.log(`Team: ${team.sluglified_name}`)
+        if (!team) {
+            Logger.error(`Team ${kysoConfigFile.team} does not exist`)
+            throw new PreconditionFailedException(`Team ${kysoConfigFile.team} does not exist`)
+        }
+        const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
+        if (!userHasPermission) {
+            Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+            throw new PreconditionFailedException(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+        }
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        let extractedDir = null
+
+        const name: string = slugify(kysoConfigFile.title)
+        const reports: Report[] = await this.provider.read({ filter: { sluglified_name: name, team_id: team.id } })
+        const reportFiles: File[] = []
+        let version = 1
         let report: Report = null
+        const reportPath: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.REPORT_PATH)
+        let isNew = false
         if (reports.length > 0) {
             // Existing report
             report = reports[0]
-            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
+            const lastVersion: number = await this.getLastVersionOfReport(report.id)
+            version = lastVersion + 1
+            extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
+            moveSync(tmpDir, extractedDir, { overwrite: true })
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Checking files...`, ReportsService.name)
-            new Promise<void>(async () => {
-                // Get all files of the report
-                const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-                const reportFilesDb: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id }, sort: { version: -1 } })
-                for (let i = 0; i < files.length; i++) {
-                    const zip = new AdmZip()
-                    const originalName: string = files[i].originalname
-                    zip.addFile(originalName, files[i].buffer)
-                    const localFilePath = `/tmp/${report.id}_${originalName}`
-                    writeFileSync(localFilePath, files[i].buffer)
-                    const sha: string = sha256File(localFilePath)
-                    unlinkSync(localFilePath)
-                    const size: number = files[i].size
-                    const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-                    let reportFile: File = reportFilesDb.find((reportFile: File) => reportFile.name === originalName)
-                    if (reportFile) {
-                        reportFile = new File(report.id, originalName, path_s3, size, sha, reportFile.version + 1)
-                        Logger.log(`Report '${report.sluglified_name}': file ${reportFile.name} new version ${reportFile.version}`, ReportsService.name)
-                    } else {
-                        reportFile = new File(report.id, originalName, path_s3, size, sha, 1)
-                        Logger.log(`Report '${report.sluglified_name}': new file ${reportFile.name}`, ReportsService.name)
-                    }
-                    reportFile = await this.filesMongoProvider.create(reportFile)
-                    Logger.log(`Report '${report.sluglified_name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
-                    await s3Client.send(
-                        new PutObjectCommand({
-                            Bucket: s3Bucket,
-                            Key: path_s3,
-                            Body: zip.toBuffer(),
-                        }),
-                    )
-                    Logger.log(
-                        `Report '${report.sluglified_name}': uploaded file '${report.sluglified_name}' to S3 with key '${reportFile.path_s3}'`,
-                        ReportsService.name,
-                    )
+            for (const entry of zip.getEntries()) {
+                const originalName: string = entry.entryName
+                const localFilePath = join(extractedDir, entry.entryName)
+                if (entry.isDirectory) {
+                    continue
                 }
-                report = await this.provider.update(
-                    { _id: this.provider.toObjectId(report.id) },
-                    {
-                        $set: {
-                            status: ReportStatus.Imported,
-                            main_file: kysoConfigFile.main || report.main_file,
-                        },
-                    },
-                )
-                Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
-            })
+                const sha: string = sha256File(localFilePath)
+                const size: number = statSync(localFilePath).size
+                const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`
+                let reportFile = new File(report.id, originalName, path_scs, size, sha, version)
+                reportFile = await this.filesMongoProvider.create(reportFile)
+                reportFiles.push(reportFile)
+            }
         } else {
-            Logger.log(`Creating new report '${sluglified_name}'`, ReportsService.name)
+            Logger.log(`Creating new report '${name}'`, ReportsService.name)
             // New report
             report = new Report(
-                sluglified_name,
+                name,
                 null,
-                null,
-                RepositoryProvider.KYSO,
-                sluglified_name,
+                RepositoryProvider.KYSO_CLI,
+                name,
                 null,
                 null,
                 null,
                 0,
                 false,
-                createUIReportDTO.description,
+                kysoConfigFile.description,
                 userId,
                 team.id,
-                createUIReportDTO.title,
+                kysoConfigFile.title,
                 [],
                 null,
                 false,
                 false,
-                kysoConfigFile.main,
+                kysoConfigFile?.main,
             )
-            report.report_type = 'kyso'
+            if (kysoConfigFile?.type && kysoConfigFile.type.length > 0) {
+                report.report_type = kysoConfigFile.type
+            }
             report = await this.provider.create(report)
-            new Promise<void>(async () => {
-                const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-                for (let i = 0; i < files.length; i++) {
-                    const zip = new AdmZip()
-                    const originalName: string = files[i].originalname
-                    zip.addFile(originalName, files[i].buffer)
-                    const localFilePath = `/tmp/${report.id}_${originalName}`
-                    writeFileSync(localFilePath, files[i].buffer)
-                    const sha: string = sha256File(localFilePath)
-                    unlinkSync(localFilePath)
-                    const size: number = files[i].size
-                    const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-                    let file: File = new File(report.id, originalName, path_s3, size, sha, 1)
-                    file = await this.filesMongoProvider.create(file)
-                    Logger.log(`Report '${report.sluglified_name}': uploading file '${file.name}' to S3...`, ReportsService.name)
+            isNew = true
+            extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
+            moveSync(tmpDir, extractedDir, { overwrite: true })
+            for (const entry of zip.getEntries()) {
+                const originalName: string = entry.entryName
+                const localFilePath = join(extractedDir, entry.entryName)
+                if (entry.isDirectory) {
+                    continue
+                }
+                const sha: string = sha256File(localFilePath)
+                const size: number = statSync(localFilePath).size
+                const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`
+                let file: File = new File(report.id, originalName, path_scs, size, sha, 1)
+                file = await this.filesMongoProvider.create(file)
+                reportFiles.push(file)
+                if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
+                    const s3Client: S3Client = await this.getS3Client()
+                    const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+                    const key = `${uuidv4()}${extname(originalName)}`
                     await s3Client.send(
                         new PutObjectCommand({
                             Bucket: s3Bucket,
-                            Key: path_s3,
-                            Body: zip.toBuffer(),
+                            Key: key,
+                            Body: readFileSync(localFilePath),
                         }),
                     )
-                    Logger.log(
-                        `Report '${report.sluglified_name}': uploaded file '${report.sluglified_name}' to S3 with key '${file.path_s3}'`,
-                        ReportsService.name,
-                    )
+                    const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
+                    report.preview_picture = preview_picture
+                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
                 }
-                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
-                Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
-            })
+            }
+            await this.checkReportTags(report.id, kysoConfigFile.tags)
         }
 
-        await this.checkReportTags(report.id, createUIReportDTO.tags)
+        new Promise<void>(async () => {
+            Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
+            await this.uploadReportToFtp(report.id, extractedDir)
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
+            Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
 
+            let files: string[] = await this.getFilePaths(extractedDir)
+            // Remove '/reportPath' from the paths
+            files = files.map((file: string) => file.replace(reportPath, ''))
+            writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
+
+            await this.sendNewReportMail(report, team, organization, isNew)
+        })
+
+        return report
+    }
+
+    public async createUIReport(userId: string, file: Express.Multer.File): Promise<Report> {
+        Logger.log('Creating report')
+        const user: User = await this.usersService.getUserById(userId)
+        Logger.log(`By user: ${user.email}`)
+        const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
+        Logger.log(`is global admin?: ${isGlobalAdmin}`)
+
+        const tmpDir = `/tmp/${uuidv4()}`
+        const zip = new AdmZip(file.buffer)
+        zip.extractAllTo(tmpDir, true)
+
+        let kysoConfigFile: KysoConfigFile = null
+        for (const entry of zip.getEntries()) {
+            const originalName: string = entry.name
+            const localFilePath = join(tmpDir, entry.entryName)
+            if (originalName.endsWith('kyso.json')) {
+                try {
+                    kysoConfigFile = JSON.parse(readFileSync(localFilePath).toString())
+                    break
+                } catch (e: any) {
+                    Logger.error(`An error occurred parsing kyso.json`, e, ReportsService.name)
+                    throw new PreconditionFailedException(`An error occurred parsing kyso.json`)
+                }
+            } else if (originalName.endsWith('kyso.yml') || originalName.endsWith('kyso.yaml')) {
+                try {
+                    kysoConfigFile = jsYaml.load(readFileSync(localFilePath).toString()) as KysoConfigFile
+                    break
+                } catch (e: any) {
+                    Logger.error(`An error occurred parsing kyso.{yml,yaml}`, e, ReportsService.name)
+                    throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}`)
+                }
+            }
+        }
+        if (!kysoConfigFile) {
+            Logger.error(`No kyso.{yml,yaml,json} file found`, ReportsService.name)
+            throw new PreconditionFailedException(`No kyso.{yml,yaml,json} file found`)
+        }
+
+        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team } })
+        Logger.log(`Team: ${team.sluglified_name}`)
+        if (!team) {
+            Logger.error(`Team ${kysoConfigFile.team} does not exist`)
+            throw new PreconditionFailedException(`Team ${kysoConfigFile.team} does not exist`)
+        }
+        const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
+        if (!userHasPermission) {
+            Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+            throw new PreconditionFailedException(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+        }
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        let extractedDir = null
+
+        const name: string = slugify(kysoConfigFile.title)
+        const reports: Report[] = await this.provider.read({ filter: { sluglified_name: name, team_id: team.id } })
+        const reportFiles: File[] = []
+        let report: Report = null
+        const reportPath: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.REPORT_PATH)
+        if (reports.length > 0) {
+            Logger.log(`Report '${name}' already exists in team ${team.sluglified_name}`, ReportsService.name)
+            throw new PreconditionFailedException(`Report '${name}' already exists in team ${team.sluglified_name}`)
+        }
+        Logger.log(`Creating new report '${name}'`, ReportsService.name)
+        report = new Report(
+            name,
+            null,
+            RepositoryProvider.KYSO,
+            name,
+            null,
+            null,
+            null,
+            0,
+            false,
+            kysoConfigFile.description,
+            userId,
+            team.id,
+            kysoConfigFile.title,
+            [],
+            null,
+            false,
+            false,
+            kysoConfigFile.main,
+        )
+        if (kysoConfigFile?.type && kysoConfigFile.type.length > 0) {
+            report.report_type = kysoConfigFile.type
+        }
+        report = await this.provider.create(report)
+        const version = 1
+        extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
+        moveSync(tmpDir, extractedDir, { overwrite: true })
+        for (const entry of zip.getEntries()) {
+            const originalName: string = entry.entryName
+            const localFilePath = join(extractedDir, entry.entryName)
+            if (entry.isDirectory) {
+                continue
+            }
+            const sha: string = sha256File(localFilePath)
+            const size: number = statSync(localFilePath).size
+            const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`
+            let file: File = new File(report.id, originalName, path_scs, size, sha, version)
+            file = await this.filesMongoProvider.create(file)
+            reportFiles.push(file)
+            if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
+                const s3Client: S3Client = await this.getS3Client()
+                const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+                const key = `${uuidv4()}${extname(originalName)}`
+                await s3Client.send(
+                    new PutObjectCommand({
+                        Bucket: s3Bucket,
+                        Key: key,
+                        Body: readFileSync(localFilePath),
+                    }),
+                )
+                const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
+                report.preview_picture = preview_picture
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+            }
+        }
+
+        await this.checkReportTags(report.id, kysoConfigFile.tags)
+
+        new Promise<void>(async () => {
+            Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
+            await this.uploadReportToFtp(report.id, extractedDir)
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
+            Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
+
+            let files: string[] = await this.getFilePaths(extractedDir)
+            // Remove '/reportPath' from the paths
+            files = files.map((file: string) => file.replace(reportPath, ''))
+            writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
+
+            await this.sendNewReportMail(report, team, organization, true)
+        })
+
+        return report
+    }
+
+    private async sendNewReportMail(report: Report, team: Team, organization: Organization, isNew: boolean): Promise<void> {
+        const user: User = await this.usersService.getUserById(report.user_id)
+        const centralizedMails: boolean = organization?.options?.notifications?.centralized || false
+        const emails: string[] = organization?.options?.notifications?.emails || []
+        const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+        const to = centralizedMails && emails.length > 0 ? emails : user.email
+        this.mailerService
+            .sendMail({
+                to,
+                subject: isNew ? `New report '${report.title}'` : `Updated report '${report.title}'`,
+                template: isNew ? 'report-new' : 'report-updated',
+                context: {
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                },
+            })
+            .then((messageInfo) => {
+                Logger.log(`Report mail ${messageInfo.messageId} sent to ${Array.isArray(to) ? to.join(', ') : to}`, ReportsService.name)
+            })
+            .catch((err) => {
+                Logger.error(`An error occurrend sending report mail to ${Array.isArray(to) ? to.join(', ') : to}`, err, ReportsService.name)
+            })
+    }
+
+    public async updateMainFileReport(userId: string, reportId: string, file: any): Promise<Report> {
+        const report: Report = await this.getReport({
+            filter: {
+                _id: this.provider.toObjectId(reportId),
+            },
+        })
+        if (!report) {
+            throw new NotFoundException(`Report with id '${reportId}' not found`)
+        }
+        const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(userId)
+        const team: Team | undefined = teams.find((team: Team) => team.id === report.team_id)
+        if (!team) {
+            throw new ForbiddenException(`User '${userId}' is not allowed to update report '${report.id}'`)
+        }
+        const lastVersion: number = await this.getLastVersionOfReport(report.id)
+        const files: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id, name: report.main_file, version: lastVersion } })
+        if (files.length === 0) {
+            throw new NotFoundException(`File with name '${report.main_file}' not found`)
+        }
+        let mainFileReport: File = files[0]
+
+        Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading main file to Ftp...`, ReportsService.name)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const client: Client = await this.sftpService.getClient()
+        const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+        const ftpReportPath: string = join(
+            sftpDestinationFolder,
+            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion}`,
+        )
+        const exists = await client.exists(ftpReportPath)
+        if (!exists) {
+            throw new PreconditionFailedException(`Report '${report.id} ${report.sluglified_name}': Destination path '${ftpReportPath}' not found`)
+        }
+        const localReportPath: string = join(
+            '/tmp',
+            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion}`,
+        )
+        const resultDownload = await client.downloadDir(ftpReportPath, localReportPath)
+        Logger.log(resultDownload, ReportsService.name)
+        Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded version ${lastVersion} from Ftp`, ReportsService.name)
+        const mainFileReportLocalPath = join(localReportPath, mainFileReport.name)
+        writeFileSync(mainFileReportLocalPath, file.buffer)
+        const destinationPathNewVersion: string = join(
+            sftpDestinationFolder,
+            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion + 1}`,
+        )
+        const result = await client.uploadDir(localReportPath, destinationPathNewVersion)
+        Logger.log(result, ReportsService.name)
+        // Create new version for each file
+        const filesLastVersion: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id, version: lastVersion } })
+        for (const fileLastVersion of filesLastVersion) {
+            let sha: string = fileLastVersion.sha
+            let size: number = fileLastVersion.size
+            if (fileLastVersion.id === mainFileReport.id) {
+                sha = sha256File(mainFileReportLocalPath)
+                size = statSync(mainFileReportLocalPath).size
+            }
+            const parts: string[] = fileLastVersion.path_scs.split('/')
+            parts[4] = `${lastVersion + 1}`
+            const path_scs: string = parts.join('/')
+            let fileNewVersion: File = new File(report.id, fileLastVersion.name, path_scs, size, sha, lastVersion + 1)
+            fileNewVersion = await this.filesMongoProvider.create(fileNewVersion)
+            Logger.log(
+                `Report '${report.id} ${report.sluglified_name}': Created new version ${lastVersion + 1} for file '${fileLastVersion.name}'`,
+                ReportsService.name,
+            )
+        }
         return report
     }
 
@@ -865,6 +902,7 @@ export class ReportsService extends AutowiredService {
 
         const reports: Report[] = await this.provider.read({ filter: { sluglified_name: slugify(repository.name), user_id: user.id } })
         let report: Report = null
+        let isNew = false
         if (reports.length > 0) {
             // Existing report
             report = reports[0]
@@ -875,11 +913,9 @@ export class ReportsService extends AutowiredService {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
             Logger.log(`Report '${report.id} ${report.sluglified_name}' already imported. Updating files...`, ReportsService.name)
         } else {
-            const webhook = await this.createGithubWebhook(octokit, userAccount.username, repository.name)
             report = new Report(
                 slugify(repository.name),
                 repository.id.toString(),
-                webhook.id.toString(),
                 RepositoryProvider.GITHUB,
                 repository.name,
                 repository.owner.login,
@@ -899,6 +935,7 @@ export class ReportsService extends AutowiredService {
             )
             report = await this.provider.create(report)
             Logger.log(`New report '${report.id} ${report.sluglified_name}'`, ReportsService.name)
+            isNew = true
         }
 
         new Promise<void>(async () => {
@@ -932,7 +969,7 @@ export class ReportsService extends AutowiredService {
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${sha}'`, ReportsService.name)
 
             const filePaths: string[] = await this.getFilePaths(extractedDir)
-            if (filePaths.length < 2) {
+            if (filePaths.length < 1) {
                 report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                 Logger.error(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
                 // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
@@ -963,7 +1000,7 @@ export class ReportsService extends AutowiredService {
                     .sendMail({
                         to: user.email,
                         subject: 'Error creating report',
-                        html: `You do not have permissions to create reports.`,
+                        template: 'report-error-permissions',
                     })
                     .then(() => {
                         Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)
@@ -974,13 +1011,13 @@ export class ReportsService extends AutowiredService {
                 return
             }
 
-            this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, isNew)
         })
 
         return report
     }
 
-    public async downloadGithubRepo(user: User, report: Report, repository: any, sha: string, userAccount: UserAccount): Promise<void> {
+    public async downloadGithubRepo(report: Report, repository: any, sha: string, userAccount: UserAccount): Promise<void> {
         Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name)
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
 
@@ -1005,12 +1042,10 @@ export class ReportsService extends AutowiredService {
         // Normalize file paths
         let files: { name: string; filePath: string }[] = []
         let kysoConfigFile: KysoConfigFile = null
-        let directoriesToRemove: string[] = []
         try {
             const result = await this.normalizeFilePaths(report, filePaths)
             files = result.files
             kysoConfigFile = result.kysoConfigFile
-            directoriesToRemove = result.directoriesToRemove
             Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name)
         } catch (e) {
             await this.deleteReport(report.id)
@@ -1018,7 +1053,7 @@ export class ReportsService extends AutowiredService {
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name)
 
-        this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, false)
     }
 
     public async createReportFromBitbucketRepository(userId: string, repositoryName: string, branch: string): Promise<Report> {
@@ -1046,6 +1081,7 @@ export class ReportsService extends AutowiredService {
 
         const reports: Report[] = await this.provider.read({ filter: { sluglified_name: bitbucketRepository.name, user_id: user.id } })
         let report: Report = null
+        let isNew = false
         if (reports.length > 0) {
             // Existing report
             report = reports[0]
@@ -1056,17 +1092,9 @@ export class ReportsService extends AutowiredService {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
             Logger.log(`Report '${report.id} ${report.sluglified_name}' already imported. Updating files...`, ReportsService.name)
         } else {
-            let webhook: any = null
-            try {
-                webhook = await this.bitbucketReposService.createWebhook(userAccount.accessToken, repositoryName)
-                Logger.log(`Created webhook for repository '${repositoryName}' with id ${webhook.id}`, ReportsService.name)
-            } catch (e) {
-                throw Error(`An error occurred creating webhook for repository '${repositoryName}'`)
-            }
             report = new Report(
                 slugify(bitbucketRepository.name),
                 bitbucketRepository.id,
-                webhook.uuid,
                 RepositoryProvider.BITBUCKET,
                 bitbucketRepository.name,
                 userAccount.username,
@@ -1086,6 +1114,7 @@ export class ReportsService extends AutowiredService {
             )
             report = await this.provider.create(report)
             Logger.log(`New report '${report.id} ${report.sluglified_name}'`, ReportsService.name)
+            isNew = true
         }
 
         new Promise<void>(async () => {
@@ -1102,7 +1131,8 @@ export class ReportsService extends AutowiredService {
                 }
                 Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
                 const zip: AdmZip = new AdmZip(buffer)
-                zip.extractAllTo(extractedDir, true)
+                zip.extractAllTo('/tmp', true)
+                moveSync(`/tmp/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
                 Logger.log(`Extracted repository '${repositoryName}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
             } catch (e) {
                 await this.deleteReport(report.id)
@@ -1110,7 +1140,7 @@ export class ReportsService extends AutowiredService {
             }
 
             const filePaths: string[] = await this.getFilePaths(extractedDir)
-            if (filePaths.length < 2) {
+            if (filePaths.length < 1) {
                 report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                 Logger.error(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
                 throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
@@ -1119,12 +1149,10 @@ export class ReportsService extends AutowiredService {
             // Normalize file paths
             let files: { name: string; filePath: string }[] = []
             let kysoConfigFile: KysoConfigFile = null
-            let directoriesToRemove: string[] = []
             try {
                 const result = await this.normalizeFilePaths(report, filePaths)
                 files = result.files
                 kysoConfigFile = result.kysoConfigFile
-                directoriesToRemove = result.directoriesToRemove
                 Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
             } catch (e) {
                 await this.deleteReport(report.id)
@@ -1139,7 +1167,7 @@ export class ReportsService extends AutowiredService {
                     .sendMail({
                         to: user.email,
                         subject: 'Error creating report',
-                        html: `You do not have permissions to create reports.`,
+                        template: 'report-error-permissions',
                     })
                     .then(() => {
                         Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)
@@ -1150,13 +1178,141 @@ export class ReportsService extends AutowiredService {
                 return
             }
 
-            await this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, isNew)
         })
 
         return report
     }
 
-    public async downloadBitbucketRepo(user: User, report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
+    public async createReportFromGitlabRepository(userId: string, repositoryId: number | string, branch: string): Promise<Report> {
+        const user: User = await this.usersService.getUserById(userId)
+        if (!user) {
+            throw new NotFoundError(`User ${userId} does not exist`)
+        }
+        const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITLAB)
+        if (!userAccount) {
+            throw new PreconditionFailedException(`User ${user.display_name} does not have a Gitlab account`)
+        }
+        if (!userAccount.username || userAccount.username.length === 0) {
+            throw new PreconditionFailedException(`User ${user.display_name} does not have a Gitlab username`)
+        }
+        if (!userAccount.accessToken || userAccount.accessToken.length === 0) {
+            throw new PreconditionFailedException(`User ${user.display_name} does not have a Gitlab access token`)
+        }
+
+        let gitlabRepository: GithubRepository = null
+        try {
+            gitlabRepository = await this.gitlabReposService.getRepository(userAccount.accessToken, repositoryId)
+        } catch (e) {
+            throw new PreconditionFailedException(`User ${user.display_name} does not have a Gitlab repository '${repositoryId}'`)
+        }
+
+        const reports: Report[] = await this.provider.read({ filter: { sluglified_name: gitlabRepository.name, user_id: user.id } })
+        let report: Report = null
+        let isNew = false
+        if (reports.length > 0) {
+            // Existing report
+            report = reports[0]
+            if (report.status === ReportStatus.Processing) {
+                Logger.log(`Report '${report.id} ${report.sluglified_name}' is being imported`, ReportsService.name)
+                return report
+            }
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
+            Logger.log(`Report '${report.id} ${report.sluglified_name}' already imported. Updating files...`, ReportsService.name)
+        } else {
+            report = new Report(
+                slugify(gitlabRepository.name),
+                gitlabRepository.id.toString(),
+                RepositoryProvider.GITLAB,
+                gitlabRepository.name,
+                userAccount.username,
+                gitlabRepository.defaultBranch,
+                null,
+                0,
+                false,
+                gitlabRepository.description,
+                user.id,
+                null,
+                gitlabRepository.name,
+                [],
+                null,
+                false,
+                false,
+                null,
+            )
+            report = await this.provider.create(report)
+            Logger.log(`New report '${report.id} ${report.sluglified_name}'`, ReportsService.name)
+            isNew = true
+        }
+
+        new Promise<void>(async () => {
+            const desiredCommit: string = branch && branch.length > 0 ? branch : gitlabRepository.defaultBranch
+            const extractedDir = `/tmp/${uuidv4()}`
+            try {
+                Logger.log(`Downloading and extrating repository ${repositoryId}' commit '${desiredCommit}'`, ReportsService.name)
+                const buffer: Buffer = await this.gitlabReposService.downloadRepository(userAccount.accessToken, repositoryId, desiredCommit)
+                if (!buffer) {
+                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+                    Logger.error(`Report '${report.id} ${repositoryId}': Could not download commit ${desiredCommit}`, ReportsService.name)
+                    // throw new PreconditionFailedException(`Could not download repository ${repositoryId} commit ${desiredCommit}`, ReportsService.name)
+                    return
+                }
+                Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
+                const zip: AdmZip = new AdmZip(buffer)
+                zip.extractAllTo('/tmp', true)
+                moveSync(`/tmp/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
+                Logger.log(`Extracted repository '${repositoryId}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
+            } catch (e) {
+                await this.deleteReport(report.id)
+                throw Error(`An error occurred downloading repository '${repositoryId}'`)
+            }
+
+            const filePaths: string[] = await this.getFilePaths(extractedDir)
+            if (filePaths.length < 1) {
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+                Logger.error(`Report ${report.id} ${repositoryId}: Repository does not contain any files`, ReportsService.name)
+                throw new PreconditionFailedException(`Report ${report.id} ${repositoryId}: Repository does not contain any files`, ReportsService.name)
+            }
+
+            // Normalize file paths
+            let files: { name: string; filePath: string }[] = []
+            let kysoConfigFile: KysoConfigFile = null
+            try {
+                const result = await this.normalizeFilePaths(report, filePaths)
+                files = result.files
+                kysoConfigFile = result.kysoConfigFile
+                Logger.log(`Downloaded ${files.length} files from repository ${repositoryId}' commit '${desiredCommit}'`, ReportsService.name)
+            } catch (e) {
+                await this.deleteReport(report.id)
+                return null
+            }
+
+            const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
+            if (!userHasPermission) {
+                Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+                await this.deleteReport(report.id)
+                this.mailerService
+                    .sendMail({
+                        to: user.email,
+                        subject: 'Error creating report',
+                        template: 'report-error-permissions',
+                    })
+                    .then(() => {
+                        Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)
+                    })
+                    .catch((err) => {
+                        Logger.error(`Error sending mail 'Invalid permissions for creating report' to ${user.display_name}`, err, UsersService.name)
+                    })
+                return
+            }
+
+            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, isNew)
+        })
+
+        return report
+    }
+
+    public async downloadBitbucketRepo(report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
         Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
 
@@ -1191,12 +1347,10 @@ export class ReportsService extends AutowiredService {
         // Normalize file paths
         let files: { name: string; filePath: string }[] = []
         let kysoConfigFile: KysoConfigFile = null
-        let directoriesToRemove: string[] = []
         try {
             const result = await this.normalizeFilePaths(report, filePaths)
             files = result.files
             kysoConfigFile = result.kysoConfigFile
-            directoriesToRemove = result.directoriesToRemove
             Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
         } catch (e) {
             await this.deleteReport(report.id)
@@ -1204,7 +1358,56 @@ export class ReportsService extends AutowiredService {
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
 
-        this.uploadRepositoryFilesToS3(report, extractedDir, kysoConfigFile, files, directoriesToRemove)
+        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, false)
+    }
+
+    public async downloadGitlabRepo(report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
+        Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
+        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
+
+        const extractedDir = `/tmp/${uuidv4()}`
+        try {
+            Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
+            const buffer: Buffer = await this.gitlabReposService.downloadRepository(userAccount.accessToken, repositoryName, desiredCommit)
+            if (!buffer) {
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+                Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${desiredCommit}`, ReportsService.name)
+                // throw new PreconditionFailedException(`Could not download repository ${repositoryName} commit ${desiredCommit}`, ReportsService.name)
+                return
+            }
+            Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
+            const zip: AdmZip = new AdmZip(buffer)
+            zip.extractAllTo(extractedDir, true)
+            Logger.log(`Extracted repository '${repositoryName}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
+        } catch (e) {
+            await this.deleteReport(report.id)
+            throw Error(`An error occurred downloading repository '${repositoryName}'`)
+        }
+        Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
+
+        const filePaths: string[] = await this.getFilePaths(extractedDir)
+        if (filePaths.length < 2) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report ${report.id} ${report.sluglified_name}: Repository does not contain any files`, ReportsService.name)
+            // throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: Repository does not contain any files`, ReportsService.name)
+            return
+        }
+
+        // Normalize file paths
+        let files: { name: string; filePath: string }[] = []
+        let kysoConfigFile: KysoConfigFile = null
+        try {
+            const result = await this.normalizeFilePaths(report, filePaths)
+            files = result.files
+            kysoConfigFile = result.kysoConfigFile
+            Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
+        } catch (e) {
+            await this.deleteReport(report.id)
+            return null
+        }
+        Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
+
+        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, false)
     }
 
     private async normalizeFilePaths(
@@ -1212,12 +1415,12 @@ export class ReportsService extends AutowiredService {
         filePaths: string[],
     ): Promise<{ files: { name: string; filePath: string }[]; kysoConfigFile: KysoConfigFile; directoriesToRemove: string[] }> {
         // Normalize file paths
-        const relativePath: string = filePaths[1]
+        const relativePath: string = filePaths[0]
         const files: { name: string; filePath: string }[] = []
         let kysoConfigFile: KysoConfigFile = null
         const directoriesToRemove: string[] = []
         // Search kyso config file and annotate directories to remove at the end of the process
-        for (let i = 2; i < filePaths.length; i++) {
+        for (let i = 1; i < filePaths.length; i++) {
             const filePath: string = filePaths[i]
             if (lstatSync(filePath).isDirectory()) {
                 directoriesToRemove.push(filePath)
@@ -1267,20 +1470,20 @@ export class ReportsService extends AutowiredService {
         return { files, kysoConfigFile, directoriesToRemove }
     }
 
-    private async uploadRepositoryFilesToS3(
+    private async uploadRepositoryFilesToSCS(
         report: Report,
-        extractedDir: string,
+        tmpDir: string,
         kysoConfigFile: KysoConfigFile,
         files: { name: string; filePath: string }[],
-        directoriesToRemove: string[],
+        isNew: boolean,
     ): Promise<void> {
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
         const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team } })
         if (!team) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report ${report.id} ${report.sluglified_name}: Team ${kysoConfigFile.team} does not exist`, ReportsService.name)
             return
         }
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
 
         let mainFile = null
         if (kysoConfigFile?.main && kysoConfigFile.main.length > 0) {
@@ -1294,97 +1497,60 @@ export class ReportsService extends AutowiredService {
                     team_id: team.id,
                     title: kysoConfigFile.title || report.title,
                     main_file: mainFile || report?.main_file || null,
+                    report_type: kysoConfigFile?.type && kysoConfigFile.type.length > 0 ? kysoConfigFile.type : null,
                 },
             },
         )
 
-        await this.checkReportTags(report.id, kysoConfigFile.tags)
+        const lastVersion: number = await this.getLastVersionOfReport(report.id)
+        const version = lastVersion + 1
 
-        const s3Client: S3Client = await this.getS3Client()
+        const reportPath: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.REPORT_PATH)
+        const extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
+        moveSync(tmpDir, extractedDir, { overwrite: true })
+
+        if (isNew) {
+            await this.checkReportTags(report.id, kysoConfigFile.tags)
+        }
+
+        Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
+        await this.uploadReportToFtp(report.id, extractedDir)
 
         // Get all report files
-        const reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id }, sort: { version: -1 } })
         for (let i = 0; i < files.length; i++) {
+            files[i].filePath = files[i].filePath.replace(tmpDir, extractedDir)
             const originalName: string = files[i].name
             const sha: string = sha256File(files[i].filePath)
             const size: number = statSync(files[i].filePath).size
-            const path_s3 = `${uuidv4()}_${sha}_${originalName}.zip`
-            let reportFile: File = reportFiles.find((reportFile: File) => reportFile.name === originalName)
-            if (reportFile) {
-                reportFile = new File(report.id, originalName, path_s3, size, sha, reportFile.version + 1)
-                Logger.log(`Report '${report.sluglified_name}': file ${reportFile.name} new version ${reportFile.version}`, ReportsService.name)
-            } else {
-                reportFile = new File(report.id, originalName, path_s3, size, sha, 1)
-                Logger.log(`Report '${report.sluglified_name}': new file ${reportFile.name}`, ReportsService.name)
-            }
+            const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`
+            let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version)
             reportFile = await this.filesMongoProvider.create(reportFile)
-            reportFiles.push(reportFile)
-            const zip = new AdmZip()
-            const fileContent: Buffer = readFileSync(files[i].filePath)
-            zip.addFile(originalName, fileContent)
-            const outputFilePath = `/tmp/${uuidv4()}.zip`
-            zip.writeZip(outputFilePath)
-            Logger.log(`Report '${report.sluglified_name}': uploading file '${reportFile.name}' to S3...`, ReportsService.name)
-            await s3Client.send(
-                new PutObjectCommand({
-                    Bucket: s3Bucket,
-                    Key: reportFile.path_s3,
-                    Body: readFileSync(outputFilePath),
-                }),
-            )
-            Logger.log(`Report '${report.sluglified_name}': uploaded file '${reportFile.name}' to S3 with key '${reportFile.path_s3}'`, ReportsService.name)
-            // Delete zip file
-            unlinkSync(outputFilePath)
+            if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
+                const s3Client: S3Client = await this.getS3Client()
+                const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+                const key = `${uuidv4()}${extname(originalName)}`
+                await s3Client.send(
+                    new PutObjectCommand({
+                        Bucket: s3Bucket,
+                        Key: key,
+                        Body: readFileSync(files[i].filePath),
+                    }),
+                )
+                const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
+                report.preview_picture = preview_picture
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+            }
         }
 
-        // Delete directories
-        for (let i = 0; i < directoriesToRemove.length; i++) {
-            rmSync(directoriesToRemove[i], { recursive: true, force: true })
-        }
-        // Delete extracted directory of github project
-        rmSync(extractedDir, { recursive: true, force: true })
+        let tmpFiles: string[] = await this.getFilePaths(extractedDir)
+        // Remove '/reportPath' from the paths
+        tmpFiles = tmpFiles.map((file: string) => file.replace(reportPath, ''))
+        writeFileSync(join(reportPath, `/${report.id}.indexer`), tmpFiles.join('\n'))
 
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
         Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
-    }
 
-    private async createGithubWebhook(octokit: Octokit, username: string, repositoryName: string) {
-        try {
-            const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL)
-
-            let hookUrl = `${baseUrl}/v1/hooks/github`
-            if (process.env.NODE_ENV === 'development') {
-                hookUrl = 'https://smee.io/kyso-github-hook-test'
-            }
-            const githubWeekHooks = await octokit.repos.listWebhooks({
-                owner: username,
-                repo: repositoryName,
-            })
-            // Check if hook already exists
-            let githubWebHook = githubWeekHooks.data.find((element) => element.config.url === hookUrl)
-            if (!githubWebHook) {
-                // Create hook
-                const resultCreateWebHook = await octokit.repos.createWebhook({
-                    owner: username,
-                    repo: repositoryName,
-                    name: 'web',
-                    config: {
-                        url: hookUrl,
-                        content_type: 'json',
-                    },
-                    events: ['push'],
-                    active: true,
-                })
-                githubWebHook = resultCreateWebHook.data
-                Logger.log(`Hook created for repository ${repositoryName}'`, ReportsService.name)
-            } else {
-                Logger.log(`Hook already exists for repository '${repositoryName}'`, ReportsService.name)
-            }
-            return githubWebHook
-        } catch (e) {
-            Logger.error(`Error creating webhook por repository: '${repositoryName}'`, e, ReportsService.name)
-            return null
-        }
+        await this.sendNewReportMail(report, team, organization, isNew)
     }
 
     private async downloadGithubFiles(commit: string, extractedDir: string, repository: any, accessToken: string): Promise<boolean> {
@@ -1397,7 +1563,8 @@ export class ReportsService extends AutowiredService {
                 responseType: 'arraybuffer',
             })
             const zip = new AdmZip(response.data)
-            zip.extractAllTo(extractedDir, true)
+            zip.extractAllTo('/tmp', true)
+            moveSync(`/tmp/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
             return true
         } catch (e) {
             Logger.error(`An error occurred downloading github files`, e, ReportsService.name)
@@ -1443,18 +1610,8 @@ export class ReportsService extends AutowiredService {
         return reportTags
     }
 
-    private streamToBuffer(stream: Readable): Promise<Buffer> {
-        return new Promise((resolve, reject) => {
-            const chunks = []
-            stream.on('data', (chunk: any) => chunks.push(chunk))
-            stream.on('error', reject)
-            stream.on('end', () => resolve(Buffer.concat(chunks)))
-        })
-    }
-
-    public async pullReport(token: Token, reportName: string, teamName: string, response: any): Promise<void> {
+    public async pullReport(token: Token, reportName: string, teamName: string, version: number | null, response: any): Promise<void> {
         let isGlobalAdmin = false
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
         if (token.permissions.global?.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)) {
             isGlobalAdmin = true
         }
@@ -1479,61 +1636,65 @@ export class ReportsService extends AutowiredService {
         }
         const report: Report = reports[0]
 
-        let reportFiles: File[] = await this.filesMongoProvider.read({ filter: { report_id: report.id } })
-        // Download only the last version of each file
-        const map: Map<string, File> = new Map<string, File>()
-        for (const file of reportFiles) {
-            if (!map.has(file.name)) {
-                map.set(file.name, file)
-            }
-            if (map.get(file.name).version < file.version) {
-                map.set(file.name, file)
-            }
-        }
-        reportFiles = Array.from(map.values())
+        this.returnZippedReport(report, version, response)
+    }
 
-        const s3Client: S3Client = await this.getS3Client()
+    public async downloadReport(reportId: string, version: number | null, response: any): Promise<void> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            response.status(404).send(`Report '${reportId}' not found`)
+            return
+        }
+        this.returnZippedReport(report, version, response)
+    }
+
+    private async returnZippedReport(report: Report, version: number | null, response: any): Promise<void> {
+        const filter: any = { report_id: report.id }
+        if (version) {
+            filter.version = version
+        } else {
+            filter.version = await this.getLastVersionOfReport(report.id)
+        }
+        const reportFiles: File[] = await this.filesMongoProvider.read({ filter })
+        if (reportFiles.length === 0) {
+            response.status(404).send(`Report '${report.sluglified_name}' does not have version '${filter.version}'`)
+            return
+        }
 
         const zip: AdmZip = new AdmZip()
-        Logger.log(`Report '${report.sluglified_name}': downloading ${reportFiles.length} files from S3...`, ReportsService.name)
-        for (const reportFile of reportFiles) {
-            try {
-                Logger.log(`Report '${report.sluglified_name}': downloading file ${reportFile.name}...`, ReportsService.name)
-                const getObjectCommand: GetObjectCommand = new GetObjectCommand({
-                    Bucket: s3Bucket,
-                    Key: reportFile.path_s3,
-                })
-                const result = await s3Client.send(getObjectCommand)
-                if (!result || !result.hasOwnProperty('Body') || result.Body == null) {
-                    Logger.error(`Error downloading file '${reportFile.name}' from S3`, ReportsService.name)
-                    continue
-                }
-                const buffer: Buffer = await this.streamToBuffer(result.Body as Readable)
-                const reportFileZip: AdmZip = new AdmZip(buffer)
-                const zipEntries: AdmZip.IZipEntry[] = reportFileZip.getEntries()
-                for (const zipEntry of zipEntries) {
-                    Logger.log(`Report '${report.sluglified_name}': adding file '${zipEntry.entryName}' to zip...`, ReportsService.name)
-                    zip.addFile(zipEntry.entryName, reportFileZip.readFile(zipEntry))
-                }
-            } catch (e) {
-                Logger.error(`An error occurred downloading file '${reportFile.name}' from S3`, e, ReportsService.name)
-            }
+        Logger.log(`Report '${report.sluglified_name}': downloading ${reportFiles.length} files from Ftp...`, ReportsService.name)
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const client: Client = await this.sftpService.getClient()
+        const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+        const destinationPath = join(
+            sftpDestinationFolder,
+            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${filter.version}`,
+        )
+        const existsPath: boolean | string = await client.exists(destinationPath)
+        if (!existsPath) {
+            Logger.log(`Directory ${destinationPath} does not exist. Creating...`, ReportsService.name)
+            return
         }
+
+        const localPath = `/tmp/${report.id}`
+        const result = await client.downloadDir(destinationPath, localPath)
+        Logger.log(result, ReportsService.name)
+        zip.addLocalFolder(localPath)
 
         response.set('Content-Disposition', `attachment; filename=${report.id}.zip`)
         response.set('Content-Type', 'application/zip')
         response.send(zip.toBuffer())
+        Logger.log(`Report '${report.sluglified_name}': zip sent to user`, ReportsService.name)
     }
 
     private async getKysoReportTree(reportId: string, path: string, version: number | null): Promise<GithubFileHash[]> {
+        const lastVersion: number = await this.getLastVersionOfReport(reportId)
         const query: any = {
             filter: {
                 report_id: reportId,
+                version: version || lastVersion,
             },
-            sort: { version: 1 },
-        }
-        if (version) {
-            query.filter.version = version
         }
         let reportFiles: File[] = await this.filesMongoProvider.read(query)
         if (reportFiles.length === 0) {
@@ -1543,22 +1704,15 @@ export class ReportsService extends AutowiredService {
         let sanitizedPath = ''
         if (path && (path == './' || path == '/' || path == '.' || path == '/.')) {
             sanitizedPath = ''
-        } else if (path && path.length) {
+        } else if (path && path.length > 0) {
             sanitizedPath = path.replace('./', '').replace(/\/$/, '')
         }
 
-        // Get last version of each file
-        const map: Map<string, File> = new Map<string, File>()
-        for (const reportFile of reportFiles) {
-            map.set(reportFile.name, reportFile)
-        }
-
-        reportFiles = Array.from(map.values())
         let filesInPath: any[] = [...reportFiles]
 
         if (sanitizedPath !== '') {
             // Get the files that are in the path
-            reportFiles = reportFiles.filter((file: File) => file.name.startsWith(sanitizedPath + '/'))
+            reportFiles = reportFiles.filter((file: File) => file.name.startsWith(sanitizedPath + '/') || file.name.startsWith(sanitizedPath))
             filesInPath = reportFiles.map((file: File) => {
                 return {
                     ...file,
@@ -1581,18 +1735,21 @@ export class ReportsService extends AutowiredService {
         })
 
         if (result.length === 0) {
-            const justFile = Array.from(map.values()).find((file: File) => file.name.startsWith(sanitizedPath))
+            const justFile: File = reportFiles.find((file: File) => file.name.startsWith(sanitizedPath))
             return [
                 {
+                    id: justFile.id,
                     type: 'file',
                     path: justFile.name.replace(`${sanitizedPath}/`, ''),
                     hash: justFile.sha,
                     htmlUrl: '',
+                    path_scs: justFile.path_scs,
+                    version: justFile.version,
                 },
             ]
         }
 
-        if (result.length === 1 && result[0].name === path) {
+        if (result.length === 1 && result[0].children.length > 0) {
             // We are inside a directory
             result = result[0].children
         }
@@ -1603,18 +1760,24 @@ export class ReportsService extends AutowiredService {
             if (element.children.length > 0) {
                 // Directory
                 tree.push({
+                    id: null,
                     type: 'dir',
                     path: element.name,
                     hash: file.sha,
                     htmlUrl: '',
+                    path_scs: file.path_scs,
+                    version: file.version,
                 })
             } else {
                 // File
                 tree.push({
+                    id: file.id,
                     type: 'file',
                     path: file.name.replace(`${sanitizedPath}/`, ''),
                     hash: file.sha,
                     htmlUrl: '',
+                    path_scs: file.path_scs,
+                    version: file.version,
                 })
             }
         })
@@ -1622,8 +1785,6 @@ export class ReportsService extends AutowiredService {
     }
 
     private async getKysoFileContent(reportId: string, hash: string): Promise<Buffer> {
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-
         const files: File[] = await this.filesMongoProvider.read({
             filter: {
                 report_id: reportId,
@@ -1633,26 +1794,20 @@ export class ReportsService extends AutowiredService {
         if (files.length === 0) {
             return null
         }
-        const reportFile: File = files[0]
-
-        const s3Client: S3Client = await this.getS3Client()
-        const getObjectCommand: GetObjectCommand = new GetObjectCommand({
-            Bucket: s3Bucket,
-            Key: reportFile.path_s3,
-        })
-        const result = await s3Client.send(getObjectCommand)
-        if (!result || !result.hasOwnProperty('Body') || result.Body == null) {
-            Logger.error(`Error downloading file '${reportFile.name}' from S3`, ReportsService.name)
+        const reportFile: File = files[files.length - 1]
+        try {
+            const client: Client = await this.sftpService.getClient()
+            const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+            const destinationPath = join(sftpDestinationFolder, reportFile.path_scs)
+            const existsPath: boolean | string = await client.exists(destinationPath)
+            if (!existsPath) {
+                return null
+            }
+            return (await client.get(destinationPath)) as Buffer
+        } catch (e) {
+            Logger.error(`An error occurred while downloading file '${reportFile.name}' from SCS`, e, ReportsService.name)
             return null
         }
-        // return this.streamToBuffer(result.Body as Readable)
-        const buffer: Buffer = await this.streamToBuffer(result.Body as Readable)
-        const reportFileZip: AdmZip = new AdmZip(buffer)
-        const zipEntries: AdmZip.IZipEntry[] = reportFileZip.getEntries()
-        if (zipEntries.length === 0) {
-            return null
-        }
-        return zipEntries[0].getData()
     }
 
     public async setPreviewPicture(reportId: string, file: any): Promise<Report> {
@@ -1808,5 +1963,65 @@ export class ReportsService extends AutowiredService {
             throw new PreconditionFailedException('Report not found')
         }
         return report
+    }
+
+    private async uploadReportToFtp(reportId: string, sourcePath: string): Promise<void> {
+        const report: Report = await this.getReportById(reportId)
+        const version: number = await this.getLastVersionOfReport(reportId)
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const client: Client = await this.sftpService.getClient()
+        const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+        const destinationPath = join(
+            sftpDestinationFolder,
+            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`,
+        )
+        const existsPath: boolean | string = await client.exists(destinationPath)
+        if (!existsPath) {
+            Logger.log(`Directory ${destinationPath} does not exist. Creating...`, ReportsService.name)
+            await client.mkdir(destinationPath, true)
+            Logger.log(`Created directory ${destinationPath} in ftp`, ReportsService.name)
+        }
+        const result: string = await client.uploadDir(sourcePath, destinationPath)
+        Logger.log(result, ReportsService.name)
+        await client.end()
+    }
+
+    private async deleteReportFromFtp(reportId: string): Promise<void> {
+        const report: Report = await this.getReportById(reportId)
+        try {
+            const team: Team = await this.teamsService.getTeamById(report.team_id)
+            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            const client: Client = await this.sftpService.getClient()
+            const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+            const destinationPath = join(sftpDestinationFolder, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}`)
+            const existsPath: boolean | string = await client.exists(destinationPath)
+            if (!existsPath) {
+                Logger.log(`Directory ${destinationPath} does not exist. Creating...`, ReportsService.name)
+                return
+            }
+            const result: string = await client.rmdir(destinationPath, true)
+            Logger.log(`Deleted directory ${destinationPath} of report ${report.id} ${report.title} from ftp`, ReportsService.name)
+            Logger.log(result, ReportsService.name)
+            await client.end()
+        } catch (e) {
+            Logger.error(`Error deleting report ${report.id} ${report.title} from SFTP`, e, ReportsService.name)
+        }
+    }
+
+    private async getLastVersionOfReport(reportId: string): Promise<number> {
+        const query: any = {
+            filter: {
+                report_id: reportId,
+            },
+            sort: {
+                version: -1,
+            },
+        }
+        const files: File[] = await this.filesMongoProvider.read(query)
+        if (files.length === 0) {
+            return 0
+        }
+        return files[0].version
     }
 }

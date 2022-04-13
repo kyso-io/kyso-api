@@ -2,7 +2,6 @@ import { GlobalPermissionsEnum, LoginProviderEnum, User } from '@kyso-io/kyso-mo
 import { Injectable, Logger } from '@nestjs/common'
 import * as mongo from 'mongodb'
 import { v4 as uuidv4 } from 'uuid'
-import slugify from '../../../helpers/slugify'
 import { db } from '../../../main'
 import { MongoProvider } from '../../../providers/mongo.provider'
 import { AuthService } from '../../auth/auth.service'
@@ -27,8 +26,8 @@ const DEFAULT_GLOBAL_ADMIN_USER = new User(
 @Injectable()
 export class UsersMongoProvider extends MongoProvider<User> {
     provider: any
-    version = 2
-    
+    version = 3
+
     constructor() {
         super('User', db)
     }
@@ -54,26 +53,26 @@ export class UsersMongoProvider extends MongoProvider<User> {
         copycat.hashed_password = AuthService.hashPassword(randomPassword)
 
         await this.create(copycat)
-    }    
+    }
 
     /**
      * Refactored properties:
      *     - nickname to display_name
-     * 
+     *
      * This migration do:
      *     - Iterates through every document in Users collection
      *     - For each of them:
      *         - Read nickname and name properties
      *         - Adds a new display_name property with nickname value
-     * 
+     *
      * This migration DOES NOT DELETE name nor nickname, to be backwards compatible, but these properties are deprecated and will be deleted in next migrations
      *
      */
-     async migrate_from_1_to_2() {
+    async migrate_from_1_to_2() {
         const cursor = await this.getCollection().find({})
         const allUsers: any[] = await cursor.toArray()
-         
-        for(let user of allUsers) {
+
+        for (let user of allUsers) {
             const data: any = {
                 display_name: user.nickname,
             }
@@ -87,6 +86,22 @@ export class UsersMongoProvider extends MongoProvider<User> {
         }
 
         // This is made automatically, so don't need to add it explicitly
-        // await this.saveModelVersion(2)      
+        // await this.saveModelVersion(2)
+    }
+
+    async migrate_from_2_to_3() {
+        const cursor = await this.getCollection().find({})
+        const allUsers: any[] = await cursor.toArray()
+        for (let user of allUsers) {
+            const data: any = {
+                show_captcha: true,
+            }
+            await this.update(
+                { _id: this.toObjectId(user.id) },
+                {
+                    $set: data,
+                },
+            )
+        }
     }
 }

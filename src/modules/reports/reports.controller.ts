@@ -1,10 +1,7 @@
 import {
     Comment,
-    CreateKysoReportDTO,
-    CreateUIReportDTO,
     File,
     GithubBranch,
-    GithubCommit,
     GithubFileHash,
     GlobalPermissionsEnum,
     HEADER_X_KYSO_ORGANIZATION,
@@ -24,7 +21,9 @@ import {
     Body,
     Controller,
     Delete,
+    ForbiddenException,
     Get,
+    Headers,
     Logger,
     Param,
     Patch,
@@ -34,11 +33,10 @@ import {
     Req,
     Res,
     UploadedFile,
-    UploadedFiles,
     UseGuards,
     UseInterceptors,
 } from '@nestjs/common'
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express'
+import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -47,10 +45,12 @@ import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
 import slugify from '../../helpers/slugify'
-import { Validators } from '../../helpers/validators'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
+import { AuthService } from '../auth/auth.service'
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
+import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { CommentsService } from '../comments/comments.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { RelationsService } from '../relations/relations.service'
@@ -59,7 +59,6 @@ import { ReportsService } from './reports.service'
 
 @ApiExtraModels(Report, NormalizedResponseDTO)
 @ApiTags('reports')
-@UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('reports')
 @ApiHeader({
@@ -93,6 +92,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Get()
+    @UseGuards(PermissionsGuard)
     @ApiOperation({
         summary: `Search and fetch reports`,
         description: `By passing the appropiate parameters you can fetch and filter the reports available to the authenticated user.<br />
@@ -173,6 +173,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Get('/pinned')
+    @UseGuards(PermissionsGuard)
     @ApiOperation({
         summary: `Get pinned reports for a user`,
         description: `Allows fetching pinned reports of a specific user passing its id`,
@@ -219,53 +220,78 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.READ])
-    async getReport(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
+    async getReport(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+    ): Promise<NormalizedResponseDTO<ReportDTO>> {
         await this.reportsService.increaseViews({ _id: new ObjectId(reportId) })
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
         }
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
-    @Get('/:reportName/:teamName')
+    @Get('/:reportId/comments')
     @ApiOperation({
-        summary: `Get a report`,
-        description: `Allows fetching content of a specific report passing its name and team name`,
+        summary: `Get comments of a report`,
+        description: `By passing in the appropriate options you can see all the comments of a report`,
     })
     @ApiNormalizedResponse({
         status: 200,
-        description: `Report matching name and team name`,
-        type: ReportDTO,
+        description: `Comments of the specified report`,
+        type: Comment,
+        isArray: true,
     })
     @ApiParam({
-        name: 'reportName',
+        name: 'reportId',
         required: true,
-        description: 'Name of the report to fetch',
+        description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @ApiParam({
-        name: 'teamName',
-        required: true,
-        description: 'Name of the team to fetch',
-        schema: { type: 'string' },
-    })
-    // @Permission([ReportPermissionsEnum.READ])
-    async getReportByName(
+    async getComments(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
-        @Param('reportName') reportName: string,
-        @Param('teamName') teamName: string,
-    ): Promise<NormalizedResponseDTO<ReportDTO>> {
-        const report: Report = await this.reportsService.getReportByName(reportName, teamName)
-        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
-        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        return new NormalizedResponseDTO(reportDto, relations)
+        @Param('reportId') reportId: string,
+        @Req() req,
+    ): Promise<NormalizedResponseDTO<Comment[]>> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
+        const query = QueryParser.toQueryObject(req.url)
+        if (!query.sort) {
+            query.sort = { created_at: -1 }
+        }
+        const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: reportId }, sort: query.sort })
+        const relations = await this.relationsService.getRelations(comments, 'comment')
+        return new NormalizedResponseDTO(
+            comments.filter((comment: Comment) => !comment.comment_id),
+            relations,
+        )
     }
 
     @Get('/:reportName/:teamId/exists')
+    @UseGuards(PermissionsGuard)
     @ApiOperation({
         summary: `Check if report exists`,
         description: `Allows checking if a report exists passing its name and team name`,
@@ -294,6 +320,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Get('/embedded/:organizationName/:teamName/:reportName')
+    @Public()
     @ApiOperation({
         summary: `Get a report`,
         description: `Allows fetching content of a specific report passing its id`,
@@ -321,7 +348,6 @@ export class ReportsController extends GenericController<Report> {
         description: 'Name of the report to fetch',
         schema: { type: 'string' },
     })
-    @Public()
     async getEmbeddedReport(
         @Param('organizationName') organizationName: string,
         @Param('teamName') teamName: string,
@@ -350,6 +376,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Post('/kyso')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create a new report sending the files`,
         description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
@@ -359,21 +386,22 @@ export class ReportsController extends GenericController<Report> {
         description: `Created report`,
         type: ReportDTO,
     })
-    @UseInterceptors(FilesInterceptor('files'))
+    @UseInterceptors(FileInterceptor('file'))
     @Permission([ReportPermissionsEnum.CREATE])
-    async createKysoReport(
-        @CurrentToken() token: Token,
-        @Body() createKysoReportDTO: CreateKysoReportDTO,
-        @UploadedFiles() files: any[],
-    ): Promise<NormalizedResponseDTO<Report>> {
+    @Public()
+    async createKysoReport(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Report>> {
         Logger.log(`Called createKysoReport`)
-        const report: Report = await this.reportsService.createKysoReport(token.id, createKysoReportDTO, files)
+        if (!file) {
+            throw new BadRequestException(`Missing file`)
+        }
+        const report: Report = await this.reportsService.createKysoReport(token.id, file)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
     @Post('/ui')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create a new report sending the files`,
         description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
@@ -383,21 +411,42 @@ export class ReportsController extends GenericController<Report> {
         description: `Created report`,
         type: ReportDTO,
     })
-    @UseInterceptors(FilesInterceptor('files'))
+    @UseInterceptors(FileInterceptor('file'))
     @Permission([ReportPermissionsEnum.CREATE])
-    async createUIReport(
-        @CurrentToken() token: Token,
-        @Body() createUIReportDTO: CreateUIReportDTO,
-        @UploadedFiles() files: any[],
-    ): Promise<NormalizedResponseDTO<Report>> {
+    async createUIReport(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Report>> {
         Logger.log(`Called createUIReport`)
-        const report: Report = await this.reportsService.createUIReport(token.id, createUIReportDTO, files)
+        const report: Report = await this.reportsService.createUIReport(token.id, file)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
+    @Post('/ui/main-file/:reportId')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+    @ApiOperation({
+        summary: `Update the main file of the report`,
+        description: `By passing the appropiate parameters you can update the main file of report`,
+    })
+    @ApiResponse({
+        status: 201,
+        description: `Update the main file of the report`,
+        type: ReportDTO,
+    })
+    @UseInterceptors(FileInterceptor('file'))
+    @Permission([ReportPermissionsEnum.EDIT])
+    async updateMainFileReport(
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @UploadedFile() file: any,
+    ): Promise<NormalizedResponseDTO<Report>> {
+        const report: Report = await this.reportsService.updateMainFileReport(token.id, reportId, file)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
     @Post('/github/:repositoryName')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create a new report based on github repository`,
         description: `By passing the appropiate parameters you can create a new report referencing a github repository`,
@@ -420,6 +469,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Post('/bitbucket')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Create a new report based on bitbucket repository`,
         description: `By passing the appropiate parameters you can create a new report referencing a bitbucket repository`,
@@ -444,7 +494,32 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
+    @Post('/gitlab')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+    @ApiOperation({
+        summary: `Create a new report based on gitlab repository`,
+        description: `By passing the appropiate parameters you can create a new report referencing a gitlab repository`,
+    })
+    @ApiResponse({
+        status: 201,
+        description: `Created report`,
+        type: ReportDTO,
+    })
+    async createReportFromGitlabRepository(
+        @CurrentToken() token: Token,
+        @Query('id') id: string,
+        @Query('branch') branch: string,
+    ): Promise<NormalizedResponseDTO<Report>> {
+        Logger.log(`Called createReportFromGitlabRepository`)
+        console.log(id)
+        const report: Report = await this.reportsService.createReportFromGitlabRepository(token.id, id, branch)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
     @Patch('/:reportId')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Update the specific report`,
         description: `Allows updating content from the specified report`,
@@ -475,6 +550,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Delete('/:reportId')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a report`,
         description: `Allows deleting a specific report`,
@@ -493,6 +569,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Patch('/:reportId/pin')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Toggles global pin for the specified report`,
         description: `Allows pinning and unpinning of the specified report globally`,
@@ -517,6 +594,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Patch('/:reportId/user-pin')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Toggles the user's pin the specified report`,
         description: `Allows pinning and unpinning of the specified report for a user`,
@@ -540,6 +618,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Patch('/:reportId/user-star')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Toggles the user's star of the specified report`,
         description: `Allows starring and unstarring the specified report for a user`,
@@ -555,8 +634,6 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to pin',
         schema: { type: 'string' },
     })
-    // No permission required, any user can vote any report
-    // @Permission([ReportPermissionsEnum.EDIT])
     async toggleUserStar(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
         const report: Report = await this.reportsService.toggleUserStar(token.id, reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
@@ -565,9 +642,10 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Get('/:reportName/:teamName/pull')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
-        summary: `Pull a report from S3`,
-        description: `Pull a report from S3. This will download all files from S3 in zip format.`,
+        summary: `Pull a report from SCS`,
+        description: `Pull a report from SCS. This will download all files from SCS in zip format.`,
     })
     @ApiNormalizedResponse({
         status: 200,
@@ -586,14 +664,87 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the team to pull',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.READ])
     async pullReport(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
         @Param('reportName') reportName: string,
-        @Param('teamName') teamName: string,
+        @Param('teamName') teamNameParam: string,
+        @Query('version') versionStr: string,
         @Res() response: any,
     ): Promise<any> {
-        this.reportsService.pullReport(token, slugify(reportName), teamName, response)
+        const report: Report = await this.reportsService.getReport({
+            filter: {
+                name: reportName,
+                team: teamNameParam,
+            },
+        })
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
+        let version: number | null = null
+        if (versionStr) {
+            try {
+                version = parseInt(versionStr, 10)
+            } catch (e) {
+                Logger.error(`An error occurred while parsing the version`, e, ReportsController.name)
+            }
+        }
+        this.reportsService.pullReport(token, reportName, teamNameParam, version, response)
+    }
+
+    @Get('/:reportId/download')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @ApiOperation({
+        summary: `Download a report from SCS`,
+        description: `Download a report from SCS. This will download all files from SCS in zip format.`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Zip file containing all files of the report`,
+        type: Buffer,
+    })
+    @ApiParam({
+        name: 'reportId',
+        required: true,
+        description: 'Id of the report to pull',
+        schema: { type: 'string' },
+    })
+    async downloadReport(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @Query('version') versionStr: string,
+        @Res() response: any,
+    ): Promise<any> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
+        let version: number | null = null
+        if (versionStr) {
+            try {
+                version = parseInt(versionStr, 10)
+            } catch (e) {
+                Logger.error(`An error occurred while parsing the version`, e, ReportsController.name)
+            }
+        }
+        this.reportsService.downloadReport(reportId, version, response)
     }
 
     @Get('/:reportId/files')
@@ -612,8 +763,24 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.READ])
-    async getReportFiles(@Param('reportId') reportId: string, @Query('version') version: string): Promise<NormalizedResponseDTO<File>> {
+    async getReportFiles(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @Query('version') version: string,
+    ): Promise<NormalizedResponseDTO<File>> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
         const files: File[] = await this.reportsService.getReportFiles(reportId, version)
         return new NormalizedResponseDTO(files)
     }
@@ -629,45 +796,35 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.READ])
-    async getReportVersions(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<{ version: number; created_at: Date; num_files: number }>> {
-        const versions: any[] = await this.reportsService.getReportVersions(reportId)
-        return new NormalizedResponseDTO(versions)
-    }
-
-    @Get('/:reportId/comments')
-    @ApiOperation({
-        summary: `Get comments of a report`,
-        description: `By passing in the appropriate options you can see all the comments of a report`,
-    })
-    @ApiNormalizedResponse({
-        status: 200,
-        description: `Comments of the specified report`,
-        type: Comment,
-        isArray: true,
-    })
-    @ApiParam({
-        name: 'reportId',
-        required: true,
-        description: 'Id of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @Permission([ReportPermissionsEnum.READ])
-    async getComments(@Param('reportId') reportId: string, @Req() req): Promise<NormalizedResponseDTO<Comment[]>> {
+    async getReportVersions(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @Req() req,
+    ): Promise<NormalizedResponseDTO<{ version: number; created_at: Date; num_files: number }>> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
         }
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) {
             query.sort = { created_at: -1 }
         }
-        const comments: Comment[] = await this.commentsService.getComments({ filter: { report_id: reportId }, sort: query.sort })
-        const relations = await this.relationsService.getRelations(comments, 'comment')
-        return new NormalizedResponseDTO(
-            comments.filter((comment: Comment) => !comment.comment_id),
-            relations,
-        )
+        const versions: any[] = await this.reportsService.getReportVersions(reportId)
+        if (query.sort.created_at === 1) {
+            versions.sort((a, b) => a.created_at.getTime() - b.created_at.getTime())
+        } else {
+            versions.sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
+        }
+        return new NormalizedResponseDTO(versions)
     }
 
     @Get('/:reportId/branches')
@@ -687,47 +844,29 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @Permission([ReportPermissionsEnum.READ])
-    async getBranches(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<GithubBranch[]>> {
-        const branches: GithubBranch[] = await this.reportsService.getBranches(token.id, reportId)
+    async getBranches(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+    ): Promise<NormalizedResponseDTO<GithubBranch[]>> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
+        const branches: GithubBranch[] = await this.reportsService.getBranches(reportId)
         return new NormalizedResponseDTO(branches)
     }
 
-    @Get('/:reportId/:branch/commits')
-    @ApiOperation({
-        summary: `Get commits of a report imported from a git provider`,
-        description: `By passing in the appropriate options you can see the commits of a branch for the repository the specified report is linked to`,
-    })
-    @ApiParam({
-        name: 'reportId',
-        required: true,
-        description: 'Id of the report to fetch',
-        schema: { type: 'string' },
-    })
-    @ApiParam({
-        name: 'branch',
-        required: true,
-        description: 'GithubBranch to start listing commits from. Accepts slashes',
-        schema: { type: 'string' },
-    })
-    @ApiNormalizedResponse({
-        status: 200,
-        description: `Branches of the specified report`,
-        type: GithubCommit,
-        isArray: true,
-    })
-    @Permission([ReportPermissionsEnum.READ])
-    async getCommits(
-        @CurrentToken() token: Token,
-        @Param('reportId') reportId: string,
-        @Param('branch') branch: string,
-    ): Promise<NormalizedResponseDTO<GithubCommit[]>> {
-        const commits: any[] = await this.reportsService.getCommits(token.id, reportId, branch)
-        return new NormalizedResponseDTO(commits)
-    }
-
     // todo: this function name is confusing?
-    @Get('/:reportId/:branch/tree')
+    @Get('/:reportId/tree')
     @ApiOperation({
         summary: `Explore a report tree`,
         description: `Get hash of a file for a given report. If the file is a folder, will get information about the files in it too (non-recursively). Path is currently ignored for local reports.`,
@@ -743,58 +882,66 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @ApiParam({
-        name: 'branch',
-        required: true,
-        description: 'GithubBranch of the repository to fetch data from. Accepts slashes.',
-        schema: { type: 'string' },
-    })
-    @Permission([ReportPermissionsEnum.READ])
     async getReportTree(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
         @Param('reportId') reportId: string,
-        @Param('branch') branch: string,
         @Query('path') path: string,
         @Query('version') versionStr: string,
     ): Promise<NormalizedResponseDTO<GithubFileHash | GithubFileHash[]>> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
         let version: number | null
         if (versionStr && !isNaN(Number(versionStr))) {
             version = parseInt(versionStr, 10)
         }
-        const hash: GithubFileHash | GithubFileHash[] = await this.reportsService.getReportTree(token.id, reportId, branch, path, version)
+        const hash: GithubFileHash | GithubFileHash[] = await this.reportsService.getReportTree(reportId, path, version)
         return new NormalizedResponseDTO(hash)
     }
 
-    @Get('/:reportId/file/:hash')
+    @Get('/file/:id')
     @ApiOperation({
         summary: `Get content of a file`,
-        description: `By passing the hash of a file, get its raw content directly from the source.`,
+        description: `By passing the id a file, get its raw content directly from the source.`,
     })
     @ApiParam({
-        name: 'reportId',
+        name: 'id',
         required: true,
-        description: 'Name of the report to fetch',
+        description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    @ApiParam({
-        name: 'hash',
-        required: true,
-        description: 'Hash of the file to access',
-        schema: { type: 'string' },
-    })
-    @Permission([ReportPermissionsEnum.READ])
     async getReportFileContent(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
-        @Param('reportId') reportId: string,
-        @Param('hash') hash: string,
-        @Query('path') path: string,
+        @Param('id') id: string,
     ): Promise<Buffer> {
-        if (!Validators.isValidSha(hash)) {
-            throw new PreconditionFailedException({
-                message: 'Hash is not a valid sha. Must have 40 hexadecimal characters.',
-            })
+        const file: File = await this.reportsService.getFileById(id)
+        if (!file) {
+            throw new PreconditionFailedException('File not found')
         }
-        return this.reportsService.getReportFileContent(token.id, reportId, hash, path)
+        const report: Report = await this.reportsService.getReportById(file.report_id)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
+        return this.reportsService.getReportFileContent(file)
     }
 
     @UseInterceptors(
@@ -808,6 +955,7 @@ export class ReportsController extends GenericController<Report> {
         }),
     )
     @Post('/:reportId/preview-picture')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Upload a profile picture for a report`,
         description: `Allows uploading a profile picture for a report passing its id and image`,
@@ -835,6 +983,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Delete('/:reportId/preview-picture')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a profile picture for a report`,
         description: `Allows deleting a profile picture for a report passing its id`,
@@ -846,11 +995,53 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.EDIT])
-    @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: ReportDTO })
+    @ApiNormalizedResponse({ status: 200, description: `Updated report`, type: ReportDTO })
     public async deleteBackgroundImage(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
         const report: Report = await this.reportsService.deletePreviewPicture(reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
+    @Get('/:reportName/:teamName')
+    @ApiOperation({
+        summary: `Get a report`,
+        description: `Allows fetching content of a specific report passing its name and team name`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Report matching name and team name`,
+        type: ReportDTO,
+    })
+    @ApiParam({
+        name: 'reportName',
+        required: true,
+        description: 'Name of the report to fetch',
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'teamName',
+        required: true,
+        description: 'Name of the team to fetch',
+        schema: { type: 'string' },
+    })
+    async getReportByName(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('reportName') reportName: string,
+        @Param('teamName') teamNameParam: string,
+    ): Promise<NormalizedResponseDTO<ReportDTO>> {
+        const report: Report = await this.reportsService.getReportByName(reportName, teamNameParam)
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         return new NormalizedResponseDTO(reportDto, relations)
     }
 }

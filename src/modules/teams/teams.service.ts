@@ -2,6 +2,7 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client
 import {
     GlobalPermissionsEnum,
     KysoRole,
+    KysoSettingsEnum,
     Organization,
     OrganizationMemberJoin,
     Report,
@@ -23,7 +24,6 @@ import { userHasPermission } from '../../helpers/permissions'
 import slugify from '../../helpers/slugify'
 import { PlatformRole } from '../../security/platform-roles'
 import { CommentsService } from '../comments/comments.service'
-import { KysoSettingsEnum } from '../kyso-settings/enums/kyso-settings.enum'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
@@ -281,8 +281,15 @@ export class TeamsService extends AutowiredService {
             // The name of this team exists?
             const teams: Team[] = await this.provider.read({ filter: { sluglified_name: team.sluglified_name } })
             if (teams.length > 0) {
-                // Exists, throw an exception
-                throw new PreconditionFailedException('The name of the team must be unique')
+                let i = teams.length + 1
+                do {
+                    team.sluglified_name = `${team.sluglified_name}-${i}`
+                    const index: number = teams.findIndex((t: Team) => t.sluglified_name === team.sluglified_name)
+                    if (index === -1) {
+                        break
+                    }
+                    i++
+                } while (true)
             }
 
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
@@ -292,7 +299,7 @@ export class TeamsService extends AutowiredService {
 
             const users: User[] = await this.usersService.getUsers({ filter: { sluglified_name: team.sluglified_name } })
             if (users.length > 0) {
-                throw new PreconditionFailedException('There is already a user with this display_name')
+                throw new PreconditionFailedException('There is already a user with this sluglified_name')
             }
 
             const newTeam: Team = await this.provider.create(team)
