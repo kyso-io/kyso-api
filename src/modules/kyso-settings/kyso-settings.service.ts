@@ -61,6 +61,8 @@ export class KysoSettingsService extends AutowiredService {
                 return 'http://elasticsearch-master.elasticsearch-lo.svc.cluster.local:9200'
             case KysoSettingsEnum.DURATION_HOURS_TOKEN_EMAIL_VERIFICATION:
                 return '2'
+            case KysoSettingsEnum.DURATION_MINUTES_TOKEN_RECOVERY_PASSWORD:
+                return '15'
             case KysoSettingsEnum.RECAPTCHA2_ENABLED:
                 return 'false'
             case KysoSettingsEnum.RECAPTCHA2_SITE_KEY:
@@ -69,6 +71,16 @@ export class KysoSettingsService extends AutowiredService {
             case KysoSettingsEnum.RECAPTCHA2_SECRET_KEY:
                 // Development default's https://developers.google.com/recaptcha/docs/faq#id-like-to-run-automated-tests-with-recaptcha.-what-should-i-do
                 return '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe'
+            case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GOOGLE:
+                return 'true'
+            case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITLAB:
+                return 'true'
+            case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_BITBUCKET:
+                return 'true'
+            case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_KYSO:
+                return 'true'
+            case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITHUB:
+                return 'true'
             default:
                 return ''
         }
@@ -134,10 +146,24 @@ export class KysoSettingsService extends AutowiredService {
                 return `Duration in hours for token email verification`
             case KysoSettingsEnum.RECAPTCHA2_ENABLED:
                 return `Enables recaptcha globally in the platform`
+            case KysoSettingsEnum.DURATION_MINUTES_TOKEN_RECOVERY_PASSWORD:
+                return `Duration in minutes for token recovery password`
             case KysoSettingsEnum.RECAPTCHA2_SITE_KEY:
                 return `Recaptcha2 site key`
             case KysoSettingsEnum.RECAPTCHA2_SECRET_KEY:
                 return `Recaptcha2 secret key`
+            case KysoSettingsEnum.SERVICE_DESK_EMAIL:
+                return `Service desk email`
+            case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GOOGLE:
+                return 'Enables globally the authorization using google provider. Settings this to false makes the button "Sign in with Google" to dissapear'
+            case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITLAB:
+                return 'Enables globally the authorization using gitlab provider. Settings this to false makes the button "Sign in with Gitlab" to dissapear'
+            case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_BITBUCKET:
+                return 'Enables globally the authorization using bitbucket provider. Settings this to false makes the button "Sign in with Bitbucket" to dissapear'
+            case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_KYSO:
+                return 'Enables globally the authorization using kyso provider. Settings this to false makes the Kyso login form to dissapear'
+            case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITHUB:
+                return 'Enables globally the authorization using github provider. Settings this to false makes the button "Sign in with Github" to dissapear'
             default:
                 return 'No description provided'
         }
