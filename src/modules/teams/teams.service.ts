@@ -278,8 +278,10 @@ export class TeamsService extends AutowiredService {
     async createTeam(team: Team, userId?: string) {
         try {
             team.sluglified_name = slugify(team.display_name)
-            // The name of this team exists?
-            const teams: Team[] = await this.provider.read({ filter: { sluglified_name: team.sluglified_name } })
+            
+            // The name of this team exists in the organization?
+            const teams: Team[] = await this.provider.read({ filter: { sluglified_name: team.sluglified_name, organization_id: team.organization_id } })
+            
             if (teams.length > 0) {
                 let i = teams.length + 1
                 do {
