@@ -7,6 +7,8 @@ import {
     OrganizationMember,
     OrganizationMemberJoin,
     OrganizationOptions,
+    Team,
+    TeamVisibilityEnum,
     UpdateOrganizationDTO,
     UpdateOrganizationMembersDTO,
     User,
@@ -77,7 +79,17 @@ export class OrganizationsService extends AutowiredService {
                 i++
             } while (true);
         }
-        return this.provider.create(organization)
+
+        const newOrganization: Organization = await this.provider.create(organization)
+
+        // Now, create the default teams for that organization
+        const generalTeam = new Team("General", "", 
+            "A general team to share information and discuss", "", "", [], 
+            newOrganization.id, TeamVisibilityEnum.PROTECTED);
+
+        await this.teamsService.createTeam(generalTeam)
+        
+        return newOrganization;
     }
 
     public async deleteOrganization(organizationId: string): Promise<Organization> {

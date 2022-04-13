@@ -117,6 +117,7 @@ export class OrganizationsController extends GenericController<Organization> {
     @Permission([OrganizationPermissionsEnum.CREATE])
     async createOrganization(@Body() organization: Organization): Promise<NormalizedResponseDTO<Organization>> {
         const newOrganization: Organization = await this.organizationService.createOrganization(organization)
+
         return new NormalizedResponseDTO(newOrganization)
     }
 
