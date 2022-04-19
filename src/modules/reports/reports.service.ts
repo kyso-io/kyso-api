@@ -1454,10 +1454,7 @@ export class ReportsService extends AutowiredService {
                 } catch (e) {
                     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                     Logger.error(`Report ${report.id} ${report.sluglified_name}: Could not parse kyso.{yml,yaml} file`, ReportsService.name)
-                    throw new PreconditionFailedException(
-                        `Report ${report.id} ${report.sluglified_name}: Could not parse kyso.{yml,yaml} file`,
-                        ReportsService.name,
-                    )
+                    throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: Could not parse kyso.{yml,yaml} file`)
                 }
             }
             files.push({ name: fileName, filePath: filePath })
@@ -1465,18 +1462,12 @@ export class ReportsService extends AutowiredService {
         if (!kysoConfigFile) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report ${report.id} ${report.sluglified_name}: Repository does not contain a kyso.{json,yml,yaml} config file`, ReportsService.name)
-            throw new PreconditionFailedException(
-                `Repository ${report.sluglified_name} does not contain a kyso.{json,yml,yaml} config file`,
-                ReportsService.name,
-            )
+            throw new PreconditionFailedException(`Repository ${report.sluglified_name} does not contain a kyso.{json,yml,yaml} config file`)
         }
         if (!kysoConfigFile.type || kysoConfigFile.type.length === 0) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report ${report.id} ${report.sluglified_name}: missing property 'type' in ${kysoFileName}`, ReportsService.name)
-            throw new PreconditionFailedException(
-                `Repository ${report.sluglified_name} missing property 'type' in ${kysoFileName} config file`,
-                ReportsService.name,
-            )
+            throw new PreconditionFailedException(`Repository ${report.sluglified_name} missing property 'type' in ${kysoFileName}`)
         }
         return { files, kysoConfigFile, directoriesToRemove }
     }
