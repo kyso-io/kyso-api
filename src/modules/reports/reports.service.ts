@@ -1418,6 +1418,7 @@ export class ReportsService extends AutowiredService {
         const relativePath: string = filePaths[0]
         const files: { name: string; filePath: string }[] = []
         let kysoConfigFile: KysoConfigFile = null
+        let kysoFileName: string = null
         const directoriesToRemove: string[] = []
         // Search kyso config file and annotate directories to remove at the end of the process
         for (let i = 1; i < filePaths.length; i++) {
@@ -1428,6 +1429,7 @@ export class ReportsService extends AutowiredService {
             }
             const fileName: string = filePath.replace(`${relativePath}/`, '')
             if (fileName === 'kyso.json') {
+                kysoFileName = fileName
                 try {
                     kysoConfigFile = JSON.parse(readFileSync(filePath, 'utf8'))
                     if (!KysoConfigFile.isValid(kysoConfigFile)) {
@@ -1441,6 +1443,7 @@ export class ReportsService extends AutowiredService {
                     throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: Could not parse kyso.json file`, ReportsService.name)
                 }
             } else if (fileName === 'kyso.yml' || fileName === 'kyso.yaml') {
+                kysoFileName = fileName
                 try {
                     kysoConfigFile = jsYaml.load(readFileSync(filePath, 'utf8')) as KysoConfigFile
                     if (!KysoConfigFile.isValid(kysoConfigFile)) {
@@ -1467,6 +1470,14 @@ export class ReportsService extends AutowiredService {
                 ReportsService.name,
             )
         }
+        if (!kysoConfigFile.type || kysoConfigFile.type.length === 0) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report ${report.id} ${report.sluglified_name}: missing property 'type' in ${kysoFileName}`, ReportsService.name)
+            throw new PreconditionFailedException(
+                `Repository ${report.sluglified_name} missing property 'type' in ${kysoFileName} config file`,
+                ReportsService.name,
+            )
+        }
         return { files, kysoConfigFile, directoriesToRemove }
     }
 
@@ -1489,6 +1500,12 @@ export class ReportsService extends AutowiredService {
         if (kysoConfigFile?.main && kysoConfigFile.main.length > 0) {
             mainFile = kysoConfigFile.main
         }
+        let reportType = null
+        if (kysoConfigFile?.type && kysoConfigFile.type.length > 0) {
+            reportType = kysoConfigFile.type
+        } else if (report.report_type) {
+            reportType = report.report_type
+        }
         report = await this.provider.update(
             { _id: this.provider.toObjectId(report.id) },
             {
@@ -1497,7 +1514,7 @@ export class ReportsService extends AutowiredService {
                     team_id: team.id,
                     title: kysoConfigFile.title || report.title,
                     main_file: mainFile || report?.main_file || null,
-                    report_type: kysoConfigFile?.type && kysoConfigFile.type.length > 0 ? kysoConfigFile.type : null,
+                    report_type: reportType,
                 },
             },
         )
