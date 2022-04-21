@@ -128,8 +128,8 @@ export class TeamsService extends AutowiredService {
         const filterOrganizationMembers: any = {
             member_id: userId,
         }
-        if (query?.organization_id && query.organization_id.length > 0) {
-            filterOrganizationMembers.organization_id = query.organization_id
+        if (query.filter?.organization_id && query.filter.organization_id.length > 0) {
+            filterOrganizationMembers.organization_id = query.filter.organization_id
         }
         const allUserOrganizations: OrganizationMemberJoin[] = await this.organizationsService.searchMembersJoin({ filter: filterOrganizationMembers })
         for (const organizationMembership of allUserOrganizations) {
@@ -149,8 +149,8 @@ export class TeamsService extends AutowiredService {
             const filterTeam: any = {
                 _id: this.provider.toObjectId(m.team_id),
             }
-            if (query?.organization_id && query.organization_id.length > 0) {
-                filterTeam.organization_id = query.organization_id
+            if (query.filter?.organization_id && query.filter.organization_id.length > 0) {
+                filterTeam.organization_id = query.filter.organization_id
             }
             const result: Team = await this.getTeam({ filter: filterTeam })
             if (result) {
