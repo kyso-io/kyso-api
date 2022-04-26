@@ -3,12 +3,15 @@ import {
     AddUserOrganizationDto,
     KysoRole,
     KysoSettingsEnum,
+    NumMembersAndReportsOrg,
     Organization,
     OrganizationMember,
     OrganizationMemberJoin,
     OrganizationOptions,
+    Report,
     Team,
     TeamVisibilityEnum,
+    Token,
     UpdateOrganizationDTO,
     UpdateOrganizationMembersDTO,
     User,
@@ -20,6 +23,7 @@ import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { PlatformRole } from '../../security/platform-roles'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
+import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
@@ -48,6 +52,9 @@ export class OrganizationsService extends AutowiredService {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
 
+    @Autowired({ typeName: 'ReportsService' })
+    private reportsService: ReportsService
+
     constructor(private readonly provider: OrganizationsMongoProvider, private readonly organizationMemberProvider: OrganizationMemberMongoProvider) {
         super()
     }
@@ -68,7 +75,7 @@ export class OrganizationsService extends AutowiredService {
     public async createOrganization(organization: Organization): Promise<Organization> {
         // The name of this organization exists?
         const organizations: Organization[] = await this.provider.read({ filter: { sluglified_name: organization.sluglified_name } })
-        
+
         if (organizations.length > 0) {
             let i = organizations.length + 1
             do {
@@ -78,19 +85,26 @@ export class OrganizationsService extends AutowiredService {
                     break
                 }
                 i++
-            } while (true);
+            } while (true)
         }
 
         const newOrganization: Organization = await this.provider.create(organization)
 
         // Now, create the default teams for that organization
-        const generalTeam = new Team("General", "", 
-            "A general team to share information and discuss", "", "", [], 
-            newOrganization.id, TeamVisibilityEnum.PROTECTED);
+        const generalTeam = new Team(
+            'General',
+            '',
+            'A general team to share information and discuss',
+            '',
+            '',
+            [],
+            newOrganization.id,
+            TeamVisibilityEnum.PROTECTED,
+        )
 
         await this.teamsService.createTeam(generalTeam)
-        
-        return newOrganization;
+
+        return newOrganization
     }
 
     public async deleteOrganization(organizationId: string): Promise<Organization> {
@@ -443,5 +457,69 @@ export class OrganizationsService extends AutowiredService {
             await s3Client.send(deleteObjectCommand)
         }
         return this.provider.update({ _id: this.provider.toObjectId(organization.id) }, { $set: { avatar_url: null } })
+    }
+
+    public async getNumMembersAndReportsByOrganization(token: Token, organizationId: string): Promise<NumMembersAndReportsOrg[]> {
+        const map: Map<string, { members: number; reports: number }> = new Map<string, { members: number; reports: number }>()
+        const query: any = {
+            filter: {},
+        }
+        if (!token.isGlobalAdmin()) {
+            query.filter.member_id = token.id
+        }
+        if (organizationId && organizationId.length > 0) {
+            query.filter.organization_id = organizationId
+        }
+        const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.read(query)
+        members.forEach((organizationMemberJoin: OrganizationMemberJoin) => {
+            if (!map.has(organizationMemberJoin.organization_id)) {
+                map.set(organizationMemberJoin.organization_id, { members: 0, reports: 0 })
+            }
+            map.get(organizationMemberJoin.organization_id).members++
+        })
+        const teamOrgMap: Map<string, string> = new Map<string, string>()
+        let teams: Team[] = []
+        const teamsQuery: any = {
+            filter: {},
+        }
+        const reportsQuery: any = {
+            filter: {},
+        }
+        if (organizationId && organizationId.length > 0) {
+            teamsQuery.filter.organization_id = organizationId
+        }
+        if (token.isGlobalAdmin()) {
+            teams = await this.teamsService.getTeams(teamsQuery)
+        } else {
+            teams = await this.teamsService.getTeamsForController(token.id, teamsQuery)
+            reportsQuery.filter = {
+                team_id: {
+                    $in: teams.map((x: Team) => x.id),
+                },
+            }
+        }
+        teams.forEach((team: Team) => {
+            teamOrgMap.set(team.id, team.organization_id)
+        })
+        const reports: Report[] = await this.reportsService.getReports(reportsQuery)
+        reports.forEach((report: Report) => {
+            const organizationId: string | undefined = teamOrgMap.get(report.team_id)
+            if (!organizationId) {
+                return
+            }
+            if (!map.has(organizationId)) {
+                map.set(organizationId, { members: 0, reports: 0 })
+            }
+            map.get(organizationId).reports++
+        })
+        const result: NumMembersAndReportsOrg[] = []
+        map.forEach((value: { members: number; reports: number }, organizationId: string) => {
+            result.push({
+                organization_id: organizationId,
+                members: value.members,
+                reports: value.reports,
+            })
+        })
+        return result
     }
 }
