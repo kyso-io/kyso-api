@@ -2,6 +2,7 @@ import {
     AddUserOrganizationDto,
     GlobalPermissionsEnum,
     NormalizedResponseDTO,
+    NumMembersAndReportsOrg,
     Organization,
     OrganizationMember,
     OrganizationOptions,
@@ -21,6 +22,7 @@ import {
     Patch,
     Post,
     PreconditionFailedException,
+    Query,
     UploadedFile,
     UseGuards,
     UseInterceptors,
@@ -28,12 +30,14 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
+import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
+import { RelationsService } from '../relations/relations.service'
 import { OrganizationsService } from './organizations.service'
 
 @ApiTags('organizations')
@@ -42,12 +46,30 @@ import { OrganizationsService } from './organizations.service'
 @ApiBearerAuth()
 @Controller('organizations')
 export class OrganizationsController extends GenericController<Organization> {
+    @Autowired({ typeName: 'RelationsService' })
+    private relationsService: RelationsService
+
     constructor(private readonly organizationService: OrganizationsService) {
         super()
     }
 
     assignReferences(organization: Organization) {
         // TODO
+    }
+
+    @Get('/number-of-members-and-reports')
+    @ApiOperation({
+        summary: `Get the number of members and reports by organization`,
+        description: `Allows fetching the number of members and reports by organization`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Number of members and reports by organization`, type: NumMembersAndReportsOrg })
+    public async getNumMembersAndReportsByOrganization(
+        @CurrentToken() token: Token,
+        @Query('organizationId') organizationId: string,
+    ): Promise<NormalizedResponseDTO<NumMembersAndReportsOrg[]>> {
+        const numMembersAndReportsOrg: NumMembersAndReportsOrg[] = await this.organizationService.getNumMembersAndReportsByOrganization(token, organizationId)
+        const relations = await this.relationsService.getRelations(numMembersAndReportsOrg)
+        return new NormalizedResponseDTO(numMembersAndReportsOrg, relations)
     }
 
     @Get('/:organizationId')

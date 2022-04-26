@@ -82,7 +82,7 @@ export class RelationsService extends AutowiredService {
         return validCollections
     }
 
-    async getRelations(entities: object | [object], entityType: string, mappings: { [key: string]: string } = {}): Promise<Relations> {
+    async getRelations(entities: object | [object], entityType: string = null, mappings: { [key: string]: string } = {}): Promise<Relations> {
         if (!Array.isArray(entities)) entities = [entities]
 
         const groupedRelations = this.scanForRelations(entities, mappings)
@@ -107,9 +107,11 @@ export class RelationsService extends AutowiredService {
         }
 
         const relations = await Object.keys(groupedRelations).reduce(reducer, {})
-        relations[entityType] = {
-            ...relations[entityType],
-            ...listKeyToVal(entities),
+        if (entityType && entityType.length > 0) {
+            relations[entityType] = {
+                ...relations[entityType],
+                ...listKeyToVal(entities),
+            }
         }
 
         const typedRelations = plainToInstance(Relations, relations)
