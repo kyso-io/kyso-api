@@ -125,7 +125,13 @@ export class TeamsService extends AutowiredService {
             }
         })
         // All protected teams from organizations that the user belongs
-        const allUserOrganizations: OrganizationMemberJoin[] = await this.organizationsService.searchMembersJoin({ filter: { member_id: userId } })
+        const filterOrganizationMembers: any = {
+            member_id: userId,
+        }
+        if (query.filter?.organization_id && query.filter.organization_id.length > 0) {
+            filterOrganizationMembers.organization_id = query.filter.organization_id
+        }
+        const allUserOrganizations: OrganizationMemberJoin[] = await this.organizationsService.searchMembersJoin({ filter: filterOrganizationMembers })
         for (const organizationMembership of allUserOrganizations) {
             const result: Team[] = await this.getTeams({
                 filter: {
@@ -140,7 +146,13 @@ export class TeamsService extends AutowiredService {
         // All teams (whenever is public, private or protected) in which user is member
         const members: TeamMemberJoin[] = await this.searchMembers({ filter: { member_id: userId } })
         for (const m of members) {
-            const result: Team = await this.getTeam({ filter: { _id: this.provider.toObjectId(m.team_id) } })
+            const filterTeam: any = {
+                _id: this.provider.toObjectId(m.team_id),
+            }
+            if (query.filter?.organization_id && query.filter.organization_id.length > 0) {
+                filterTeam.organization_id = query.filter.organization_id
+            }
+            const result: Team = await this.getTeam({ filter: filterTeam })
             if (result) {
                 validMap.set(result.id, true)
             }
@@ -278,10 +290,10 @@ export class TeamsService extends AutowiredService {
     async createTeam(team: Team, userId?: string) {
         try {
             team.sluglified_name = slugify(team.display_name)
-            
+
             // The name of this team exists in the organization?
             const teams: Team[] = await this.provider.read({ filter: { sluglified_name: team.sluglified_name, organization_id: team.organization_id } })
-            
+
             if (teams.length > 0) {
                 let i = teams.length + 1
                 do {
