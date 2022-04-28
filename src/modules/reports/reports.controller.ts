@@ -25,6 +25,7 @@ import {
     Get,
     Headers,
     Logger,
+    NotFoundException,
     Param,
     Patch,
     Post,
@@ -673,16 +674,19 @@ export class ReportsController extends GenericController<Report> {
         @Query('version') versionStr: string,
         @Res() response: any,
     ): Promise<any> {
+        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: teamName } })
+        if (!team) {
+            throw new NotFoundException(`Team ${teamName} not found`)
+        }
         const report: Report = await this.reportsService.getReport({
             filter: {
-                name: reportName,
-                team: teamNameParam,
+                sluglified_name: reportName,
+                team_id: team.id,
             },
         })
         if (!report) {
             throw new PreconditionFailedException('Report not found')
         }
-        const team: Team = await this.teamsService.getTeamById(report.team_id)
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
             const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
             if (!hasPermissions) {
