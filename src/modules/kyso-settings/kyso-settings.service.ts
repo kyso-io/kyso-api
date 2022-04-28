@@ -81,11 +81,13 @@ export class KysoSettingsService extends AutowiredService {
                 return 'true'
             case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITHUB:
                 return 'true'
+            case KysoSettingsEnum.TMP_FOLDER_PATH:
+                return '/app/data'
             default:
                 return ''
         }
     }
-    
+
     public static getKysoSettingDescription(setting: KysoSettingsEnum): string {
         switch (setting) {
             case KysoSettingsEnum.KYSO_FILES_CLOUDFRONT_URL:
@@ -164,9 +166,10 @@ export class KysoSettingsService extends AutowiredService {
                 return 'Enables globally the authorization using kyso provider. Settings this to false makes the Kyso login form to dissapear'
             case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITHUB:
                 return 'Enables globally the authorization using github provider. Settings this to false makes the button "Sign in with Github" to dissapear'
+            case KysoSettingsEnum.TMP_FOLDER_PATH:
+                return 'Path where temporary files are stored'
             default:
                 return 'No description provided'
         }
     }
-    
 }
