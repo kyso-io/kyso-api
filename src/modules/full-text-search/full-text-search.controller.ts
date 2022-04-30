@@ -123,10 +123,10 @@ export class FullTextSearchController {
 
         for(let tagArray of searchResults.reports.tags) {
             try {
-                for(let tag of tagArray) {
+                const tags = tagArray.replace("[", "").replace("]", "").split(",")
+                for(let tag of tags) {
                     finalTagsSet.add(tag)
                 }
-                
             } catch(ex) {
                 // silent it
             }
