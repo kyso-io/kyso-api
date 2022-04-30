@@ -119,6 +119,7 @@ export class FullTextSearchController {
             return !bannedTeams.includes(x.team)
         })
 
+        // Remove duplicated tags and process tags
         const finalTagsSet = new Set<string>();
 
         for(let tagArray of searchResults.reports.tags) {
@@ -132,35 +133,8 @@ export class FullTextSearchController {
             }
         }
         
-        
-        // start Hack requested by @kyle for a demo ;P       
-        finalTagsSet.add("churn")
-        finalTagsSet.add("engagement")
-        finalTagsSet.add("b2b-chorts")
-
-        const fakeData: FullTextSearchResult = new FullTextSearchResult(
-            "Plotting Account Activity Levels",
-            "Measuring the relationship between team size and various engagement metrics like viewspostsand other actions. Should we be focusing more time on smaller accounts or only on the big fish?",
-            "acme/product/plotting-account-activity-levels",
-            "report",
-            [],
-            "product", "acme", ["churn", "engagement", "b2b-chorts"],
-            "plotting-account-activity-levels", 1, "main.ipynb", 91.312
-        )
-
-        
-        searchResults.reports.teams.push("product")
-        searchResults.reports.organizations.push("acme")
-
-        
-        
         searchResults.reports.results = censoredResults
-        searchResults.reports.results.splice(2,0, fakeData)
-
-        //end hack
         searchResults.reports.tags = Array.from(finalTagsSet)
-        
-
 
         return new NormalizedResponseDTO(searchResults, null);
     }
