@@ -83,6 +83,8 @@ export class KysoSettingsService extends AutowiredService {
                 return 'true'
             case KysoSettingsEnum.TMP_FOLDER_PATH:
                 return '/app/data'
+            case KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL:
+                return 'http://kyso-indexer-api.kyso-indexer-api-lo.svc.cluster.local:8080'
             default:
                 return ''
         }
@@ -168,6 +170,8 @@ export class KysoSettingsService extends AutowiredService {
                 return 'Enables globally the authorization using github provider. Settings this to false makes the button "Sign in with Github" to dissapear'
             case KysoSettingsEnum.TMP_FOLDER_PATH:
                 return 'Path where temporary files are stored'
+            case KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL:
+                return 'Base URL of the kyso indexing service'
             default:
                 return 'No description provided'
         }

@@ -619,6 +619,8 @@ export class ReportsService extends AutowiredService {
             await this.checkReportTags(report.id, kysoConfigFile.tags)
         }
 
+        
+
         new Promise<void>(async () => {
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
             await this.uploadReportToFtp(report.id, extractedDir)
@@ -628,7 +630,17 @@ export class ReportsService extends AutowiredService {
             let files: string[] = await this.getFilePaths(extractedDir)
             // Remove '/reportPath' from the paths
             files = files.map((file: string) => file.replace(reportPath, ''))
-            writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
+            
+            const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
+            const elasticUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
+            const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
+
+            axios.get(`${kysoIndexerApi}/api/index?elasticUrl=${elasticUrl}&pathToIndex=${pathToIndex}`).then(
+                () => {},
+                (err) => { Logger.warn(`${pathToIndex} was not indexed properly`, err)}
+            )
+
+            // writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
 
             await this.sendNewReportMail(report, team, organization, isNew)
         })
@@ -766,7 +778,17 @@ export class ReportsService extends AutowiredService {
             let files: string[] = await this.getFilePaths(extractedDir)
             // Remove '/reportPath' from the paths
             files = files.map((file: string) => file.replace(reportPath, ''))
-            writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
+
+            const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
+            const elasticUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
+            const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
+
+            axios.get(`${kysoIndexerApi}/api/index?elasticUrl=${elasticUrl}&pathToIndex=${pathToIndex}`).then(
+                () => {},
+                (err) => { Logger.warn(`${pathToIndex} was not indexed properly`, err)}
+            )
+
+            // writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
 
             await this.sendNewReportMail(report, team, organization, true)
         })
@@ -1562,7 +1584,17 @@ export class ReportsService extends AutowiredService {
         let tmpFiles: string[] = await this.getFilePaths(extractedDir)
         // Remove '/reportPath' from the paths
         tmpFiles = tmpFiles.map((file: string) => file.replace(reportPath, ''))
-        writeFileSync(join(reportPath, `/${report.id}.indexer`), tmpFiles.join('\n'))
+
+        const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
+        const elasticUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
+        const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
+
+        axios.get(`${kysoIndexerApi}/api/index?elasticUrl=${elasticUrl}&pathToIndex=${pathToIndex}`).then(
+            () => {},
+            (err) => { Logger.warn(`${pathToIndex} was not indexed properly`, err)}
+        )
+        
+        // writeFileSync(join(reportPath, `/${report.id}.indexer`), tmpFiles.join('\n'))
 
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
         Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
