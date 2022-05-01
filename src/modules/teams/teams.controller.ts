@@ -483,4 +483,32 @@ export class TeamsController extends GenericController<Team> {
         const team: Team = await this.teamsService.deleteTeam(teamId)
         return new NormalizedResponseDTO(team)
     }
+
+    @Post(':teamId/upload-markdown-image')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @ApiParam({
+        name: 'teamId',
+        required: true,
+        description: `id of the team that owns the image`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Upload markdown image`, type: String })
+    @UseInterceptors(
+        FileInterceptor('file', {
+            fileFilter: (req, file, callback) => {
+                if (!file.originalname.match(/\.(apng|avif|gif|jpg|jpeg|png|svg|webp)$/)) {
+                    return callback(new Error('Only image files are allowed!'), false)
+                }
+                callback(null, true)
+            },
+        }),
+    )
+    public async uploadMarkdownImage(
+        @CurrentToken() token: Token,
+        @Param('teamId') teamId: string,
+        @UploadedFile() file: Express.Multer.File,
+    ): Promise<NormalizedResponseDTO<string>> {
+        const scsImagePath: string = await this.teamsService.uploadMarkdownImage(token.id, teamId, file)
+        return new NormalizedResponseDTO(scsImagePath)
+    }
 }

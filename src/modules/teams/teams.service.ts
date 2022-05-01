@@ -16,17 +16,18 @@ import {
     User,
 } from '@kyso-io/kyso-model'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
-import { extname } from 'path'
+import { extname, join } from 'path'
+import * as Client from 'ssh2-sftp-client'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
 import slugify from '../../helpers/slugify'
 import { PlatformRole } from '../../security/platform-roles'
-import { CommentsService } from '../comments/comments.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
+import { SftpService } from '../reports/sftp.service'
 import { UsersService } from '../users/users.service'
 import { TeamMemberMongoProvider } from './providers/mongo-team-member.provider'
 import { TeamsMongoProvider } from './providers/mongo-teams.provider'
@@ -57,8 +58,8 @@ export class TeamsService extends AutowiredService {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
 
-    @Autowired({ typeName: 'CommentsService' })
-    private commentsService: CommentsService
+    @Autowired({ typeName: 'SftpService' })
+    private sftpService: SftpService
 
     constructor(private readonly provider: TeamsMongoProvider, private readonly teamMemberProvider: TeamMemberMongoProvider) {
         super()
@@ -566,5 +567,41 @@ export class TeamsService extends AutowiredService {
         // Delete team
         await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
         return team
+    }
+
+    public async uploadMarkdownImage(userId: string, teamId: string, file: Express.Multer.File): Promise<string> {
+        if (!file) {
+            throw new PreconditionFailedException('Missing image file')
+        }
+        const teams: Team[] = await this.getTeamsForController(userId, {})
+        const team: Team = teams.find((t: Team) => t.id === teamId)
+        if (!team) {
+            throw new PreconditionFailedException(`You don't have permissions to upload markdown images to this team`)
+        }
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const client: Client = await this.sftpService.getClient()
+        const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+        const containerFolder = `/${organization.sluglified_name}/${team.sluglified_name}/markdown-images`;
+        const destinationPath = join(sftpDestinationFolder, containerFolder)
+        const existsPath: boolean | string = await client.exists(destinationPath)
+        if (!existsPath) {
+            Logger.log(`Directory ${destinationPath} does not exist. Creating...`, ReportsService.name)
+            await client.mkdir(destinationPath, true)
+            Logger.log(`Created directory ${destinationPath} in ftp`, ReportsService.name)
+        }
+        const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX)
+        let ftpFilePath = ''
+        let publicFilePath = ''
+        do {
+            const fileName = `${uuidv4()}${extname(file.originalname)}`
+            ftpFilePath = join(destinationPath, fileName)
+            publicFilePath = join(staticContentPrefix, containerFolder, fileName)
+            const exists: boolean | string = await client.exists(ftpFilePath)
+            if (!exists) {
+                break
+            }
+        } while (true)
+        await client.put(file.buffer, ftpFilePath)
+        return publicFilePath
     }
 }

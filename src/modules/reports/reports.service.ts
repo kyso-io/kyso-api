@@ -115,13 +115,15 @@ export class ReportsService extends AutowiredService {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
 
+    @Autowired({ typeName: 'SftpService' })
+    private sftpService: SftpService
+
     constructor(
         private readonly mailerService: MailerService,
         private readonly provider: ReportsMongoProvider,
         private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider,
         private readonly starredReportsMongoProvider: StarredReportsMongoProvider,
         private readonly filesMongoProvider: FilesMongoProvider,
-        private readonly sftpService: SftpService,
     ) {
         super()
     }
