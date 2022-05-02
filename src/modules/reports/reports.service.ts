@@ -631,11 +631,10 @@ export class ReportsService extends AutowiredService {
             // Remove '/reportPath' from the paths
             files = files.map((file: string) => file.replace(reportPath, ''))
             
-            const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
-            const elasticUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
-            const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
+            const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)          
+            const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
 
-            axios.get(`${kysoIndexerApi}/api/index?elasticUrl=${elasticUrl}&pathToIndex=${pathToIndex}`).then(
+            axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
                 () => {},
                 (err) => { Logger.warn(`${pathToIndex} was not indexed properly`, err)}
             )
@@ -780,10 +779,9 @@ export class ReportsService extends AutowiredService {
             files = files.map((file: string) => file.replace(reportPath, ''))
 
             const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
-            const elasticUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
             const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
 
-            axios.get(`${kysoIndexerApi}/api/index?elasticUrl=${elasticUrl}&pathToIndex=${pathToIndex}`).then(
+            axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
                 () => {},
                 (err) => { Logger.warn(`${pathToIndex} was not indexed properly`, err)}
             )
@@ -1586,10 +1584,9 @@ export class ReportsService extends AutowiredService {
         tmpFiles = tmpFiles.map((file: string) => file.replace(reportPath, ''))
 
         const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
-        const elasticUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
         const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
 
-        axios.get(`${kysoIndexerApi}/api/index?elasticUrl=${elasticUrl}&pathToIndex=${pathToIndex}`).then(
+        axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
             () => {},
             (err) => { Logger.warn(`${pathToIndex} was not indexed properly`, err)}
         )
