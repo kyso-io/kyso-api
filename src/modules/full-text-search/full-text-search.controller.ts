@@ -154,7 +154,7 @@ export class FullTextSearchController {
 
         fakeData.push(
             new FullTextSearchResult(
-                "What is driving the purchase behaviour of Acme's customers?",
+                "Plotting Account Activity Levels",
                 "Measuring the relationship between team size and various engagement metrics like viewspostsand other actions. Should we be focusing more time on smaller accounts or only on the big fish?. Given that we're a SaaS company that charges per seat for team subscriptions, user engagement is super important for maintaining our high retention levels. Also, because we do charge per seat, by measuring the relationship between team size and various engagement metrics like views, posts, and other actions. Should we be focusing more time on smaller accounts or only on the big fish?",
                 "acme/product/plotting-account-activity-levels",
                 "report",
