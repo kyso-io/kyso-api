@@ -196,7 +196,7 @@ export class FullTextSearchController {
                 "report",
                 [],
                 "product", "acme", [],
-                "how-good-is-acme-at-activating-its-customers-and-retaining-high-usage-throughout-the-first-3-months-after-signup", 2, "MAIN.ipynb", 91.312
+                "how-good-is-acme-at-activating-its-customers-and-retaining-high-usage-throughout-the-first-3-months-after-signup", 2, "main.ipynb", 91.312
             )
         )
 
