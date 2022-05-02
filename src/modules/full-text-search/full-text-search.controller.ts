@@ -206,8 +206,7 @@ export class FullTextSearchController {
         searchResults.reports.organizations.push("acme")
 
                 
-        searchResults.reports.results = censoredResults
-        searchResults.reports.results.splice(1,0, ...fakeData)
+        searchResults.reports.results = [...fakeData, ...censoredResults]
         searchResults.reports.tags = Array.from(finalTagsSet)
 
         return new NormalizedResponseDTO(searchResults, null);
