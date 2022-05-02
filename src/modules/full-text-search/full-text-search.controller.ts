@@ -143,19 +143,19 @@ export class FullTextSearchController {
         fakeData.push(
             new FullTextSearchResult(
                 "What is driving the purchase behaviour of Acme's customers?",
-                "It has been shown income has the strongest relationship with purchase behavior of customers. However, interesting insights about education and age along with age_group have still been noted. These insights would be very helpful to how this store markets deals to their customers and prices items, such as wine since higher income groups tend to dominate alcohol sales. There is also opportunity to increase market to the 18 to 35 and 71 and Older age groups to drive products sales.",
+                "This notebook contains an analysis on some marketing data. The goal for this project was to do the following: 1. Get acquainted with the data, 2. Clean the data so it is ready for analysis, 3. Develop some questions for analysis, and 4. Analyse variables within the data to gain patterns and insights. It has been shown income has the strongest relationship with purchase behavior of customers. However, interesting insights about education and age along with age_group have still been noted. These insights would be very helpful to how this store markets deals to their customers and prices items, such as wine since higher income groups tend to dominate alcohol sales. There is also opportunity to increase market to the 18 to 35 and 71 and Older age groups to drive products sales.",
                 "acme/marketing/what-is-driving-the-purchase-behaviour-of-acmes-customers",
                 "report",
                 [],
                 "marketing", "acme", ["customer-patterns", "buyer-behaviour", "product-usage"],
-                "what-is-driving-the-purchase-behaviour-of-acmes-customers", 1, "marketing-data-analytics.ipynb", 91.312
+                "what-is-driving-the-purchase-behaviour-of-acmes-customers", 1, "main.ipynb", 91.312
             )
         )
 
         fakeData.push(
             new FullTextSearchResult(
                 "What is driving the purchase behaviour of Acme's customers?",
-                "Given that we're a SaaS company that charges per seat for team subscriptions, user engagement is super important for maintaining our high retention levels. Also, because we do charge per seat, by measuring the relationship between team size and various engagement metrics like views, posts, and other actions. Should we be focusing more time on smaller accounts or only on the big fish?",
+                "Measuring the relationship between team size and various engagement metrics like viewspostsand other actions. Should we be focusing more time on smaller accounts or only on the big fish?. Given that we're a SaaS company that charges per seat for team subscriptions, user engagement is super important for maintaining our high retention levels. Also, because we do charge per seat, by measuring the relationship between team size and various engagement metrics like views, posts, and other actions. Should we be focusing more time on smaller accounts or only on the big fish?",
                 "acme/product/plotting-account-activity-levels",
                 "report",
                 [],
@@ -167,7 +167,7 @@ export class FullTextSearchController {
         fakeData.push(
             new FullTextSearchResult(
                 "Customer Survival Analysis 2021",
-                "Predictive analytics use churn prediction models that predict customer churn by assessing their propensity of risk to churn. Since these models generate a small prioritized list of potential defectors, they are effective at focusing customer retention marketing programs on the subset of the customer base who are most vulnerable to churn. In this project we aim to perform customer survival analysis and build a model which can predict customer churn. We also aim to build an app which can be used to understand why a specific customer would stop the service and to know his/her expected lifetime value.",
+                "Customer attrition, also known as customer churn, customer turnover, or customer defection, is the loss of clients or customers. Predictive analytics use churn prediction models that predict customer churn by assessing their propensity of risk to churn. Predictive analytics use churn prediction models that predict customer churn by assessing their propensity of risk to churn. Since these models generate a small prioritized list of potential defectors, they are effective at focusing customer retention marketing programs on the subset of the customer base who are most vulnerable to churn. In this project we aim to perform customer survival analysis and build a model which can predict customer churn. We also aim to build an app which can be used to understand why a specific customer would stop the service and to know his/her expected lifetime value.",
                 "acme/product/customer-survival-analysis-2021",
                 "report",
                 [],
@@ -179,7 +179,7 @@ export class FullTextSearchController {
         fakeData.push(
             new FullTextSearchResult(
                 "B2B App Cohort Analysis",
-                "It appears that the May 2016 cohort has decreased in revenue while the others may have had expansion offsetting churned revenue. The revenue retention visualization really provides more information about the 2016 customer cohort. All 12 months of cohort groups have had some churn or expansion. We would want to follow-up and figure out how customer success or onboarding (or account management) contributed to the April, June, August, September and November cohort expansion and bring those best practices to the rest of the customer base. Conversely, are there any lessons learned from the May cohort and can we turn these customers' usage around.",
+                "Some interesting visualizations and conclusions from our latest cohort analyses... It appears that the May 2016 cohort has decreased in revenue while the others may have had expansion offsetting churned revenue. The revenue retention visualization really provides more information about the 2016 customer cohort. All 12 months of cohort groups have had some churn or expansion. We would want to follow-up and figure out how customer success or onboarding (or account management) contributed to the April, June, August, September and November cohort expansion and bring those best practices to the rest of the customer base. Conversely, are there any lessons learned from the May cohort and can we turn these customers' usage around.",
                 "acme/product/b2b-app-cohort-analysis",
                 "report",
                 [],
@@ -191,7 +191,7 @@ export class FullTextSearchController {
         fakeData.push(
             new FullTextSearchResult(
                 "How good is Acme at activating its customers and retaining high usage throughout the first 3 months after signup?",
-                "We are tasked to Perform Cohort and Recency Frequency and Monetary Value Analysis to understand the value derived from different customer segments. Further, we will divide customers in different cluster traits based on the analysis by using Unsupervised Learning Techniques.",
+                "How good is Acme at activating its customers and retaining high usage throughout the first 3 months after signup?. We are tasked to Perform Cohort and Recency Frequency and Monetary Value Analysis to understand the value derived from different customer segments. Further, we will divide customers in different cluster traits based on the analysis by using Unsupervised Learning Techniques.",
                 "acme/product/how-good-is-acme-at-activating-its-customers-and-retaining-high-usage-throughout-the-first-3-months-after-signup",
                 "report",
                 [],
