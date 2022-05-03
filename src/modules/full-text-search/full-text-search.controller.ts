@@ -148,7 +148,7 @@ export class FullTextSearchController {
                 "report",
                 [],
                 "marketing", "acme", ["customer-patterns", "buyer-behaviour", "product-usage"],
-                "what-is-driving-the-purchase-behaviour-of-acmes-customers", 1, "main.ipynb", 91.312
+                "what-is-driving-the-purchase-behaviour-of-acmes-customers", 1, "", 91.312
             )
         )
 
@@ -160,7 +160,7 @@ export class FullTextSearchController {
                 "report",
                 [],
                 "product", "acme", ["churn", "engagement", "b2b-chorts"],
-                "plotting-account-activity-levels", 1, "main.ipynb", 91.312
+                "plotting-account-activity-levels", 1, "", 91.312
             )
         )
 
@@ -172,7 +172,7 @@ export class FullTextSearchController {
                 "report",
                 [],
                 "product", "acme", ["churn", "b2b", "survival-analysis"],
-                "customer-survival-analysis-2021", 3, "README.md", 91.312
+                "customer-survival-analysis-2021", 3, "", 91.312
             )
         )
 
@@ -184,7 +184,7 @@ export class FullTextSearchController {
                 "report",
                 [],
                 "product", "acme", [],
-                "b2b-app-cohort-analysis", 1, "cohort_analysis.ipynb", 91.312
+                "b2b-app-cohort-analysis", 1, "", 91.312
             )
         )
 
@@ -196,7 +196,7 @@ export class FullTextSearchController {
                 "report",
                 [],
                 "product", "acme", [],
-                "how-good-is-acme-at-activating-its-customers-and-retaining-high-usage-throughout-the-first-3-months-after-signup", 2, "main.ipynb", 91.312
+                "how-good-is-acme-at-activating-its-customers-and-retaining-high-usage-throughout-the-first-3-months-after-signup", 2, "", 91.312
             )
         )
 
