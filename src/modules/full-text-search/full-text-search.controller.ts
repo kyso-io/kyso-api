@@ -1,5 +1,5 @@
-import { NormalizedResponseDTO, Tag, FullTextSearchDTO, FullTextSearchResult, Token, Team, TeamVisibilityEnum } from '@kyso-io/kyso-model'
-import { Controller, Get, Headers, Query, UseGuards } from '@nestjs/common'
+import { NormalizedResponseDTO, Tag, FullTextSearchDTO, FullTextSearchResult, Token, Team, TeamVisibilityEnum, KysoSettingsEnum } from '@kyso-io/kyso-model'
+import { Controller, Get, Headers, Logger, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -11,6 +11,8 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { FullTextSearchService } from './full-text-search.service'
+import axios, { AxiosResponse } from 'axios'
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 
 @ApiTags('search')
 @UseGuards(PermissionsGuard)
@@ -37,6 +39,9 @@ export class FullTextSearchController {
 
     @Autowired({ typeName: 'UserRoleService' })
     private userRoleService: UserRoleService
+
+    @Autowired({ typeName: 'KysoSettingsService' })
+    private kysoSettingsService: KysoSettingsService
 
     constructor() {}
 
@@ -210,5 +215,27 @@ export class FullTextSearchController {
         searchResults.reports.tags = Array.from(finalTagsSet)
 
         return new NormalizedResponseDTO(searchResults, null);
+    }
+
+    @Get()
+    @ApiOperation({
+        summary: `Reindex`,
+        description: `Reindex`,
+    })
+    @ApiQuery({ name: 'pathToIndex', required: true, description: '/sftp/data/scs' })
+    @ApiNormalizedResponse({ status: 200, description: `Search results`, type: Tag, isArray: true })
+    public async reindex(
+        @Query('pathToIndex') pathToIndex: string,
+    ) {
+        const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
+        
+        axios.get(`${kysoIndexerApi}/api/reindex?pathToIndex=${pathToIndex}`).then(
+            () => {},
+            (err) => {
+                Logger.warn(`${pathToIndex} was not indexed properly`, err)
+            },
+        )
+
+        return { status: "queued" }
     }
 }
