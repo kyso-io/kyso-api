@@ -253,15 +253,29 @@ export class ReportsService extends AutowiredService {
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
         }
-        const author_ids: string[] = [...report.author_ids]
-        if (author_ids.indexOf(userId) === -1) {
-            author_ids.push(userId)
-        }
         if (updateReportRequestDTO?.tags) {
             await this.checkReportTags(report.id, updateReportRequestDTO.tags || [])
             delete updateReportRequestDTO.tags
         }
-        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { ...updateReportRequestDTO, author_ids } })
+        const dataToUpdate: any = {
+            author_ids: [...report.author_ids],
+        }
+        if (dataToUpdate.author_ids.indexOf(userId) === -1) {
+            dataToUpdate.author_ids.push(userId)
+        }
+        if (updateReportRequestDTO.title && updateReportRequestDTO.title !== report.title) {
+            dataToUpdate.title = updateReportRequestDTO.title
+        }
+        if (updateReportRequestDTO.description && updateReportRequestDTO.description !== report.description) {
+            dataToUpdate.description = updateReportRequestDTO.description
+        }
+        if (updateReportRequestDTO.hasOwnProperty('show_code') && updateReportRequestDTO.show_code !== null) {
+            dataToUpdate.show_code = updateReportRequestDTO.show_code
+        }
+        if (updateReportRequestDTO.hasOwnProperty('show_output') && updateReportRequestDTO.show_output !== null) {
+            dataToUpdate.show_ouput = updateReportRequestDTO.show_output
+        }
+        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: dataToUpdate })
     }
 
     public async deleteReport(reportId: string): Promise<Report> {
@@ -327,6 +341,7 @@ export class ReportsService extends AutowiredService {
             const destinationPath = join(sftpDestinationFolder, file.path_scs)
             const existsPath: boolean | string = await client.exists(destinationPath)
             if (!existsPath) {
+                Logger.error(`File ${destinationPath} does not exists`, ReportsService.name)
                 return null
             }
             return (await client.get(destinationPath)) as Buffer
@@ -619,8 +634,6 @@ export class ReportsService extends AutowiredService {
             await this.checkReportTags(report.id, kysoConfigFile.tags)
         }
 
-        
-
         new Promise<void>(async () => {
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
             await this.uploadReportToFtp(report.id, extractedDir)
@@ -630,14 +643,16 @@ export class ReportsService extends AutowiredService {
             let files: string[] = await this.getFilePaths(extractedDir)
             // Remove '/reportPath' from the paths
             files = files.map((file: string) => file.replace(reportPath, ''))
-            
+
             const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
             const elasticUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
-            const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
+            const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
 
             axios.get(`${kysoIndexerApi}/api/index?elasticUrl=${elasticUrl}&pathToIndex=${pathToIndex}`).then(
                 () => {},
-                (err) => { Logger.warn(`${pathToIndex} was not indexed properly`, err)}
+                (err) => {
+                    Logger.warn(`${pathToIndex} was not indexed properly`, err)
+                },
             )
 
             // writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
@@ -781,11 +796,13 @@ export class ReportsService extends AutowiredService {
 
             const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
             const elasticUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
-            const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
+            const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
 
             axios.get(`${kysoIndexerApi}/api/index?elasticUrl=${elasticUrl}&pathToIndex=${pathToIndex}`).then(
                 () => {},
-                (err) => { Logger.warn(`${pathToIndex} was not indexed properly`, err)}
+                (err) => {
+                    Logger.warn(`${pathToIndex} was not indexed properly`, err)
+                },
             )
 
             // writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
@@ -1587,13 +1604,15 @@ export class ReportsService extends AutowiredService {
 
         const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
         const elasticUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
-        const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
+        const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
 
         axios.get(`${kysoIndexerApi}/api/index?elasticUrl=${elasticUrl}&pathToIndex=${pathToIndex}`).then(
             () => {},
-            (err) => { Logger.warn(`${pathToIndex} was not indexed properly`, err)}
+            (err) => {
+                Logger.warn(`${pathToIndex} was not indexed properly`, err)
+            },
         )
-        
+
         // writeFileSync(join(reportPath, `/${report.id}.indexer`), tmpFiles.join('\n'))
 
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
