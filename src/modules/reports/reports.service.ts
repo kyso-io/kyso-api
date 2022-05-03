@@ -632,7 +632,7 @@ export class ReportsService extends AutowiredService {
             files = files.map((file: string) => file.replace(reportPath, ''))
             
             const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)          
-            const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
+            const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
 
             axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
                 () => {},
@@ -779,7 +779,7 @@ export class ReportsService extends AutowiredService {
             files = files.map((file: string) => file.replace(reportPath, ''))
 
             const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
-            const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
+            const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
 
             axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
                 () => {},
@@ -1584,7 +1584,7 @@ export class ReportsService extends AutowiredService {
         tmpFiles = tmpFiles.map((file: string) => file.replace(reportPath, ''))
 
         const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
-        const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
+        const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
 
         axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
             () => {},
