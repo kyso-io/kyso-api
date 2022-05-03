@@ -643,8 +643,8 @@ export class ReportsService extends AutowiredService {
             let files: string[] = await this.getFilePaths(extractedDir)
             // Remove '/reportPath' from the paths
             files = files.map((file: string) => file.replace(reportPath, ''))
-            
-            const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)          
+
+            const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
             const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
 
             axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
@@ -794,7 +794,7 @@ export class ReportsService extends AutowiredService {
             files = files.map((file: string) => file.replace(reportPath, ''))
 
             const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
-            const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
+            const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
 
             axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
                 () => {},
@@ -980,59 +980,60 @@ export class ReportsService extends AutowiredService {
             isNew = true
         }
 
+        Logger.log(`Report '${report.id} ${report.sluglified_name}': Getting last commit of repository...`, ReportsService.name)
+        const args: any = {
+            owner: userAccount.username,
+            repo: repositoryName,
+            per_page: 1,
+        }
+        if (branch && branch.length > 0) {
+            args.sha = branch
+        }
+        const commitsResponse = await octokit.repos.listCommits(args)
+        if (commitsResponse.status !== 200) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report '${report.id} ${repositoryName}': GitHub API returned status ${commitsResponse.status}`, ReportsService.name)
+            // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: GitHub API returned status ${commitsResponse.status}`)
+            return
+        }
+        const sha: string = commitsResponse.data[0].sha
+
+        Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${sha}'`, ReportsService.name)
+        const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
+        const extractedDir = `${tmpFolder}/${uuidv4()}`
+        const downloaded: boolean = await this.downloadGithubFiles(sha, extractedDir, repository, userAccount.accessToken)
+        if (!downloaded) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${sha}`, ReportsService.name)
+            // throw new PreconditionFailedException(`Could not download repository ${repositoryName} commit ${sha}`, ReportsService.name)
+            return
+        }
+        Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${sha}'`, ReportsService.name)
+
+        const filePaths: string[] = await this.getFilePaths(extractedDir)
+        if (filePaths.length < 1) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
+            // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
+            return
+        }
+
+        // Normalize file paths
+        let files: { name: string; filePath: string }[] = []
+        let kysoConfigFile: KysoConfigFile = null
+        let directoriesToRemove: string[] = []
+        try {
+            const result = await this.normalizeFilePaths(report, filePaths)
+            files = result.files
+            kysoConfigFile = result.kysoConfigFile
+            directoriesToRemove = result.directoriesToRemove
+            Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${branch}'`, ReportsService.name)
+        } catch (e) {
+            await this.deleteReport(report.id)
+            throw e
+        }
+
         new Promise<void>(async () => {
-            Logger.log(`Report '${report.id} ${report.sluglified_name}': Getting last commit of repository...`, ReportsService.name)
-            const args: any = {
-                owner: userAccount.username,
-                repo: repositoryName,
-                per_page: 1,
-            }
-            if (branch && branch.length > 0) {
-                args.sha = branch
-            }
-            const commitsResponse = await octokit.repos.listCommits(args)
-            if (commitsResponse.status !== 200) {
-                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                Logger.error(`Report '${report.id} ${repositoryName}': GitHub API returned status ${commitsResponse.status}`, ReportsService.name)
-                // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: GitHub API returned status ${commitsResponse.status}`)
-                return
-            }
-            const sha: string = commitsResponse.data[0].sha
-
-            Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${sha}'`, ReportsService.name)
-            const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
-            const extractedDir = `${tmpFolder}/${uuidv4()}`
-            const downloaded: boolean = await this.downloadGithubFiles(sha, extractedDir, repository, userAccount.accessToken)
-            if (!downloaded) {
-                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${sha}`, ReportsService.name)
-                // throw new PreconditionFailedException(`Could not download repository ${repositoryName} commit ${sha}`, ReportsService.name)
-                return
-            }
-            Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${sha}'`, ReportsService.name)
-
-            const filePaths: string[] = await this.getFilePaths(extractedDir)
-            if (filePaths.length < 1) {
-                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                Logger.error(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
-                // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
-                return
-            }
-
-            // Normalize file paths
-            let files: { name: string; filePath: string }[] = []
-            let kysoConfigFile: KysoConfigFile = null
-            let directoriesToRemove: string[] = []
-            try {
-                const result = await this.normalizeFilePaths(report, filePaths)
-                files = result.files
-                kysoConfigFile = result.kysoConfigFile
-                directoriesToRemove = result.directoriesToRemove
-                Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${branch}'`, ReportsService.name)
-            } catch (e) {
-                await this.deleteReport(report.id)
-                return null
-            }
             Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${sha}'`, ReportsService.name)
 
             const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
@@ -1161,49 +1162,49 @@ export class ReportsService extends AutowiredService {
             isNew = true
         }
 
-        new Promise<void>(async () => {
-            const desiredCommit: string = branch && branch.length > 0 ? branch : bitbucketRepository.defaultBranch
-            const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
-            const extractedDir = `${tmpFolder}/${uuidv4()}`
-            try {
-                Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
-                const buffer: Buffer = await this.bitbucketReposService.downloadRepository(userAccount.accessToken, repositoryName, desiredCommit)
-                if (!buffer) {
-                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                    Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${desiredCommit}`, ReportsService.name)
-                    // throw new PreconditionFailedException(`Could not download repository ${repositoryName} commit ${desiredCommit}`, ReportsService.name)
-                    return
-                }
-                Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
-                const zip: AdmZip = new AdmZip(buffer)
-                zip.extractAllTo(tmpFolder, true)
-                moveSync(`${tmpFolder}/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
-                Logger.log(`Extracted repository '${repositoryName}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
-            } catch (e) {
-                await this.deleteReport(report.id)
-                throw Error(`An error occurred downloading repository '${repositoryName}'`)
-            }
-
-            const filePaths: string[] = await this.getFilePaths(extractedDir)
-            if (filePaths.length < 1) {
+        const desiredCommit: string = branch && branch.length > 0 ? branch : bitbucketRepository.defaultBranch
+        const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
+        const extractedDir = `${tmpFolder}/${uuidv4()}`
+        try {
+            Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
+            const buffer: Buffer = await this.bitbucketReposService.downloadRepository(userAccount.accessToken, repositoryName, desiredCommit)
+            if (!buffer) {
                 report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                Logger.error(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
-                throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
+                Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${desiredCommit}`, ReportsService.name)
+                // throw new PreconditionFailedException(`Could not download repository ${repositoryName} commit ${desiredCommit}`, ReportsService.name)
+                return
             }
+            Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
+            const zip: AdmZip = new AdmZip(buffer)
+            zip.extractAllTo(tmpFolder, true)
+            moveSync(`${tmpFolder}/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
+            Logger.log(`Extracted repository '${repositoryName}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
+        } catch (e) {
+            await this.deleteReport(report.id)
+            throw Error(`An error occurred downloading repository '${repositoryName}'`)
+        }
 
-            // Normalize file paths
-            let files: { name: string; filePath: string }[] = []
-            let kysoConfigFile: KysoConfigFile = null
-            try {
-                const result = await this.normalizeFilePaths(report, filePaths)
-                files = result.files
-                kysoConfigFile = result.kysoConfigFile
-                Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
-            } catch (e) {
-                await this.deleteReport(report.id)
-                return null
-            }
+        const filePaths: string[] = await this.getFilePaths(extractedDir)
+        if (filePaths.length < 1) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
+            throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
+        }
 
+        // Normalize file paths
+        let files: { name: string; filePath: string }[] = []
+        let kysoConfigFile: KysoConfigFile = null
+        try {
+            const result = await this.normalizeFilePaths(report, filePaths)
+            files = result.files
+            kysoConfigFile = result.kysoConfigFile
+            Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
+        } catch (e) {
+            await this.deleteReport(report.id)
+            throw e
+        }
+
+        new Promise<void>(async () => {
             const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
             if (!userHasPermission) {
                 Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
@@ -1290,49 +1291,49 @@ export class ReportsService extends AutowiredService {
             isNew = true
         }
 
-        new Promise<void>(async () => {
-            const desiredCommit: string = branch && branch.length > 0 ? branch : gitlabRepository.defaultBranch
-            const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
-            const extractedDir = `${tmpFolder}/${uuidv4()}`
-            try {
-                Logger.log(`Downloading and extrating repository ${repositoryId}' commit '${desiredCommit}'`, ReportsService.name)
-                const buffer: Buffer = await this.gitlabReposService.downloadRepository(userAccount.accessToken, repositoryId, desiredCommit)
-                if (!buffer) {
-                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                    Logger.error(`Report '${report.id} ${repositoryId}': Could not download commit ${desiredCommit}`, ReportsService.name)
-                    // throw new PreconditionFailedException(`Could not download repository ${repositoryId} commit ${desiredCommit}`, ReportsService.name)
-                    return
-                }
-                Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
-                const zip: AdmZip = new AdmZip(buffer)
-                zip.extractAllTo(tmpFolder, true)
-                moveSync(`${tmpFolder}/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
-                Logger.log(`Extracted repository '${repositoryId}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
-            } catch (e) {
-                await this.deleteReport(report.id)
-                throw Error(`An error occurred downloading repository '${repositoryId}'`)
-            }
-
-            const filePaths: string[] = await this.getFilePaths(extractedDir)
-            if (filePaths.length < 1) {
+        const desiredCommit: string = branch && branch.length > 0 ? branch : gitlabRepository.defaultBranch
+        const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
+        const extractedDir = `${tmpFolder}/${uuidv4()}`
+        try {
+            Logger.log(`Downloading and extrating repository ${repositoryId}' commit '${desiredCommit}'`, ReportsService.name)
+            const buffer: Buffer = await this.gitlabReposService.downloadRepository(userAccount.accessToken, repositoryId, desiredCommit)
+            if (!buffer) {
                 report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                Logger.error(`Report ${report.id} ${repositoryId}: Repository does not contain any files`, ReportsService.name)
-                throw new PreconditionFailedException(`Report ${report.id} ${repositoryId}: Repository does not contain any files`, ReportsService.name)
+                Logger.error(`Report '${report.id} ${repositoryId}': Could not download commit ${desiredCommit}`, ReportsService.name)
+                // throw new PreconditionFailedException(`Could not download repository ${repositoryId} commit ${desiredCommit}`, ReportsService.name)
+                return
             }
+            Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
+            const zip: AdmZip = new AdmZip(buffer)
+            zip.extractAllTo(tmpFolder, true)
+            moveSync(`${tmpFolder}/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
+            Logger.log(`Extracted repository '${repositoryId}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
+        } catch (e) {
+            await this.deleteReport(report.id)
+            throw Error(`An error occurred downloading repository '${repositoryId}'`)
+        }
 
-            // Normalize file paths
-            let files: { name: string; filePath: string }[] = []
-            let kysoConfigFile: KysoConfigFile = null
-            try {
-                const result = await this.normalizeFilePaths(report, filePaths)
-                files = result.files
-                kysoConfigFile = result.kysoConfigFile
-                Logger.log(`Downloaded ${files.length} files from repository ${repositoryId}' commit '${desiredCommit}'`, ReportsService.name)
-            } catch (e) {
-                await this.deleteReport(report.id)
-                return null
-            }
+        const filePaths: string[] = await this.getFilePaths(extractedDir)
+        if (filePaths.length < 1) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report ${report.id} ${repositoryId}: Repository does not contain any files`, ReportsService.name)
+            throw new PreconditionFailedException(`Report ${report.id} ${repositoryId}: Repository does not contain any files`, ReportsService.name)
+        }
 
+        // Normalize file paths
+        let files: { name: string; filePath: string }[] = []
+        let kysoConfigFile: KysoConfigFile = null
+        try {
+            const result = await this.normalizeFilePaths(report, filePaths)
+            files = result.files
+            kysoConfigFile = result.kysoConfigFile
+            Logger.log(`Downloaded ${files.length} files from repository ${repositoryId}' commit '${desiredCommit}'`, ReportsService.name)
+        } catch (e) {
+            await this.deleteReport(report.id)
+            return null
+        }
+
+        new Promise<void>(async () => {
             const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
             if (!userHasPermission) {
                 Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
@@ -1481,12 +1482,12 @@ export class ReportsService extends AutowiredService {
                     if (!KysoConfigFile.isValid(kysoConfigFile)) {
                         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                         Logger.error(`Report ${report.id} ${report.sluglified_name}: kyso.json config file is not valid`, ReportsService.name)
-                        throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: kyso.json config file is not valid`)
+                        throw new PreconditionFailedException(`Kyso.json config file is not valid`)
                     }
                 } catch (e) {
                     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                     Logger.error(`Report ${report.id} ${report.sluglified_name}: Could not parse kyso.json file`, ReportsService.name)
-                    throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: Could not parse kyso.json file`, ReportsService.name)
+                    throw new PreconditionFailedException(`Could not parse kyso.json file`, ReportsService.name)
                 }
             } else if (fileName === 'kyso.yml' || fileName === 'kyso.yaml') {
                 kysoFileName = fileName
@@ -1494,13 +1495,13 @@ export class ReportsService extends AutowiredService {
                     kysoConfigFile = jsYaml.load(readFileSync(filePath, 'utf8')) as KysoConfigFile
                     if (!KysoConfigFile.isValid(kysoConfigFile)) {
                         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                        Logger.error(`Report ${report.id} ${report.sluglified_name}: kyso.{yml,yaml} config file is not valid`, ReportsService.name)
-                        throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: kyso.{yml,yaml} config file is not valid`)
+                        Logger.error(`Report ${report.id} ${report.sluglified_name}: ${fileName} config file is not valid`, ReportsService.name)
+                        throw new PreconditionFailedException(`${fileName} config file is not valid`)
                     }
                 } catch (e) {
                     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                    Logger.error(`Report ${report.id} ${report.sluglified_name}: Could not parse kyso.{yml,yaml} file`, ReportsService.name)
-                    throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: Could not parse kyso.{yml,yaml} file`)
+                    Logger.error(`Report ${report.id} ${report.sluglified_name}: Could not parse ${fileName} file`, ReportsService.name)
+                    throw new PreconditionFailedException(`Could not parse ${fileName} file`)
                 }
             }
             files.push({ name: fileName, filePath: filePath })
@@ -1508,12 +1509,12 @@ export class ReportsService extends AutowiredService {
         if (!kysoConfigFile) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report ${report.id} ${report.sluglified_name}: Repository does not contain a kyso.{json,yml,yaml} config file`, ReportsService.name)
-            throw new PreconditionFailedException(`Repository ${report.sluglified_name} does not contain a kyso.{json,yml,yaml} config file`)
+            throw new PreconditionFailedException(`Repository does not contain a kyso.{json,yml,yaml} config file`)
         }
         if (!kysoConfigFile.type || kysoConfigFile.type.length === 0) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report ${report.id} ${report.sluglified_name}: missing property 'type' in ${kysoFileName}`, ReportsService.name)
-            throw new PreconditionFailedException(`Repository ${report.sluglified_name} missing property 'type' in ${kysoFileName}`)
+            throw new PreconditionFailedException(`Repository missing property 'type' in ${kysoFileName}`)
         }
         return { files, kysoConfigFile, directoriesToRemove }
     }
@@ -1601,7 +1602,7 @@ export class ReportsService extends AutowiredService {
         tmpFiles = tmpFiles.map((file: string) => file.replace(reportPath, ''))
 
         const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
-        const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
+        const pathToIndex: string = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
 
         axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
             () => {},
@@ -2057,6 +2058,10 @@ export class ReportsService extends AutowiredService {
         const report: Report = await this.getReportById(reportId)
         try {
             const team: Team = await this.teamsService.getTeamById(report.team_id)
+            if (!team) {
+                Logger.error(`Report '${report.id} - ${report.sluglified_name}' does not have a team`, ReportsService.name)
+                return
+            }
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
             const client: Client = await this.sftpService.getClient()
             const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
