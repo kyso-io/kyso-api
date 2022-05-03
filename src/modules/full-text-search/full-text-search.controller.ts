@@ -217,7 +217,7 @@ export class FullTextSearchController {
         return new NormalizedResponseDTO(searchResults, null);
     }
 
-    @Get()
+    @Get("/reindex")
     @ApiOperation({
         summary: `Reindex`,
         description: `Reindex`,
