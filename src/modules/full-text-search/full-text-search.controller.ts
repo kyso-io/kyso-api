@@ -124,8 +124,26 @@ export class FullTextSearchController {
             return !bannedTeams.includes(x.team)
         })
 
-        // Remove duplicated tags and process tags
+        // Remove duplicated tags, teams and organizations and process tags
         const finalTagsSet = new Set<string>();
+        const finalOrganizationsSet = new Set<string>()
+        const finalTeamsSet = new Set<string>()
+
+        for(let orgItem of searchResults.reports.organizations) {
+            try {
+                finalOrganizationsSet.add(orgItem)
+            } catch(ex) {
+                // silent it
+            }
+        }
+
+        for(let teamItem of searchResults.reports.teams) {
+            try {
+                finalTeamsSet.add(teamItem)
+            } catch(ex) {
+                // silent it
+            }
+        }
 
         for(let tagArray of searchResults.reports.tags) {
             try {
@@ -139,7 +157,7 @@ export class FullTextSearchController {
         }
 
         // start Hack requested by @kyle for a demo ;P       
-        finalTagsSet.add("churn")
+        /*finalTagsSet.add("churn")
         finalTagsSet.add("engagement")
         finalTagsSet.add("b2b-chorts")
 
@@ -211,8 +229,12 @@ export class FullTextSearchController {
         searchResults.reports.organizations.push("acme")
 
                 
-        searchResults.reports.results = [...fakeData, ...censoredResults]
+        searchResults.reports.results = [...fakeData, ...censoredResults]*/
+        
+        searchResults.reports.results = [...censoredResults]
         searchResults.reports.tags = Array.from(finalTagsSet)
+        searchResults.reports.organizations = Array.from(finalOrganizationsSet)
+        searchResults.reports.teams = Array.from(finalTeamsSet)
 
         return new NormalizedResponseDTO(searchResults, null);
     }

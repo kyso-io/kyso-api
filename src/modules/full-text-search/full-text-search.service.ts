@@ -206,7 +206,7 @@ export class FullTextSearchService extends AutowiredService {
                             }
                         },
                         {
-                            team: {
+                            match: {
                                 teamSlug: teamSlug
                             }
                         },
