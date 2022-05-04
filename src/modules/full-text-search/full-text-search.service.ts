@@ -189,4 +189,56 @@ export class FullTextSearchService extends AutowiredService {
 
         return new FullTextSearchDTO(reportResult, restOfResults, restOfResults, restOfResults);
     }
+
+    public async deleteIndexedResults(organizationSlug: string, teamSlug: string, entityId: string, type: string): Promise<any> {
+        const elasticsearchUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
+
+        let query = {
+            query: {
+                bool: {
+                    must: [
+                        {
+                            match: {
+                                organization: organizationSlug
+                            }
+                        },
+                        {
+                            team: {
+                                team: teamSlug
+                            }
+                        },
+                        {
+                            match: {
+                                entityId: entityId
+                            }
+                        },
+                        {
+                            match: {
+                                type: type
+                            }
+                        }
+                    ]   
+                }
+            }
+        };
+
+        let res
+        try {
+            res = await axios(
+                `${elasticsearchUrl}/kyso-index/${type}/_delete_by_query`,
+                {
+                    method: "post", 
+                    data: query, 
+                    headers: {
+                        'accept': "application/json",
+                        'content-type': "application/json"
+                    }
+                }
+            )
+        } catch(ex) {
+            Logger.log("Error", ex)
+        }
+
+        return res
+    }
 }

@@ -51,6 +51,7 @@ import { PlatformRoleService } from '../auth/platform-role.service'
 import { UserRoleService } from '../auth/user-role.service'
 import { BitbucketReposService } from '../bitbucket-repos/bitbucket-repos.service'
 import { CommentsService } from '../comments/comments.service'
+import { FullTextSearchService } from '../full-text-search/full-text-search.service'
 import { GithubReposService } from '../github-repos/github-repos.service'
 import { GitlabReposService } from '../gitlab-repos/gitlab-repos.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
@@ -117,6 +118,9 @@ export class ReportsService extends AutowiredService {
 
     @Autowired({ typeName: 'SftpService' })
     private sftpService: SftpService
+
+    @Autowired({ typeName: 'FullTextSearchService' })
+    private fullTextSearchService: FullTextSearchService
 
     constructor(
         private readonly mailerService: MailerService,
@@ -280,6 +284,7 @@ export class ReportsService extends AutowiredService {
 
     public async deleteReport(reportId: string): Promise<Report> {
         const report: Report = await this.getReportById(reportId)
+    
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
         }
@@ -298,6 +303,12 @@ export class ReportsService extends AutowiredService {
 
         // Delete report in SFTP
         this.deleteReportFromFtp(report.id)
+
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+
+        // Delete all indexed contents in fulltextsearch
+        this.fullTextSearchService.deleteIndexedResults(organization.sluglified_name, team.sluglified_name, report.sluglified_name, "report")
 
         // Delete files
         await this.filesMongoProvider.deleteMany({ report_id: reportId })
