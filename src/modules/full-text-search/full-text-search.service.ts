@@ -191,6 +191,8 @@ export class FullTextSearchService extends AutowiredService {
     }
 
     public async deleteIndexedResults(organizationSlug: string, teamSlug: string, entityId: string, type: string): Promise<any> {
+        Logger.log(`Deleting indexed data for ${organizationSlug} and ${teamSlug} and ${entityId} for ${type}`)
+
         const elasticsearchUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
 
         let query = {
@@ -216,6 +218,8 @@ export class FullTextSearchService extends AutowiredService {
                 }
             }
         };
+
+        console.log(query)
 
         let res
         try {
