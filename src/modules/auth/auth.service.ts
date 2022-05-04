@@ -36,7 +36,7 @@ import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provi
 import { PingIdLoginProvider } from './providers/ping-id-login.provider'
 import { UserRoleService } from './user-role.service'
 
-export const TOKEN_EXPIRATION_HOURS = 8
+export const TOKEN_EXPIRATION_HOURS = 24
 export const TOKEN_EXPIRATION_TIME = `${TOKEN_EXPIRATION_HOURS}h`
 
 function factory(service: AuthService) {
