@@ -12,7 +12,7 @@ import {
     Token,
     UpdateDiscussionRequestDTO,
 } from '@kyso-io/kyso-model'
-import { Body, Controller, Delete, ForbiddenException, Get, Headers, Param, Patch, Post, PreconditionFailedException, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, ForbiddenException, Get, Headers, NotFoundException, Param, Patch, Post, PreconditionFailedException, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -145,13 +145,14 @@ export class DiscussionsController extends GenericController<Discussion> {
         @Param('discussionId') discussionId: string,
         @Req() req,
     ): Promise<NormalizedResponseDTO<Comment[]>> {
-        const discussion: Discussion = await this.discussionsService.getDiscussion({
-            id: discussionId,
-        })
+        const discussion: Discussion = await this.discussionsService.getDiscussionById(discussionId)
         if (!discussion) {
             throw new InvalidInputError('Discussion not found')
         }
         const team: Team = await this.teamsService.getTeamById(discussion.team_id)
+        if (!team) {
+            throw new NotFoundException(`Team ${discussion.team_id} not found`)
+        }
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
             const hasPermissions: boolean = await AuthService.hasPermissions(token, [DiscussionPermissionsEnum.READ], teamName, organizationName)
             if (!hasPermissions) {
