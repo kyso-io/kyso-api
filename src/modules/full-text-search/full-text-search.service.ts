@@ -199,22 +199,17 @@ export class FullTextSearchService extends AutowiredService {
                     must: [
                         {
                             match: {
-                                organization: organizationSlug
+                                organizationSlug: organizationSlug
                             }
                         },
                         {
                             team: {
-                                team: teamSlug
+                                teamSlug: teamSlug
                             }
                         },
                         {
                             match: {
                                 entityId: entityId
-                            }
-                        },
-                        {
-                            match: {
-                                type: type
                             }
                         }
                     ]   
