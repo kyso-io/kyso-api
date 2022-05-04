@@ -252,6 +252,7 @@ export class ReportsService extends AutowiredService {
 
     public async updateReport(userId: string, reportId: string, updateReportRequestDTO: UpdateReportRequestDTO): Promise<Report> {
         Logger.log(`Updating report ${reportId}`)
+        Logger.log(`With data ${updateReportRequestDTO}`)
 
         const report: Report = await this.getReportById(reportId)
         if (!report) {
@@ -279,6 +280,13 @@ export class ReportsService extends AutowiredService {
         if (updateReportRequestDTO.hasOwnProperty('show_output') && updateReportRequestDTO.show_output !== null) {
             dataToUpdate.show_ouput = updateReportRequestDTO.show_output
         }
+        if (updateReportRequestDTO.hasOwnProperty('main_file') && updateReportRequestDTO.main_file !== null) {
+            dataToUpdate.main_file = updateReportRequestDTO.main_file
+        }
+        if (updateReportRequestDTO.hasOwnProperty('tags') && updateReportRequestDTO.tags !== null) {
+            dataToUpdate.tags = updateReportRequestDTO.tags
+        }
+
         return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: dataToUpdate })
     }
 
@@ -680,15 +688,20 @@ export class ReportsService extends AutowiredService {
         const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
         Logger.log(`is global admin?: ${isGlobalAdmin}`)
 
+
         const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
         const tmpDir = `${tmpFolder}/${uuidv4()}`
         const zip = new AdmZip(file.buffer)
+        Logger.log(`Extracting all temporary files to ${tmpDir}`)
         zip.extractAllTo(tmpDir, true)
 
         let kysoConfigFile: KysoConfigFile = null
+
+        Logger.log(`Looking for kyso.json|yaml|yml file`)
         for (const entry of zip.getEntries()) {
             const originalName: string = entry.name
             const localFilePath = join(tmpDir, entry.entryName)
+            
             if (originalName.endsWith('kyso.json')) {
                 try {
                     kysoConfigFile = JSON.parse(readFileSync(localFilePath).toString())
@@ -707,6 +720,7 @@ export class ReportsService extends AutowiredService {
                 }
             }
         }
+
         if (!kysoConfigFile) {
             Logger.error(`No kyso.{yml,yaml,json} file found`, ReportsService.name)
             throw new PreconditionFailedException(`No kyso.{yml,yaml,json} file found`)
@@ -735,6 +749,7 @@ export class ReportsService extends AutowiredService {
             Logger.log(`Report '${name}' already exists in team ${team.sluglified_name}`, ReportsService.name)
             throw new PreconditionFailedException(`Report '${name}' already exists in team ${team.sluglified_name}`)
         }
+        
         Logger.log(`Creating new report '${name}'`, ReportsService.name)
         report = new Report(
             name,
@@ -761,6 +776,7 @@ export class ReportsService extends AutowiredService {
         }
         report = await this.provider.create(report)
         const version = 1
+        
         extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
         moveSync(tmpDir, extractedDir, { overwrite: true })
         for (const entry of zip.getEntries()) {
