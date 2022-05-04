@@ -33,7 +33,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException, Precondition
 import { Octokit } from '@octokit/rest'
 import * as AdmZip from 'adm-zip'
 import axios, { AxiosResponse } from 'axios'
-import { lstatSync, readFileSync, statSync, writeFileSync } from 'fs'
+import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs'
 import { moveSync } from 'fs-extra'
 import * as glob from 'glob'
 import * as jsYaml from 'js-yaml'
@@ -643,8 +643,8 @@ export class ReportsService extends AutowiredService {
             let files: string[] = await this.getFilePaths(extractedDir)
             // Remove '/reportPath' from the paths
             files = files.map((file: string) => file.replace(reportPath, ''))
-            
-            const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)          
+
+            const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
             const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
 
             axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
@@ -794,7 +794,7 @@ export class ReportsService extends AutowiredService {
             files = files.map((file: string) => file.replace(reportPath, ''))
 
             const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
-            const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
+            const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
 
             axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
                 () => {},
@@ -867,14 +867,22 @@ export class ReportsService extends AutowiredService {
             `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion}`,
         )
         const exists = await client.exists(ftpReportPath)
+        Logger.log(`Checking if folder '${ftpReportPath}' exists in SCS...`, ReportsService.name)
         if (!exists) {
             throw new PreconditionFailedException(`Report '${report.id} ${report.sluglified_name}': Destination path '${ftpReportPath}' not found`)
         }
+        Logger.log(`Folder '${ftpReportPath}' exists in SCS.`, ReportsService.name)
         const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
         const localReportPath: string = join(
             tmpFolder,
             `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion}`,
         )
+        if (!existsSync(localReportPath)) {
+            Logger.log(`LOCAL folder '${localReportPath}' not found. Creating...`, ReportsService.name)
+            mkdirSync(localReportPath, { recursive: true })
+            Logger.log(`LOCAL folder '${localReportPath}' created.`, ReportsService.name)
+        }
+        Logger.log(`Downloading directory '${ftpReportPath}' from SCS to LOCAL '${localReportPath}'...`, ReportsService.name)
         const resultDownload = await client.downloadDir(ftpReportPath, localReportPath)
         Logger.log(resultDownload, ReportsService.name)
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded version ${lastVersion} from Ftp`, ReportsService.name)
@@ -905,6 +913,9 @@ export class ReportsService extends AutowiredService {
                 ReportsService.name,
             )
         }
+        Logger.log(`Deleting LOCAL folder '${localReportPath}'...`, ReportsService.name)
+        rmSync(localReportPath, { recursive: true })
+        Logger.log(`LOCAL folder '${localReportPath}' deleted.`, ReportsService.name)
         return report
     }
 
@@ -1602,7 +1613,7 @@ export class ReportsService extends AutowiredService {
         tmpFiles = tmpFiles.map((file: string) => file.replace(reportPath, ''))
 
         const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
-        const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`    
+        const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
 
         axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
             () => {},
