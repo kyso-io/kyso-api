@@ -81,6 +81,7 @@ export class FullTextSearchService extends AutowiredService {
 
         // console.log(JSON.stringify(query))
 
+
         let res
         try {
             res = await axios(
@@ -219,7 +220,8 @@ export class FullTextSearchService extends AutowiredService {
             }
         };
 
-        console.log(query)
+        console.log(JSON.stringify(query))
+        console.log(`${elasticsearchUrl}/kyso-index/${type}/_delete_by_query`)
 
         let res
         try {
