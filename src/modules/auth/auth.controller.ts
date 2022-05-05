@@ -8,6 +8,8 @@ import {
     Organization,
     PingIdSAMLSpec,
     ReportPermissionsEnum,
+    Team,
+    TeamVisibilityEnum,
     Token,
     User,
     VerifyEmailRequestDTO,
@@ -406,7 +408,20 @@ export class AuthController extends GenericController<string> {
         if (userHasPermission) {
             response.status(HttpStatus.OK).send()
         } else {
-            response.status(HttpStatus.FORBIDDEN).send()
+            const team: Team = await this.teamsService.getTeam({
+                filter: {
+                    sluglified_name: teamName,
+                },
+            })
+            if (!team) {
+                response.status(HttpStatus.FORBIDDEN).send()
+                return
+            }
+            if (team.visibility === TeamVisibilityEnum.PUBLIC) {
+                response.status(HttpStatus.OK).send()
+            } else {
+                response.status(HttpStatus.FORBIDDEN).send()
+            }
         }
     }
 }
