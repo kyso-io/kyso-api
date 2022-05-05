@@ -79,7 +79,7 @@ export class TeamsController extends GenericController<Team> {
         description: 'Organization',
         required: true,
     })
-    @Permission([TeamPermissionsEnum.READ])
+    // @Permission([TeamPermissionsEnum.READ])
     async getVisibilityTeams(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<Team[]>> {
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) {
