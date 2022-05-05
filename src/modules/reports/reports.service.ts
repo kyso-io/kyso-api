@@ -550,6 +550,12 @@ export class ReportsService extends AutowiredService {
             throw new PreconditionFailedException(`No kyso.{yml,yaml,json} file found`)
         }
 
+        const { valid, message } = KysoConfigFile.isValid(kysoConfigFile)
+        if (!valid) {
+            Logger.error(`Kyso config file is not valid: ${message}`, ReportsService.name)
+            throw new PreconditionFailedException(`Kyso config file is not valid: ${message}`)
+        }
+
         const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team } })
         Logger.log(`Team: ${team.sluglified_name}`)
         if (!team) {
@@ -1515,12 +1521,7 @@ export class ReportsService extends AutowiredService {
             if (fileName === 'kyso.json') {
                 kysoFileName = fileName
                 try {
-                    kysoConfigFile = JSON.parse(readFileSync(filePath, 'utf8'))
-                    if (!KysoConfigFile.isValid(kysoConfigFile)) {
-                        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                        Logger.error(`Report ${report.id} ${report.sluglified_name}: kyso.json config file is not valid`, ReportsService.name)
-                        throw new PreconditionFailedException(`Kyso.json config file is not valid`)
-                    }
+                    kysoConfigFile = JSON.parse(readFileSync(filePath, 'utf8')) as KysoConfigFile
                 } catch (e) {
                     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                     Logger.error(`Report ${report.id} ${report.sluglified_name}: Could not parse kyso.json file`, ReportsService.name)
@@ -1530,11 +1531,6 @@ export class ReportsService extends AutowiredService {
                 kysoFileName = fileName
                 try {
                     kysoConfigFile = jsYaml.load(readFileSync(filePath, 'utf8')) as KysoConfigFile
-                    if (!KysoConfigFile.isValid(kysoConfigFile)) {
-                        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                        Logger.error(`Report ${report.id} ${report.sluglified_name}: ${fileName} config file is not valid`, ReportsService.name)
-                        throw new PreconditionFailedException(`${fileName} config file is not valid`)
-                    }
                 } catch (e) {
                     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                     Logger.error(`Report ${report.id} ${report.sluglified_name}: Could not parse ${fileName} file`, ReportsService.name)
@@ -1548,10 +1544,10 @@ export class ReportsService extends AutowiredService {
             Logger.error(`Report ${report.id} ${report.sluglified_name}: Repository does not contain a kyso.{json,yml,yaml} config file`, ReportsService.name)
             throw new PreconditionFailedException(`Repository does not contain a kyso.{json,yml,yaml} config file`)
         }
-        if (!kysoConfigFile.type || kysoConfigFile.type.length === 0) {
-            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-            Logger.error(`Report ${report.id} ${report.sluglified_name}: missing property 'type' in ${kysoFileName}`, ReportsService.name)
-            throw new PreconditionFailedException(`Repository missing property 'type' in ${kysoFileName}`)
+        const { valid, message } = KysoConfigFile.isValid(kysoConfigFile)
+        if (!valid) {
+            Logger.error(`Kyso config file is not valid: ${message}`, ReportsService.name)
+            throw new PreconditionFailedException(`Kyso config file is not valid: ${message}`)
         }
         return { files, kysoConfigFile, directoriesToRemove }
     }
