@@ -146,6 +146,8 @@ export class UsersService extends AutowiredService {
         Logger.log(`Adding ${user.display_name} to team ${userTeamDb.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}...`)
         await this.teamsService.addMembersById(userTeamDb.id, [user.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
 
+        Logger.log(`Sending email to ${user.email}`);
+
         this.mailerService
             .sendMail({
                 to: user.email,
