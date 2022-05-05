@@ -292,7 +292,7 @@ export class ReportsService extends AutowiredService {
 
     public async deleteReport(reportId: string): Promise<Report> {
         const report: Report = await this.getReportById(reportId)
-    
+
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
         }
@@ -316,7 +316,7 @@ export class ReportsService extends AutowiredService {
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
 
         // Delete all indexed contents in fulltextsearch
-        this.fullTextSearchService.deleteIndexedResults(organization.sluglified_name, team.sluglified_name, report.sluglified_name, "report")
+        this.fullTextSearchService.deleteIndexedResults(organization.sluglified_name, team.sluglified_name, report.sluglified_name, 'report')
 
         // Delete files
         await this.filesMongoProvider.deleteMany({ report_id: reportId })
@@ -688,7 +688,6 @@ export class ReportsService extends AutowiredService {
         const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
         Logger.log(`is global admin?: ${isGlobalAdmin}`)
 
-
         const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
         const tmpDir = `${tmpFolder}/${uuidv4()}`
         const zip = new AdmZip(file.buffer)
@@ -701,7 +700,7 @@ export class ReportsService extends AutowiredService {
         for (const entry of zip.getEntries()) {
             const originalName: string = entry.name
             const localFilePath = join(tmpDir, entry.entryName)
-            
+
             if (originalName.endsWith('kyso.json')) {
                 try {
                     kysoConfigFile = JSON.parse(readFileSync(localFilePath).toString())
@@ -749,7 +748,7 @@ export class ReportsService extends AutowiredService {
             Logger.log(`Report '${name}' already exists in team ${team.sluglified_name}`, ReportsService.name)
             throw new PreconditionFailedException(`Report '${name}' already exists in team ${team.sluglified_name}`)
         }
-        
+
         Logger.log(`Creating new report '${name}'`, ReportsService.name)
         report = new Report(
             name,
@@ -776,7 +775,7 @@ export class ReportsService extends AutowiredService {
         }
         report = await this.provider.create(report)
         const version = 1
-        
+
         extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
         moveSync(tmpDir, extractedDir, { overwrite: true })
         for (const entry of zip.getEntries()) {
@@ -1783,14 +1782,26 @@ export class ReportsService extends AutowiredService {
         }
         const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
         const localPath = `${tmpFolder}/${report.id}`
+        if (!existsSync(localPath)) {
+            Logger.log(`LOCAL folder '${localPath}' not found. Creating...`, ReportsService.name)
+            mkdirSync(localPath, { recursive: true })
+            Logger.log(`LOCAL folder '${localPath}' created.`, ReportsService.name)
+        }
         const result = await client.downloadDir(destinationPath, localPath)
         Logger.log(result, ReportsService.name)
         zip.addLocalFolder(localPath)
 
         response.set('Content-Disposition', `attachment; filename=${report.id}.zip`)
         response.set('Content-Type', 'application/zip')
-        response.send(zip.toBuffer())
-        Logger.log(`Report '${report.sluglified_name}': zip sent to user`, ReportsService.name)
+        // response.send(zip.toBuffer())
+        // Logger.log(`Report '${report.sluglified_name}': zip sent to user`, ReportsService.name)
+        const zipFilePath = join(localPath, `${report.id}.zip`)
+        zip.writeZip(zipFilePath)
+        response.download(zipFilePath, `${report.id}.zip`, () => {
+            Logger.log(`Report '${report.sluglified_name}': zip sent to user`, ReportsService.name)
+            rmSync(localPath, { recursive: true, force: true })
+            Logger.log(`Report '${report.sluglified_name}': LOCAL folder '${localPath}' deleted`, ReportsService.name)
+        })
     }
 
     private async getKysoReportTree(reportId: string, path: string, version: number | null): Promise<GithubFileHash[]> {
