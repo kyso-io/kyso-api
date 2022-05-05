@@ -59,6 +59,10 @@ export class OrganizationsService extends AutowiredService {
         super()
     }
 
+    public async getOrganizations(query: any): Promise<Organization[]> {
+        return await this.provider.read(query)
+    }
+
     public async getOrganization(query: any): Promise<Organization> {
         const organization = await this.provider.read(query)
         if (organization.length === 0) {

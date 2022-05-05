@@ -330,7 +330,7 @@ export class AuthController extends GenericController<string> {
     })
     @ApiBearerAuth()
     async getUserPermissions(@CurrentToken() requesterUser: Token, @Param('username') username: string) {
-        if(!requesterUser) {
+        if (!requesterUser) {
             return new NormalizedResponseDTO([])
         }
         // If the user is global admin

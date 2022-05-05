@@ -23,6 +23,7 @@ import {
     Post,
     PreconditionFailedException,
     Query,
+    Req,
     UploadedFile,
     UseGuards,
     UseInterceptors,
@@ -32,6 +33,7 @@ import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiTags
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
+import { QueryParser } from '../../helpers/queryParser'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
@@ -55,6 +57,29 @@ export class OrganizationsController extends GenericController<Organization> {
 
     assignReferences(organization: Organization) {
         // TODO
+    }
+
+    @Get()
+    @ApiOperation({
+        summary: `Get organizations`,
+        description: `Allows fetching list of organizations`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `List of organizations`, type: Organization, isArray: true })
+    async getOrganizations(@Req() req): Promise<NormalizedResponseDTO<Organization[]>> {
+        const query = QueryParser.toQueryObject(req.url)
+        if (!query.sort) {
+            query.sort = { created_at: -1 }
+        }
+        query.projection = {
+            _id: 1,
+            sluglified_name: 1,
+            display_name: 1,
+        }
+        if (!query.filter) {
+            query.filter = {}
+        }
+        const organizations: Organization[] = await this.organizationService.getOrganizations(query)
+        return new NormalizedResponseDTO(organizations)
     }
 
     @Get('/number-of-members-and-reports')
