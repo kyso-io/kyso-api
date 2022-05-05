@@ -65,6 +65,8 @@ export class GithubLoginProvider {
                 filter: { username: login.username },
             })
             if (!user) {
+                console.log(JSON.stringify(githubUser))
+                
                 // User does not exists, create it
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
                     login.username,

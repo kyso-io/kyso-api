@@ -30,6 +30,7 @@ export class BitbucketLoginProvider {
                 filter: { username: bitbucketUser.username },
             })
             if (!user) {
+                console.log(JSON.stringify(bitbucketUser))
                 // User does not exists, create it
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
                     bitbucketUser.username,
