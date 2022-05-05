@@ -101,6 +101,7 @@ export class BitbucketLoginProvider {
 
     public async addUserAccount(token: Token, addUserAccount: AddUserAccountDTO): Promise<boolean> {
         try {
+            console.log(JSON.stringify(addUserAccount))
             const bitbucketLoginResponse = await this.bitbucketReposService.login(addUserAccount.code)
             const accessToken: string = bitbucketLoginResponse.access_token
             const bitbucketUser: any = await this.bitbucketReposService.getUser(accessToken)

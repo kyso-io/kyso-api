@@ -160,6 +160,8 @@ export class GithubLoginProvider {
             const accessToken = res.data.split('&')[0].split('=')[1]
             const githubUser = await this.githubReposService.getUserByAccessToken(accessToken)
 
+            console.log(JSON.stringify(githubUser))
+
             const user: User = await this.usersService.getUserById(token.id)
             const index: number = user.accounts.findIndex(
                 (userAccount: UserAccount) => userAccount.type === LoginProviderEnum.GITHUB && userAccount.accountId === githubUser.id,

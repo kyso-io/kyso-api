@@ -300,6 +300,7 @@ export class UsersController extends GenericController<User> {
     @ApiResponse({ status: 200, description: `Account added successfully` })
     // @Permission([UserPermissionsEnum.EDIT])
     async addAccount(@CurrentToken() token: Token, @Body() addUserAccountDTO: AddUserAccountDTO): Promise<boolean> {
+        console.log(JSON.stringify(addUserAccountDTO))
         return this.authService.addUserAccount(token, addUserAccountDTO)
     }
 
