@@ -53,7 +53,7 @@ export class FullTextSearchController {
     @ApiQuery({ name: 'terms', required: true, description: 'Search tearms to perform the search' })
     @ApiQuery({ name: 'page', required: true, description: "Result's page to be retrieved" })
     @ApiQuery({ name: 'type', required: true, description: 'Type of object to search for', example: 'report, discussion, comment, member' })
-    @ApiQuery({ name: 'perPage', required: false, description: 'Number of results per page. 20 if not set' })
+    @ApiQuery({ name: 'perPage', required: false, description: 'Number of results per page. 100 if not set' })
     @ApiQuery({ name: 'filter.tags', required: false, description: 'List of tags to filter', example: 'tag1,tag2,tag3' })
     @ApiQuery({ name: 'filter.orgs', required: false, description: 'List or organizations to filter', example: 'lightside,darkside' })
     @ApiQuery({ name: 'filter.teams', required: false, description: 'List or teams to filter', example: 'protected-team,private-team,public-team' })
@@ -71,7 +71,7 @@ export class FullTextSearchController {
         @Headers('authorization') authHeader: string
     ): Promise<NormalizedResponseDTO<FullTextSearchDTO>> {
         if(!perPage) {
-            perPage = 20
+            perPage = 100
         }
 
         const searchResults: FullTextSearchDTO =  await this.searchService.search(searchTerms, type, page, perPage, filterOrgs, filterTeams, filterTags, filterPeople);
