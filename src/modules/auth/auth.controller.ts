@@ -364,16 +364,12 @@ export class AuthController extends GenericController<string> {
     })
     async checkPermissions(@Headers('x-original-uri') originalUri, @Res() response: any, @Cookies() cookies: any) {
         if (process.env.NODE_ENV === 'development') {
+            console.log('entra 1')
             response.status(HttpStatus.OK).send()
             return
         }
 
         if (!originalUri || originalUri.length === 0) {
-            response.status(HttpStatus.FORBIDDEN).send()
-            return
-        }
-
-        if (!cookies || !cookies['kyso-jwt-token'] || cookies['kyso-jwt-token'].length === 0) {
             response.status(HttpStatus.FORBIDDEN).send()
             return
         }
@@ -400,6 +396,11 @@ export class AuthController extends GenericController<string> {
         }
         if (team.visibility === TeamVisibilityEnum.PUBLIC) {
             response.status(HttpStatus.OK).send()
+            return
+        }
+
+        if (!cookies || !cookies['kyso-jwt-token'] || cookies['kyso-jwt-token'].length === 0) {
+            response.status(HttpStatus.FORBIDDEN).send()
             return
         }
 
