@@ -1,4 +1,4 @@
-import { AddUserAccountDTO, CreateUserRequestDTO, Login, LoginProviderEnum, Token, User, UserAccount } from '@kyso-io/kyso-model'
+import { AddUserAccountDTO, CreateUserRequestDTO, GithubEmail, Login, LoginProviderEnum, Token, User, UserAccount } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
@@ -58,6 +58,8 @@ export class GithubLoginProvider {
             const accessToken = res.data.split('&')[0].split('=')[1]
             const githubUser = await this.githubReposService.getUserByAccessToken(accessToken)
             login.username = githubUser.login
+            const mails: GithubEmail[] = await this.githubReposService.getEmailsByAccessToken(accessToken)
+            const githubEmail: GithubEmail | undefined = mails.find((mail: GithubEmail) => mail.primary)
 
             // Get user's detail
             // Check if the user exists in database, and if not, create it
@@ -69,7 +71,7 @@ export class GithubLoginProvider {
                 
                 // User does not exists, create it
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
-                    login.username,
+                    githubEmail ? githubEmail.email : login.username,
                     login.username,
                     githubUser.name,
                     githubUser.login,

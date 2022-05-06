@@ -5,6 +5,8 @@ import { ObjectId } from 'mongodb'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../../decorators/autowired'
 import { BitbucketReposService } from '../../bitbucket-repos/bitbucket-repos.service'
+import { BitbucketEmail } from '../../bitbucket-repos/classes/bitbucket-email'
+import { BitbucketPaginatedResponse } from '../../bitbucket-repos/classes/bitbucket-paginated-response'
 import { UsersService } from '../../users/users.service'
 
 export const TOKEN_EXPIRATION_TIME = '8h'
@@ -24,6 +26,14 @@ export class BitbucketLoginProvider {
             const bitbucketLoginResponse = await this.bitbucketReposService.login(login.password)
             const accessToken: string = bitbucketLoginResponse.access_token
             const bitbucketUser: any = await this.bitbucketReposService.getUser(accessToken)
+            const emailsResponse: BitbucketPaginatedResponse<BitbucketEmail> = await this.bitbucketReposService.getEmail(accessToken)
+            let email: string = null
+            if (emailsResponse?.values && emailsResponse.values.length > 0) {
+                const bitbucketEmail: BitbucketEmail = emailsResponse.values.find((email: BitbucketEmail) => email.is_primary)
+                if (bitbucketEmail) {
+                    email = bitbucketEmail.email
+                }
+            }
             // Get user's detail
             // Check if the user exists in database, and if not, create it
             let user: User = await this.usersService.getUser({
@@ -33,7 +43,7 @@ export class BitbucketLoginProvider {
                 console.log(JSON.stringify(bitbucketUser))
                 // User does not exists, create it
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
-                    bitbucketUser.username,
+                    email ? email : bitbucketUser.username,
                     bitbucketUser.username,
                     bitbucketUser.display_name,
                     bitbucketUser.display_name,

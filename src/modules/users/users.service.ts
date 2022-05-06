@@ -158,10 +158,10 @@ export class UsersService extends AutowiredService {
                 },
             })
             .then(() => {
-                Logger.log(`Welcome e-mail sent to ${user.display_name}`, UsersService.name)
+                Logger.log(`Welcome e-mail sent to ${user.display_name} ${user.email}`, UsersService.name)
             })
             .catch((err) => {
-                Logger.error(`Error sending welcome e-mail to ${user.display_name}`, err, UsersService.name)
+                Logger.error(`Error sending welcome e-mail to ${user.display_name} ${user.email}`, err, UsersService.name)
             })
 
         await this.sendVerificationEmail(user)

@@ -4,6 +4,8 @@ import { Autowired } from '../../../decorators/autowired'
 import { KysoSettingsEnum } from "@kyso-io/kyso-model"
 import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 import { CreateBitbucketWebhookDto } from '../classes/create-bitbucket-webhook.dto'
+import { BitbucketEmail } from '../classes/bitbucket-email'
+import { BitbucketPaginatedResponse } from '../classes/bitbucket-paginated-response'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const axios = require('axios').default
 
@@ -25,10 +27,10 @@ const DEFAULT_PER_PAGE = 20
 export class BitbucketReposProvider {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
-    
+
     private async getRepos(accessToken: string, workspace: string, page: number, perPage: number): Promise<any[]> {
         const bitbucketApi = await this.kysoSettingsService.getValue(KysoSettingsEnum.BITBUCKET_API)
-        
+
         const res = await axios.get(`${bitbucketApi}/repositories/${workspace}?page=${page}&pagelen=${perPage}`, {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
@@ -252,7 +254,7 @@ export class BitbucketReposProvider {
     public async refreshToken(refresh_token: string): Promise<any> {
         const clientId = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_BITBUCKET_CLIENT_ID)
         const clientSecret = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_BITBUCKET_CLIENT_SECRET)
-        
+
         const params = new URLSearchParams({
             grant_type: 'refresh_token',
             refresh_token,
@@ -262,6 +264,14 @@ export class BitbucketReposProvider {
                 username: clientId,
                 password: clientSecret,
             },
+        })
+        return res.data
+    }
+
+    public async getEmail(accessToken: string): Promise<BitbucketPaginatedResponse<BitbucketEmail>> {
+        const bitbucketApi = await this.kysoSettingsService.getValue(KysoSettingsEnum.BITBUCKET_API)
+        const res = await axios.get(`${bitbucketApi}/user/emails`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
         })
         return res.data
     }

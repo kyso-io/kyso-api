@@ -4,6 +4,8 @@ import { AutowiredService } from '../../generic/autowired.generic'
 import { KysoSettingsEnum } from '@kyso-io/kyso-model'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { BitbucketReposProvider } from './providers/bitbucket-repo.provider'
+import { BitbucketEmail } from './classes/bitbucket-email'
+import { BitbucketPaginatedResponse } from './classes/bitbucket-paginated-response'
 
 function factory(service: BitbucketReposService) {
     return service
@@ -21,7 +23,7 @@ export function createProvider(): Provider<BitbucketReposService> {
 export class BitbucketReposService extends AutowiredService {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
-    
+
     constructor(private readonly bitbucketReposProvider: BitbucketReposProvider) {
         super()
     }
@@ -40,7 +42,7 @@ export class BitbucketReposService extends AutowiredService {
 
     public async createWebhook(accessToken: string, fullName: string): Promise<any> {
         const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL)
-        
+
         let hookUrl = `${baseUrl}/v1/hooks/bitbucket`
         if (process.env.NODE_ENV === 'development') {
             hookUrl = 'https://smee.io/kyso-bitbucket-hook-test'
@@ -83,5 +85,9 @@ export class BitbucketReposService extends AutowiredService {
 
     public async refreshToken(refreshToken: string): Promise<any> {
         return this.bitbucketReposProvider.refreshToken(refreshToken)
+    }
+
+    public async getEmail(accessToken: string): Promise<BitbucketPaginatedResponse<BitbucketEmail>> {
+        return this.bitbucketReposProvider.getEmail(accessToken)
     }
 }
