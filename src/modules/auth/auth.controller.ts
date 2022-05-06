@@ -378,6 +378,31 @@ export class AuthController extends GenericController<string> {
             return
         }
 
+        // URI has the following structure /scs/{organizationName}/{teamName}/reports/{reportId}/...
+        // Remove the first /scs/
+        const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX)
+        originalUri = originalUri.replace(`${staticContentPrefix}/`, '')
+
+        // Split by "/"
+        const splittedUri: string[] = originalUri.split('/')
+        const organizationName = splittedUri[0]
+        const teamName = splittedUri[1]
+        const reportName = splittedUri[3]
+
+        const team: Team = await this.teamsService.getTeam({
+            filter: {
+                sluglified_name: teamName,
+            },
+        })
+        if (!team) {
+            response.status(HttpStatus.FORBIDDEN).send()
+            return
+        }
+        if (team.visibility === TeamVisibilityEnum.PUBLIC) {
+            response.status(HttpStatus.OK).send()
+            return
+        }
+
         const token: Token = this.authService.evaluateAndDecodeToken(cookies['kyso-jwt-token'])
         if (!token) {
             response.status(HttpStatus.FORBIDDEN).send()
@@ -393,35 +418,11 @@ export class AuthController extends GenericController<string> {
             this.userRoleService,
         )
 
-        // URI has the following structure /scs/{organizationName}/{teamName}/reports/{reportId}/...
-        // Remove the first /scs/
-        const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX)
-        originalUri = originalUri.replace(`${staticContentPrefix}/`, '')
-
-        // Split by "/"
-        const splittedUri: string[] = originalUri.split('/')
-        const organizationName = splittedUri[0]
-        const teamName = splittedUri[1]
-        const reportName = splittedUri[3]
-
         const userHasPermission: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
         if (userHasPermission) {
             response.status(HttpStatus.OK).send()
         } else {
-            const team: Team = await this.teamsService.getTeam({
-                filter: {
-                    sluglified_name: teamName,
-                },
-            })
-            if (!team) {
-                response.status(HttpStatus.FORBIDDEN).send()
-                return
-            }
-            if (team.visibility === TeamVisibilityEnum.PUBLIC) {
-                response.status(HttpStatus.OK).send()
-            } else {
-                response.status(HttpStatus.FORBIDDEN).send()
-            }
+            response.status(HttpStatus.FORBIDDEN).send()
         }
     }
 }
