@@ -363,8 +363,10 @@ export class ReportsController extends GenericController<Report> {
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
-        if (!token && team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            throw new PreconditionFailedException(`Report is not public`)
+        if (!token) {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                throw new PreconditionFailedException(`Report is not public`)
+            }
         } else {
             const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
             const index: number = teams.findIndex((t: Team) => t.id === team.id)
@@ -947,8 +949,10 @@ export class ReportsController extends GenericController<Report> {
             throw new PreconditionFailedException('Report not found')
         }
         const team: Team = await this.teamsService.getTeamById(report.team_id)
-        if (!token && team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            throw new PreconditionFailedException(`Report is not public`)
+        if (!token) {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                throw new PreconditionFailedException(`Report is not public`)
+            }
         } else {
             const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
             const index: number = teams.findIndex((t: Team) => t.id === team.id)
