@@ -274,19 +274,15 @@ export class ReportsService extends AutowiredService {
         if (updateReportRequestDTO.description && updateReportRequestDTO.description !== report.description) {
             dataToUpdate.description = updateReportRequestDTO.description
         }
-        if (updateReportRequestDTO.hasOwnProperty('show_code') && updateReportRequestDTO.show_code !== null) {
+        if (updateReportRequestDTO.hasOwnProperty('show_code') && updateReportRequestDTO.show_code != null) {
             dataToUpdate.show_code = updateReportRequestDTO.show_code
         }
-        if (updateReportRequestDTO.hasOwnProperty('show_output') && updateReportRequestDTO.show_output !== null) {
+        if (updateReportRequestDTO.hasOwnProperty('show_output') && updateReportRequestDTO.show_output != null) {
             dataToUpdate.show_ouput = updateReportRequestDTO.show_output
         }
-        if (updateReportRequestDTO.hasOwnProperty('main_file') && updateReportRequestDTO.main_file !== null) {
+        if (updateReportRequestDTO.hasOwnProperty('main_file') && updateReportRequestDTO.main_file != null && updateReportRequestDTO.main_file.length > 0) {
             dataToUpdate.main_file = updateReportRequestDTO.main_file
         }
-        if (updateReportRequestDTO.hasOwnProperty('tags') && updateReportRequestDTO.tags !== null) {
-            dataToUpdate.tags = updateReportRequestDTO.tags
-        }
-
         return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: dataToUpdate })
     }
 

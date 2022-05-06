@@ -67,8 +67,6 @@ export class GithubLoginProvider {
                 filter: { username: login.username },
             })
             if (!user) {
-                console.log(JSON.stringify(githubUser))
-                
                 // User does not exists, create it
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
                     githubEmail ? githubEmail.email : login.username,
@@ -163,9 +161,6 @@ export class GithubLoginProvider {
             // Retrieve the token...
             const accessToken = res.data.split('&')[0].split('=')[1]
             const githubUser = await this.githubReposService.getUserByAccessToken(accessToken)
-
-            console.log(JSON.stringify(githubUser))
-
             const user: User = await this.usersService.getUserById(token.id)
             const index: number = user.accounts.findIndex(
                 (userAccount: UserAccount) => userAccount.type === LoginProviderEnum.GITHUB && userAccount.accountId === githubUser.id,
