@@ -350,6 +350,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     async getEmbeddedReport(
+        @CurrentToken() token: Token,
         @Param('organizationName') organizationName: string,
         @Param('teamName') teamName: string,
         @Param('reportName') reportName: string,
@@ -362,8 +363,14 @@ export class ReportsController extends GenericController<Report> {
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
-        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+        if (!token && team.visibility !== TeamVisibilityEnum.PUBLIC) {
             throw new PreconditionFailedException(`Report is not public`)
+        } else {
+            const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+            const index: number = teams.findIndex((t: Team) => t.id === team.id)
+            if (index === -1) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
         }
         const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: reportName, team_id: team.id } })
         if (!report) {
@@ -914,6 +921,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Get('/file/:id')
+    @Public()
     @ApiOperation({
         summary: `Get content of a file`,
         description: `By passing the id a file, get its raw content directly from the source.`,
@@ -939,11 +947,18 @@ export class ReportsController extends GenericController<Report> {
             throw new PreconditionFailedException('Report not found')
         }
         const team: Team = await this.teamsService.getTeamById(report.team_id)
-        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
-            if (!hasPermissions) {
+        if (!token && team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            throw new PreconditionFailedException(`Report is not public`)
+        } else {
+            const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+            const index: number = teams.findIndex((t: Team) => t.id === team.id)
+            if (index === -1) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
+            // const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            // if (!hasPermissions) {
+            //     throw new ForbiddenException('You do not have permissions to access this report')
+            // }
         }
         return this.reportsService.getReportFileContent(file)
     }
