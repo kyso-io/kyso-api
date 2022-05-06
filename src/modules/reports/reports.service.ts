@@ -1041,7 +1041,7 @@ export class ReportsService extends AutowiredService {
         }
         const sha: string = commitsResponse.data[0].sha
 
-        Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${sha}'`, ReportsService.name)
+        Logger.log(`Downloading and extracting repository ${repositoryName}' commit '${sha}'`, ReportsService.name)
         const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
         const extractedDir = `${tmpFolder}/${uuidv4()}`
         const downloaded: boolean = await this.downloadGithubFiles(sha, extractedDir, repository, userAccount.accessToken)
@@ -1663,8 +1663,12 @@ export class ReportsService extends AutowiredService {
             })
             const zip = new AdmZip(response.data)
             const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
+            Logger.log("Extracting Github files to " + tmpFolder)
             zip.extractAllTo(tmpFolder, true)
+            Logger.log("Extraction finished")
+            Logger.log(`Moving between ${tmpFolder}/${zip.getEntries()[0].entryName} and ${extractedDir}`)
             moveSync(`${tmpFolder}/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
+            Logger.log(`Moving finished`)
             return true
         } catch (e) {
             Logger.error(`An error occurred downloading github files`, e, ReportsService.name)
