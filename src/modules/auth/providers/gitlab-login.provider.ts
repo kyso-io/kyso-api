@@ -105,7 +105,6 @@ export class GitlabLoginProvider {
 
     public async addUserAccount(token: Token, addUserAccount: AddUserAccountDTO): Promise<boolean> {
         try {
-            console.log(JSON.stringify(addUserAccount))
             const accessToken: GitlabAccessToken = await this.gitlabReposService.getAccessToken(addUserAccount.code)
             const gitlabUser: GitlabUser = await this.gitlabReposService.getUserByAccessToken(accessToken.access_token)
 

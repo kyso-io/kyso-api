@@ -364,7 +364,6 @@ export class AuthController extends GenericController<string> {
     })
     async checkPermissions(@Headers('x-original-uri') originalUri, @Res() response: any, @Cookies() cookies: any) {
         if (process.env.NODE_ENV === 'development') {
-            console.log('entra 1')
             response.status(HttpStatus.OK).send()
             return
         }
