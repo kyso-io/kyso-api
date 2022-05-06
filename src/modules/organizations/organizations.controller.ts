@@ -2,8 +2,8 @@ import {
     AddUserOrganizationDto,
     GlobalPermissionsEnum,
     NormalizedResponseDTO,
-    NumMembersAndReportsOrg,
     Organization,
+    OrganizationInfoDto,
     OrganizationMember,
     OrganizationOptions,
     OrganizationPermissionsEnum,
@@ -82,19 +82,19 @@ export class OrganizationsController extends GenericController<Organization> {
         return new NormalizedResponseDTO(organizations)
     }
 
-    @Get('/number-of-members-and-reports')
+    @Get('/info')
     @ApiOperation({
-        summary: `Get the number of members and reports by organization`,
-        description: `Allows fetching the number of members and reports by organization`,
+        summary: `Get the number of members, reports, discussions and comments by organization`,
+        description: `Allows fetching the number of members, reports, discussions and comments by organization`,
     })
-    @ApiNormalizedResponse({ status: 200, description: `Number of members and reports by organization`, type: NumMembersAndReportsOrg })
+    @ApiNormalizedResponse({ status: 200, description: `Number of members and reports by organization`, type: OrganizationInfoDto })
     public async getNumMembersAndReportsByOrganization(
         @CurrentToken() token: Token,
         @Query('organizationId') organizationId: string,
-    ): Promise<NormalizedResponseDTO<NumMembersAndReportsOrg[]>> {
-        const numMembersAndReportsOrg: NumMembersAndReportsOrg[] = await this.organizationService.getNumMembersAndReportsByOrganization(token, organizationId)
-        const relations = await this.relationsService.getRelations(numMembersAndReportsOrg)
-        return new NormalizedResponseDTO(numMembersAndReportsOrg, relations)
+    ): Promise<NormalizedResponseDTO<OrganizationInfoDto[]>> {
+        const organizationInfoDto: OrganizationInfoDto[] = await this.organizationService.getNumMembersAndReportsByOrganization(token, organizationId)
+        const relations = await this.relationsService.getRelations(organizationInfoDto)
+        return new NormalizedResponseDTO(organizationInfoDto, relations)
     }
 
     @Get('/:organizationId')

@@ -1,10 +1,11 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
     AddUserOrganizationDto,
+    Comment,
     KysoRole,
     KysoSettingsEnum,
-    NumMembersAndReportsOrg,
     Organization,
+    OrganizationInfoDto,
     OrganizationMember,
     OrganizationMemberJoin,
     OrganizationOptions,
@@ -17,11 +18,13 @@ import {
     User,
 } from '@kyso-io/kyso-model'
 import { BadRequestException, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import * as moment from 'moment'
 import { extname } from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { PlatformRole } from '../../security/platform-roles'
+import { CommentsService } from '../comments/comments.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
@@ -54,6 +57,9 @@ export class OrganizationsService extends AutowiredService {
 
     @Autowired({ typeName: 'ReportsService' })
     private reportsService: ReportsService
+
+    @Autowired({ typeName: 'CommentsService' })
+    private commentsService: CommentsService
 
     constructor(private readonly provider: OrganizationsMongoProvider, private readonly organizationMemberProvider: OrganizationMemberMongoProvider) {
         super()
@@ -463,8 +469,11 @@ export class OrganizationsService extends AutowiredService {
         return this.provider.update({ _id: this.provider.toObjectId(organization.id) }, { $set: { avatar_url: null } })
     }
 
-    public async getNumMembersAndReportsByOrganization(token: Token, organizationId: string): Promise<NumMembersAndReportsOrg[]> {
-        const map: Map<string, { members: number; reports: number }> = new Map<string, { members: number; reports: number }>()
+    public async getNumMembersAndReportsByOrganization(token: Token, organizationId: string): Promise<OrganizationInfoDto[]> {
+        const map: Map<string, { members: number; reports: number; discussions: number; comments: number; lastChange: Date }> = new Map<
+            string,
+            { members: number; reports: number; discussions: number; comments: number; lastChange: Date }
+        >()
         const query: any = {
             filter: {},
         }
@@ -475,18 +484,31 @@ export class OrganizationsService extends AutowiredService {
             query.filter.organization_id = organizationId
         }
         const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.read(query)
-        members.forEach((organizationMemberJoin: OrganizationMemberJoin) => {
+        for (const organizationMemberJoin of members) {
             if (!map.has(organizationMemberJoin.organization_id)) {
-                map.set(organizationMemberJoin.organization_id, { members: 0, reports: 0 })
+                const organization: Organization = await this.getOrganizationById(organizationId)
+                map.set(organizationMemberJoin.organization_id, {
+                    members: 0,
+                    reports: 0,
+                    discussions: 0,
+                    comments: 0,
+                    lastChange: organization.updated_at,
+                })
             }
             map.get(organizationMemberJoin.organization_id).members++
-        })
+        }
         const teamOrgMap: Map<string, string> = new Map<string, string>()
         let teams: Team[] = []
         const teamsQuery: any = {
             filter: {},
         }
         const reportsQuery: any = {
+            filter: {},
+        }
+        const discussionsQuery: any = {
+            filter: {},
+        }
+        const commentsQuery: any = {
             filter: {},
         }
         if (organizationId && organizationId.length > 0) {
@@ -501,27 +523,57 @@ export class OrganizationsService extends AutowiredService {
                     $in: teams.map((x: Team) => x.id),
                 },
             }
+            discussionsQuery.filter = {
+                team_id: {
+                    $in: teams.map((x: Team) => x.id),
+                },
+            }
         }
         teams.forEach((team: Team) => {
             teamOrgMap.set(team.id, team.organization_id)
+            map.get(team.organization_id).lastChange = moment.max(moment(team.updated_at), moment(map.get(team.organization_id).lastChange)).toDate()
         })
         const reports: Report[] = await this.reportsService.getReports(reportsQuery)
+        const mapReportOrg: Map<string, string> = new Map<string, string>()
+        const comments: Comment[] = await this.commentsService.getComments(commentsQuery)
         reports.forEach((report: Report) => {
             const organizationId: string | undefined = teamOrgMap.get(report.team_id)
             if (!organizationId) {
                 return
             }
+            mapReportOrg.set(report.id, organizationId)
             if (!map.has(organizationId)) {
-                map.set(organizationId, { members: 0, reports: 0 })
+                map.set(organizationId, { members: 0, reports: 0, discussions: 0, comments: 0, lastChange: moment('1970-01-10').toDate() })
             }
             map.get(organizationId).reports++
+            map.get(organizationId).lastChange = moment.max(moment(report.updated_at), moment(map.get(organizationId).lastChange)).toDate()
         })
-        const result: NumMembersAndReportsOrg[] = []
-        map.forEach((value: { members: number; reports: number }, organizationId: string) => {
+        comments.forEach((comment: Comment) => {
+            const organizationId: string | undefined = mapReportOrg.get(comment.report_id)
+            if (!organizationId) {
+                return
+            }
+            if (!map.has(organizationId)) {
+                map.set(organizationId, {
+                    members: 0,
+                    reports: 0,
+                    discussions: 0,
+                    comments: 0,
+                    lastChange: moment('1970-01-10').toDate(),
+                })
+            }
+            map.get(organizationId).comments++
+            map.get(organizationId).lastChange = moment.max(moment(comment.updated_at), moment(map.get(organizationId).lastChange)).toDate()
+        })
+        const result: OrganizationInfoDto[] = []
+        map.forEach((value: { members: number; reports: number; discussions: number; comments: number; lastChange: Date }, organizationId: string) => {
             result.push({
                 organization_id: organizationId,
                 members: value.members,
                 reports: value.reports,
+                discussions: value.discussions,
+                comments: value.comments,
+                lastChange: value.lastChange,
             })
         })
         return result
