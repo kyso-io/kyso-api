@@ -303,17 +303,11 @@ export class UsersController extends GenericController<User> {
         return this.authService.addUserAccount(token, addUserAccountDTO)
     }
 
-    @Delete('/:userId/accounts/:provider/:accountId')
+    @Delete('/accounts/:provider/:accountId')
     @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Remove an account from an user`,
         description: `Allows removing an account from an user passing its username`,
-    })
-    @ApiParam({
-        name: 'userId',
-        required: true,
-        description: `Id of the user to remove an account`,
-        schema: { type: 'string' },
     })
     @ApiParam({
         name: 'provider',
@@ -329,8 +323,13 @@ export class UsersController extends GenericController<User> {
     })
     @ApiResponse({ status: 200, description: `Account removed successfully`, type: Boolean })
     @Permission([UserPermissionsEnum.EDIT])
-    async removeAccount(@Param('userId') userId: string, @Param('provider') provider: string, @Param('accountId') accountId: string): Promise<boolean> {
-        return this.usersService.removeAccount(userId, provider, accountId)
+    async removeAccount(
+        @CurrentToken() token: Token,
+        @Param('provider') provider: string,
+        @Param('accountId') accountId: string,
+    ): Promise<NormalizedResponseDTO<boolean>> {
+        const result: boolean = await this.usersService.removeAccount(token.id, provider, accountId)
+        return new NormalizedResponseDTO(result)
     }
 
     @UseInterceptors(
