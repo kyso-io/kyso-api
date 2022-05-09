@@ -2093,7 +2093,7 @@ export class ReportsService extends AutowiredService {
     private async uploadReportToFtp(reportId: string, sourcePath: string): Promise<void> {
         const report: Report = await this.getReportById(reportId)
         let version: number = await this.getLastVersionOfReport(reportId)
-        version = Math.min(1, version)
+        version = Math.max(1, version)
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const client: Client = await this.sftpService.getClient()
