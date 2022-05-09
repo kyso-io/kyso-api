@@ -555,7 +555,17 @@ export class ReportsService extends AutowiredService {
             throw new PreconditionFailedException(`Kyso config file is not valid: ${message}`)
         }
 
-        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team } })
+        const organization: Organization = await this.organizationsService.getOrganization({
+            filter: {
+                sluglified_name: kysoConfigFile.organization,
+            },
+        })
+        if (!organization) {
+            Logger.error(`Organization ${kysoConfigFile.organization} not found`, ReportsService.name)
+            throw new PreconditionFailedException(`Organization ${kysoConfigFile.organization} not found`)
+        }
+
+        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team, organization_id: organization.id } })
         Logger.log(`Team: ${team.sluglified_name}`)
         if (!team) {
             Logger.error(`Team ${kysoConfigFile.team} does not exist`)
@@ -566,7 +576,6 @@ export class ReportsService extends AutowiredService {
             Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
             throw new PreconditionFailedException(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
         }
-        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         let extractedDir = null
 
         const name: string = slugify(kysoConfigFile.title)
