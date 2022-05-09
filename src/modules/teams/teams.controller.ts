@@ -119,10 +119,16 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponseDTO(team)
     }
 
-    @Get('/check-name/:name')
+    @Get('/check-name/:organizationId/:name')
     @ApiOperation({
         summary: `Check if team name is unique`,
         description: `Allows checking if a team name is unique`,
+    })
+    @ApiParam({
+        name: 'organizationId',
+        required: true,
+        description: `Id of the organization that the team belongs to`,
+        schema: { type: 'string' },
     })
     @ApiParam({
         name: 'name',
@@ -130,10 +136,20 @@ export class TeamsController extends GenericController<Team> {
         description: `Name of the team to fetch`,
         schema: { type: 'string' },
     })
-    @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Boolean })
+    @ApiNormalizedResponse({ status: 200, description: `Returns true if name is available`, type: Boolean })
     @Permission([TeamPermissionsEnum.READ])
-    public async checkIfTeamNameIsUnique(@Param('name') name: string): Promise<NormalizedResponseDTO<boolean>> {
-        const team: Team = await this.teamsService.getTeam({ filter: { name: slugify(name) } })
+    public async checkIfTeamNameIsUnique(
+        @Param('name') name: string,
+        @Param('organizationId') organizationId: string,
+    ): Promise<NormalizedResponseDTO<boolean>> {
+        if (!name || name.length === 0) {
+            throw new BadRequestException('Team name is required')
+        }
+        if (!organizationId || organizationId.length === 0) {
+            throw new BadRequestException('Organization id is required')
+        }
+        const team: Team = await this.teamsService.getTeam({ filter: { name: slugify(name), organization_id: organizationId } })
+        console.log('team', team)
         return new NormalizedResponseDTO<boolean>(team === null)
     }
 
