@@ -308,11 +308,14 @@ export class ReportsService extends AutowiredService {
         // Delete report in SFTP
         this.deleteReportFromFtp(report.id)
 
-        const team: Team = await this.teamsService.getTeamById(report.team_id)
-        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-
         // Delete all indexed contents in fulltextsearch
-        this.fullTextSearchService.deleteIndexedResults(organization.sluglified_name, team.sluglified_name, report.sluglified_name, 'report')
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (team) {
+            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            if (organization) {
+                this.fullTextSearchService.deleteIndexedResults(organization.sluglified_name, team.sluglified_name, report.sluglified_name, 'report')
+            }
+        }
 
         // Delete files
         await this.filesMongoProvider.deleteMany({ report_id: reportId })
@@ -1555,13 +1558,23 @@ export class ReportsService extends AutowiredService {
         files: { name: string; filePath: string }[],
         isNew: boolean,
     ): Promise<void> {
-        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team } })
+        const organization: Organization = await this.organizationsService.getOrganization({
+            filter: {
+                sluglified_name: kysoConfigFile.organization,
+            },
+        })
+        if (!organization) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report ${report.id} ${report.sluglified_name}: Organization ${kysoConfigFile.team} does not exist`, ReportsService.name)
+            return
+        }
+
+        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team, organization_id: organization.id } })
         if (!team) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report ${report.id} ${report.sluglified_name}: Team ${kysoConfigFile.team} does not exist`, ReportsService.name)
             return
         }
-        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
 
         let mainFile = null
         if (kysoConfigFile?.main && kysoConfigFile.main.length > 0) {
@@ -1659,9 +1672,9 @@ export class ReportsService extends AutowiredService {
             })
             const zip = new AdmZip(response.data)
             const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
-            Logger.log("Extracting Github files to " + tmpFolder)
+            Logger.log('Extracting Github files to ' + tmpFolder)
             zip.extractAllTo(tmpFolder, true)
-            Logger.log("Extraction finished")
+            Logger.log('Extraction finished')
             Logger.log(`Moving between ${tmpFolder}/${zip.getEntries()[0].entryName} and ${extractedDir}`)
             moveSync(`${tmpFolder}/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
             Logger.log(`Moving finished`)
@@ -2079,7 +2092,8 @@ export class ReportsService extends AutowiredService {
 
     private async uploadReportToFtp(reportId: string, sourcePath: string): Promise<void> {
         const report: Report = await this.getReportById(reportId)
-        const version: number = await this.getLastVersionOfReport(reportId)
+        let version: number = await this.getLastVersionOfReport(reportId)
+        version = Math.max(1, version)
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const client: Client = await this.sftpService.getClient()
