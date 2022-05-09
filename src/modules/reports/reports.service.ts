@@ -1558,13 +1558,23 @@ export class ReportsService extends AutowiredService {
         files: { name: string; filePath: string }[],
         isNew: boolean,
     ): Promise<void> {
-        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team } })
+        const organization: Organization = await this.organizationsService.getOrganization({
+            filter: {
+                sluglified_name: kysoConfigFile.organization,
+            },
+        })
+        if (!organization) {
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
+            Logger.error(`Report ${report.id} ${report.sluglified_name}: Organization ${kysoConfigFile.team} does not exist`, ReportsService.name)
+            return
+        }
+
+        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team, organization_id: organization.id } })
         if (!team) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report ${report.id} ${report.sluglified_name}: Team ${kysoConfigFile.team} does not exist`, ReportsService.name)
             return
         }
-        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
 
         let mainFile = null
         if (kysoConfigFile?.main && kysoConfigFile.main.length > 0) {
