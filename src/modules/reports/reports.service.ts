@@ -1863,7 +1863,6 @@ export class ReportsService extends AutowiredService {
                 }
             })
         }
-        console.log('reportFiles', reportFiles)
 
         let result = []
         const level = { result }
