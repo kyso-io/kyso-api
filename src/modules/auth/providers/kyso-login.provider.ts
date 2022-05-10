@@ -19,7 +19,7 @@ export class KysoLoginProvider {
         })
 
         if (!user) {
-            throw new UnauthorizedException('Invalid credentials')
+            throw new UnauthorizedException('User does not exist')
         }
 
         const isRightPassword = await AuthService.isPasswordCorrect(password, user.hashed_password)
@@ -60,19 +60,17 @@ export class KysoLoginProvider {
         }
     }
 
-    async loginWithAccessToken(access_token: string, username?: string): Promise<string> {
+    async loginWithAccessToken(access_token: string, username: string): Promise<string> {
         // Get user from database
         const user = await this.usersService.getUser({
-            filter: { username: username },
+            filter: { email: username },
         })
-
         if (!user) {
-            throw new UnauthorizedException('Invalid credentials')
+            throw new UnauthorizedException('User does not exist')
         }
 
         // Search for provided access_token for that user
         const dbAccessToken: KysoUserAccessToken = await this.usersService.searchAccessToken(user.id, access_token)
-
         if (!dbAccessToken) {
             throw new UnauthorizedException('Invalid credentials')
         } else {

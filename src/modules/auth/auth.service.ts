@@ -339,60 +339,60 @@ export class AuthService extends AutowiredService {
 
     async login(login: Login): Promise<string> {
         Logger.log(`Logging user ${login.username}`)
-        
+
         switch (login.provider) {
             case LoginProviderEnum.KYSO:
             default:
-                const isKysoAuthEnabled = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_KYSO) === 'true' ? true : false;
-                
-                if(isKysoAuthEnabled) {
+                const isKysoAuthEnabled = (await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_KYSO)) === 'true' ? true : false
+
+                if (isKysoAuthEnabled) {
                     return this.kysoLoginProvider.login(login.password, login.username)
                 } else {
-                    throw new ForbiddenException(null, "Kyso authentication is disabled globally for that instance. Forbidden");
+                    throw new ForbiddenException(null, 'Kyso authentication is disabled globally for that instance. Forbidden')
                 }
-            
+
             case LoginProviderEnum.KYSO_ACCESS_TOKEN:
                 return this.kysoLoginProvider.loginWithAccessToken(login.password, login.username)
-            
+
             case LoginProviderEnum.GITHUB:
-                const isGithubAuthEnabled = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITHUB) === 'true' ? true : false;
-                
-                if(isGithubAuthEnabled) {
+                const isGithubAuthEnabled = (await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITHUB)) === 'true' ? true : false
+
+                if (isGithubAuthEnabled) {
                     return this.githubLoginProvider.login(login)
                 } else {
-                    throw new ForbiddenException(null, "Github authentication is disabled globally for that instance. Forbidden");
+                    throw new ForbiddenException(null, 'Github authentication is disabled globally for that instance. Forbidden')
                 }
-                
+
             case LoginProviderEnum.GITLAB:
-                const isGitlabAuthEnabled = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITLAB) === 'true' ? true : false;
-                
-                if(isGitlabAuthEnabled) {
+                const isGitlabAuthEnabled = (await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITLAB)) === 'true' ? true : false
+
+                if (isGitlabAuthEnabled) {
                     return this.gitlabLoginProvider.login(login)
                 } else {
-                    throw new ForbiddenException(null, "Gitlab authentication is disabled globally for that instance. Forbidden");
+                    throw new ForbiddenException(null, 'Gitlab authentication is disabled globally for that instance. Forbidden')
                 }
 
             case LoginProviderEnum.GOOGLE:
-                const isGoogleAuthEnabled = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GOOGLE) === 'true' ? true : false;
-                
-                if(isGoogleAuthEnabled) {
+                const isGoogleAuthEnabled = (await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GOOGLE)) === 'true' ? true : false
+
+                if (isGoogleAuthEnabled) {
                     return this.googleLoginProvider.login(login)
                 } else {
-                    throw new ForbiddenException(null, "Google authentication is disabled globally for that instance. Forbidden");
+                    throw new ForbiddenException(null, 'Google authentication is disabled globally for that instance. Forbidden')
                 }
-            
+
             case LoginProviderEnum.BITBUCKET:
-                const isBitbucketAuthEnabled = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_BITBUCKET) === 'true' ? true : false;
-                
-                if(isBitbucketAuthEnabled) {
+                const isBitbucketAuthEnabled =
+                    (await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_BITBUCKET)) === 'true' ? true : false
+
+                if (isBitbucketAuthEnabled) {
                     return this.bitbucketLoginProvider.login(login)
                 } else {
-                    throw new ForbiddenException(null, "Bitbucket authentication is disabled globally for that instance. Forbidden");
+                    throw new ForbiddenException(null, 'Bitbucket authentication is disabled globally for that instance. Forbidden')
                 }
 
             case LoginProviderEnum.PING_ID_SAML:
                 return this.pingIdLoginProvider.login(login)
-            
         }
     }
 
