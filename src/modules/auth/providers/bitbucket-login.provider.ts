@@ -68,11 +68,12 @@ export class BitbucketLoginProvider {
                     accountId: bitbucketUser.account_id,
                     username: bitbucketUser.username,
                     accessToken,
-                    payload: bitbucketLoginResponse.data,
+                    payload: bitbucketLoginResponse,
                 })
                 Logger.log(`User ${bitbucketUser.username} is adding Bitbucket account`, BitbucketLoginProvider.name)
             } else {
                 user.accounts[index].accessToken = accessToken
+                user.accounts[index].payload = bitbucketLoginResponse
                 Logger.log(`User ${bitbucketUser.username} is updating Bitbucket account`, BitbucketLoginProvider.name)
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
@@ -124,11 +125,12 @@ export class BitbucketLoginProvider {
                     accountId: bitbucketUser.account_id,
                     username: bitbucketUser.username,
                     accessToken,
-                    payload: bitbucketLoginResponse.data,
+                    payload: bitbucketLoginResponse,
                 })
                 Logger.log(`User ${bitbucketUser.username} is adding Bitbucket account`, BitbucketLoginProvider.name)
             } else {
                 user.accounts[index].accessToken = accessToken
+                user.accounts[index].payload = bitbucketLoginResponse
                 Logger.log(`User ${bitbucketUser.username} is updating Bitbucket account`, BitbucketLoginProvider.name)
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })

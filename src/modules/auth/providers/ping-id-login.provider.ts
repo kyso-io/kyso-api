@@ -14,21 +14,21 @@ export class PingIdLoginProvider {
     constructor(private readonly jwtService: JwtService) {}
 
     public async login(login: Login): Promise<string> {
-        Logger.log(`User ${login.username} is trying to login with PingId`)
+        Logger.log(`User ${login.email} is trying to login with PingId`)
 
         try {
             let user = await this.usersService.getUser({
-                filter: { username: login.username },
+                filter: { email: login.email },
             })
 
             if (!user) {
                 // New User
                 const name = login.payload.name
                 const portrait = login.payload.profilePicture
-                Logger.log(`User ${login.username} is a new user`)
+                Logger.log(`User ${login.email} is a new user`)
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
-                    login.username,
-                    login.username,
+                    login.email,
+                    login.email,
                     name,
                     name,
                     LoginProviderEnum.PING_ID_SAML,

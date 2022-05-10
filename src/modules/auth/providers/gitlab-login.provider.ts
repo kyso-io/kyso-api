@@ -25,18 +25,17 @@ export class GitlabLoginProvider {
         try {
             const accessToken: GitlabAccessToken = await this.gitlabReposService.getAccessToken(login.password, login.payload)
             const gitlabUser: GitlabUser = await this.gitlabReposService.getUserByAccessToken(accessToken.access_token)
-            login.username = gitlabUser.username
 
             // Get user's detail
             // Check if the user exists in database, and if not, create it
             let user: User = await this.usersService.getUser({
-                filter: { username: login.username },
+                filter: { email: gitlabUser.email },
             })
             if (!user) {
                 // User does not exists, create it
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
                     gitlabUser.email,
-                    login.username,
+                    gitlabUser.username,
                     gitlabUser.name,
                     gitlabUser.name,
                     LoginProviderEnum.GITLAB,
@@ -63,11 +62,11 @@ export class GitlabLoginProvider {
                     accessToken: accessToken.access_token,
                     payload: accessToken,
                 })
-                Logger.log(`User ${login.username} is adding Gitlab account`, GitlabLoginProvider.name)
+                Logger.log(`User ${gitlabUser.email} is adding Gitlab account`, GitlabLoginProvider.name)
             } else {
                 user.accounts[index].accessToken = accessToken.access_token
                 user.accounts[index].payload = accessToken
-                Logger.log(`User ${login.username} is updating Gitlab account`, GitlabLoginProvider.name)
+                Logger.log(`User ${gitlabUser.email} is updating Gitlab account`, GitlabLoginProvider.name)
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
 

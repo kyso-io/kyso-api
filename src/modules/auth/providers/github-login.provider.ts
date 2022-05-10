@@ -1,4 +1,4 @@
-import { AddUserAccountDTO, CreateUserRequestDTO, GithubEmail, Login, LoginProviderEnum, Token, User, UserAccount } from '@kyso-io/kyso-model'
+import { AddUserAccountDTO, CreateUserRequestDTO, GithubEmail, KysoSettingsEnum, Login, LoginProviderEnum, Token, User, UserAccount } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
@@ -7,7 +7,6 @@ import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../../decorators/autowired'
 import { UnauthorizedError } from '../../../helpers/errorHandling'
 import { GithubReposService } from '../../github-repos/github-repos.service'
-import { KysoSettingsEnum } from "@kyso-io/kyso-model"
 import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 import { UsersService } from '../../users/users.service'
 
@@ -57,20 +56,22 @@ export class GithubLoginProvider {
             // Retrieve the token...
             const accessToken = res.data.split('&')[0].split('=')[1]
             const githubUser = await this.githubReposService.getUserByAccessToken(accessToken)
-            login.username = githubUser.login
             const mails: GithubEmail[] = await this.githubReposService.getEmailsByAccessToken(accessToken)
-            const githubEmail: GithubEmail | undefined = mails.find((mail: GithubEmail) => mail.primary)
+            let githubEmail: GithubEmail | undefined = mails.find((mail: GithubEmail) => mail.primary)
+            if (!githubEmail && mails.length > 0) {
+                githubEmail = mails[0]
+            }
 
             // Get user's detail
             // Check if the user exists in database, and if not, create it
             let user: User = await this.usersService.getUser({
-                filter: { username: login.username },
+                filter: { email: githubEmail.email },
             })
             if (!user) {
                 // User does not exists, create it
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
-                    githubEmail ? githubEmail.email : login.username,
-                    login.username,
+                    githubEmail.email,
+                    githubUser.login,
                     githubUser.name,
                     githubUser.login,
                     LoginProviderEnum.GITHUB,
@@ -97,10 +98,10 @@ export class GithubLoginProvider {
                     accessToken,
                     payload: null,
                 })
-                Logger.log(`User ${login.username} is adding Github account`, GithubLoginProvider.name)
+                Logger.log(`User ${githubEmail.email} is adding Github account`, GithubLoginProvider.name)
             } else {
                 user.accounts[index].accessToken = accessToken
-                Logger.log(`User ${login.username} is updating Github account`, GithubLoginProvider.name)
+                Logger.log(`User ${githubEmail.email} is updating Github account`, GithubLoginProvider.name)
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
 

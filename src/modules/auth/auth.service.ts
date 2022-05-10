@@ -338,7 +338,7 @@ export class AuthService extends AutowiredService {
     }
 
     async login(login: Login): Promise<string> {
-        Logger.log(`Logging user ${login.username}`)
+        Logger.log(`Logging user ${login.email}`)
 
         switch (login.provider) {
             case LoginProviderEnum.KYSO:
@@ -346,13 +346,13 @@ export class AuthService extends AutowiredService {
                 const isKysoAuthEnabled = (await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_KYSO)) === 'true' ? true : false
 
                 if (isKysoAuthEnabled) {
-                    return this.kysoLoginProvider.login(login.password, login.username)
+                    return this.kysoLoginProvider.login(login.password, login.email)
                 } else {
                     throw new ForbiddenException(null, 'Kyso authentication is disabled globally for that instance. Forbidden')
                 }
 
             case LoginProviderEnum.KYSO_ACCESS_TOKEN:
-                return this.kysoLoginProvider.loginWithAccessToken(login.password, login.username)
+                return this.kysoLoginProvider.loginWithAccessToken(login.password, login.email)
 
             case LoginProviderEnum.GITHUB:
                 const isGithubAuthEnabled = (await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITHUB)) === 'true' ? true : false
