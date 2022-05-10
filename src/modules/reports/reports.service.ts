@@ -1843,15 +1843,16 @@ export class ReportsService extends AutowiredService {
             return []
         }
 
+        
         let sanitizedPath = ''
         if (path && (path == './' || path == '/' || path == '.' || path == '/.')) {
             sanitizedPath = ''
         } else if (path && path.length > 0) {
             sanitizedPath = path.replace('./', '').replace(/\/$/, '')
         }
-
+        
         let filesInPath: any[] = [...reportFiles]
-
+        
         if (sanitizedPath !== '') {
             // Get the files that are in the path
             reportFiles = reportFiles.filter((file: File) => file.name.startsWith(sanitizedPath + '/') || file.name.startsWith(sanitizedPath))
@@ -1862,6 +1863,7 @@ export class ReportsService extends AutowiredService {
                 }
             })
         }
+        console.log('reportFiles', reportFiles)
 
         let result = []
         const level = { result }
@@ -1893,7 +1895,13 @@ export class ReportsService extends AutowiredService {
 
         if (result.length === 1 && result[0].children.length > 0) {
             // We are inside a directory
-            result = result[0].children
+            const getDeepChild = (element: any) => {
+                if (element?.children && element.children.length > 0) {
+                    return getDeepChild(element.children[0])
+                }
+                return [element]
+            }
+            result = getDeepChild(result[0].children[0]);
         }
 
         const tree: GithubFileHash[] = []
