@@ -1,11 +1,10 @@
-import { CreateUserRequestDTO, Login, LoginProviderEnum, Token, UserAccount } from '@kyso-io/kyso-model'
+import { CreateUserRequestDTO, KysoSettingsEnum, Login, LoginProviderEnum, Token, UserAccount } from '@kyso-io/kyso-model'
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { OAuth2Client } from 'google-auth-library'
 import { ObjectId } from 'mongodb'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../../decorators/autowired'
-import { KysoSettingsEnum } from "@kyso-io/kyso-model"
 import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 import { UsersService } from '../../users/users.service'
 

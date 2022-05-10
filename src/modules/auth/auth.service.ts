@@ -402,11 +402,10 @@ export class AuthService extends AutowiredService {
                 return this.githubLoginProvider.addUserAccount(token, addUserAccount)
             case LoginProviderEnum.BITBUCKET:
                 return this.bitbucketLoginProvider.addUserAccount(token, addUserAccount)
-            // WHY THIS IS MISSING
-            /*case LoginProviderEnum.GITLAB:
+            case LoginProviderEnum.GITLAB:
                 return this.gitlabLoginProvider.addUserAccount(token, addUserAccount)
-            case LoginProviderEnum.GOOGLE:
-                return this.googleLoginProvider.addUserAccount(token, addUserAccount)*/
+            // case LoginProviderEnum.GOOGLE:
+            //     return this.googleLoginProvider.addUserAccount(token, addUserAccount)
             default:
                 return null
         }
