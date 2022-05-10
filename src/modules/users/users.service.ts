@@ -261,7 +261,13 @@ export class UsersService extends AutowiredService {
         if (!user.hasOwnProperty('accounts')) {
             user.accounts = []
         }
-        const index: number = user.accounts.findIndex((account: UserAccount) => account.accountId === accountId && account.type === provider)
+        console.log(user.accounts)
+        console.log(`Id: ${id}`)
+        console.log(`Provider: ${provider}`)
+        console.log(`accountId: ${accountId}`)
+        
+
+        const index: number = user.accounts.findIndex((account: UserAccount) => account.accountId.toString() === accountId.toString() && account.type === provider)
         if (index !== -1) {
             const userAccounts: UserAccount[] = [...user.accounts.slice(0, index), ...user.accounts.slice(index + 1)]
             await this.updateUser({ _id: this.provider.toObjectId(id) }, { $set: { accounts: userAccounts } })
