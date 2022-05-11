@@ -11,6 +11,7 @@ import {
     ResourcePermissions,
     Team,
     TeamMemberJoin,
+    TeamVisibilityEnum,
     Token,
     TokenPermissions,
     User,
@@ -167,73 +168,84 @@ export class AuthService extends AutowiredService {
 
         if (userOrganizationMembership && userOrganizationMembership.length > 0) {
             for (const organizationMembership of userOrganizationMembership) {
-                // For every organization, retrieve the base object
-                const objectId = new mongo.ObjectId(organizationMembership.organization_id)
-                const organization: Organization = await organizationService.getOrganization({ filter: { _id: objectId } })
+                try {
+                    // For every organization, retrieve the base object
+                    const objectId = new mongo.ObjectId(organizationMembership.organization_id)
+                    const organization: Organization = await organizationService.getOrganization({ filter: { _id: objectId } })
 
-                // These are the specific roles built for that team
-                const organizationRoles: KysoRole[] = organization.roles
+                    // These are the specific roles built for that team
+                    const organizationRoles: KysoRole[] = organization.roles
 
-                // For every role assigned to this user in this organization, retrieve their permissions
-                let computedPermissions: KysoPermissions[] = []
+                    // For every role assigned to this user in this organization, retrieve their permissions
+                    let computedPermissions: KysoPermissions[] = []
 
-                organizationMembership.role_names.map((element) => {
-                    let existsRole: KysoRole[]
+                    organizationMembership.role_names.map((element) => {
+                        let existsRole: KysoRole[]
 
-                    // Check if the role exists in platformRoles
-                    existsRole = platformRoles.filter((y) => y.name === element)
+                        // Check if the role exists in platformRoles
+                        existsRole = platformRoles.filter((y) => y.name === element)
 
-                    if (organizationRoles && organizationRoles.length > 0) {
-                        // If there are specific organizationRoles, search for them as well
-                        const existsCustomRole = organizationRoles.filter((y) => y.name === element)
+                        if (organizationRoles && organizationRoles.length > 0) {
+                            // If there are specific organizationRoles, search for them as well
+                            const existsCustomRole = organizationRoles.filter((y) => y.name === element)
 
-                        // If there are collision between platform role and organization role, the
-                        // organization role will prevail
-                        if (existsCustomRole && existsCustomRole.length > 0) {
-                            existsRole = existsCustomRole
+                            // If there are collision between platform role and organization role, the
+                            // organization role will prevail
+                            if (existsCustomRole && existsCustomRole.length > 0) {
+                                existsRole = existsCustomRole
+                            }
+                        }
+
+                        // If the role exists, add all the permissions to the computedPermissionsArray
+                        if (existsRole && existsRole.length > 0) {
+                            computedPermissions = computedPermissions.concat(existsRole[0].permissions)
+                        } else {
+                            Logger.warn(`Role ${element} does not exist in organization nor in platform roles`)
+                        }
+                    })
+
+                    response.organizations.push({
+                        id: organization.id,
+                        name: organization.sluglified_name,
+                        display_name: organization.display_name,
+                        permissions: computedPermissions,
+                    })
+
+                    // Get all the teams that belong to that organizations (an user can belong to multiple organizations)
+                    // const organizationTeams: Team[] = await teamService.getTeams({ filter: { organization_id: organization.id } })
+                    const teamsVisibleByUser: Team[] = await (await teamService.getTeamsVisibleForUser(user.id)).filter(x => x.organization_id === organization.id)
+
+                    // For-each team
+                    for (const orgTeam of teamsVisibleByUser) {
+                        // If already exists in the response object, ignore it (team permissions override organization permissions)
+                        const alreadyExistsInResponse = response.teams.filter((x) => x.id === orgTeam.id)
+
+                        // If not exists in response, then apply organization roles
+                        if (alreadyExistsInResponse.length === 0) {
+                            // If the team is private, we must ensure that the user belongs explicitly
+                            // to the team
+                            if(orgTeam.visibility === TeamVisibilityEnum.PRIVATE) {
+                                
+                            }
+                            // If not, retrieve the roles
+                            response.teams.push({
+                                name: orgTeam.sluglified_name,
+                                display_name: orgTeam.display_name,
+                                id: orgTeam.id,
+                                organization_inherited: true,
+                                organization_id: orgTeam.organization_id, // Remove duplicated permissions
+                            })
                         }
                     }
-
-                    // If the role exists, add all the permissions to the computedPermissionsArray
-                    if (existsRole && existsRole.length > 0) {
-                        computedPermissions = computedPermissions.concat(existsRole[0].permissions)
-                    } else {
-                        Logger.warn(`Role ${element} does not exist in organization nor in platform roles`)
-                    }
-                })
-
-                response.organizations.push({
-                    id: organization.id,
-                    name: organization.sluglified_name,
-                    display_name: organization.display_name,
-                    permissions: computedPermissions,
-                })
-
-                // Get all the teams that belong to that organizations (an user can belong to multiple organizations)
-                const organizationTeams: Team[] = await teamService.getTeams({ filter: { organization_id: organization.id } })
-
-                // For-each team
-                for (const orgTeam of organizationTeams) {
-                    // If already exists in the response object, ignore it (team permissions override organization permissions)
-                    const alreadyExistsInResponse = response.teams.filter((x) => x.id === orgTeam.id)
-
-                    // If not exists in response, then apply organization roles
-                    if (alreadyExistsInResponse.length === 0) {
-                        // If not, retrieve the roles
-                        response.teams.push({
-                            name: orgTeam.sluglified_name,
-                            display_name: orgTeam.display_name,
-                            id: orgTeam.id,
-                            organization_inherited: true,
-                            organization_id: orgTeam.organization_id, // Remove duplicated permissions
-                        })
-                    }
+                } catch(ex) {
+                    Logger.error(`Can't retrieve information of organization ${organizationMembership.organization_id}`)
+                    Logger.error(ex)
                 }
             }
+            
         }
 
         // TODO: Global permissions, not related to teams
-
         const generalRoles = await userRoleService.getRolesByUser(user.id)
 
         if (generalRoles && generalRoles.length > 0) {
