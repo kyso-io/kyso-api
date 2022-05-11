@@ -498,14 +498,21 @@ export class UsersService extends AutowiredService {
                 email: emailUserChangePasswordDTO.email,
             },
         })
+
         if (!user) {
             throw new PreconditionFailedException('User not registered')
         }
 
-        const validCaptcha: boolean = await this.verifyCaptcha(user.id, { token: emailUserChangePasswordDTO.captchaToken })
-        if (!validCaptcha) {
-            throw new PreconditionFailedException('Invalid captcha')
+        const recaptchaEnabled = await this.kysoSettingsService.getValue(KysoSettingsEnum.RECAPTCHA2_ENABLED) === "true" ? true : false
+        
+        if(recaptchaEnabled) {
+            const validCaptcha: boolean = await this.verifyCaptcha(user.id, { token: emailUserChangePasswordDTO.captchaToken })
+        
+            if (!validCaptcha) {
+                throw new PreconditionFailedException('Invalid captcha')
+            }
         }
+        
 
         // Link to change user password
         const minutes: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_MINUTES_TOKEN_RECOVERY_PASSWORD)
