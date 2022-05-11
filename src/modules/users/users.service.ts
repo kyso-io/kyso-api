@@ -266,7 +266,9 @@ export class UsersService extends AutowiredService {
         console.log(`Provider: ${provider}`)
         console.log(`accountId: ${accountId}`)
         
-
+        // Bitbucket and Gitlab accountIds are strings, but Github is a number. So the account.accountId === accountId works for 
+        // bitbucket and gitlab, but not for github. For that reason we added .toString() to the comparison
+        // to force to compare as string and avoid the github malfunction.
         const index: number = user.accounts.findIndex((account: UserAccount) => account.accountId.toString() === accountId.toString() && account.type === provider)
         if (index !== -1) {
             const userAccounts: UserAccount[] = [...user.accounts.slice(0, index), ...user.accounts.slice(index + 1)]
