@@ -515,7 +515,7 @@ export class UsersService extends AutowiredService {
         
         // Link to change user password
         const minutes: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_MINUTES_TOKEN_RECOVERY_PASSWORD)
-        let userForgotPassword: UserForgotPassword = new UserForgotPassword(user.email, uuidv4(), user.id, moment().add(minutes, 'minutes').toDate())
+        let userForgotPassword: UserForgotPassword = new UserForgotPassword(encodeURI(user.email), uuidv4(), user.id, moment().add(minutes, 'minutes').toDate())
         userForgotPassword = await this.userChangePasswordMongoProvider.create(userForgotPassword)
 
         return new Promise<boolean>(async (resolve) => {
