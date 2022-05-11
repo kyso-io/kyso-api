@@ -513,7 +513,6 @@ export class UsersService extends AutowiredService {
             }
         }
         
-
         // Link to change user password
         const minutes: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_MINUTES_TOKEN_RECOVERY_PASSWORD)
         let userForgotPassword: UserForgotPassword = new UserForgotPassword(user.email, uuidv4(), user.id, moment().add(minutes, 'minutes').toDate())
