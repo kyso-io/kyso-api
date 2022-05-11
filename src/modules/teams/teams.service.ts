@@ -4,6 +4,7 @@ import {
     KysoRole,
     KysoSettingsEnum,
     Organization,
+    OrganizationMember,
     OrganizationMemberJoin,
     Report,
     ReportPermissionsEnum,
@@ -13,7 +14,7 @@ import {
     TeamVisibilityEnum,
     Token,
     UpdateTeamMembersDTO,
-    User,
+    User
 } from '@kyso-io/kyso-model'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { extname, join } from 'path'
@@ -206,6 +207,15 @@ export class TeamsService extends AutowiredService {
             const user_ids: string[] = members.map((x: TeamMemberJoin) => {
                 return x.member_id
             })
+            if (team.visibility === TeamVisibilityEnum.PUBLIC || team.visibility === TeamVisibilityEnum.PROTECTED) {
+                const organizationMembers: OrganizationMember[] = await this.organizationsService.getOrganizationMembers(team.organization_id)
+                organizationMembers.forEach((x: OrganizationMember) => {
+                    const index: number = user_ids.indexOf(x.id)
+                    if (index === -1) {
+                        user_ids.push(x.id)
+                    }
+                })
+            }
 
             // Build the query to retrieve all the users
             const filterArray = user_ids.map((id: string) => ({ _id: this.provider.toObjectId(id) }))
@@ -222,7 +232,7 @@ export class TeamsService extends AutowiredService {
                 // Find role for this user in members
                 const thisMember: TeamMemberJoin = members.find((tm: TeamMemberJoin) => u.id.toString() === tm.member_id)
 
-                return { ...u, roles: thisMember.role_names }
+                return { ...u, roles: thisMember ? thisMember.role_names : [] }
             })
 
             return usersAndRoles.map((x) => new TeamMember(x.id.toString(), x.display_name, x.name, x.roles, x.bio, x.avatar_url, x.email))
