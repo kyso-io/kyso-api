@@ -9,6 +9,7 @@ import {
     Report,
     ReportPermissionsEnum,
     Team,
+    teamContributorRoleContribution,
     TeamMember,
     TeamMemberJoin,
     TeamVisibilityEnum,
@@ -202,13 +203,14 @@ export class TeamsService extends AutowiredService {
         if (team) {
             // Get all the members of this team
             const members: TeamMemberJoin[] = await this.teamMemberProvider.getMembers(team.id)
-
+            let organizationMembers: OrganizationMember[] = []
             // Build query object to retrieve all the users
             const user_ids: string[] = members.map((x: TeamMemberJoin) => {
                 return x.member_id
             })
             if (team.visibility === TeamVisibilityEnum.PUBLIC || team.visibility === TeamVisibilityEnum.PROTECTED) {
-                const organizationMembers: OrganizationMember[] = await this.organizationsService.getOrganizationMembers(team.organization_id)
+                organizationMembers = await this.organizationsService.getOrganizationMembers(team.organization_id)
+                
                 organizationMembers.forEach((x: OrganizationMember) => {
                     const index: number = user_ids.indexOf(x.id)
                     if (index === -1) {
@@ -230,9 +232,10 @@ export class TeamsService extends AutowiredService {
 
             const usersAndRoles = users.map((u: User) => {
                 // Find role for this user in members
-                const thisMember: TeamMemberJoin = members.find((tm: TeamMemberJoin) => u.id.toString() === tm.member_id)
+                const teamMember: TeamMemberJoin = members.find((tm: TeamMemberJoin) => u.id.toString() === tm.member_id)
+                const orgMember: OrganizationMember = organizationMembers.find((om: OrganizationMember) => om.email === u.email)
 
-                return { ...u, roles: thisMember ? thisMember.role_names : [] }
+                return { ...u, roles: teamMember ? teamMember.role_names : orgMember.organization_roles }
             })
 
             return usersAndRoles.map((x) => new TeamMember(x.id.toString(), x.display_name, x.name, x.roles, x.bio, x.avatar_url, x.email))
