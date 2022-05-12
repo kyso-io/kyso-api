@@ -399,15 +399,24 @@ export class ReportsController extends GenericController<Report> {
     @UseInterceptors(FileInterceptor('file'))
     @Permission([ReportPermissionsEnum.CREATE])
     @Public()
-    async createKysoReport(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Report>> {
+    async createKysoReport(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Report | Report[]>> {
         Logger.log(`Called createKysoReport`)
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }
-        const report: Report = await this.reportsService.createKysoReport(token.id, file)
-        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
-        return new NormalizedResponseDTO(reportDto, relations)
+        const data: Report | Report[] = await this.reportsService.createKysoReport(token.id, file)
+        if (Array.isArray(data)) {
+            const reportDtos: ReportDTO[] = []
+            for (const report of data) {
+                const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+                reportDtos.push(reportDto)
+            }
+            return new NormalizedResponseDTO(reportDtos)
+        } else {
+            const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(data, token.id)
+            const relations = await this.relationsService.getRelations(data, 'report', { Author: 'User' })
+            return new NormalizedResponseDTO(reportDto, relations)
+        }
     }
 
     @Post('/ui')
