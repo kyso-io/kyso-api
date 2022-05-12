@@ -1,4 +1,4 @@
-import { CreateDiscussionRequestDTO, Discussion, Organization, Team, UpdateDiscussionRequestDTO, User } from '@kyso-io/kyso-model'
+import { CreateDiscussionRequestDTO, Discussion, Organization, Team, Token, UpdateDiscussionRequestDTO, User } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
@@ -9,6 +9,8 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { DiscussionsMongoProvider } from './providers/discussions-mongo.provider'
+import { GenericService } from '../../generic/service.generic'
+import { PlatformRole } from '../../security/platform-roles'
 
 function factory(service: DiscussionsService) {
     return service
@@ -23,7 +25,7 @@ export function createProvider(): Provider<DiscussionsService> {
 }
 
 @Injectable()
-export class DiscussionsService extends AutowiredService {
+export class DiscussionsService extends AutowiredService implements GenericService<Discussion> {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
@@ -38,6 +40,36 @@ export class DiscussionsService extends AutowiredService {
 
     constructor(private readonly mailerService: MailerService, private readonly provider: DiscussionsMongoProvider) {
         super()
+    }
+
+    async checkOwnership(item: Discussion, requester: Token, organizationName: string, teamName: string): Promise<boolean> {
+        let hasAdequatePermissions
+        
+        // Check if the user who is requesting the edition of the discussion is the owner of the discussion
+        if(item.user_id === requester.id) {
+            hasAdequatePermissions = true 
+        } else {
+            hasAdequatePermissions = false 
+        }
+
+        if(!hasAdequatePermissions) {
+            // Check if the user who is requesting the edition of the discussion has TEAM_ADMIN or ORG_ADMIN
+            const teamPermissions = requester.permissions.teams.find(x => x.name === teamName)
+
+            if(teamPermissions && teamPermissions.role_names) {
+                const isTeamAdmin = teamPermissions.role_names.find(x => x === PlatformRole.TEAM_ADMIN_ROLE.name) !== undefined 
+                const isOrgAdmin = teamPermissions.role_names.find(x => x === PlatformRole.ORGANIZATION_ADMIN_ROLE.name) !== undefined
+                const isPlatformAdmin = teamPermissions.role_names.find(x => x === PlatformRole.PLATFORM_ADMIN_ROLE.name) !== undefined
+
+                if(isTeamAdmin || isOrgAdmin || isPlatformAdmin) {
+                    hasAdequatePermissions = true 
+                } else {
+                    hasAdequatePermissions = false
+                }
+            }
+        }
+
+        return hasAdequatePermissions
     }
 
     public getDiscussions(query: any): Promise<Discussion[]> {

@@ -14,6 +14,7 @@ import {
 } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, ForbiddenException, Get, Headers, NotFoundException, Param, Patch, Post, PreconditionFailedException, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
+import { PlatformRole } from 'src/security/platform-roles'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
@@ -201,9 +202,20 @@ export class DiscussionsController extends GenericController<Discussion> {
     @Permission([DiscussionPermissionsEnum.EDIT])
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
     public async updateDiscussion(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
         @Param('discussionId') discussionId: string,
         @Body() data: UpdateDiscussionRequestDTO,
     ): Promise<NormalizedResponseDTO<Discussion>> {
+        const discussionData: Discussion = await this.discussionsService.getDiscussionById(discussionId);
+        
+        const isOwner = await this.discussionsService.checkOwnership(discussionData, token, organizationName, teamName)
+        
+        if(!isOwner) {
+            throw new ForbiddenException("Insufficient permissions")
+        }
+
         const updatedDiscussion: Discussion = await this.discussionsService.updateDiscussion(discussionId, data)
         const relations = await this.relationsService.getRelations(updatedDiscussion, 'discussion', { participants: 'User', assignees: 'User' })
         return new NormalizedResponseDTO(updatedDiscussion, relations)
@@ -224,7 +236,19 @@ export class DiscussionsController extends GenericController<Discussion> {
     })
     @Permission([DiscussionPermissionsEnum.DELETE])
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
-    public async deleteDiscussion(@Param('discussionId') discussionId: string): Promise<NormalizedResponseDTO<Discussion>> {
+    public async deleteDiscussion(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('discussionId') discussionId: string): Promise<NormalizedResponseDTO<Discussion>> {
+        const discussionData: Discussion = await this.discussionsService.getDiscussionById(discussionId);
+        
+        const isOwner = await this.discussionsService.checkOwnership(discussionData, token, organizationName, teamName)
+        
+        if(!isOwner) {
+            throw new ForbiddenException("Insufficient permissions")
+        }
+
         const deletedDiscussion: Discussion = await this.discussionsService.deleteDiscussion(discussionId)
         return new NormalizedResponseDTO(deletedDiscussion)
     }
