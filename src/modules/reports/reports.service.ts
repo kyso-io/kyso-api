@@ -16,6 +16,7 @@ import {
     ReportDTO,
     ReportPermissionsEnum,
     ReportStatus,
+    ReportType,
     RepositoryProvider,
     ResourcePermissions,
     StarredReport,
@@ -510,7 +511,7 @@ export class ReportsService extends AutowiredService {
         await this.provider.update(filter, { $inc: { views: 1 } })
     }
 
-    public async createKysoReport(userId: string, file: Express.Multer.File): Promise<Report> {
+    public async createKysoReport(userId: string, file: Express.Multer.File): Promise<Report | Report[]> {
         Logger.log('Creating report')
         const user: User = await this.usersService.getUserById(userId)
         Logger.log(`By user: ${user.email}`)
@@ -522,11 +523,13 @@ export class ReportsService extends AutowiredService {
         const zip = new AdmZip(file.buffer)
         zip.extractAllTo(tmpDir, true)
 
+        Logger.log(`Extracted zip file to ${tmpDir}`)
+
         let kysoConfigFile: KysoConfigFile = null
         for (const entry of zip.getEntries()) {
-            const originalName: string = entry.name
+            const originalName: string = entry.entryName
             const localFilePath = join(tmpDir, entry.entryName)
-            if (originalName.endsWith('kyso.json')) {
+            if (originalName === 'kyso.json') {
                 try {
                     kysoConfigFile = JSON.parse(readFileSync(localFilePath).toString())
                     break
@@ -534,7 +537,7 @@ export class ReportsService extends AutowiredService {
                     Logger.error(`An error occurred parsing kyso.json`, e, ReportsService.name)
                     throw new PreconditionFailedException(`An error occurred parsing kyso.json`)
                 }
-            } else if (originalName.endsWith('kyso.yml') || originalName.endsWith('kyso.yaml')) {
+            } else if (originalName === 'kyso.yml' || originalName === 'kyso.yaml') {
                 try {
                     kysoConfigFile = jsYaml.load(readFileSync(localFilePath).toString()) as KysoConfigFile
                     break
@@ -553,6 +556,10 @@ export class ReportsService extends AutowiredService {
         if (!valid) {
             Logger.error(`Kyso config file is not valid: ${message}`, ReportsService.name)
             throw new PreconditionFailedException(`Kyso config file is not valid: ${message}`)
+        }
+
+        if (kysoConfigFile.type === ReportType.Meta) {
+            return this.createMultipleKysoReports(kysoConfigFile, tmpDir, zip, user)
         }
 
         const organization: Organization = await this.organizationsService.getOrganization({
@@ -695,6 +702,223 @@ export class ReportsService extends AutowiredService {
         return report
     }
 
+    public async createMultipleKysoReports(baseKysoConfigFile: KysoConfigFile, baseTmpDir: string, zip: AdmZip, user: User): Promise<Report[]> {
+        const kysoConfigFilesMap: Map<string, { kysoConfigFile: KysoConfigFile; organization: Organization; team: Team }> = new Map<
+            string,
+            { kysoConfigFile: KysoConfigFile; organization: Organization; team: Team }
+        >()
+
+        for (const reportFolderName of baseKysoConfigFile.reports) {
+            let kysoConfigFile: KysoConfigFile = null
+            for (const entry of zip.getEntries()) {
+                if (entry.entryName.startsWith(reportFolderName)) {
+                    const originalName: string = entry.entryName
+                    const localFilePath = join(baseTmpDir, entry.entryName)
+                    if (originalName.endsWith('kyso.json')) {
+                        try {
+                            kysoConfigFile = JSON.parse(readFileSync(localFilePath).toString())
+                            break
+                        } catch (e: any) {
+                            Logger.error(`An error occurred parsing kyso.json`, e, ReportsService.name)
+                            throw new PreconditionFailedException(`An error occurred parsing kyso.json`)
+                        }
+                    } else if (originalName.endsWith('kyso.yml') || originalName.endsWith('kyso.yaml')) {
+                        try {
+                            kysoConfigFile = jsYaml.load(readFileSync(localFilePath).toString()) as KysoConfigFile
+                            break
+                        } catch (e: any) {
+                            Logger.error(`An error occurred parsing kyso.{yml,yaml}`, e, ReportsService.name)
+                            throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}`)
+                        }
+                    }
+                }
+            }
+
+            if (!kysoConfigFile) {
+                Logger.error(`No kyso.{yml,yaml,json} file found for directoy ${reportFolderName}`, ReportsService.name)
+                throw new PreconditionFailedException(`No kyso.{yml,yaml,json} file found ${reportFolderName}`)
+            }
+
+            if (!kysoConfigFile.hasOwnProperty('organization')) {
+                if (!baseKysoConfigFile.hasOwnProperty('organization')) {
+                    Logger.error(`Property organization is required for report folder ${reportFolderName}`, ReportsService.name)
+                    throw new PreconditionFailedException(`Property organization is required for report folder ${reportFolderName}`)
+                }
+                if (baseKysoConfigFile.organization.length === 0) {
+                    Logger.error(`Property organization for report folder ${reportFolderName} must have value`, ReportsService.name)
+                    throw new PreconditionFailedException(`Property organization for report folder ${reportFolderName} must have value`)
+                }
+                kysoConfigFile.organization = kysoConfigFile.organization
+            }
+            if (!kysoConfigFile.hasOwnProperty('team')) {
+                if (!baseKysoConfigFile.hasOwnProperty('team')) {
+                    Logger.error(`Property team is required for report folder ${reportFolderName}`, ReportsService.name)
+                    throw new PreconditionFailedException(`Property team is required for report folder ${reportFolderName}`)
+                }
+                if (baseKysoConfigFile.team.length === 0) {
+                    Logger.error(`Property team for report folder ${reportFolderName} must have value`, ReportsService.name)
+                    throw new PreconditionFailedException(`Property team for report folder ${reportFolderName} must have value`)
+                }
+                kysoConfigFile.team = kysoConfigFile.team
+            }
+            if (!kysoConfigFile.hasOwnProperty('tags')) {
+                if (baseKysoConfigFile.hasOwnProperty('tags') && baseKysoConfigFile.tags.length > 0) {
+                    kysoConfigFile.tags = baseKysoConfigFile.tags
+                }
+            }
+
+            const { valid, message } = KysoConfigFile.isValid(kysoConfigFile)
+            if (!valid) {
+                Logger.error(`Kyso config file is not valid: ${message}`, ReportsService.name)
+                throw new PreconditionFailedException(`Kyso config file is not valid: ${message}`)
+            }
+
+            const organization: Organization = await this.organizationsService.getOrganization({
+                filter: {
+                    sluglified_name: kysoConfigFile.organization,
+                },
+            })
+            if (!organization) {
+                Logger.error(`Organization ${kysoConfigFile.organization} not found`, ReportsService.name)
+                throw new PreconditionFailedException(`Organization ${kysoConfigFile.organization} not found`)
+            }
+
+            const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team, organization_id: organization.id } })
+            Logger.log(`Team: ${team.sluglified_name}`)
+            if (!team) {
+                Logger.error(`Team ${kysoConfigFile.team} does not exist`)
+                throw new PreconditionFailedException(`Team ${kysoConfigFile.team} does not exist`)
+            }
+            const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.team)
+            if (!userHasPermission) {
+                Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+                throw new ForbiddenException(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+            }
+
+            kysoConfigFilesMap.set(reportFolderName, { kysoConfigFile, organization, team })
+        }
+
+        const newReports: Report[] = []
+        for (const [reportFolderName, { kysoConfigFile, organization, team }] of kysoConfigFilesMap.entries()) {
+            const name: string = slugify(kysoConfigFile.title)
+            const reports: Report[] = await this.provider.read({ filter: { sluglified_name: name, team_id: team.id } })
+            const reportFiles: File[] = []
+            let version = 1
+            let report: Report = null
+            const tmpDir: string = join(baseTmpDir, reportFolderName)
+            let isNew = false
+            if (reports.length > 0) {
+                // Existing report
+                report = reports[0]
+                const lastVersion: number = await this.getLastVersionOfReport(report.id)
+                version = lastVersion + 1
+                Logger.log(`Report '${report.id} ${report.sluglified_name}': Checking files...`, ReportsService.name)
+                for (const entry of zip.getEntries()) {
+                    if (!entry.entryName.startsWith(reportFolderName)) {
+                        continue
+                    }
+                    const originalName: string = entry.entryName.replace(`${reportFolderName}/`, '')
+                    const localFilePath = join(baseTmpDir, entry.entryName)
+                    if (entry.isDirectory) {
+                        continue
+                    }
+                    const sha: string = sha256File(localFilePath)
+                    const size: number = statSync(localFilePath).size
+                    const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`
+                    let reportFile = new File(report.id, originalName, path_scs, size, sha, version)
+                    reportFile = await this.filesMongoProvider.create(reportFile)
+                    reportFiles.push(reportFile)
+                }
+            } else {
+                Logger.log(`Creating new report '${name}'`, ReportsService.name)
+                // New report
+                report = new Report(
+                    name,
+                    null,
+                    RepositoryProvider.KYSO_CLI,
+                    name,
+                    null,
+                    null,
+                    null,
+                    0,
+                    false,
+                    kysoConfigFile.description,
+                    user.id,
+                    team.id,
+                    kysoConfigFile.title,
+                    [],
+                    null,
+                    false,
+                    false,
+                    kysoConfigFile?.main,
+                )
+                if (kysoConfigFile?.type && kysoConfigFile.type.length > 0) {
+                    report.report_type = kysoConfigFile.type
+                }
+                report = await this.provider.create(report)
+                isNew = true
+                for (const entry of zip.getEntries()) {
+                    if (!entry.entryName.startsWith(reportFolderName)) {
+                        continue
+                    }
+                    const originalName: string = entry.entryName.replace(`${reportFolderName}/`, '')
+                    const localFilePath = join(baseTmpDir, entry.entryName)
+                    if (entry.isDirectory) {
+                        continue
+                    }
+                    const sha: string = sha256File(localFilePath)
+                    const size: number = statSync(localFilePath).size
+                    const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`
+                    let file: File = new File(report.id, originalName, path_scs, size, sha, 1)
+                    file = await this.filesMongoProvider.create(file)
+                    reportFiles.push(file)
+                    if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
+                        const s3Client: S3Client = await this.getS3Client()
+                        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+                        const key = `${uuidv4()}${extname(originalName)}`
+                        await s3Client.send(
+                            new PutObjectCommand({
+                                Bucket: s3Bucket,
+                                Key: key,
+                                Body: readFileSync(localFilePath),
+                            }),
+                        )
+                        const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
+                        report.preview_picture = preview_picture
+                        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+                    }
+                }
+                await this.checkReportTags(report.id, kysoConfigFile.tags)
+            }
+
+            newReports.push(report)
+
+            new Promise<void>(async () => {
+                Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
+                await this.uploadReportToFtp(report.id, tmpDir)
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
+                Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
+
+                let files: string[] = await this.getFilePaths(tmpDir)
+                // Remove '/reportPath' from the paths
+                files = files.map((file: string) => file.replace(tmpDir, ''))
+
+                const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
+                const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
+
+                axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
+                    () => {},
+                    (err) => {
+                        Logger.warn(`${pathToIndex} was not indexed properly`, err)
+                    },
+                )
+
+                await this.sendNewReportMail(report, team, organization, isNew)
+            })
+        }
+        return newReports
+    }
+
     public async createUIReport(userId: string, file: Express.Multer.File): Promise<Report> {
         Logger.log('Creating report')
         const user: User = await this.usersService.getUserById(userId)
@@ -757,7 +981,7 @@ export class ReportsService extends AutowiredService {
         const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
         if (!userHasPermission) {
             Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
-            throw new PreconditionFailedException(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+            throw new ForbiddenException(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
         }
         let extractedDir = null
 
@@ -1843,16 +2067,15 @@ export class ReportsService extends AutowiredService {
             return []
         }
 
-        
         let sanitizedPath = ''
         if (path && (path == './' || path == '/' || path == '.' || path == '/.')) {
             sanitizedPath = ''
         } else if (path && path.length > 0) {
             sanitizedPath = path.replace('./', '').replace(/\/$/, '')
         }
-        
+
         let filesInPath: any[] = [...reportFiles]
-        
+
         if (sanitizedPath !== '') {
             // Get the files that are in the path
             reportFiles = reportFiles.filter((file: File) => file.name.startsWith(sanitizedPath + '/') || file.name.startsWith(sanitizedPath))
@@ -1900,7 +2123,7 @@ export class ReportsService extends AutowiredService {
                 }
                 return [element]
             }
-            result = getDeepChild(result[0].children[0]);
+            result = getDeepChild(result[0].children[0])
         }
 
         const tree: GithubFileHash[] = []
