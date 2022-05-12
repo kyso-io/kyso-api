@@ -12,6 +12,7 @@ import {
     teamContributorRoleContribution,
     TeamMember,
     TeamMemberJoin,
+    TeamMembershipOriginEnum,
     TeamVisibilityEnum,
     Token,
     UpdateTeamMembersDTO,
@@ -235,10 +236,15 @@ export class TeamsService extends AutowiredService {
                 const teamMember: TeamMemberJoin = members.find((tm: TeamMemberJoin) => u.id.toString() === tm.member_id)
                 const orgMember: OrganizationMember = organizationMembers.find((om: OrganizationMember) => om.email === u.email)
 
-                return { ...u, roles: teamMember ? teamMember.role_names : orgMember.organization_roles }
+                return { 
+                    ...u, 
+                    roles: teamMember ? teamMember.role_names : orgMember.organization_roles,
+                    membership_origin: teamMember ? TeamMembershipOriginEnum.TEAM : TeamMembershipOriginEnum.ORGANIZATION
+                 }
             })
 
-            return usersAndRoles.map((x) => new TeamMember(x.id.toString(), x.display_name, x.name, x.roles, x.bio, x.avatar_url, x.email))
+            return usersAndRoles.map((x) => new TeamMember(
+                x.id.toString(), x.display_name, x.name, x.roles, x.bio, x.avatar_url, x.email, x.membership_origin))
         } else {
             return []
         }
@@ -289,8 +295,12 @@ export class TeamsService extends AutowiredService {
             users.sort((userA: User, userB: User) => {
                 return userIds.indexOf(userA.id) - userIds.indexOf(userB.id)
             })
+
+            // CARE: THIS TEAM MEMBERSHIP IS NOT REAL, BUT AS IT'S USED FOR THE ASSIGNEES WE LET IT AS IS
             return users.map((user: User) => {
-                return new TeamMember(user.id.toString(), user.display_name, user.name, [], user.bio, user.avatar_url, user.email)
+                return new TeamMember(
+                    user.id.toString(), user.display_name, user.name, [], user.bio, user.avatar_url, user.email,
+                    TeamMembershipOriginEnum.ORGANIZATION)
             })
         } else {
             return []
@@ -468,12 +478,17 @@ export class TeamsService extends AutowiredService {
             if (!user) {
                 throw new PreconditionFailedException('User does not exist')
             }
+            
             const member: TeamMemberJoin = members.find((x: TeamMemberJoin) => x.member_id === user.id)
+
             if (!member) {
-                throw new PreconditionFailedException('User is not a member of this team')
+                // IF IS NOT A MEMBER. CREATE IT
+                this.teamMemberProvider.create(new TeamMemberJoin(team.id, element.userId, [element.role], true))
+            } else {
+                await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
             }
-            await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
         }
+
         return this.getMembers(team.id)
     }
 
