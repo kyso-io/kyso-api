@@ -40,6 +40,7 @@ import * as glob from 'glob'
 import * as jsYaml from 'js-yaml'
 import { extname, join } from 'path'
 import * as sha256File from 'sha256-file'
+import { GenericService } from '../../generic/service.generic'
 import * as Client from 'ssh2-sftp-client'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
@@ -66,6 +67,7 @@ import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.pro
 import { ReportsMongoProvider } from './providers/mongo-reports.provider'
 import { StarredReportsMongoProvider } from './providers/mongo-starred-reports.provider'
 import { SftpService } from './sftp.service'
+import { PlatformRole } from 'src/security/platform-roles'
 
 function factory(service: ReportsService) {
     return service
@@ -80,7 +82,7 @@ export function createProvider(): Provider<ReportsService> {
 }
 
 @Injectable()
-export class ReportsService extends AutowiredService {
+export class ReportsService extends AutowiredService implements GenericService<Report> {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
@@ -131,6 +133,35 @@ export class ReportsService extends AutowiredService {
         private readonly filesMongoProvider: FilesMongoProvider,
     ) {
         super()
+    }
+    checkOwnership(item: Report, requester: Token, organizationName: string, teamName: string): Promise<boolean> {
+        let hasAdequatePermissions
+        
+        // Check if the user who is requesting the edition of the discussion is the owner of the discussion
+        if(item.user_id === requester.id) {
+            hasAdequatePermissions = true 
+        } else {
+            hasAdequatePermissions = false 
+        }
+
+        if(!hasAdequatePermissions) {
+            // Check if the user who is requesting the edition of the discussion has TEAM_ADMIN or ORG_ADMIN
+            const teamPermissions = requester.permissions.teams.find(x => x.name === teamName)
+
+            if(teamPermissions && teamPermissions.role_names) {
+                const isTeamAdmin = teamPermissions.role_names.find(x => x === PlatformRole.TEAM_ADMIN_ROLE.name) !== undefined 
+                const isOrgAdmin = teamPermissions.role_names.find(x => x === PlatformRole.ORGANIZATION_ADMIN_ROLE.name) !== undefined
+                const isPlatformAdmin = teamPermissions.role_names.find(x => x === PlatformRole.PLATFORM_ADMIN_ROLE.name) !== undefined
+
+                if(isTeamAdmin || isOrgAdmin || isPlatformAdmin) {
+                    hasAdequatePermissions = true 
+                } else {
+                    hasAdequatePermissions = false
+                }
+            }
+        }
+
+        return hasAdequatePermissions
     }
 
     private async getS3Client(): Promise<S3Client> {

@@ -557,11 +557,21 @@ export class ReportsController extends GenericController<Report> {
     @ApiBody({ type: UpdateReportRequestDTO })
     @Permission([ReportPermissionsEnum.EDIT])
     async updateReport(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
         @Param('reportId') reportId: string,
         @Body() updateReportRequestDTO: UpdateReportRequestDTO,
     ): Promise<NormalizedResponseDTO<ReportDTO>> {
         Logger.log(`Called updateReport`)
+        const reportData: Report = await this.reportsService.getReportById(reportId)
+
+        const isOwner = await this.reportsService.checkOwnership(reportData, token, organizationName, teamName)
+        
+        if(!isOwner) {
+            throw new ForbiddenException("Insufficient permissions")
+        }
+
         const report: Report = await this.reportsService.updateReport(token.id, reportId, updateReportRequestDTO)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(reportDto, 'report', { Author: 'User' })
@@ -582,7 +592,20 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.DELETE])
-    async deleteReport(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
+    async deleteReport(
+            @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+            @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+            @CurrentToken() token: Token,
+            @Param('reportId') reportId: string
+        ): Promise<NormalizedResponseDTO<Report>> {
+
+        const reportData: Report = await this.reportsService.getReportById(reportId)
+
+        const isOwner = await this.reportsService.checkOwnership(reportData, token, organizationName, teamName)
+        
+        if(!isOwner) {
+            throw new ForbiddenException("Insufficient permissions")
+        }
         const report: Report = await this.reportsService.deleteReport(reportId)
         return new NormalizedResponseDTO(report)
     }
@@ -1001,10 +1024,21 @@ export class ReportsController extends GenericController<Report> {
     @ApiNormalizedResponse({ status: 201, description: `Updated report`, type: ReportDTO })
     @Permission([ReportPermissionsEnum.EDIT])
     public async setProfilePicture(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
         @Param('reportId') reportId: string,
         @UploadedFile() file: any,
     ): Promise<NormalizedResponseDTO<ReportDTO>> {
+
+        const reportData: Report = await this.reportsService.getReportById(reportId)
+
+        const isOwner = await this.reportsService.checkOwnership(reportData, token, organizationName, teamName)
+        
+        if(!isOwner) {
+            throw new ForbiddenException("Insufficient permissions")
+        }
+
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }
@@ -1028,7 +1062,19 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.EDIT])
     @ApiNormalizedResponse({ status: 200, description: `Updated report`, type: ReportDTO })
-    public async deleteBackgroundImage(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
+    public async deleteBackgroundImage(
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
+        const reportData: Report = await this.reportsService.getReportById(reportId)
+
+        const isOwner = await this.reportsService.checkOwnership(reportData, token, organizationName, teamName)
+        
+        if(!isOwner) {
+            throw new ForbiddenException("Insufficient permissions")
+        }
+
         const report: Report = await this.reportsService.deletePreviewPicture(reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
