@@ -1,7 +1,8 @@
 import { CreateUserRequestDTO, KysoSettingsEnum, Login, LoginProviderEnum, Token, UserAccount } from '@kyso-io/kyso-model'
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
-import { OAuth2Client } from 'google-auth-library'
+import axios from 'axios'
+import { google } from 'googleapis'
 import { ObjectId } from 'mongodb'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../../decorators/autowired'
@@ -20,63 +21,64 @@ export class GoogleLoginProvider {
     constructor(private readonly jwtService: JwtService) {}
 
     public async login(login: Login): Promise<string> {
-        const clientId = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GOOGLE_CLIENT_ID)
-        const clientSecret = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GOOGLE_CLIENT_SECRET)
-        const oAuth2Client = new OAuth2Client(clientId, clientSecret)
-        oAuth2Client.setCredentials(login.payload)
+        if (!login?.payload || login.payload == null || login.payload.length == 0) {
+            throw new BadRequestException('Missing redirect_uri in payload field')
+        }
         try {
-            // Verify the id_token, and access the claims.
-            const loginTicket = await oAuth2Client.verifyIdToken({
-                idToken: login.password,
-                audience: clientId,
+            const clientId = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GOOGLE_CLIENT_ID)
+            const clientSecret = await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_GOOGLE_CLIENT_SECRET)
+            const oauth2GoogleClient = new google.auth.OAuth2(clientId, clientSecret, login.payload)
+            const { tokens } = await oauth2GoogleClient.getToken(login.password)
+            const { data: googleUser } = await axios.get(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${tokens.access_token}`, {
+                headers: {
+                    Authorization: `Bearer ${tokens.id_token}`,
+                },
             })
             let user = await this.usersService.getUser({
-                filter: { username: loginTicket.getPayload().email },
+                filter: { username: googleUser.email },
             })
             if (!user) {
                 // New User
-                let name = loginTicket.getPayload().name
-                if (loginTicket.getPayload()?.family_name && loginTicket.getPayload().family_name.length > 0) {
-                    name = `${loginTicket.getPayload().given_name} ${loginTicket.getPayload().family_name}`
+                let name = googleUser.name
+                if (googleUser?.family_name && googleUser.family_name.length > 0) {
+                    name = `${googleUser.given_name} ${googleUser.family_name}`
                 }
-                Logger.log(`User ${loginTicket.getPayload().email} is a new user`, GoogleLoginProvider.name)
+                Logger.log(`User ${googleUser.email} is a new user`, GoogleLoginProvider.name)
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
-                    loginTicket.getPayload().email,
-                    loginTicket.getPayload().email,
+                    googleUser.email,
+                    googleUser.email,
                     name,
-                    loginTicket.getPayload().name,
+                    googleUser.name,
                     LoginProviderEnum.GOOGLE,
                     '',
                     '',
                     '',
                     'free',
-                    loginTicket.getPayload().picture,
+                    googleUser.picture,
                     false,
                     [],
                     uuidv4(),
                 )
                 user = await this.usersService.createUser(createUserRequestDto)
             }
-
             const index: number = user.accounts.findIndex(
-                (userAccount: UserAccount) => userAccount.type === LoginProviderEnum.GOOGLE && userAccount.username === loginTicket.getPayload().email,
+                (userAccount: UserAccount) => userAccount.type === LoginProviderEnum.GOOGLE && userAccount.username === googleUser.email,
             )
             if (index === -1) {
                 user.accounts.push({
                     type: LoginProviderEnum.GOOGLE,
-                    accountId: loginTicket.getPayload().email,
-                    username: loginTicket.getPayload().email,
-                    accessToken: login.payload.access_token || login.payload.accessToken,
-                    payload: login.payload,
+                    accountId: googleUser.email,
+                    username: googleUser.email,
+                    accessToken: tokens.access_token,
+                    payload: tokens,
                 })
-                Logger.log(`User ${loginTicket.getPayload().email} is adding Google account`, GoogleLoginProvider.name)
+                Logger.log(`User ${googleUser.email} is adding Google account`, GoogleLoginProvider.name)
             } else {
-                user.accounts[index].accessToken = login.payload.access_token || login.payload.accessToken
-                user.accounts[index].payload = login.payload
-                Logger.log(`User ${loginTicket.getPayload().email} is updating Google account`, GoogleLoginProvider.name)
+                user.accounts[index].accessToken = tokens.access_token
+                user.accounts[index].payload = tokens
+                Logger.log(`User ${googleUser.email} is updating Google account`, GoogleLoginProvider.name)
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
-
             const payload: Token = new Token(
                 user.id.toString(),
                 user.name,
