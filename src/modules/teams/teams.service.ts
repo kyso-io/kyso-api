@@ -458,10 +458,11 @@ export class TeamsService extends AutowiredService {
         await this.teamMemberProvider.deleteOne({ team_id: team.id, member_id: user.id })
         members.splice(index, 1)
 
+        /* WTH why that. Nope xD
         if (members.length === 0) {
             // Team without members, delete it
             await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
-        }
+        }*/
 
         return this.getMembers(team.id)
     }
