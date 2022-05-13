@@ -152,6 +152,12 @@ export class ReportsController extends GenericController<Report> {
             query.filter = newFilter
         }
 
+        let version = null
+        if (query?.filter?.version && query.filter.version > 0) {
+            version = query.filter.version
+            delete query.filter.version
+        }
+
         if (query?.filter?.sluglified_name && !isNaN(query.filter.sluglified_name)) {
             query.filter.sluglified_name = query.filter.sluglified_name.toString()
         }
@@ -159,7 +165,7 @@ export class ReportsController extends GenericController<Report> {
         const reports: Report[] = await this.reportsService.getReports(query)
         let reportsDtos: ReportDTO[] = []
         if (reports.length > 0) {
-            reportsDtos = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token.id)))
+            reportsDtos = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token.id, version)))
             try {
                 await this.reportsService.increaseViews({ _id: { $in: reportsDtos.map((reportDto: ReportDTO) => new ObjectId(reportDto.id)) } })
             } catch (ex) {

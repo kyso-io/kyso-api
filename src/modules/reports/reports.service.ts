@@ -447,7 +447,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return this.getReportById(reportId)
     }
 
-    public async reportModelToReportDTO(report: Report, userId: string): Promise<ReportDTO> {
+    public async reportModelToReportDTO(report: Report, userId: string, version?: number): Promise<ReportDTO> {
         let pinnedReport: StarredReport[] = []
         if (userId) {
             pinnedReport = await this.pinnedReportsMongoProvider.read({
@@ -479,7 +479,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 filter: {
                     report_id: report.id,
                     name: report.main_file,
-                    version: lastVersion,
+                    version: version ?? lastVersion,
                 },
             })
             mainFile = result.length > 0 ? result[0] : null
