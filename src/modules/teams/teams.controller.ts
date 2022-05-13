@@ -430,16 +430,7 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponseDTO(belongs)
     }
 
-    @UseInterceptors(
-        FileInterceptor('file', {
-            fileFilter: (req, file, callback) => {
-                if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
-                    return callback(new Error('Only image files are allowed!'), false)
-                }
-                callback(null, true)
-            },
-        }),
-    )
+    @UseInterceptors(FileInterceptor('file'))
     @Post('/:teamId/profile-picture')
     @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
@@ -457,6 +448,9 @@ export class TeamsController extends GenericController<Team> {
     public async setProfilePicture(@Param('teamId') teamId: string, @UploadedFile() file: any): Promise<NormalizedResponseDTO<Team>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)
+        }
+        if (file.mimetype.split('/')[0] !== 'image') {
+            throw new BadRequestException(`Only image files are allowed`)
         }
         const team: Team = await this.teamsService.setProfilePicture(teamId, file)
         return new NormalizedResponseDTO(team)
@@ -508,21 +502,18 @@ export class TeamsController extends GenericController<Team> {
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Upload markdown image`, type: String })
-    @UseInterceptors(
-        FileInterceptor('file', {
-            fileFilter: (req, file, callback) => {
-                if (!file.originalname.match(/\.(apng|avif|gif|jpg|jpeg|png|svg|webp)$/)) {
-                    return callback(new Error('Only image files are allowed!'), false)
-                }
-                callback(null, true)
-            },
-        }),
-    )
+    @UseInterceptors(FileInterceptor('file'))
     public async uploadMarkdownImage(
         @CurrentToken() token: Token,
         @Param('teamId') teamId: string,
         @UploadedFile() file: Express.Multer.File,
     ): Promise<NormalizedResponseDTO<string>> {
+        if (!file) {
+            throw new BadRequestException(`Missing file`)
+        }
+        if (file.mimetype.split('/')[0] !== 'image') {
+            throw new BadRequestException(`Only image files are allowed`)
+        }
         const scsImagePath: string = await this.teamsService.uploadMarkdownImage(token.id, teamId, file)
         return new NormalizedResponseDTO(scsImagePath)
     }

@@ -567,9 +567,9 @@ export class ReportsController extends GenericController<Report> {
         const reportData: Report = await this.reportsService.getReportById(reportId)
 
         const isOwner = await this.reportsService.checkOwnership(reportData, token, organizationName, teamName)
-        
-        if(!isOwner) {
-            throw new ForbiddenException("Insufficient permissions")
+
+        if (!isOwner) {
+            throw new ForbiddenException('Insufficient permissions')
         }
 
         const report: Report = await this.reportsService.updateReport(token.id, reportId, updateReportRequestDTO)
@@ -593,18 +593,17 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.DELETE])
     async deleteReport(
-            @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
-            @Headers(HEADER_X_KYSO_TEAM) teamName: string,
-            @CurrentToken() token: Token,
-            @Param('reportId') reportId: string
-        ): Promise<NormalizedResponseDTO<Report>> {
-
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+    ): Promise<NormalizedResponseDTO<Report>> {
         const reportData: Report = await this.reportsService.getReportById(reportId)
 
         const isOwner = await this.reportsService.checkOwnership(reportData, token, organizationName, teamName)
-        
-        if(!isOwner) {
-            throw new ForbiddenException("Insufficient permissions")
+
+        if (!isOwner) {
+            throw new ForbiddenException('Insufficient permissions')
         }
         const report: Report = await this.reportsService.deleteReport(reportId)
         return new NormalizedResponseDTO(report)
@@ -999,16 +998,7 @@ export class ReportsController extends GenericController<Report> {
         return this.reportsService.getReportFileContent(file)
     }
 
-    @UseInterceptors(
-        FileInterceptor('file', {
-            fileFilter: (req, file, callback) => {
-                if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
-                    return callback(new Error('Only image files are allowed!'), false)
-                }
-                callback(null, true)
-            },
-        }),
-    )
+    @UseInterceptors(FileInterceptor('file'))
     @Post('/:reportId/preview-picture')
     @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
@@ -1030,18 +1020,20 @@ export class ReportsController extends GenericController<Report> {
         @Param('reportId') reportId: string,
         @UploadedFile() file: any,
     ): Promise<NormalizedResponseDTO<ReportDTO>> {
-
         const reportData: Report = await this.reportsService.getReportById(reportId)
 
-        const isOwner = await this.reportsService.checkOwnership(reportData, token, organizationName, teamName)
-        
-        if(!isOwner) {
-            throw new ForbiddenException("Insufficient permissions")
-        }
+        const isOwner: boolean = await this.reportsService.checkOwnership(reportData, token, organizationName, teamName)
 
+        if (!isOwner) {
+            throw new ForbiddenException('Insufficient permissions')
+        }
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }
+        if (file.mimetype.split('/')[0] !== 'image') {
+            throw new BadRequestException(`Only image files are allowed`)
+        }
+
         const report: Report = await this.reportsService.setPreviewPicture(reportId, file)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
@@ -1066,13 +1058,14 @@ export class ReportsController extends GenericController<Report> {
         @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
         @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
-        @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
+        @Param('reportId') reportId: string,
+    ): Promise<NormalizedResponseDTO<ReportDTO>> {
         const reportData: Report = await this.reportsService.getReportById(reportId)
 
         const isOwner = await this.reportsService.checkOwnership(reportData, token, organizationName, teamName)
-        
-        if(!isOwner) {
-            throw new ForbiddenException("Insufficient permissions")
+
+        if (!isOwner) {
+            throw new ForbiddenException('Insufficient permissions')
         }
 
         const report: Report = await this.reportsService.deletePreviewPicture(reportId)

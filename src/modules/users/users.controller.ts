@@ -332,16 +332,7 @@ export class UsersController extends GenericController<User> {
         return new NormalizedResponseDTO(result)
     }
 
-    @UseInterceptors(
-        FileInterceptor('file', {
-            fileFilter: (req, file, callback) => {
-                if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
-                    return callback(new Error('Only image files are allowed!'), false)
-                }
-                callback(null, true)
-            },
-        }),
-    )
+    @UseInterceptors(FileInterceptor('file'))
     @Post('/profile-picture')
     @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
@@ -352,6 +343,9 @@ export class UsersController extends GenericController<User> {
     public async setProfilePicture(@CurrentToken() token: Token, @UploadedFile() file: any): Promise<NormalizedResponseDTO<UserDTO>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)
+        }
+        if (file.mimetype.split('/')[0] !== 'image') {
+            throw new BadRequestException(`Only image files are allowed`)
         }
         const user: User = await this.usersService.setProfilePicture(token, file)
         return new NormalizedResponseDTO(UserDTO.fromUser(user))
