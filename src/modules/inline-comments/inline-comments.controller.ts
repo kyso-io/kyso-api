@@ -8,10 +8,11 @@ import {
     NormalizedResponseDTO,
     Relations,
     Report,
+    Team,
     Token,
     UpdateInlineCommentDto,
 } from '@kyso-io/kyso-model'
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -22,6 +23,8 @@ import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { RelationsService } from '../relations/relations.service'
+import { ReportsService } from '../reports/reports.service'
+import { TeamsService } from '../teams/teams.service'
 import { InlineCommentsService } from './inline-comments.service'
 
 @Controller('inline-comments')
@@ -43,6 +46,12 @@ export class InlineCommentController extends GenericController<InlineComment> {
     @Autowired({ typeName: 'RelationsService' })
     private relationsService: RelationsService
 
+    @Autowired({ typeName: 'ReportsService' })
+    private reportsService: ReportsService
+
+    @Autowired({ typeName: 'TeamsService' })
+    private teamsService: TeamsService
+
     constructor(private readonly inlineCommentsService: InlineCommentsService) {
         super()
     }
@@ -63,8 +72,17 @@ export class InlineCommentController extends GenericController<InlineComment> {
         description: 'Id of the report to fetch inline comments',
         schema: { type: 'string' },
     })
-    @Permission([InlineCommentPermissionsEnum.READ])
-    async getAll(@Param('reportId') reportId: string): Promise<NormalizedResponseDTO<InlineCommentDto>> {
+    // @Permission([InlineCommentPermissionsEnum.READ])
+    async getAll(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<InlineCommentDto>> {
+        const report: Report = await this.reportsService.getReportById(reportId)
+        if (!report) {
+            throw new NotFoundException('Report not found')
+        }
+        const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+        const index: number = teams.findIndex((team: Team) => team.id === report.team_id)
+        if (index === -1) {
+            throw new ForbiddenException('You are not allowed to see comments of this report')
+        }
         const inlineComments: InlineComment[] = await this.inlineCommentsService.getGivenReportId(reportId)
         const relations: Relations = await this.relationsService.getRelations(inlineComments, 'InlineComment')
         const inlineCommentsDto: InlineCommentDto[] = await Promise.all(
@@ -83,7 +101,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
         description: 'Inline comment created',
         type: InlineCommentDto,
     })
-    @Permission([InlineCommentPermissionsEnum.CREATE])
+    // @Permission([InlineCommentPermissionsEnum.CREATE])
     async createInlineComment(
         @CurrentToken() token: Token,
         @Body() createInlineCommentDto: CreateInlineCommentDto,
