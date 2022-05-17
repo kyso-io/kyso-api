@@ -2383,6 +2383,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             from: '<head>',
             to: `
                 <head>
+                <!-- KYSO PREPROCESS START -->
                 <meta charset="utf-8" />
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS-MML_SVG"></script><script type="text/javascript">if (window.MathJax) {MathJax.Hub.Config({SVG: {font: "STIX-Web"}});}</script>
@@ -2497,6 +2498,8 @@ export class ReportsService extends AutowiredService implements GenericService<R
                       text-overflow: ellipsis;
                     }
                   </style>
+                
+                <!-- KYSO PREPROCESS END -->
             `
         })
         
