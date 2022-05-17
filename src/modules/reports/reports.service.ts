@@ -2380,7 +2380,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         
         const result = replaceStringInFilesSync({
             files: foundFiles,
-            from: '<head>',
+            from: /<head>/,
             to: `
                 <head>
                 <!-- KYSO PREPROCESS START -->
