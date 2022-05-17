@@ -68,6 +68,8 @@ import { ReportsMongoProvider } from './providers/mongo-reports.provider'
 import { StarredReportsMongoProvider } from './providers/mongo-starred-reports.provider'
 import { SftpService } from './sftp.service'
 import { PlatformRole } from 'src/security/platform-roles'
+import { replaceStringInFilesSync } from 'tiny-replace-files'
+
 
 function factory(service: ReportsService) {
     return service
@@ -1848,6 +1850,10 @@ export class ReportsService extends AutowiredService implements GenericService<R
             return
         }
 
+        // fix kyso-ui#551-556
+        this.preprocessHtmlFiles(tmpDir)
+        // end fix
+        
         let mainFile = null
         if (kysoConfigFile?.main && kysoConfigFile.main.length > 0) {
             mainFile = kysoConfigFile.main
@@ -2368,7 +2374,139 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return report
     }
 
+    private async preprocessHtmlFiles(sourcePath: string) {
+        const foundFiles = glob.sync(sourcePath + '/**/*.htm*')
+        console.log(foundFiles)
+        
+        const result = replaceStringInFilesSync({
+            files: foundFiles,
+            from: '<head>',
+            to: `
+                <head>
+                <meta charset="utf-8" />
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS-MML_SVG"></script><script type="text/javascript">if (window.MathJax) {MathJax.Hub.Config({SVG: {font: "STIX-Web"}});}</script>
+                <script src="/static/iframeResizer.contentWindow.js"></script>
+                <script type="text/javascript">window.PlotlyConfig = {MathJaxConfig: 'local'};</script>
+                <script type="text/javascript">
+                  window.PlotlyConfig = {MathJaxConfig: 'local'}
+                    if (window.MathJax) {MathJax.Hub.Config({SVG: {font: "STIX-Web"}});}
+                    if (typeof require !== 'undefined') {
+                      require.undef("plotly");
+                      requirejs.config({
+                        paths: {
+                          'plotly': ['https://cdn.plot.ly/plotly-latest.min']
+                        }
+                      });
+                      require(['plotly'], function(Plotly) {
+                        window._Plotly = Plotly;
+                      });
+                    }
+                </script>
+                <script>
+                    window.addEventListener('message', function(event) {
+                      var output = document.getElementsByClassName('output_raw')[0]
+                      try {
+                        var jsonMessage = JSON.parse(event.data)
+                        if (jsonMessage.__fs) {
+                          // Discard message which contain __fs
+                          return
+                        }
+                      } catch (e) {
+                        // The incoming data does not have to be in form of a JSON, we can ignore this error
+                      }
+                      if (event.data.startsWith('[scrollDown]')) {
+                        setTimeout(function(){
+                          const element = document.getElementsByClassName('output')[0];
+                          element.scrollTop = element.scrollHeight;
+                          }, 100);
+                        return;
+                      }
+                      if (!event.data.startsWith('[iFrameSizer]')) {
+                        output.innerHTML = event.data
+                      }
+                    });
+                  </script>
+                  
+                  <link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Roboto+Mono:400,500&amp;amp;display=swap' />
+        
+                  <style>
+                    body {
+                      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+                      font-size: 12px;
+                      color: #171616;
+                      line-height: 1.6;
+                      margin: 1px;
+                      padding: 0;
+                      padding-bottom: 15px;
+                    }
+                 
+                    .dataframe tbody tr th:only-of-type {
+                      vertical-align: middle;
+                    }
+        
+                    .dataframe tbody tr th {
+                      vertical-align: top;
+                    }
+        
+                    .dataframe thead th {
+                      text-align: left!important;
+                    }
+        
+                    table {
+                      min-width: 100%;
+                      box-sizing: border-box;
+                      display: block-inline;
+                      border-collapse: collapse;
+                      border-radius: 3px;
+                      border-style: hidden;
+                      box-shadow: inset 0 0 0 1px #dfe5eb;
+                      text-align: left;
+                      transform: scale(1);
+                      -webkit-transform: scale(1);
+                      -moz-transform: scale(1);
+                      box-shadow: inset 0 0 0 1px #dfe5eb;;
+                      -webkit-box-shadow: inset 0 0 0 1px #dfe5eb;;
+                      -moz-box-shadow: inset 0 0 0 1px #dfe5eb;;
+                    }
+        
+                    thead {
+                      box-shadow: inset 0 0 0 1px #dfe5eb;
+                      border-top-left-radius: 3px;
+                      border-top-right-radius: 3px;
+                    }
+        
+                    table tr:nth-of-type(2n) {
+                      background: #f4f6f8;
+                      box-shadow: inset 0 0 0 1px #dfe5eb;
+                    }
+        
+                    table th {
+                      padding: 5px 5px 5px 25px;
+                      border: 0;
+                      text-align: right;
+                      white-space: nowrap;
+                      text-overflow: ellipsis;
+                    }
+        
+                    table td {
+                      padding: 5px 5px 5px 25px;
+                      border: 0;
+                      text-align: left;
+                      white-space: nowrap;
+                      text-overflow: ellipsis;
+                    }
+                  </style>
+            `
+        })
+        
+    }
+
     private async uploadReportToFtp(reportId: string, sourcePath: string): Promise<void> {
+        // fix kyso-ui#551-556
+        this.preprocessHtmlFiles(sourcePath)
+        // end fix
+        
         const report: Report = await this.getReportById(reportId)
         let version: number = await this.getLastVersionOfReport(reportId)
         version = Math.max(1, version)
@@ -2386,6 +2524,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
             await client.mkdir(destinationPath, true)
             Logger.log(`Created directory ${destinationPath} in ftp`, ReportsService.name)
         }
+
+         
+
         const result: string = await client.uploadDir(sourcePath, destinationPath)
         Logger.log(result, ReportsService.name)
         await client.end()
