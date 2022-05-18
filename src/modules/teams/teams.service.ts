@@ -436,7 +436,7 @@ export class TeamsService extends AutowiredService {
         }
         const team: Team = await this.getTeamById(teamId)
         if (!team) {
-            throw new PreconditionFailedException('User not found')
+            throw new PreconditionFailedException('Team not found')
         }
 
         const user: User = await this.usersService.getUserById(userId)
