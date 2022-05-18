@@ -30,6 +30,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
+import { PlatformRole } from 'src/security/platform-roles'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
@@ -255,7 +256,7 @@ export class TeamsController extends GenericController<Team> {
     @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
     @Permission([TeamPermissionsEnum.EDIT])
     async addMemberToTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
-        const members: TeamMember[] = await this.teamsService.addMemberToTeam(teamId, userId)
+        const members: TeamMember[] = await this.teamsService.addMemberToTeam(teamId, userId, [PlatformRole.TEAM_READER_ROLE])
         return new NormalizedResponseDTO(members)
     }
 
@@ -320,7 +321,7 @@ export class TeamsController extends GenericController<Team> {
                 // For that reason, we will add automatically the requested user as a TEAM_ADMIN of that
                 // team.
                 const userId = token.id
-                await this.teamsService.addMemberToTeam(teamId, userId)
+                await this.teamsService.addMemberToTeam(teamId, userId, [PlatformRole.TEAM_ADMIN_ROLE])
             } catch(ex) {
                 Logger.error(`Can't add user ${token.id} to team ${teamId}`, ex)
             }

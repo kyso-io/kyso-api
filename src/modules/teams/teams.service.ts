@@ -429,7 +429,7 @@ export class TeamsService extends AutowiredService {
         return index !== -1
     }
 
-    public async addMemberToTeam(teamId: string, userId: string): Promise<TeamMember[]> {
+    public async addMemberToTeam(teamId: string, userId: string, roles: KysoRole[]): Promise<TeamMember[]> {
         const userBelongsToTeam = await this.userBelongsToTeam(teamId, userId)
         if (userBelongsToTeam) {
             throw new PreconditionFailedException('User already belongs to this team')
@@ -441,7 +441,7 @@ export class TeamsService extends AutowiredService {
         if (!user) {
             throw new PreconditionFailedException('User not found')
         }
-        await this.addMembersById(team.id, [user.id], [])
+        await this.addMembersById(team.id, [user.id], roles.map(x => x.name))
         return this.getMembers(teamId)
     }
 
