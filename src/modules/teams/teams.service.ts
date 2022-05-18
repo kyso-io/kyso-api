@@ -443,7 +443,7 @@ export class TeamsService extends AutowiredService {
         if (!user) {
             throw new PreconditionFailedException('User not found')
         }
-        await this.addMembersById(team.id, [user.id], roles.map(x => x.name))
+        await this.addMembersById(teamId, [user.id], roles.map(x => x.name))
         return this.getMembers(teamId)
     }
 
