@@ -1,6 +1,5 @@
 import { KysoSettingsEnum, Token, User } from '@kyso-io/kyso-model'
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable, Logger } from '@nestjs/common'
-import { Logger } from 'mongodb'
 import { KysoSettingsService } from 'src/modules/kyso-settings/kyso-settings.service'
 import { Autowired } from '../../../decorators/autowired'
 import { UsersService } from '../../users/users.service'
