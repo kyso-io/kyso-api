@@ -220,7 +220,6 @@ export class FullTextSearchService extends AutowiredService {
             }
         };
 
-        console.log(JSON.stringify(query))
         console.log(`${elasticsearchUrl}/kyso-index/${type}/_delete_by_query`)
 
         let res

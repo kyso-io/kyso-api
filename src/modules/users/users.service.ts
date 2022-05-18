@@ -261,10 +261,6 @@ export class UsersService extends AutowiredService {
         if (!user.hasOwnProperty('accounts')) {
             user.accounts = []
         }
-        console.log(user.accounts)
-        console.log(`Id: ${id}`)
-        console.log(`Provider: ${provider}`)
-        console.log(`accountId: ${accountId}`)
         
         // Bitbucket and Gitlab accountIds are strings, but Github is a number. So the account.accountId === accountId works for 
         // bitbucket and gitlab, but not for github. For that reason we added .toString() to the comparison

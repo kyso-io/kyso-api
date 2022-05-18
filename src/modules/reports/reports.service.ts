@@ -605,7 +605,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             throw new PreconditionFailedException(`Organization ${kysoConfigFile.organization} not found`)
         }
 
-        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team, organization_id: organization.id } })
+        const team: Team = await this.teamsService.getUniqueTeam(organization.id, kysoConfigFile.team)
         Logger.log(`Team: ${team.sluglified_name}`)
         if (!team) {
             Logger.error(`Team ${kysoConfigFile.team} does not exist`)
@@ -816,7 +816,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 throw new PreconditionFailedException(`Organization ${kysoConfigFile.organization} not found`)
             }
 
-            const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team, organization_id: organization.id } })
+            const team: Team = await this.teamsService.getUniqueTeam(organization.id, kysoConfigFile.team)
             Logger.log(`Team: ${team.sluglified_name}`)
             if (!team) {
                 Logger.error(`Team ${kysoConfigFile.team} does not exist`)
@@ -1005,7 +1005,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
             Logger.error(`Organization ${kysoConfigFile.organization} not found`, ReportsService.name)
             throw new PreconditionFailedException(`Organization ${kysoConfigFile.organization} not found`)
         }
-        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team, organization_id: organization.id } })
+
+        const team: Team = await this.teamsService.getUniqueTeam(organization.id, kysoConfigFile.team)
+
         Logger.log(`Team: ${team.sluglified_name}`)
         if (!team) {
             Logger.error(`Team ${kysoConfigFile.team} does not exist`)
@@ -1843,7 +1845,8 @@ export class ReportsService extends AutowiredService implements GenericService<R
             return
         }
 
-        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: kysoConfigFile.team, organization_id: organization.id } })
+        const team: Team = await this.teamsService.getUniqueTeam(organization.id, kysoConfigFile.team)
+
         if (!team) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report ${report.id} ${report.sluglified_name}: Team ${kysoConfigFile.team} does not exist`, ReportsService.name)
@@ -2001,13 +2004,13 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return reportTags
     }
 
-    public async pullReport(token: Token, reportName: string, teamName: string, version: number | null, response: any): Promise<void> {
+    public async pullReport(token: Token, reportName: string, teamName: string, organizationId: string, version: number | null, response: any): Promise<void> {
         let isGlobalAdmin = false
         if (token.permissions.global?.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)) {
             isGlobalAdmin = true
         }
 
-        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: teamName } })
+        const team: Team = await this.teamsService.getUniqueTeam(organizationId, teamName)
         if (!team) {
             response.status(404).send(`Team '${teamName}' not found`)
             return
@@ -2353,12 +2356,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
     }
 
-    public async getReportByName(reportName: string, teamName: string): Promise<Report> {
-        const team: Team = await this.teamsService.getTeam({
-            filter: {
-                sluglified_name: teamName,
-            },
-        })
+    public async getReportByName(reportName: string, teamName: string, organizationId: string): Promise<Report> {
+        const team: Team = await this.teamsService.getUniqueTeam(organizationId, teamName)
+        
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
@@ -2376,7 +2376,6 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
     private async preprocessHtmlFiles(sourcePath: string) {
         const foundFiles = glob.sync(sourcePath + '/**/*.htm*')
-        console.log(foundFiles)
         
         const result = replaceStringInFilesSync({
             files: foundFiles,

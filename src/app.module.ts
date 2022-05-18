@@ -1,9 +1,10 @@
 import { MailerModule } from '@nestjs-modules/mailer'
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter'
-import { Module } from '@nestjs/common'
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
 import { PrometheusModule } from '@willsoto/nestjs-prometheus'
 import { join } from 'path'
 import { mailFrom, mailTransport } from './main'
+import { RequestLoggerMiddleware } from './middleware/request-logger.middleware'
 import { AuthModule } from './modules/auth/auth.module'
 import { BitbucketReposModule } from './modules/bitbucket-repos/bitbucket-repos.module'
 import { CommentsModule } from './modules/comments/comments.module'
@@ -62,5 +63,12 @@ import { UsersModule } from './modules/users/users.module'
         TestingDataPopulatorModule,
         UsersModule.forRoot(),
     ],
+    providers: [
+        RequestLoggerMiddleware
+    ]
 })
-export class AppModule {}
+export class AppModule implements NestModule{
+    configure(consumer: MiddlewareConsumer) {
+        consumer.apply(RequestLoggerMiddleware).forRoutes("*");
+    }
+}

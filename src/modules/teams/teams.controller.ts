@@ -148,7 +148,7 @@ export class TeamsController extends GenericController<Team> {
         if (!organizationId || organizationId.length === 0) {
             throw new BadRequestException('Organization id is required')
         }
-        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: slugify(name), organization_id: organizationId } })
+        const team: Team = await this.teamsService.getUniqueTeam(organizationId, slugify(name))
         return new NormalizedResponseDTO<boolean>(team === null)
     }
 

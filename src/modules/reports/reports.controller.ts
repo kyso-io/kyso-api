@@ -169,7 +169,7 @@ export class ReportsController extends GenericController<Report> {
             try {
                 await this.reportsService.increaseViews({ _id: { $in: reportsDtos.map((reportDto: ReportDTO) => new ObjectId(reportDto.id)) } })
             } catch (ex) {
-                console.log('Error increasing views')
+                Logger.log('Error increasing views')
             }
         }
         reportsDtos.forEach((reportDto: ReportDTO) => {
@@ -365,7 +365,7 @@ export class ReportsController extends GenericController<Report> {
         if (!organization) {
             throw new PreconditionFailedException('Organization not found')
         }
-        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: teamName, organization_id: organization.id } })
+        const team: Team = await this.teamsService.getUniqueTeam(organization.id, teamName)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
@@ -536,7 +536,6 @@ export class ReportsController extends GenericController<Report> {
         @Query('branch') branch: string,
     ): Promise<NormalizedResponseDTO<Report>> {
         Logger.log(`Called createReportFromGitlabRepository`)
-        console.log(id)
         const report: Report = await this.reportsService.createReportFromGitlabRepository(token.id, id, branch)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
@@ -726,7 +725,7 @@ export class ReportsController extends GenericController<Report> {
             Logger.error(`Organization ${organizationName} not found`)
             throw new PreconditionFailedException('Organization not found')
         }
-        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: teamName, organization_id: organization.id } })
+        const team: Team = await this.teamsService.getUniqueTeam(organization.id, teamName)
         if (!team) {
             Logger.error(`Team ${teamName} not found`)
             throw new PreconditionFailedException('Team not found')
@@ -753,7 +752,7 @@ export class ReportsController extends GenericController<Report> {
                 Logger.error(`An error occurred while parsing the version`, e, ReportsController.name)
             }
         }
-        this.reportsService.pullReport(token, reportName, teamNameParam, version, response)
+        this.reportsService.pullReport(token, reportName, teamNameParam, organization.id, version, response)
     }
 
     @Get('/:reportId/download')
@@ -1115,7 +1114,11 @@ export class ReportsController extends GenericController<Report> {
         @Param('reportName') reportName: string,
         @Param('teamName') teamNameParam: string,
     ): Promise<NormalizedResponseDTO<ReportDTO>> {
-        const report: Report = await this.reportsService.getReportByName(reportName, teamNameParam)
+        const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
+        if (!organization) {
+            throw new PreconditionFailedException('Organization not found')
+        }
+        const report: Report = await this.reportsService.getReportByName(reportName, teamNameParam, organization.id)
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
             const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)

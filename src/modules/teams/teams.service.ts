@@ -80,6 +80,11 @@ export class TeamsService extends AutowiredService {
         return teams[0]
     }
 
+    async getUniqueTeam(organizationId: string, teamSlugName: string): Promise<Team> {
+        return this.getTeam(
+            { filter: { sluglified_name: teamSlugName, organization_id: organizationId } })
+    }
+
     async getTeams(query): Promise<Team[]> {
         return await this.provider.read(query)
     }
@@ -118,7 +123,6 @@ export class TeamsService extends AutowiredService {
         }
 
         const finalResult = [...new Set(userTeamsResult.filter((team) => !!team))]
-        console.log(finalResult)
         
         return finalResult
     }

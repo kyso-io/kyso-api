@@ -74,8 +74,7 @@ export class PermissionsGuard implements CanActivate {
 
             return await AuthService.hasPermissions(tokenPayload, permissionToActivateEndpoint, team, organization)
         } catch (ex) {
-            Logger.error(`Error checking permissions`)
-            console.log(ex)
+            Logger.error(`Error checking permissions`, ex)
             return false
         }
     }

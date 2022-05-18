@@ -235,7 +235,6 @@ export class AuthController extends GenericController<string> {
     @Post('/login/sso/fail')
     @Get('/login/sso/fail')
     async loginSSOFail(@Req() request) {
-        console.log(request)
         return 'Failed'
     }
 
@@ -384,11 +383,13 @@ export class AuthController extends GenericController<string> {
         const teamName = splittedUri[1]
         const reportName = splittedUri[3]
 
-        const team: Team = await this.teamsService.getTeam({
-            filter: {
-                sluglified_name: teamName,
-            },
-        })
+        const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
+        if (!organization) {
+            Logger.error(`Organization ${organizationName} not found`)
+            throw new PreconditionFailedException('Organization not found')
+        }
+
+        const team: Team = await this.teamsService.getUniqueTeam(organization.id, teamName)
         if (!team) {
             response.status(HttpStatus.FORBIDDEN).send()
             return
