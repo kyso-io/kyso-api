@@ -6,6 +6,7 @@ import {
     Team,
     TeamMember,
     TeamPermissionsEnum,
+    TeamVisibilityEnum,
     Token,
     UpdateTeamMembersDTO,
     UpdateTeamRequest,
@@ -16,6 +17,7 @@ import {
     Controller,
     Delete,
     Get,
+    Logger,
     Param,
     Patch,
     Post,
@@ -305,12 +307,25 @@ export class TeamsController extends GenericController<Team> {
         required: true,
     })
     @Permission([TeamPermissionsEnum.EDIT])
-    async updateTeam(@Param('teamId') teamId: string, @Body() data: UpdateTeamRequest): Promise<NormalizedResponseDTO<Team>> {
+    async updateTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string, @Body() data: UpdateTeamRequest): Promise<NormalizedResponseDTO<Team>> {
         const team: Team = await this.teamsService.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
         const updatedTeam: Team = await this.teamsService.updateTeam({ _id: new ObjectId(teamId) }, { $set: data })
+        
+        if(data.visibility === TeamVisibilityEnum.PRIVATE) {
+            try {
+                // The visibility has changed to private, that means no-one will have access to that team
+                // For that reason, we will add automatically the requested user as a TEAM_ADMIN of that
+                // team.
+                const userId = token.id
+                await this.teamsService.addMemberToTeam(teamId, userId)
+            } catch(ex) {
+                Logger.error(`Can't add user ${token.id} to team ${teamId}`, ex)
+            }
+        }
+        
         return new NormalizedResponseDTO(updatedTeam)
     }
 
