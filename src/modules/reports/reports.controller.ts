@@ -722,16 +722,19 @@ export class ReportsController extends GenericController<Report> {
     ): Promise<any> {
         const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
         if (!organization) {
+            Logger.error(`Organization ${organizationName} not found`)
             throw new PreconditionFailedException('Organization not found')
         }
         const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: teamName, organization_id: organization.id } })
         if (!team) {
+            Logger.error(`Team ${teamName} not found`)
             throw new PreconditionFailedException('Team not found')
         }
 
         const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: reportName, team_id: team.id } })
 
         if(!report) {
+            Logger.error(`Report ${reportName} not found`)
             throw new PreconditionFailedException('Report not found')
         }
 
