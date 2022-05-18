@@ -720,19 +720,21 @@ export class ReportsController extends GenericController<Report> {
         @Query('version') versionStr: string,
         @Res() response: any,
     ): Promise<any> {
-        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: teamName } })
-        if (!team) {
-            throw new NotFoundException(`Team ${teamName} not found`)
+        const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
+        if (!organization) {
+            throw new PreconditionFailedException('Organization not found')
         }
-        const report: Report = await this.reportsService.getReport({
-            filter: {
-                sluglified_name: reportName,
-                team_id: team.id,
-            },
-        })
-        if (!report) {
+        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: teamName, organization_id: organization.id } })
+        if (!team) {
+            throw new PreconditionFailedException('Team not found')
+        }
+
+        const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: reportName, team_id: team.id } })
+
+        if(!report) {
             throw new PreconditionFailedException('Report not found')
         }
+
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
             const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
             if (!hasPermissions) {
