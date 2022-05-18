@@ -117,7 +117,10 @@ export class TeamsService extends AutowiredService {
             }
         }
 
-        return [...new Set(userTeamsResult.filter((team) => !!team))]
+        const finalResult = [...new Set(userTeamsResult.filter((team) => !!team))]
+        console.log(finalResult)
+        
+        return finalResult
     }
 
     public async getTeamsForController(userId: string, query: any): Promise<Team[]> {
