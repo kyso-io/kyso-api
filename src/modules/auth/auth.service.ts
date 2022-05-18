@@ -289,10 +289,6 @@ export class AuthService extends AutowiredService {
     }
 
     static async hasPermissions(tokenPayload: Token, permissionToActivateEndpoint: KysoPermissions[], team: string, organization: string): Promise<boolean> {
-        console.log("TokenPayload")
-        console.log(tokenPayload)
-        console.log("permissionToActivateEndpoint")
-        console.log(permissionToActivateEndpoint)
         console.log("team and organization")
         console.log(`${team} - ${organization}`)
         if (!tokenPayload) {
