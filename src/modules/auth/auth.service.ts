@@ -290,6 +290,7 @@ export class AuthService extends AutowiredService {
 
     static async hasPermissions(tokenPayload: Token, permissionToActivateEndpoint: KysoPermissions[], team: string, organization: string): Promise<boolean> {
         if (!tokenPayload) {
+            Logger.log("Received null token")
             return false
         }
 
