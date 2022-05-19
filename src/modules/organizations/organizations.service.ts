@@ -470,9 +470,9 @@ export class OrganizationsService extends AutowiredService {
     }
 
     public async getNumMembersAndReportsByOrganization(token: Token, organizationId: string): Promise<OrganizationInfoDto[]> {
-        const map: Map<string, { members: number; reports: number; discussions: number; comments: number; lastChange: Date }> = new Map<
+        const map: Map<string, { members: number; reports: number; discussions: number; comments: number; lastChange: Date; avatar_url: string }> = new Map<
             string,
-            { members: number; reports: number; discussions: number; comments: number; lastChange: Date }
+            { members: number; reports: number; discussions: number; comments: number; lastChange: Date; avatar_url: string }
         >()
         const query: any = {
             filter: {},
@@ -493,6 +493,7 @@ export class OrganizationsService extends AutowiredService {
                     discussions: 0,
                     comments: 0,
                     lastChange: organization.updated_at,
+                    avatar_url: organization.avatar_url,
                 })
             }
             map.get(organizationMemberJoin.organization_id).members++
@@ -543,7 +544,7 @@ export class OrganizationsService extends AutowiredService {
             }
             mapReportOrg.set(report.id, organizationId)
             if (!map.has(organizationId)) {
-                map.set(organizationId, { members: 0, reports: 0, discussions: 0, comments: 0, lastChange: moment('1970-01-10').toDate() })
+                map.set(organizationId, { members: 0, reports: 0, discussions: 0, comments: 0, lastChange: moment('1970-01-10').toDate(), avatar_url: null })
             }
             map.get(organizationId).reports++
             map.get(organizationId).lastChange = moment.max(moment(report.updated_at), moment(map.get(organizationId).lastChange)).toDate()
@@ -560,22 +561,29 @@ export class OrganizationsService extends AutowiredService {
                     discussions: 0,
                     comments: 0,
                     lastChange: moment('1970-01-10').toDate(),
+                    avatar_url: null,
                 })
             }
             map.get(organizationId).comments++
             map.get(organizationId).lastChange = moment.max(moment(comment.updated_at), moment(map.get(organizationId).lastChange)).toDate()
         })
         const result: OrganizationInfoDto[] = []
-        map.forEach((value: { members: number; reports: number; discussions: number; comments: number; lastChange: Date }, organizationId: string) => {
-            result.push({
-                organization_id: organizationId,
-                members: value.members,
-                reports: value.reports,
-                discussions: value.discussions,
-                comments: value.comments,
-                lastChange: value.lastChange,
-            })
-        })
+        map.forEach(
+            (
+                value: { members: number; reports: number; discussions: number; comments: number; lastChange: Date; avatar_url: string },
+                organizationId: string,
+            ) => {
+                result.push({
+                    organization_id: organizationId,
+                    members: value.members,
+                    reports: value.reports,
+                    discussions: value.discussions,
+                    comments: value.comments,
+                    lastChange: value.lastChange,
+                    avatar_url: value.avatar_url,
+                })
+            },
+        )
         return result
     }
 }
