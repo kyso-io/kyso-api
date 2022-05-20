@@ -270,6 +270,7 @@ export class TeamsService extends AutowiredService {
                     userIds = teamMembersJoin.map((x: TeamMemberJoin) => x.member_id)
                     break
                 case TeamVisibilityEnum.PROTECTED:
+                case TeamVisibilityEnum.PUBLIC:
                     teamMembersJoin = await this.teamMemberProvider.getMembers(team.id)
                     userIds = teamMembersJoin.map((x: TeamMemberJoin) => x.member_id)
                     organizationMembersJoin = await this.organizationsService.getMembers(team.organization_id)
@@ -280,17 +281,17 @@ export class TeamsService extends AutowiredService {
                         }
                     }
                     break
-                case TeamVisibilityEnum.PUBLIC:
-                    organizationMembersJoin = await this.organizationsService.getMembers(team.organization_id)
-                    userIds = organizationMembersJoin.map((x: OrganizationMemberJoin) => x.member_id)
-                    const restOfUsers: User[] = await this.usersService.getUsers({
-                        filter: { _id: { $nin: organizationMembersJoin.map((x: OrganizationMemberJoin) => x.member_id) } },
-                        projection: { _id: 1 },
-                    })
-                    for (const userId of restOfUsers) {
-                        userIds.push(userId.id)
-                    }
-                    break
+                // case TeamVisibilityEnum.PUBLIC:
+                //     organizationMembersJoin = await this.organizationsService.getMembers(team.organization_id)
+                //     userIds = organizationMembersJoin.map((x: OrganizationMemberJoin) => x.member_id)
+                //     const restOfUsers: User[] = await this.usersService.getUsers({
+                //         filter: { _id: { $nin: organizationMembersJoin.map((x: OrganizationMemberJoin) => x.member_id) } },
+                //         projection: { _id: 1 },
+                //     })
+                //     for (const userId of restOfUsers) {
+                //         userIds.push(userId.id)
+                //     }
+                //     break
             }
             if (userIds.length === 0) {
                 return []
