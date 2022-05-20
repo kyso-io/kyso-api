@@ -231,6 +231,51 @@ export class UsersController extends GenericController<User> {
         return new NormalizedResponseDTO(userDto)
     }
 
+    @Get('/:userId/portrait')
+    @Public()
+    @ApiOperation({
+        summary: `Get user's portrait`,
+        description: `Allows fetching portrait of an user passing his id`,
+    })
+    @ApiParam({
+        name: 'username',
+        required: true,
+        description: `Username of the user to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
+    async getUserPortrait(@Param('userId') userId: string): Promise<string> {
+        const user: User = await this.usersService.getUserById(userId)
+        if (!user) {
+            throw new BadRequestException(`User with id ${userId} not found`)
+        }
+
+        return user.avatar_url       
+    }
+
+    @Get('/:userId/public-data')
+    @Public()
+    @ApiOperation({
+        summary: `Get user profile`,
+        description: `Allows fetching content of a specific user passing its id`,
+    })
+    @ApiParam({
+        name: 'username',
+        required: true,
+        description: `Username of the user to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
+    async getUserPublicData(@Param('userId') userId: string): Promise<NormalizedResponseDTO<UserDTO>> {
+        const user: User = await this.usersService.getUserById(userId)
+        if (!user) {
+            throw new BadRequestException(`User with id ${userId} not found`)
+        }
+
+        const userDto: UserDTO = UserDTO.fromUser(user)
+        return new NormalizedResponseDTO(userDto)     
+    }
+
     @Post()
     @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
