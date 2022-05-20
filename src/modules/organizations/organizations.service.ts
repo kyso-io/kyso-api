@@ -486,9 +486,10 @@ export class OrganizationsService extends AutowiredService {
         const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.read(query)
         for (const organizationMemberJoin of members) {
             if (!map.has(organizationMemberJoin.organization_id)) {
-                const organization: Organization = await this.getOrganizationById(organizationId)
-                map.set(organizationMemberJoin.organization_id, {
-                    members: 0,
+                const organization: Organization = await this.getOrganizationById(organizationMemberJoin.organization_id)
+                const members: OrganizationMember[] = await this.getOrganizationMembers(organization.id)
+                map.set(organization.id, {
+                    members: members.length,
                     reports: 0,
                     discussions: 0,
                     comments: 0,
@@ -496,7 +497,6 @@ export class OrganizationsService extends AutowiredService {
                     avatar_url: organization.avatar_url,
                 })
             }
-            map.get(organizationMemberJoin.organization_id).members++
         }
         const teamOrgMap: Map<string, string> = new Map<string, string>()
         let teams: Team[] = []
