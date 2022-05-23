@@ -40,11 +40,13 @@ import * as glob from 'glob'
 import * as jsYaml from 'js-yaml'
 import { extname, join } from 'path'
 import * as sha256File from 'sha256-file'
-import { GenericService } from '../../generic/service.generic'
+import { PlatformRole } from 'src/security/platform-roles'
 import * as Client from 'ssh2-sftp-client'
+import { replaceStringInFilesSync } from 'tiny-replace-files'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
+import { GenericService } from '../../generic/service.generic'
 import { NotFoundError } from '../../helpers/errorHandling'
 import slugify from '../../helpers/slugify'
 import { Validators } from '../../helpers/validators'
@@ -67,9 +69,6 @@ import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.pro
 import { ReportsMongoProvider } from './providers/mongo-reports.provider'
 import { StarredReportsMongoProvider } from './providers/mongo-starred-reports.provider'
 import { SftpService } from './sftp.service'
-import { PlatformRole } from 'src/security/platform-roles'
-import { replaceStringInFilesSync } from 'tiny-replace-files'
-
 
 function factory(service: ReportsService) {
     return service
@@ -138,25 +137,25 @@ export class ReportsService extends AutowiredService implements GenericService<R
     }
     checkOwnership(item: Report, requester: Token, organizationName: string, teamName: string): Promise<boolean> {
         let hasAdequatePermissions
-        
+
         // Check if the user who is requesting the edition of the discussion is the owner of the discussion
-        if(item.user_id === requester.id) {
-            hasAdequatePermissions = true 
+        if (item.user_id === requester.id) {
+            hasAdequatePermissions = true
         } else {
-            hasAdequatePermissions = false 
+            hasAdequatePermissions = false
         }
 
-        if(!hasAdequatePermissions) {
+        if (!hasAdequatePermissions) {
             // Check if the user who is requesting the edition of the discussion has TEAM_ADMIN or ORG_ADMIN
-            const teamPermissions = requester.permissions.teams.find(x => x.name === teamName)
+            const teamPermissions = requester.permissions.teams.find((x) => x.name === teamName)
 
-            if(teamPermissions && teamPermissions.role_names) {
-                const isTeamAdmin = teamPermissions.role_names.find(x => x === PlatformRole.TEAM_ADMIN_ROLE.name) !== undefined 
-                const isOrgAdmin = teamPermissions.role_names.find(x => x === PlatformRole.ORGANIZATION_ADMIN_ROLE.name) !== undefined
-                const isPlatformAdmin = teamPermissions.role_names.find(x => x === PlatformRole.PLATFORM_ADMIN_ROLE.name) !== undefined
+            if (teamPermissions && teamPermissions.role_names) {
+                const isTeamAdmin = teamPermissions.role_names.find((x) => x === PlatformRole.TEAM_ADMIN_ROLE.name) !== undefined
+                const isOrgAdmin = teamPermissions.role_names.find((x) => x === PlatformRole.ORGANIZATION_ADMIN_ROLE.name) !== undefined
+                const isPlatformAdmin = teamPermissions.role_names.find((x) => x === PlatformRole.PLATFORM_ADMIN_ROLE.name) !== undefined
 
-                if(isTeamAdmin || isOrgAdmin || isPlatformAdmin) {
-                    hasAdequatePermissions = true 
+                if (isTeamAdmin || isOrgAdmin || isPlatformAdmin) {
+                    hasAdequatePermissions = true
                 } else {
                     hasAdequatePermissions = false
                 }
@@ -1223,6 +1222,17 @@ export class ReportsService extends AutowiredService implements GenericService<R
         Logger.log(`Deleting LOCAL folder '${localReportPath}'...`, ReportsService.name)
         rmSync(localReportPath, { recursive: true })
         Logger.log(`LOCAL folder '${localReportPath}' deleted.`, ReportsService.name)
+        const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion + 1}`
+        Logger.log(`Advising ElasticSearch there is a new version of a report that has to be indexed in '${pathToIndex}'`, ReportsService.name)
+        const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
+        axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
+            (response: AxiosResponse<any>) => {
+                Logger.log(`ElasticSearch response: ${JSON.stringify(response.data)}`, ReportsService.name)
+            },
+            (err) => {
+                Logger.warn(`${pathToIndex} was not indexed properly`, err)
+            },
+        )
         return report
     }
 
@@ -1856,7 +1866,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         // fix kyso-ui#551-556
         this.preprocessHtmlFiles(tmpDir)
         // end fix
-        
+
         let mainFile = null
         if (kysoConfigFile?.main && kysoConfigFile.main.length > 0) {
             mainFile = kysoConfigFile.main
@@ -2358,7 +2368,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
     public async getReportByName(reportName: string, teamName: string, organizationId: string): Promise<Report> {
         const team: Team = await this.teamsService.getUniqueTeam(organizationId, teamName)
-        
+
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
@@ -2376,7 +2386,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
     private async preprocessHtmlFiles(sourcePath: string) {
         const foundFiles = glob.sync(sourcePath + '/**/*.htm*')
-        
+
         const result = replaceStringInFilesSync({
             files: foundFiles,
             from: /<head>/,
@@ -2499,16 +2509,15 @@ export class ReportsService extends AutowiredService implements GenericService<R
                   </style>
                 
                 <!-- KYSO PREPROCESS END -->
-            `
+            `,
         })
-        
     }
 
     private async uploadReportToFtp(reportId: string, sourcePath: string): Promise<void> {
         // fix kyso-ui#551-556
         this.preprocessHtmlFiles(sourcePath)
         // end fix
-        
+
         const report: Report = await this.getReportById(reportId)
         let version: number = await this.getLastVersionOfReport(reportId)
         version = Math.max(1, version)
@@ -2526,8 +2535,6 @@ export class ReportsService extends AutowiredService implements GenericService<R
             await client.mkdir(destinationPath, true)
             Logger.log(`Created directory ${destinationPath} in ftp`, ReportsService.name)
         }
-
-         
 
         const result: string = await client.uploadDir(sourcePath, destinationPath)
         Logger.log(result, ReportsService.name)
