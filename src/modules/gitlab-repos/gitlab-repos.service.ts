@@ -128,7 +128,7 @@ export class GitlabReposService extends AutowiredService {
         return this.provider.getConfigFile(accessToken, repositoryId, commit)
     }
 
-    public async downloadRepository(accessToken: string, repositoryId: number | string, commit: string): Promise<Buffer> {
+    public async downloadRepository(accessToken: string, repositoryId: number | string, commit: string): Promise<Buffer> {
         return this.provider.downloadRepository(accessToken, repositoryId, commit)
     }
 
