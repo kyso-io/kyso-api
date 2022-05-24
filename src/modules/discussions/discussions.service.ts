@@ -135,7 +135,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
         this.mailerService
             .sendMail({
                 to,
-                subject: `New discussion on ${team.display_name}`,
+                subject: `New discussion ${discussion.title} created`,
                 template: 'discussion-new',
                 context: {
                     frontendUrl,

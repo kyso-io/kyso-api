@@ -1135,7 +1135,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         this.mailerService
             .sendMail({
                 to,
-                subject: isNew ? `New report '${report.title}'` : `Updated report '${report.title}'`,
+                subject: isNew ? `New report '${report.title}' published` : `Existing report '${report.title}' updated`,
                 template: isNew ? 'report-new' : 'report-updated',
                 context: {
                     organization,
