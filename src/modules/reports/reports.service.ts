@@ -34,7 +34,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException, Precondition
 import { Octokit } from '@octokit/rest'
 import * as AdmZip from 'adm-zip'
 import axios, { AxiosResponse } from 'axios'
-import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs'
 import { moveSync } from 'fs-extra'
 import * as glob from 'glob'
 import * as jsYaml from 'js-yaml'
@@ -645,6 +645,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 reportFile = await this.filesMongoProvider.create(reportFile)
                 reportFiles.push(reportFile)
             }
+            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { main_file: kysoConfigFile?.main } })
         } else {
             Logger.log(`Creating new report '${name}'`, ReportsService.name)
             // New report
@@ -734,18 +735,25 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return report
     }
 
-    public async createMultipleKysoReports(baseKysoConfigFile: KysoConfigFile, baseTmpDir: string, zip: AdmZip, user: User): Promise<Report[]> {
+    public async createMultipleKysoReports(
+        baseKysoConfigFile: KysoConfigFile,
+        baseTmpDir: string,
+        zip: AdmZip,
+        user: User,
+        basePath?: string,
+    ): Promise<Report[]> {
         const kysoConfigFilesMap: Map<string, { kysoConfigFile: KysoConfigFile; organization: Organization; team: Team }> = new Map<
             string,
             { kysoConfigFile: KysoConfigFile; organization: Organization; team: Team }
         >()
 
         for (const reportFolderName of baseKysoConfigFile.reports) {
+            const reportFolderNameWithBasePath: string = join(basePath && basePath.length > 0 ? join(basePath, reportFolderName) : reportFolderName)
             let kysoConfigFile: KysoConfigFile = null
             for (const entry of zip.getEntries()) {
-                if (entry.entryName.startsWith(reportFolderName)) {
+                if (entry.entryName.startsWith(reportFolderNameWithBasePath)) {
                     const originalName: string = entry.entryName
-                    const localFilePath = join(baseTmpDir, entry.entryName)
+                    const localFilePath = join(baseTmpDir, basePath && basePath.length > 0 ? entry.entryName.replace(basePath, '') : entry.entryName)
                     if (originalName.endsWith('kyso.json')) {
                         try {
                             kysoConfigFile = JSON.parse(readFileSync(localFilePath).toString())
@@ -839,6 +847,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             let report: Report = null
             const tmpDir: string = join(baseTmpDir, reportFolderName)
             let isNew = false
+            const reportFolderNameWithBasePath: string = join(basePath && basePath.length > 0 ? join(basePath, reportFolderName) : reportFolderName)
             if (reports.length > 0) {
                 // Existing report
                 report = reports[0]
@@ -849,8 +858,8 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     if (!entry.entryName.startsWith(reportFolderName)) {
                         continue
                     }
-                    const originalName: string = entry.entryName.replace(`${reportFolderName}/`, '')
-                    const localFilePath = join(baseTmpDir, entry.entryName)
+                    const originalName: string = entry.entryName.replace(`${reportFolderNameWithBasePath}/`, '')
+                    const localFilePath = join(baseTmpDir, basePath && basePath.length > 0 ? entry.entryName.replace(basePath, '') : entry.entryName)
                     if (entry.isDirectory) {
                         continue
                     }
@@ -890,11 +899,11 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 report = await this.provider.create(report)
                 isNew = true
                 for (const entry of zip.getEntries()) {
-                    if (!entry.entryName.startsWith(reportFolderName)) {
+                    if (!entry.entryName.startsWith(reportFolderNameWithBasePath)) {
                         continue
                     }
-                    const originalName: string = entry.entryName.replace(`${reportFolderName}/`, '')
-                    const localFilePath = join(baseTmpDir, entry.entryName)
+                    const originalName: string = entry.entryName.replace(`${reportFolderNameWithBasePath}/`, '')
+                    const localFilePath = join(baseTmpDir, basePath && basePath.length > 0 ? entry.entryName.replace(basePath, '') : entry.entryName)
                     if (entry.isDirectory) {
                         continue
                     }
@@ -1236,7 +1245,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return report
     }
 
-    public async createReportFromGithubRepository(userId: string, repositoryName: string, branch: string): Promise<Report> {
+    public async createReportFromGithubRepository(userId: string, repositoryName: string, branch: string): Promise<Report | Report[]> {
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new NotFoundError(`User ${userId} does not exist`)
@@ -1329,12 +1338,11 @@ export class ReportsService extends AutowiredService implements GenericService<R
         Logger.log(`Downloading and extracting repository ${repositoryName}' commit '${sha}'`, ReportsService.name)
         const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
         const extractedDir = `${tmpFolder}/${uuidv4()}`
-        const downloaded: boolean = await this.downloadGithubFiles(sha, extractedDir, repository, userAccount.accessToken)
-        if (!downloaded) {
+        const zip: AdmZip = await this.downloadGithubFiles(sha, extractedDir, repository, userAccount.accessToken)
+        if (!zip) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${sha}`, ReportsService.name)
-            // throw new PreconditionFailedException(`Could not download repository ${repositoryName} commit ${sha}`, ReportsService.name)
-            return
+            throw new PreconditionFailedException(`Could not download repository ${repositoryName} commit ${sha}`, ReportsService.name)
         }
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${sha}'`, ReportsService.name)
 
@@ -1342,23 +1350,25 @@ export class ReportsService extends AutowiredService implements GenericService<R
         if (filePaths.length < 1) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
-            // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
-            return
+            throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name)
         }
 
         // Normalize file paths
         let files: { name: string; filePath: string }[] = []
         let kysoConfigFile: KysoConfigFile = null
-        let directoriesToRemove: string[] = []
         try {
             const result = await this.normalizeFilePaths(report, filePaths)
             files = result.files
             kysoConfigFile = result.kysoConfigFile
-            directoriesToRemove = result.directoriesToRemove
             Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${branch}'`, ReportsService.name)
         } catch (e) {
             await this.deleteReport(report.id)
             throw e
+        }
+
+        if (kysoConfigFile.type === ReportType.Meta) {
+            await this.deleteReport(report.id)
+            return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName)
         }
 
         new Promise<void>(async () => {
@@ -1395,8 +1405,8 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
         const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
         const extractedDir = `${tmpFolder}/${uuidv4()}`
-        const downloaded: boolean = await this.downloadGithubFiles(sha, extractedDir, repository, userAccount.accessToken)
-        if (!downloaded) {
+        const zip: AdmZip = await this.downloadGithubFiles(sha, extractedDir, repository, userAccount.accessToken)
+        if (!zip) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
             Logger.error(`Report '${report.id} ${report.sluglified_name}': Could not download commit ${sha}`, ReportsService.name)
             // throw new PreconditionFailedException(`Could not download repository ${report.sluglified_name} commit ${sha}`, ReportsService.name)
@@ -1429,7 +1439,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, false)
     }
 
-    public async createReportFromBitbucketRepository(userId: string, repositoryName: string, branch: string): Promise<Report> {
+    public async createReportFromBitbucketRepository(userId: string, repositoryName: string, branch: string): Promise<Report | Report[]> {
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new NotFoundError(`User ${userId} does not exist`)
@@ -1493,6 +1503,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const desiredCommit: string = branch && branch.length > 0 ? branch : bitbucketRepository.defaultBranch
         const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
         const extractedDir = `${tmpFolder}/${uuidv4()}`
+        let zip: AdmZip;
         try {
             Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
             const buffer: Buffer = await this.bitbucketReposService.downloadRepository(userAccount.accessToken, repositoryName, desiredCommit)
@@ -1503,7 +1514,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 return
             }
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
-            const zip: AdmZip = new AdmZip(buffer)
+            zip = new AdmZip(buffer)
             zip.extractAllTo(tmpFolder, true)
             moveSync(`${tmpFolder}/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
             Logger.log(`Extracted repository '${repositoryName}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
@@ -1532,6 +1543,11 @@ export class ReportsService extends AutowiredService implements GenericService<R
             throw e
         }
 
+        if (kysoConfigFile.type === ReportType.Meta) {
+            await this.deleteReport(report.id)
+            return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName)
+        }
+
         new Promise<void>(async () => {
             const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
             if (!userHasPermission) {
@@ -1558,7 +1574,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return report
     }
 
-    public async createReportFromGitlabRepository(userId: string, repositoryId: number | string, branch: string): Promise<Report> {
+    public async createReportFromGitlabRepository(userId: string, repositoryId: number | string, branch: string): Promise<Report | Report[]> {
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new NotFoundError(`User ${userId} does not exist`)
@@ -1622,6 +1638,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const desiredCommit: string = branch && branch.length > 0 ? branch : gitlabRepository.defaultBranch
         const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
         const extractedDir = `${tmpFolder}/${uuidv4()}`
+        let zip: AdmZip = null
         try {
             Logger.log(`Downloading and extrating repository ${repositoryId}' commit '${desiredCommit}'`, ReportsService.name)
             const buffer: Buffer = await this.gitlabReposService.downloadRepository(userAccount.accessToken, repositoryId, desiredCommit)
@@ -1632,7 +1649,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 return
             }
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
-            const zip: AdmZip = new AdmZip(buffer)
+            zip = new AdmZip(buffer)
             zip.extractAllTo(tmpFolder, true)
             moveSync(`${tmpFolder}/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
             Logger.log(`Extracted repository '${repositoryId}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
@@ -1659,6 +1676,11 @@ export class ReportsService extends AutowiredService implements GenericService<R
         } catch (e) {
             await this.deleteReport(report.id)
             return null
+        }
+
+        if (kysoConfigFile.type === ReportType.Meta) {
+            await this.deleteReport(report.id)
+            return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName)
         }
 
         new Promise<void>(async () => {
@@ -1788,23 +1810,15 @@ export class ReportsService extends AutowiredService implements GenericService<R
     private async normalizeFilePaths(
         report: Report,
         filePaths: string[],
-    ): Promise<{ files: { name: string; filePath: string }[]; kysoConfigFile: KysoConfigFile; directoriesToRemove: string[] }> {
+    ): Promise<{ files: { name: string; filePath: string }[]; kysoConfigFile: KysoConfigFile }> {
         // Normalize file paths
         const relativePath: string = filePaths[0]
         const files: { name: string; filePath: string }[] = []
         let kysoConfigFile: KysoConfigFile = null
-        let kysoFileName: string = null
-        const directoriesToRemove: string[] = []
-        // Search kyso config file and annotate directories to remove at the end of the process
         for (let i = 1; i < filePaths.length; i++) {
             const filePath: string = filePaths[i]
-            if (lstatSync(filePath).isDirectory()) {
-                directoriesToRemove.push(filePath)
-                continue
-            }
             const fileName: string = filePath.replace(`${relativePath}/`, '')
             if (fileName === 'kyso.json') {
-                kysoFileName = fileName
                 try {
                     kysoConfigFile = JSON.parse(readFileSync(filePath, 'utf8')) as KysoConfigFile
                 } catch (e) {
@@ -1813,7 +1827,6 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     throw new PreconditionFailedException(`Could not parse kyso.json file`, ReportsService.name)
                 }
             } else if (fileName === 'kyso.yml' || fileName === 'kyso.yaml') {
-                kysoFileName = fileName
                 try {
                     kysoConfigFile = jsYaml.load(readFileSync(filePath, 'utf8')) as KysoConfigFile
                 } catch (e) {
@@ -1822,7 +1835,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     throw new PreconditionFailedException(`Could not parse ${fileName} file`)
                 }
             }
-            files.push({ name: fileName, filePath: filePath })
+            files.push({ name: fileName, filePath })
         }
         if (!kysoConfigFile) {
             report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
@@ -1834,7 +1847,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             Logger.error(`Kyso config file is not valid: ${message}`, ReportsService.name)
             throw new PreconditionFailedException(`Kyso config file is not valid: ${message}`)
         }
-        return { files, kysoConfigFile, directoriesToRemove }
+        return { files, kysoConfigFile }
     }
 
     private async uploadRepositoryFilesToSCS(
@@ -1952,7 +1965,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         await this.sendNewReportMail(report, team, organization, isNew)
     }
 
-    private async downloadGithubFiles(commit: string, extractedDir: string, repository: any, accessToken: string): Promise<boolean> {
+    private async downloadGithubFiles(commit: string, extractedDir: string, repository: any, accessToken: string): Promise<AdmZip> {
         try {
             const zipUrl: string = repository.archive_url.replace('{archive_format}{/ref}', `zipball/${commit}`)
             const response: AxiosResponse<any> = await axios.get(zipUrl, {
@@ -1961,7 +1974,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 },
                 responseType: 'arraybuffer',
             })
-            const zip = new AdmZip(response.data)
+            const zip: AdmZip = new AdmZip(response.data)
             const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
             Logger.log('Extracting Github files to ' + tmpFolder)
             zip.extractAllTo(tmpFolder, true)
@@ -1969,10 +1982,10 @@ export class ReportsService extends AutowiredService implements GenericService<R
             Logger.log(`Moving between ${tmpFolder}/${zip.getEntries()[0].entryName} and ${extractedDir}`)
             moveSync(`${tmpFolder}/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
             Logger.log(`Moving finished`)
-            return true
+            return zip
         } catch (e) {
             Logger.error(`An error occurred downloading github files`, e, ReportsService.name)
-            return false
+            return null
         }
     }
 

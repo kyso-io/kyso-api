@@ -25,7 +25,6 @@ import {
     Get,
     Headers,
     Logger,
-    NotFoundException,
     Param,
     Patch,
     Post,
@@ -485,12 +484,21 @@ export class ReportsController extends GenericController<Report> {
         @CurrentToken() token: Token,
         @Param('repositoryName') repositoryName: string,
         @Query('branch') branch: string,
-    ): Promise<NormalizedResponseDTO<Report>> {
+    ): Promise<NormalizedResponseDTO<Report | Report[]>> {
         Logger.log(`Called createReportFromGithubRepository`)
-        const report: Report = await this.reportsService.createReportFromGithubRepository(token.id, repositoryName, branch)
-        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
-        return new NormalizedResponseDTO(reportDto, relations)
+        const data: Report | Report[] = await this.reportsService.createReportFromGithubRepository(token.id, repositoryName, branch)
+        if (Array.isArray(data)) {
+            const reportDtos: ReportDTO[] = []
+            for (const report of data) {
+                const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+                reportDtos.push(reportDto)
+            }
+            return new NormalizedResponseDTO(reportDtos)
+        } else {
+            const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(data, token.id)
+            const relations = await this.relationsService.getRelations(data, 'report', { Author: 'User' })
+            return new NormalizedResponseDTO(reportDto, relations)
+        }
     }
 
     @Post('/bitbucket')
@@ -508,15 +516,24 @@ export class ReportsController extends GenericController<Report> {
         @CurrentToken() token: Token,
         @Query('name') name: string,
         @Query('branch') branch: string,
-    ): Promise<NormalizedResponseDTO<Report>> {
+    ): Promise<NormalizedResponseDTO<Report | Report[]>> {
         if (!name || name.length === 0) {
             throw new PreconditionFailedException('Repository name is required')
         }
         Logger.log(`Called createReportFromBitbucketRepository`)
-        const report: Report = await this.reportsService.createReportFromBitbucketRepository(token.id, name, branch)
-        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
-        return new NormalizedResponseDTO(reportDto, relations)
+        const data: Report | Report[] = await this.reportsService.createReportFromBitbucketRepository(token.id, name, branch)
+        if (Array.isArray(data)) {
+            const reportDtos: ReportDTO[] = []
+            for (const report of data) {
+                const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+                reportDtos.push(reportDto)
+            }
+            return new NormalizedResponseDTO(reportDtos)
+        } else {
+            const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(data, token.id)
+            const relations = await this.relationsService.getRelations(data, 'report', { Author: 'User' })
+            return new NormalizedResponseDTO(reportDto, relations)
+        }
     }
 
     @Post('/gitlab')
@@ -534,12 +551,21 @@ export class ReportsController extends GenericController<Report> {
         @CurrentToken() token: Token,
         @Query('id') id: string,
         @Query('branch') branch: string,
-    ): Promise<NormalizedResponseDTO<Report>> {
+    ): Promise<NormalizedResponseDTO<Report | Report[]>> {
         Logger.log(`Called createReportFromGitlabRepository`)
-        const report: Report = await this.reportsService.createReportFromGitlabRepository(token.id, id, branch)
-        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
-        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
-        return new NormalizedResponseDTO(reportDto, relations)
+        const data: Report | Report[] = await this.reportsService.createReportFromGitlabRepository(token.id, id, branch)
+        if (Array.isArray(data)) {
+            const reportDtos: ReportDTO[] = []
+            for (const report of data) {
+                const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
+                reportDtos.push(reportDto)
+            }
+            return new NormalizedResponseDTO(reportDtos)
+        } else {
+            const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(data, token.id)
+            const relations = await this.relationsService.getRelations(data, 'report', { Author: 'User' })
+            return new NormalizedResponseDTO(reportDto, relations)
+        }
     }
 
     @Patch('/:reportId')
@@ -719,7 +745,7 @@ export class ReportsController extends GenericController<Report> {
         @Query('version') versionStr: string,
         @Res() response: any,
     ): Promise<any> {
-        Logger.log("Pulling report");
+        Logger.log('Pulling report')
         const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
         if (!organization) {
             Logger.error(`Organization ${organizationName} not found`)
@@ -733,7 +759,7 @@ export class ReportsController extends GenericController<Report> {
 
         const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: reportName, team_id: team.id } })
 
-        if(!report) {
+        if (!report) {
             Logger.error(`Report ${reportName} not found`)
             throw new PreconditionFailedException('Report not found')
         }
