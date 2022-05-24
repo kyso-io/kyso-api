@@ -18,6 +18,7 @@ import {
     UpdateTeamMembersDTO,
     User
 } from '@kyso-io/kyso-model'
+import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { extname, join } from 'path'
 import * as Client from 'ssh2-sftp-client'
@@ -64,7 +65,7 @@ export class TeamsService extends AutowiredService {
     @Autowired({ typeName: 'SftpService' })
     private sftpService: SftpService
 
-    constructor(private readonly provider: TeamsMongoProvider, private readonly teamMemberProvider: TeamMemberMongoProvider) {
+    constructor(private readonly mailerService: MailerService, private readonly provider: TeamsMongoProvider, private readonly teamMemberProvider: TeamMemberMongoProvider) {
         super()
     }
 
@@ -436,8 +437,14 @@ export class TeamsService extends AutowiredService {
             throw new PreconditionFailedException('User already belongs to this team')
         }
         const team: Team = await this.getTeamById(teamId)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+
         if (!team) {
             throw new PreconditionFailedException('Team not found')
+        }
+
+        if (!organization) {
+            throw new PreconditionFailedException("Team's organization not found")
         }
 
         const user: User = await this.usersService.getUserById(userId)
@@ -445,13 +452,77 @@ export class TeamsService extends AutowiredService {
             throw new PreconditionFailedException('User not found')
         }
         await this.addMembersById(teamId, [user.id], roles.map(x => x.name))
+
+        // SEND NOTIFICATIONS
+        try {
+            const isCentralized: boolean = organization?.options?.notifications?.centralized || false
+            const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+            let emailsCentralized: string[] = []
+            
+            if(isCentralized) {
+                emailsCentralized = organization.options.notifications.emails
+            }
+
+            // To the recently added user
+            this.mailerService
+                .sendMail({
+                    to: user.email,
+                    subject: `You were added to ${team.display_name} team`,
+                    template: "team-you-were-added",
+                    context: {
+                        addedUser: user,
+                        organization,
+                        team,
+                        frontendUrl,
+                        role: roles.map(x => x.name)
+                    },
+                })
+                .then((messageInfo) => {
+                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, TeamsService.name)
+                })
+                .catch((err) => {
+                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, TeamsService.name)
+                })
+
+            // If is centralized, to the centralized mails
+            if(isCentralized) {
+                this.mailerService
+                .sendMail({
+                    to: emailsCentralized,
+                    subject: `A member was added from ${team.display_name} team`,
+                    template: "team-new-member",
+                    context: {
+                        addedUser: user,
+                        organization,
+                        team,
+                        role: roles.map(x => x.name),
+                        frontendUrl,
+                    },
+                })
+                .then((messageInfo) => {
+                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
+                })
+                .catch((err) => {
+                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
+                })
+            }
+        } catch(ex) {
+            Logger.error("Error sending notifications of new member in a team", ex)
+        }
+
         return this.getMembers(teamId)
     }
 
     public async removeMemberFromTeam(teamId: string, userId: string): Promise<TeamMember[]> {
         const team: Team = await this.getTeamById(teamId)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+
         if (!team) {
             throw new PreconditionFailedException('Team not found')
+        }
+
+        if (!organization) {
+            throw new PreconditionFailedException("Team's organization not found")
         }
 
         const user: User = await this.usersService.getUserById(userId)
@@ -474,6 +545,62 @@ export class TeamsService extends AutowiredService {
             await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
         }*/
 
+
+        // SEND NOTIFICATIONS
+        try {
+            const isCentralized: boolean = organization?.options?.notifications?.centralized || false
+            const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+            let emailsCentralized: string[] = []
+            
+            if(isCentralized) {
+                emailsCentralized = organization.options.notifications.emails
+            }
+
+            // To the recently added user
+            this.mailerService
+                .sendMail({
+                    to: user.email,
+                    subject: `You were removed to ${team.display_name} team`,
+                    template: "team-you-were-removed",
+                    context: {
+                        removedUser: user,
+                        organization,
+                        team,
+                        frontendUrl
+                    },
+                })
+                .then((messageInfo) => {
+                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, TeamsService.name)
+                })
+                .catch((err) => {
+                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, TeamsService.name)
+                })
+
+            // If is centralized, to the centralized mails
+            if(isCentralized) {
+                this.mailerService
+                .sendMail({
+                    to: emailsCentralized,
+                    subject: `A member was removed from ${team.display_name} team`,
+                    template: "team-removed-member",
+                    context: {
+                        removedUser: user,
+                        organization,
+                        team,
+                        frontendUrl,
+                    },
+                })
+                .then((messageInfo) => {
+                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
+                })
+                .catch((err) => {
+                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
+                })
+            }
+        } catch(ex) {
+            Logger.error("Error sending notifications of removed member in a team", ex)
+        }
+
         return this.getMembers(team.id)
     }
 
@@ -493,8 +620,11 @@ export class TeamsService extends AutowiredService {
             const member: TeamMemberJoin = members.find((x: TeamMemberJoin) => x.member_id === user.id)
 
             if (!member) {
-                // IF IS NOT A MEMBER. CREATE IT
-                this.teamMemberProvider.create(new TeamMemberJoin(team.id, element.userId, [element.role], true))
+                const kysoRole: KysoRole = PlatformRole.ALL_PLATFORM_ROLES.find(x => x.name === element.role)
+                this.addMemberToTeam(team.id, element.userId, [kysoRole])
+                
+                // IF IS NOT A MEMBER. CREATE IT                
+                // this.teamMemberProvider.create(new TeamMemberJoin(team.id, element.userId, [element.role], true))
             } else {
                 await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
             }

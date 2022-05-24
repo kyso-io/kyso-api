@@ -223,4 +223,12 @@ export class PlatformRole {
         ],
         new mongo.ObjectId('61a8ae8f9c2bc3c5a2144073').toString(),
     )
+
+    public static ALL_PLATFORM_ROLES = [
+        this.PLATFORM_ADMIN_ROLE, 
+        this.ORGANIZATION_ADMIN_ROLE,
+        this.TEAM_ADMIN_ROLE,
+        this.TEAM_CONTRIBUTOR_ROLE,
+        this.TEAM_READER_ROLE
+    ]
 }
