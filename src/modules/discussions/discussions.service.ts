@@ -11,6 +11,7 @@ import { UsersService } from '../users/users.service'
 import { DiscussionsMongoProvider } from './providers/discussions-mongo.provider'
 import { GenericService } from '../../generic/service.generic'
 import { PlatformRole } from '../../security/platform-roles'
+import { auth } from 'google-auth-library'
 
 function factory(service: DiscussionsService) {
     return service
@@ -177,9 +178,142 @@ export class DiscussionsService extends AutowiredService implements GenericServi
 
     public async updateDiscussion(id: string, data: UpdateDiscussionRequestDTO): Promise<Discussion> {
         const discussion: Discussion = await this.getDiscussion({ filter: { id: id, mark_delete_at: { $eq: null } } })
-        if (!discussion) {
-            throw new PreconditionFailedException('Discussion not found')
+        const team: Team = await this.teamsService.getTeamById(discussion.team_id)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+
+        if (!discussion || ! team || !organization) {
+            Logger.error(`Discussion: ${discussion.id}`)
+            Logger.error(`Team: ${team.id}`)
+            Logger.error(`Organization: ${organization.id}`)
+            
+            throw new PreconditionFailedException('Discussion, team or organization not found')
         }
+
+        // SEND NOTIFICATIONS 
+        try {
+            const processedAssignees = [] 
+            const authorUser: User = await this.usersService.getUserById(discussion.user_id)
+            const isCentralized: boolean = organization?.options?.notifications?.centralized || false
+            let emailsCentralized: string[] = []
+            
+            if(isCentralized) {
+                emailsCentralized = organization.options.notifications.emails
+            }
+            
+            // Notify when a new assignment is settled
+            for(const dbAssignee of data.assignees) {
+                const existsInNewAssignees = discussion.assignees.find(incomingAssignee => dbAssignee === incomingAssignee)
+
+                if(!existsInNewAssignees) {
+                    // It's a new assignee. Notify to creator and added assignee
+                    const assigneeUser: User = await this.usersService.getUserById(dbAssignee)
+                    
+                    // To the assignee
+                    this.mailerService
+                        .sendMail({
+                            to: assigneeUser.email,
+                            subject: `You were assigned to the discussion ${discussion.title}`,
+                            template: "discussion-you-were-added-as-assignee",
+                            context: {
+                                organization,
+                                team,
+                                discussion,
+                                frontendUrl,
+                            },
+                        })
+                        .then((messageInfo) => {
+                            Logger.log(`Report mail ${messageInfo.messageId} sent to ${assigneeUser.email}`, DiscussionsService.name)
+                        })
+                        .catch((err) => {
+                            Logger.error(`An error occurrend sending report mail to ${assigneeUser.email}`, err, DiscussionsService.name)
+                        })
+
+                    // To the author
+                    let assignee = assigneeUser.display_name
+
+                    this.mailerService
+                        .sendMail({
+                            to: isCentralized ? emailsCentralized : authorUser.email,
+                            subject: `${assigneeUser.display_name} was assigned to the discussion ${discussion.title}`,
+                            template: "discussion-author-new-assignee",
+                            context: {
+                                assignee,
+                                organization,
+                                team,
+                                discussion,
+                                frontendUrl,
+                            },
+                        })
+                        .then((messageInfo) => {
+                            Logger.log(`Report mail ${messageInfo.messageId} sent to ${authorUser.email}`, DiscussionsService.name)
+                        })
+                        .catch((err) => {
+                            Logger.error(`An error occurrend sending report mail to ${authorUser.email}`, err, DiscussionsService.name)
+                        })
+
+                } // else { // Was already in the assignee list, nothing to do }
+
+                processedAssignees.push(dbAssignee)
+            }
+
+            const removedAssignees = discussion.assignees.filter(x => processedAssignees.indexOf(x) === -1)
+
+            if(removedAssignees) {
+                // Notify to removed assignees and creator
+                console.log(`Removed ${removedAssignees}`)
+                
+                for(const removed of removedAssignees) {
+                    const removedUser: User = await this.usersService.getUserById(removed)
+                    
+                    // To the assignee
+                    this.mailerService
+                        .sendMail({
+                            to: removedUser.email,
+                            subject: `You were unassigned to the discussion ${discussion.title}`,
+                            template: "discussion-you-were-removed-as-assignee",
+                            context: {
+                                organization,
+                                team,
+                                discussion,
+                                frontendUrl,
+                            },
+                        })
+                        .then((messageInfo) => {
+                            Logger.log(`Report mail ${messageInfo.messageId} sent to ${removedUser.email}`, DiscussionsService.name)
+                        })
+                        .catch((err) => {
+                            Logger.error(`An error occurrend sending report mail to ${removedUser.email}`, err, DiscussionsService.name)
+                        })
+        
+                    // To the author
+                    let assignee = removedUser.display_name
+        
+                    this.mailerService
+                        .sendMail({
+                            to: isCentralized ? emailsCentralized : authorUser.email,
+                            subject: `${removedUser.display_name} was unassigned to the discussion ${discussion.title}`,
+                            template: "discussion-author-removed-assignee",
+                            context: {
+                                assignee,
+                                organization,
+                                team,
+                                discussion,
+                                frontendUrl,
+                            },
+                        })
+                        .then((messageInfo) => {
+                            Logger.log(`Report mail ${messageInfo.messageId} sent to ${authorUser.email}`, DiscussionsService.name)
+                        })
+                        .catch((err) => {
+                            Logger.error(`An error occurrend sending report mail to ${authorUser.email}`, err, DiscussionsService.name)
+                        })
+                }
+            }
+        } catch(ex) {
+            Logger.error("Error sending notifications to new assignees in a discussion", ex)
+        }
+
         return this.provider.update(
             { _id: this.provider.toObjectId(discussion.id) },
             {

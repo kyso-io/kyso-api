@@ -17,6 +17,7 @@ import {
     UpdateOrganizationMembersDTO,
     User,
 } from '@kyso-io/kyso-model'
+import { MailerService } from '@nestjs-modules/mailer'
 import { BadRequestException, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import * as moment from 'moment'
 import { extname } from 'path'
@@ -61,7 +62,7 @@ export class OrganizationsService extends AutowiredService {
     @Autowired({ typeName: 'CommentsService' })
     private commentsService: CommentsService
 
-    constructor(private readonly provider: OrganizationsMongoProvider, private readonly organizationMemberProvider: OrganizationMemberMongoProvider) {
+    constructor(private readonly mailerService: MailerService, private readonly provider: OrganizationsMongoProvider, private readonly organizationMemberProvider: OrganizationMemberMongoProvider) {
         super()
     }
 
@@ -290,6 +291,63 @@ export class OrganizationsService extends AutowiredService {
             const newMember: OrganizationMemberJoin = new OrganizationMemberJoin(organization.id, user.id, [addUserOrganizationDto.role], true)
             await this.organizationMemberProvider.create(newMember)
         }
+
+        // SEND NOTIFICATIONS
+        try {
+            const isCentralized: boolean = organization?.options?.notifications?.centralized || false
+            const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+            let emailsCentralized: string[] = []
+            
+            if(isCentralized) {
+                emailsCentralized = organization.options.notifications.emails
+            }
+
+            // To the recently added user
+            this.mailerService
+                .sendMail({
+                    to: user.email,
+                    subject: `You are now member of ${organization.display_name} organization`,
+                    template: "organization-you-were-added",
+                    context: {
+                        addedUser: user,
+                        organization,
+                        role: addUserOrganizationDto.role,
+                        frontendUrl,
+                    },
+                })
+                .then((messageInfo) => {
+                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
+                })
+                .catch((err) => {
+                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
+                })
+
+            // If is centralized, to the centralized mails
+            if(isCentralized) {
+                this.mailerService
+                .sendMail({
+                    to: emailsCentralized,
+                    subject: `New member at ${organization.display_name} organization`,
+                    template: "organization-new-member",
+                    context: {
+                        addedUser: user,
+                        organization,
+                        role: addUserOrganizationDto.role,
+                        frontendUrl,
+                    },
+                })
+                .then((messageInfo) => {
+                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
+                })
+                .catch((err) => {
+                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
+                })
+            }
+        } catch(ex) {
+            Logger.error("Error sending notifications of new member in an organization", ex)
+        }
+        
+
         return this.getOrganizationMembers(organization.id)
     }
 
@@ -316,6 +374,63 @@ export class OrganizationsService extends AutowiredService {
             const newMember: OrganizationMemberJoin = new OrganizationMemberJoin(organization.id, user.id, [role], true)
             await this.organizationMemberProvider.create(newMember)
         }
+
+
+        // SEND NOTIFICATIONS
+        try {
+            const isCentralized: boolean = organization?.options?.notifications?.centralized || false
+            const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+            let emailsCentralized: string[] = []
+            
+            if(isCentralized) {
+                emailsCentralized = organization.options.notifications.emails
+            }
+
+            // To the recently added user
+            this.mailerService
+                .sendMail({
+                    to: user.email,
+                    subject: `You are now member of ${organization.display_name} organization`,
+                    template: "organization-you-were-added",
+                    context: {
+                        addedUser: user,
+                        organization,
+                        role: role,
+                        frontendUrl,
+                    },
+                })
+                .then((messageInfo) => {
+                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
+                })
+                .catch((err) => {
+                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
+                })
+
+            // If is centralized, to the centralized mails
+            if(isCentralized) {
+                this.mailerService
+                .sendMail({
+                    to: emailsCentralized,
+                    subject: `New member at ${organization.display_name} organization`,
+                    template: "organization-new-member",
+                    context: {
+                        addedUser: user,
+                        organization,
+                        role: role,
+                        frontendUrl,
+                    },
+                })
+                .then((messageInfo) => {
+                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
+                })
+                .catch((err) => {
+                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
+                })
+            }
+        } catch(ex) {
+            Logger.error("Error sending notifications of new member in an organization", ex)
+        }
+
         return true
     }
 
@@ -342,6 +457,59 @@ export class OrganizationsService extends AutowiredService {
         if (members.length === 0) {
             // Organization without members, delete it
             await this.provider.deleteOne({ _id: this.provider.toObjectId(organization.id) })
+        }
+
+        // SEND NOTIFICATIONS
+        try {
+            const isCentralized: boolean = organization?.options?.notifications?.centralized || false
+            const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+            let emailsCentralized: string[] = []
+            
+            if(isCentralized) {
+                emailsCentralized = organization.options.notifications.emails
+            }
+
+            // To the recently added user
+            this.mailerService
+                .sendMail({
+                    to: user.email,
+                    subject: `You were removed from ${organization.display_name} organization`,
+                    template: "organization-you-were-removed",
+                    context: {
+                        removedUser: user,
+                        organization,
+                        frontendUrl,
+                    },
+                })
+                .then((messageInfo) => {
+                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
+                })
+                .catch((err) => {
+                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
+                })
+
+            // If is centralized, to the centralized mails
+            if(isCentralized) {
+                this.mailerService
+                .sendMail({
+                    to: emailsCentralized,
+                    subject: `A member was removed from ${organization.display_name} organization`,
+                    template: "organization-removed-member",
+                    context: {
+                        removedUser: user,
+                        organization,
+                        frontendUrl,
+                    },
+                })
+                .then((messageInfo) => {
+                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
+                })
+                .catch((err) => {
+                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
+                })
+            }
+        } catch(ex) {
+            Logger.error("Error sending notifications of new member in an organization", ex)
         }
 
         return this.getOrganizationMembers(organization.id)
