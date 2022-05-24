@@ -751,7 +751,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             const reportFolderNameWithBasePath: string = join(basePath && basePath.length > 0 ? join(basePath, reportFolderName) : reportFolderName)
             let kysoConfigFile: KysoConfigFile = null
             for (const entry of zip.getEntries()) {
-                if (entry.entryName.startsWith(reportFolderNameWithBasePath)) {
+                if (entry.entryName.startsWith(reportFolderNameWithBasePath + '/')) {
                     const originalName: string = entry.entryName
                     const localFilePath = join(baseTmpDir, basePath && basePath.length > 0 ? entry.entryName.replace(basePath, '') : entry.entryName)
                     if (originalName.endsWith('kyso.json')) {
@@ -1503,7 +1503,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const desiredCommit: string = branch && branch.length > 0 ? branch : bitbucketRepository.defaultBranch
         const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
         const extractedDir = `${tmpFolder}/${uuidv4()}`
-        let zip: AdmZip;
+        let zip: AdmZip
         try {
             Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
             const buffer: Buffer = await this.bitbucketReposService.downloadRepository(userAccount.accessToken, repositoryName, desiredCommit)
