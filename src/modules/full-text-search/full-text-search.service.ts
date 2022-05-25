@@ -86,7 +86,7 @@ export class FullTextSearchService extends AutowiredService {
             }
         };
 
-        console.log(JSON.stringify(query))
+        // console.log(JSON.stringify(query))
 
 
         let res
