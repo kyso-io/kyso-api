@@ -54,10 +54,10 @@ export class FullTextSearchService extends AutowiredService {
         const allPeopleToFilter: string[] = filterPeople ? filterPeople.split(','): [];
 
         const mappedTerms = terms.split(" ").map(x => '*' + x + '*')
-        console.log(mappedTerms)
+        //console.log(mappedTerms)
 
         const joinedTerms = mappedTerms.join(" ")
-        console.log(joinedTerms)
+        //console.log(joinedTerms)
 
         let query = {
             from: fromIndex,
