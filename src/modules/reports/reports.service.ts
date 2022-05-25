@@ -870,6 +870,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     reportFile = await this.filesMongoProvider.create(reportFile)
                     reportFiles.push(reportFile)
                 }
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { main_file: kysoConfigFile?.main } })
             } else {
                 Logger.log(`Creating new report '${name}'`, ReportsService.name)
                 // New report
