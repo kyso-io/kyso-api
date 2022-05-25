@@ -620,14 +620,14 @@ export class TeamsService extends AutowiredService {
             const member: TeamMemberJoin = members.find((x: TeamMemberJoin) => x.member_id === user.id)
 
             if (!member) {
-                try {
+                /*try {
                     const kysoRole: KysoRole = PlatformRole.ALL_PLATFORM_ROLES.find(x => x.name === element.role)
                     this.addMemberToTeam(team.id, element.userId, [kysoRole])
                 } catch(ex) {
                     Logger.error(ex)
-                }
+                }*/
                 // IF IS NOT A MEMBER. CREATE IT                
-                // this.teamMemberProvider.create(new TeamMemberJoin(team.id, element.userId, [element.role], true))
+                this.teamMemberProvider.create(new TeamMemberJoin(team.id, element.userId, [element.role], true))
             } else {
                 await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
             }
