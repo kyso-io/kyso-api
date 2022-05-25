@@ -53,6 +53,12 @@ export class FullTextSearchService extends AutowiredService {
         const allTagsToFilter: string[] = filterTags ? filterTags.split(','): [];
         const allPeopleToFilter: string[] = filterPeople ? filterPeople.split(','): [];
 
+        const mappedTerms = terms.split(" ").map(x => '*' + x + '*')
+        console.log(mappedTerms)
+
+        const joinedTerms = mappedTerms.join(" ")
+        console.log(joinedTerms)
+
         let query = {
             from: fromIndex,
             size: perPage,
@@ -60,8 +66,9 @@ export class FullTextSearchService extends AutowiredService {
                 bool: {
                     must: [
                         {
-                            match: {
-                                content: terms
+                            query_string: {
+                                default_field: "content",
+                                query: joinedTerms
                             }
                         },
                         {
