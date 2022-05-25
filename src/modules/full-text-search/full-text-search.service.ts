@@ -63,7 +63,7 @@ export class FullTextSearchService extends AutowiredService {
                             match: {
                                 content: {
                                     query: terms,
-                                    fuzziness: "AUTO"
+                                    fuzziness: 5
                                 }
                             }
                         },
