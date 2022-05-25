@@ -64,7 +64,7 @@ export class FullTextSearchService extends AutowiredService {
                                 content: {
                                     query: terms,
                                     operator: "or",
-                                    fuzziness: 5
+                                    fuzziness: 3
                                 }
                             }
                         },
