@@ -102,6 +102,8 @@ export class FullTextSearchService extends AutowiredService {
                     }
                 }
             )
+
+            console.log(res)
         } catch(ex) {
             Logger.log("Error", ex)
         }
