@@ -103,7 +103,7 @@ export class FullTextSearchService extends AutowiredService {
                 }
             )
 
-            console.log(res)
+            console.log(res.data.hits.hits)
         } catch(ex) {
             Logger.log("Error", ex)
         }
