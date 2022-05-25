@@ -61,11 +61,7 @@ export class FullTextSearchService extends AutowiredService {
                     must: [
                         {
                             match: {
-                                content: {
-                                    query: terms,
-                                    operator: "or",
-                                    fuzziness: 5
-                                }
+                                content: terms
                             }
                         },
                         {
