@@ -2408,25 +2408,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 <head>
                 <!-- KYSO PREPROCESS START -->
                 <meta charset="utf-8" />
-                <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
-                <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS-MML_SVG"></script><script type="text/javascript">if (window.MathJax) {MathJax.Hub.Config({SVG: {font: "STIX-Web"}});}</script>
                 <script src="/static/iframeResizer.contentWindow.js"></script>
-                <script type="text/javascript">window.PlotlyConfig = {MathJaxConfig: 'local'};</script>
-                <script type="text/javascript">
-                  window.PlotlyConfig = {MathJaxConfig: 'local'}
-                    if (window.MathJax) {MathJax.Hub.Config({SVG: {font: "STIX-Web"}});}
-                    if (typeof require !== 'undefined') {
-                      require.undef("plotly");
-                      requirejs.config({
-                        paths: {
-                          'plotly': ['https://cdn.plot.ly/plotly-latest.min']
-                        }
-                      });
-                      require(['plotly'], function(Plotly) {
-                        window._Plotly = Plotly;
-                      });
-                    }
-                </script>
                 <script>
                     window.addEventListener('message', function(event) {
                       var output = document.getElementsByClassName('output_raw')[0]
