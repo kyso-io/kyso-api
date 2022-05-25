@@ -70,7 +70,7 @@ export class FullTextSearchService extends AutowiredService {
                                 default_field: "content",
                                 query: joinedTerms
                             }
-                        },
+                        }/*,
                         {
                             bool: {
                                 must: [
@@ -80,7 +80,7 @@ export class FullTextSearchService extends AutowiredService {
                                     ,filterPeople ? await this.buildFilter(allPeopleToFilter, "people") : { match: { content: terms } }
                                 ]
                             }
-                        }
+                        }*/
                     ]
                 }
             }
