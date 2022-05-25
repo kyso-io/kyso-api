@@ -61,7 +61,10 @@ export class FullTextSearchService extends AutowiredService {
                     must: [
                         {
                             match: {
-                                content: terms
+                                content: {
+                                    query: terms,
+                                    fuzziness: "AUTO"
+                                }
                             }
                         },
                         {
