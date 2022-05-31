@@ -1,6 +1,5 @@
 import {
     AuthProviderSpec,
-    CreateUserRequestDTO,
     KysoSettingsEnum,
     Login,
     LoginProviderEnum,
@@ -8,6 +7,7 @@ import {
     Organization,
     PingIdSAMLSpec,
     ReportPermissionsEnum,
+    SignUpDto,
     Team,
     TeamVisibilityEnum,
     Token,
@@ -22,6 +22,7 @@ import {
     Headers,
     HttpStatus,
     Logger,
+    NotFoundException,
     Param,
     Post,
     PreconditionFailedException,
@@ -244,8 +245,8 @@ export class AuthController extends GenericController<string> {
         description: `Allows new users to sign-up into Kyso`,
     })
     @ApiNormalizedResponse({ status: 201, description: `Registered user`, type: User })
-    public async signUp(@Body() data: CreateUserRequestDTO): Promise<NormalizedResponseDTO<User>> {
-        const user: User = await this.usersService.createUser(data)
+    public async signUp(@Body() signUpDto: SignUpDto): Promise<NormalizedResponseDTO<User>> {
+        const user: User = await this.usersService.createUser(signUpDto)
         return new NormalizedResponseDTO(user)
     }
 
@@ -288,6 +289,9 @@ export class AuthController extends GenericController<string> {
         description: `Token is invalid or expired`,
     })
     async refreshToken(@Headers('authorization') jwtToken: string): Promise<NormalizedResponseDTO<string>> {
+        if ('Bearer ' !== jwtToken.substring(0, 7)) {
+            throw new UnauthorizedException('Invalid token')
+        }
         try {
             const splittedToken = jwtToken.split('Bearer ')
             const decodedToken = this.authService.evaluateAndDecodeToken(splittedToken[1])
@@ -321,6 +325,20 @@ export class AuthController extends GenericController<string> {
         return new NormalizedResponseDTO(organization?.options?.auth)
     }
 
+    @Get('/username-available/:username')
+    @ApiParam({
+        name: 'username',
+        required: true,
+        description: `Username to check`,
+        schema: { type: 'string' },
+        example: 'janssen-randd',
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Username is available`, type: Boolean })
+    async checkUsernameAvailability(@Param('username') username: string): Promise<NormalizedResponseDTO<boolean>> {
+        const result = await this.usersService.checkUsernameAvailability(username)
+        return new NormalizedResponseDTO(result)
+    }
+
     @Get('/user/:username/permissions')
     @ApiParam({
         name: 'username',
@@ -332,7 +350,7 @@ export class AuthController extends GenericController<string> {
     @ApiBearerAuth()
     async getUserPermissions(@CurrentToken() requesterUser: Token, @Param('username') username: string) {
         if (!requesterUser) {
-            return new NormalizedResponseDTO([])
+            throw new UnauthorizedException('Unhautenticated request')
         }
         // If the user is global admin
         const result = new NormalizedResponseDTO(requesterUser.permissions)
@@ -349,13 +367,6 @@ export class AuthController extends GenericController<string> {
     }
 
     @Get('/check-permissions')
-    @ApiHeader({
-        name: 'Authorization',
-        description: 'Authorization header with "Bearer: {jwt}"',
-        required: true,
-        example:
-            'Bearer: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwYXlsb2FkIjp7ImlkIjoiNjIwMzEzMDk0NGI1ZjdlZDFkN2JjMGYyIiwibmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwibmlja25hbWUiOiJwYWxwYXRpbmUiLCJ1c2VybmFtZSI6InBhbHBhdGluZUBreXNvLmlvIiwiZW1haWwiOiJwYWxwYXRpbmVAa3lzby5pbyIsInBsYW4iOiJmcmVlIiwicGVybWlzc2lvbnMiOnt9LCJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9iaXQubHkvM0lYQUZraSIsImxvY2F0aW9uIjoiIiwibGluayI6IiIsImJpbyI6IltQbGF0Zm9ybSBBZG1pbl0gUGFscGF0aW5lIGlzIGEgcGxhdGZvcm0gYWRtaW4iLCJhY2NvdW50cyI6W3sidHlwZSI6ImdpdGh1YiIsImFjY291bnRJZCI6Ijk4NzQ5OTA5IiwidXNlcm5hbWUiOiJtb3phcnRtYWUifV19LCJpYXQiOjE2NDY5MTEyMDcsImV4cCI6MTY0Njk0MDAwNywiaXNzIjoia3lzbyJ9.ZQr-TbPcoGjEE2njhJ8a8yifgegv0uez8jJR-4AcBII',
-    })
     @ApiHeader({
         name: 'x-original-uri',
         description: 'Original SCS url',
@@ -386,13 +397,12 @@ export class AuthController extends GenericController<string> {
         const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
         if (!organization) {
             Logger.error(`Organization ${organizationName} not found`)
-            throw new PreconditionFailedException('Organization not found')
+            throw new NotFoundException('Organization not found')
         }
 
         const team: Team = await this.teamsService.getUniqueTeam(organization.id, teamName)
         if (!team) {
-            response.status(HttpStatus.FORBIDDEN).send()
-            return
+            throw new NotFoundException('Team not found')
         }
         if (team.visibility === TeamVisibilityEnum.PUBLIC) {
             response.status(HttpStatus.OK).send()

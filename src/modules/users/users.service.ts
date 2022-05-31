@@ -8,6 +8,7 @@ import {
     KysoUserAccessTokenStatus,
     LoginProviderEnum,
     Organization,
+    SignUpDto,
     Team,
     TeamVisibilityEnum,
     Token,
@@ -21,7 +22,7 @@ import {
     VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
-import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ConflictException, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import axios from 'axios'
 import * as moment from 'moment'
 import { ObjectId } from 'mongodb'
@@ -107,23 +108,53 @@ export class UsersService extends AutowiredService {
         return this.provider.update(filterQuery, updateQuery)
     }
 
-    async createUser(userToCreate: CreateUserRequestDTO): Promise<User> {
-        // exists a prev user with same email?
-        const userDb: User = await this.getUser({ filter: { username: userToCreate.username } })
-
-        if (!userToCreate.password) {
-            throw new PreconditionFailedException(null, 'Password unset')
+    public async checkUsernameAvailability(username: string): Promise<boolean> {
+        const organization: Organization = await this.organizationsService.getOrganization({
+            filter: { sluglified_name: username },
+        })
+        if (organization) {
+            return false
         }
+        const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: username } })
+        if (team) {
+            return false
+        }
+        const user: User = await this.getUser({ filter: { username } })
+        if (user) {
+            return false
+        }
+        return true
+    }
 
-        if (userDb) {
-            throw new PreconditionFailedException(null, 'User already exists')
+    async createUser(signUpDto: SignUpDto): Promise<User> {
+        // exists a prev user with same email?
+        const userWithEmail: User = await this.getUser({ filter: { email: signUpDto.email } })
+        if (userWithEmail) {
+            throw new ConflictException('User already exists')
+        }
+        const isUsernameAvailable: boolean = await this.checkUsernameAvailability(signUpDto.username)
+        if (!isUsernameAvailable) {
+            throw new ConflictException('Username in use')
         }
 
         // Create user into database
-        // Hash the password and delete the plain password property
-        const newUser: User = User.fromCreateUserRequest(userToCreate)
-        newUser.hashed_password = AuthService.hashPassword(userToCreate.password)
-        Logger.log(`Creating new user ${userToCreate.display_name}...`)
+        const newUser: User = new User(
+            signUpDto.email,
+            signUpDto.username,
+            signUpDto.display_name,
+            signUpDto.display_name,
+            LoginProviderEnum.KYSO,
+            null,
+            null,
+            null,
+            'free',
+            null,
+            false,
+            [],
+            AuthService.hashPassword(signUpDto.password),
+            null,
+        )
+        Logger.log(`Creating new user ${signUpDto.display_name} with email ${signUpDto.email}...`)
         const user: User = await this.provider.create(newUser)
 
         // Create user organization
@@ -137,7 +168,7 @@ export class UsersService extends AutowiredService {
         await this.organizationsService.addMembersById(organizationDb.id, [user.id], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name])
 
         // Create user team
-        const teamName: string = "My Private Team"
+        const teamName: string = 'My Private Team'
         const newUserTeam: Team = new Team(teamName, '', '', '', '', [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
         Logger.log(`Creating new team ${newUserTeam.sluglified_name}...`)
         const userTeamDb: Team = await this.teamsService.createTeam(newUserTeam)
@@ -146,7 +177,7 @@ export class UsersService extends AutowiredService {
         Logger.log(`Adding ${user.display_name} to team ${userTeamDb.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}...`)
         await this.teamsService.addMembersById(userTeamDb.id, [user.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
 
-        Logger.log(`Sending email to ${user.email}`);
+        Logger.log(`Sending email to ${user.email}`)
 
         this.mailerService
             .sendMail({
@@ -261,11 +292,13 @@ export class UsersService extends AutowiredService {
         if (!user.hasOwnProperty('accounts')) {
             user.accounts = []
         }
-        
-        // Bitbucket and Gitlab accountIds are strings, but Github is a number. So the account.accountId === accountId works for 
+
+        // Bitbucket and Gitlab accountIds are strings, but Github is a number. So the account.accountId === accountId works for
         // bitbucket and gitlab, but not for github. For that reason we added .toString() to the comparison
         // to force to compare as string and avoid the github malfunction.
-        const index: number = user.accounts.findIndex((account: UserAccount) => account.accountId.toString() === accountId.toString() && account.type === provider)
+        const index: number = user.accounts.findIndex(
+            (account: UserAccount) => account.accountId.toString() === accountId.toString() && account.type === provider,
+        )
         if (index !== -1) {
             const userAccounts: UserAccount[] = [...user.accounts.slice(0, index), ...user.accounts.slice(index + 1)]
             await this.updateUser({ _id: this.provider.toObjectId(id) }, { $set: { accounts: userAccounts } })
@@ -362,8 +395,14 @@ export class UsersService extends AutowiredService {
         })
     }
 
-    public async createKysoAccessToken(user_id: string, name: string, scope: KysoPermissions[], expiration_date?: Date): Promise<KysoUserAccessToken> {
-        const accessToken = new KysoUserAccessToken(user_id, name, KysoUserAccessTokenStatus.ACTIVE, expiration_date, null, scope, 0, uuidv4())
+    public async createKysoAccessToken(
+        user_id: string,
+        name: string,
+        scope: KysoPermissions[],
+        expiration_date?: Date,
+        access_token?: string,
+    ): Promise<KysoUserAccessToken> {
+        const accessToken = new KysoUserAccessToken(user_id, name, KysoUserAccessTokenStatus.ACTIVE, expiration_date, null, scope, 0, access_token ?? uuidv4())
         const newKysoUserAccessToken: KysoUserAccessToken = await this.kysoAccessTokenProvider.create(accessToken)
         return newKysoUserAccessToken
     }
@@ -499,16 +538,16 @@ export class UsersService extends AutowiredService {
             throw new PreconditionFailedException('User not registered')
         }
 
-        const recaptchaEnabled = await this.kysoSettingsService.getValue(KysoSettingsEnum.RECAPTCHA2_ENABLED) === "true" ? true : false
-        
-        if(recaptchaEnabled) {
+        const recaptchaEnabled = (await this.kysoSettingsService.getValue(KysoSettingsEnum.RECAPTCHA2_ENABLED)) === 'true' ? true : false
+
+        if (recaptchaEnabled) {
             const validCaptcha: boolean = await this.verifyCaptcha(user.id, { token: emailUserChangePasswordDTO.captchaToken })
-        
+
             if (!validCaptcha) {
                 throw new PreconditionFailedException('Invalid captcha')
             }
         }
-        
+
         // Link to change user password
         const minutes: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_MINUTES_TOKEN_RECOVERY_PASSWORD)
         let userForgotPassword: UserForgotPassword = new UserForgotPassword(encodeURI(user.email), uuidv4(), user.id, moment().add(minutes, 'minutes').toDate())
