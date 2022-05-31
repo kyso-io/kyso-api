@@ -96,12 +96,6 @@ export class TestingDataPopulatorService {
     @Autowired({ typeName: 'TagsService' })
     private tagsService: TagsService
 
-    constructor() {
-        setTimeout(() => {
-            // this.createAccessTokens()
-        }, 1000)
-    }
-
     public async populateTestData() {
         if (process.env.POPULATE_TEST_DATA && process.env.POPULATE_TEST_DATA === 'true') {
             Logger.log(`
@@ -249,6 +243,31 @@ export class TestingDataPopulatorService {
         this.Gideon_OrganizationAdminUser = await this._createUser(gideon_TestOrganizationAdminUser)
         this.BabyYoda_OrganizationAdminUser = await this._createUser(babyYoda_TestOrganizationAdminUser)
         this.Palpatine_PlatformAdminUser = await this._createUser(palpatine_TestPlatformAdminUser)
+
+        await this.usersService.updateUser(
+            { id: this.Rey_TeamAdminUser.id },
+            { $set: { email_verified: true, show_captcha: false, avatar_url: rey_TestTeamAdminUser.avatar_url } },
+        )
+        await this.usersService.updateUser(
+            { id: this.Kylo_TeamContributorUser.id },
+            { $set: { email_verified: true, show_captcha: false, avatar_url: kylo_TestTeamContributorUser.avatar_url } },
+        )
+        await this.usersService.updateUser(
+            { id: this.Chewbacca_TeamReaderUser.id },
+            { $set: { email_verified: true, show_captcha: false, avatar_url: chewbacca_TestTeamReaderUser.avatar_url } },
+        )
+        await this.usersService.updateUser(
+            { id: this.Gideon_OrganizationAdminUser.id },
+            { $set: { email_verified: true, show_captcha: false, avatar_url: gideon_TestOrganizationAdminUser.avatar_url } },
+        )
+        await this.usersService.updateUser(
+            { id: this.BabyYoda_OrganizationAdminUser.id },
+            { $set: { email_verified: true, show_captcha: false, avatar_url: palpatine_TestPlatformAdminUser.avatar_url } },
+        )
+        await this.usersService.updateUser(
+            { id: this.Palpatine_PlatformAdminUser.id },
+            { $set: { email_verified: true, show_captcha: false, avatar_url: babyYoda_TestOrganizationAdminUser.avatar_url } },
+        )
     }
 
     private async createAccessTokens(): Promise<void> {

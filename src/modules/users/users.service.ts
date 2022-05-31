@@ -22,8 +22,9 @@ import {
     VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
-import { ConflictException, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import axios from 'axios'
+import { NODATA } from 'dns'
 import * as moment from 'moment'
 import { ObjectId } from 'mongodb'
 import { extname } from 'path'
@@ -417,11 +418,11 @@ export class UsersService extends AutowiredService {
             filter: { _id: this.provider.toObjectId(id) },
         })
         if (accessTokens.length === 0) {
-            throw new PreconditionFailedException('Access token not found')
+            throw new NotFoundException('Access token not found')
         }
         const kysoAccessToken: KysoUserAccessToken = accessTokens[0]
         if (kysoAccessToken.user_id !== userId) {
-            throw new PreconditionFailedException('Invalid credentials')
+            throw new ForbiddenException('Invalid credentials')
         }
         delete kysoAccessToken.access_token
         await this.kysoAccessTokenProvider.deleteOne({ _id: this.provider.toObjectId(id) })

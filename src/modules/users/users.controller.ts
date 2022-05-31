@@ -16,7 +16,22 @@ import {
     UserPermissionsEnum,
     VerifyCaptchaRequestDto,
 } from '@kyso-io/kyso-model'
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
+import {
+    BadRequestException,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    NotFoundException,
+    Param,
+    Patch,
+    Post,
+    Query,
+    Req,
+    UploadedFile,
+    UseGuards,
+    UseInterceptors,
+} from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -130,12 +145,6 @@ export class UsersController extends GenericController<User> {
         summary: `Creates an access token for the specified user`,
         description: `Creates an access token for the specified user`,
     })
-    @ApiParam({
-        name: 'userId',
-        required: true,
-        description: `id of the user to create an access token`,
-        schema: { type: 'string' },
-    })
     @ApiResponse({ status: 200, description: `Access Token created successfully`, type: KysoUserAccessToken })
     // @Permission([UserPermissionsEnum.EDIT])
     async createUserAccessToken(
@@ -204,7 +213,7 @@ export class UsersController extends GenericController<User> {
     async getUserById(@Param('userId') userId: string): Promise<NormalizedResponseDTO<UserDTO>> {
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
-            throw new BadRequestException(`User with id ${userId} not found`)
+            throw new NotFoundException(`User with id ${userId} not found`)
         }
         return new NormalizedResponseDTO(UserDTO.fromUser(user))
     }
@@ -250,7 +259,7 @@ export class UsersController extends GenericController<User> {
             throw new BadRequestException(`User with id ${userId} not found`)
         }
 
-        return user.avatar_url       
+        return user.avatar_url
     }
 
     @Get('/:userId/public-data')
@@ -273,7 +282,7 @@ export class UsersController extends GenericController<User> {
         }
 
         const userDto: UserDTO = UserDTO.fromUser(user)
-        return new NormalizedResponseDTO(userDto)     
+        return new NormalizedResponseDTO(userDto)
     }
 
     @Post()
