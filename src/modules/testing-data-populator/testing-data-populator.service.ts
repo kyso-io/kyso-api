@@ -21,6 +21,7 @@ import {
 } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import { Injectable, Logger } from '@nestjs/common'
+import * as moment from 'moment'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { PlatformRole } from '../../security/platform-roles'
@@ -34,7 +35,7 @@ import { UsersService } from '../users/users.service'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { exec } = require('child_process')
 
-const mailPrefix = process.env.POPULATE_TEST_DATA_MAIL_PREFIX ? process.env.POPULATE_TEST_DATA_MAIL_PREFIX : "lo"
+const mailPrefix = process.env.POPULATE_TEST_DATA_MAIL_PREFIX ? process.env.POPULATE_TEST_DATA_MAIL_PREFIX : 'lo'
 @Injectable()
 export class TestingDataPopulatorService {
     private Rey_TeamAdminUser: User
@@ -95,6 +96,12 @@ export class TestingDataPopulatorService {
     @Autowired({ typeName: 'TagsService' })
     private tagsService: TagsService
 
+    constructor() {
+        setTimeout(() => {
+            // this.createAccessTokens()
+        }, 1000)
+    }
+
     public async populateTestData() {
         if (process.env.POPULATE_TEST_DATA && process.env.POPULATE_TEST_DATA === 'true') {
             Logger.log(`
@@ -113,6 +120,7 @@ export class TestingDataPopulatorService {
             }
 
             await this.createTestingUsers()
+            await this.createAccessTokens()
             await this.createOrganizations()
             await this.createTeams()
             await this.assignUsersToOrganizations()
@@ -129,7 +137,9 @@ export class TestingDataPopulatorService {
 
     private async checkIfAlreadyExists() {
         // I assume only these two usernames exist if they were created by the test data populator
-        const testUsersByUsername = await this.usersService.getUsers({ filter: { $or: [{ email: `${mailPrefix}+rey@dev.kyso.io` }, { email: `${mailPrefix}+kylo@dev.kyso.io` }] } })
+        const testUsersByUsername = await this.usersService.getUsers({
+            filter: { $or: [{ email: `${mailPrefix}+rey@dev.kyso.io` }, { email: `${mailPrefix}+kylo@dev.kyso.io` }] },
+        })
         if (testUsersByUsername.length === 2) {
             return true
         }
@@ -137,8 +147,6 @@ export class TestingDataPopulatorService {
     }
 
     private async createTestingUsers() {
-        
-
         const rey_TestTeamAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
             `${mailPrefix}+rey@dev.kyso.io`,
             'skywalker',
@@ -241,6 +249,12 @@ export class TestingDataPopulatorService {
         this.Gideon_OrganizationAdminUser = await this._createUser(gideon_TestOrganizationAdminUser)
         this.BabyYoda_OrganizationAdminUser = await this._createUser(babyYoda_TestOrganizationAdminUser)
         this.Palpatine_PlatformAdminUser = await this._createUser(palpatine_TestPlatformAdminUser)
+    }
+
+    private async createAccessTokens(): Promise<void> {
+        // rey
+        const accessTokenUuid: string = 'abcdef123456'
+        await this.usersService.createKysoAccessToken(this.Rey_TeamAdminUser.id, 'test-access-token', [], moment().add(100, 'years').toDate(), accessTokenUuid)
     }
 
     private async _updateUserAccounts() {
