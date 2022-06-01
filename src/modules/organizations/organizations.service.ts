@@ -700,7 +700,9 @@ export class OrganizationsService extends AutowiredService {
         }
         teams.forEach((team: Team) => {
             teamOrgMap.set(team.id, team.organization_id)
-            map.get(team.organization_id).lastChange = moment.max(moment(team.updated_at), moment(map.get(team.organization_id).lastChange)).toDate()
+            if (map.has(team.organization_id)) {
+                map.get(team.organization_id).lastChange = moment.max(moment(team.updated_at), moment(map.get(team.organization_id).lastChange)).toDate()
+            }
         })
         const reports: Report[] = await this.reportsService.getReports(reportsQuery)
         const mapReportOrg: Map<string, string> = new Map<string, string>()
