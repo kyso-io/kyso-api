@@ -1,7 +1,6 @@
 import {
     AddUserAccountDTO,
     CreateKysoAccessTokenDto,
-    CreateUserRequestDTO,
     EmailUserChangePasswordDTO,
     HEADER_X_KYSO_ORGANIZATION,
     HEADER_X_KYSO_TEAM,
@@ -21,6 +20,7 @@ import {
     Body,
     Controller,
     Delete,
+    ForbiddenException,
     Get,
     NotFoundException,
     Param,
@@ -39,6 +39,7 @@ import { Autowired } from '../../decorators/autowired'
 import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
+import { Validators } from '../../helpers/validators'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { AuthService } from '../auth/auth.service'
@@ -193,6 +194,9 @@ export class UsersController extends GenericController<User> {
         @CurrentToken() token: Token,
         @Param('accessTokenId') accessTokenId: string,
     ): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+        if (!Validators.isValidObjectId(accessTokenId)) {
+            throw new BadRequestException(`Invalid access token id ${accessTokenId}`)
+        }
         const result: KysoUserAccessToken = await this.usersService.deleteKysoAccessToken(token.id, accessTokenId)
         return new NormalizedResponseDTO(result)
     }
@@ -211,6 +215,9 @@ export class UsersController extends GenericController<User> {
     @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
     @Permission([UserPermissionsEnum.READ])
     async getUserById(@Param('userId') userId: string): Promise<NormalizedResponseDTO<UserDTO>> {
+        if (!Validators.isValidObjectId(userId)) {
+            throw new BadRequestException(`Invalid user id ${userId}`)
+        }
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
             throw new NotFoundException(`User with id ${userId} not found`)
@@ -234,7 +241,7 @@ export class UsersController extends GenericController<User> {
     async getUserProfile(@Param('username') username: string): Promise<NormalizedResponseDTO<UserDTO>> {
         const user: User = await this.usersService.getUser({ filter: { username } })
         if (!user) {
-            throw new BadRequestException(`User with username ${username} not found`)
+            throw new NotFoundException(`User with username ${username} not found`)
         }
         const userDto: UserDTO = UserDTO.fromUser(user)
         return new NormalizedResponseDTO(userDto)
@@ -254,11 +261,13 @@ export class UsersController extends GenericController<User> {
     })
     @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
     async getUserPortrait(@Param('userId') userId: string): Promise<string> {
+        if (!Validators.isValidObjectId(userId)) {
+            throw new BadRequestException(`Invalid user id ${userId}`)
+        }
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
-            throw new BadRequestException(`User with id ${userId} not found`)
+            throw new NotFoundException(`User with id ${userId} not found`)
         }
-
         return user.avatar_url
     }
 
@@ -276,25 +285,19 @@ export class UsersController extends GenericController<User> {
     })
     @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
     async getUserPublicData(@Param('userId') userId: string): Promise<NormalizedResponseDTO<UserDTO>> {
+        if (!Validators.isValidObjectId(userId)) {
+            throw new BadRequestException(`Invalid user id ${userId}`)
+        }
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
-            throw new BadRequestException(`User with id ${userId} not found`)
+            throw new NotFoundException(`User with id ${userId} not found`)
         }
-
+        user.accounts = []
+        delete user.accounts
+        delete user.email_verified
+        delete user.show_captcha
         const userDto: UserDTO = UserDTO.fromUser(user)
         return new NormalizedResponseDTO(userDto)
-    }
-
-    @Post()
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
-    @ApiOperation({
-        summary: `Creates an user`,
-        description: `If requester has UserPermissionsEnum.CREATE permission, creates an user`,
-    })
-    @ApiNormalizedResponse({ status: 201, description: `User creation gone well`, type: User })
-    @Permission([UserPermissionsEnum.CREATE])
-    async createUser(@Body() user: CreateUserRequestDTO): Promise<NormalizedResponseDTO<UserDTO>> {
-        return new NormalizedResponseDTO(UserDTO.fromUser(await this.usersService.createUser(user)))
     }
 
     @Patch('/:userId')
@@ -314,19 +317,41 @@ export class UsersController extends GenericController<User> {
         description: `Authenticated user data`,
         type: User,
     })
-    public async updateUserData(@Param('userId') userId: string, @Body() data: UpdateUserRequestDTO): Promise<NormalizedResponseDTO<UserDTO>> {
+    public async updateUserData(
+        @CurrentToken() token: Token,
+        @Param('userId') userId: string,
+        @Body() data: UpdateUserRequestDTO,
+    ): Promise<NormalizedResponseDTO<UserDTO>> {
+        if (!Validators.isValidObjectId(userId)) {
+            throw new BadRequestException(`Invalid user id ${userId}`)
+        }
+        if (token.id !== userId) {
+            throw new ForbiddenException(`You are not allowed to update this user`)
+        }
         const user: User = await this.usersService.updateUserData(userId, data)
         return new NormalizedResponseDTO(UserDTO.fromUser(user))
     }
 
-    @Delete('/:id')
+    @Delete('/profile-picture')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @ApiOperation({
+        summary: `Delete a profile picture for a team`,
+        description: `Allows deleting a profile picture for a user`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: UserDTO })
+    public async deleteBackgroundImage(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<UserDTO>> {
+        const user: User = await this.usersService.deleteProfilePicture(token)
+        return new NormalizedResponseDTO(UserDTO.fromUser(user))
+    }
+
+    @Delete('/:userId')
     @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Delete a user`,
         description: `Allows deleting a specific user passing its id`,
     })
     @ApiParam({
-        name: 'id',
+        name: 'userId',
         required: true,
         description: `Id of the user to delete`,
         schema: { type: 'string' },
@@ -335,6 +360,9 @@ export class UsersController extends GenericController<User> {
     @ApiNormalizedResponse({ status: 200, description: `Organization matching name`, type: Boolean })
     @Permission([UserPermissionsEnum.DELETE])
     async deleteUser(@Param('userId') userId: string): Promise<NormalizedResponseDTO<boolean>> {
+        if (!Validators.isValidObjectId(userId)) {
+            throw new BadRequestException(`Invalid user id ${userId}`)
+        }
         const deleted: boolean = await this.usersService.deleteUser(userId)
         return new NormalizedResponseDTO(deleted)
     }
@@ -376,7 +404,7 @@ export class UsersController extends GenericController<User> {
         schema: { type: 'string' },
     })
     @ApiResponse({ status: 200, description: `Account removed successfully`, type: Boolean })
-    @Permission([UserPermissionsEnum.EDIT])
+    // @Permission([UserPermissionsEnum.EDIT])
     async removeAccount(
         @CurrentToken() token: Token,
         @Param('provider') provider: string,
@@ -402,18 +430,6 @@ export class UsersController extends GenericController<User> {
             throw new BadRequestException(`Only image files are allowed`)
         }
         const user: User = await this.usersService.setProfilePicture(token, file)
-        return new NormalizedResponseDTO(UserDTO.fromUser(user))
-    }
-
-    @Delete('/profile-picture')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
-    @ApiOperation({
-        summary: `Delete a profile picture for a team`,
-        description: `Allows deleting a profile picture for a user`,
-    })
-    @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: UserDTO })
-    public async deleteBackgroundImage(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<UserDTO>> {
-        const user: User = await this.usersService.deleteProfilePicture(token)
         return new NormalizedResponseDTO(UserDTO.fromUser(user))
     }
 

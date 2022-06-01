@@ -238,7 +238,7 @@ export class UsersService extends AutowiredService {
     async deleteUser(id: string): Promise<boolean> {
         const user: User = await this.getUserById(id)
         if (!user) {
-            throw new PreconditionFailedException(null, `Can't delete user as does not exists`)
+            throw new NotFoundException('User not found')
         }
 
         const teams: Team[] = await this.teamsService.getUserTeams(user.id)
@@ -288,7 +288,7 @@ export class UsersService extends AutowiredService {
     public async removeAccount(id: string, provider: string, accountId: string): Promise<boolean> {
         const user: User = await this.getUserById(id)
         if (!user) {
-            throw new PreconditionFailedException(null, `Can't remove account to user as does not exists`)
+            throw new NotFoundException('User not found')
         }
         if (!user.hasOwnProperty('accounts')) {
             user.accounts = []
@@ -304,7 +304,7 @@ export class UsersService extends AutowiredService {
             const userAccounts: UserAccount[] = [...user.accounts.slice(0, index), ...user.accounts.slice(index + 1)]
             await this.updateUser({ _id: this.provider.toObjectId(id) }, { $set: { accounts: userAccounts } })
         } else {
-            throw new PreconditionFailedException(null, `The user has not registered this account`)
+            throw new NotFoundException(`The user has not registered this account`)
         }
         return true
     }
@@ -312,7 +312,7 @@ export class UsersService extends AutowiredService {
     public async updateUserData(id: string, data: UpdateUserRequestDTO): Promise<User> {
         const user: User = await this.getUserById(id)
         if (!user) {
-            throw new PreconditionFailedException(null, `Can't update user as does not exists`)
+            throw new NotFoundException('User not found')
         }
         return this.updateUser(
             { _id: this.provider.toObjectId(id) },

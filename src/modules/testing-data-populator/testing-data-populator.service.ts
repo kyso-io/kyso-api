@@ -246,27 +246,69 @@ export class TestingDataPopulatorService {
 
         await this.usersService.updateUser(
             { id: this.Rey_TeamAdminUser.id },
-            { $set: { email_verified: true, show_captcha: false, avatar_url: rey_TestTeamAdminUser.avatar_url } },
+            {
+                $set: {
+                    email_verified: true,
+                    show_captcha: false,
+                    avatar_url: rey_TestTeamAdminUser.avatar_url,
+                    global_permissions: rey_TestTeamAdminUser.global_permissions,
+                },
+            },
         )
         await this.usersService.updateUser(
             { id: this.Kylo_TeamContributorUser.id },
-            { $set: { email_verified: true, show_captcha: false, avatar_url: kylo_TestTeamContributorUser.avatar_url } },
+            {
+                $set: {
+                    email_verified: true,
+                    show_captcha: false,
+                    avatar_url: kylo_TestTeamContributorUser.avatar_url,
+                    global_permissions: kylo_TestTeamContributorUser.global_permissions,
+                },
+            },
         )
         await this.usersService.updateUser(
             { id: this.Chewbacca_TeamReaderUser.id },
-            { $set: { email_verified: true, show_captcha: false, avatar_url: chewbacca_TestTeamReaderUser.avatar_url } },
+            {
+                $set: {
+                    email_verified: true,
+                    show_captcha: false,
+                    avatar_url: chewbacca_TestTeamReaderUser.avatar_url,
+                    global_permissions: chewbacca_TestTeamReaderUser.global_permissions,
+                },
+            },
         )
         await this.usersService.updateUser(
             { id: this.Gideon_OrganizationAdminUser.id },
-            { $set: { email_verified: true, show_captcha: false, avatar_url: gideon_TestOrganizationAdminUser.avatar_url } },
+            {
+                $set: {
+                    email_verified: true,
+                    show_captcha: false,
+                    avatar_url: gideon_TestOrganizationAdminUser.avatar_url,
+                    global_permissions: gideon_TestOrganizationAdminUser.global_permissions,
+                },
+            },
         )
         await this.usersService.updateUser(
             { id: this.BabyYoda_OrganizationAdminUser.id },
-            { $set: { email_verified: true, show_captcha: false, avatar_url: palpatine_TestPlatformAdminUser.avatar_url } },
+            {
+                $set: {
+                    email_verified: true,
+                    show_captcha: false,
+                    avatar_url: palpatine_TestPlatformAdminUser.avatar_url,
+                    global_permissions: palpatine_TestPlatformAdminUser.global_permissions,
+                },
+            },
         )
         await this.usersService.updateUser(
             { id: this.Palpatine_PlatformAdminUser.id },
-            { $set: { email_verified: true, show_captcha: false, avatar_url: babyYoda_TestOrganizationAdminUser.avatar_url } },
+            {
+                $set: {
+                    email_verified: true,
+                    show_captcha: false,
+                    avatar_url: babyYoda_TestOrganizationAdminUser.avatar_url,
+                    global_permissions: babyYoda_TestOrganizationAdminUser.global_permissions,
+                },
+            },
         )
     }
 
