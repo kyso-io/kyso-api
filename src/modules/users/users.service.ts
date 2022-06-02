@@ -22,8 +22,9 @@ import {
     VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
-import { ConflictException, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import axios from 'axios'
+import { NODATA } from 'dns'
 import * as moment from 'moment'
 import { ObjectId } from 'mongodb'
 import { extname } from 'path'
@@ -237,7 +238,7 @@ export class UsersService extends AutowiredService {
     async deleteUser(id: string): Promise<boolean> {
         const user: User = await this.getUserById(id)
         if (!user) {
-            throw new PreconditionFailedException(null, `Can't delete user as does not exists`)
+            throw new NotFoundException('User not found')
         }
 
         const teams: Team[] = await this.teamsService.getUserTeams(user.id)
@@ -287,7 +288,7 @@ export class UsersService extends AutowiredService {
     public async removeAccount(id: string, provider: string, accountId: string): Promise<boolean> {
         const user: User = await this.getUserById(id)
         if (!user) {
-            throw new PreconditionFailedException(null, `Can't remove account to user as does not exists`)
+            throw new NotFoundException('User not found')
         }
         if (!user.hasOwnProperty('accounts')) {
             user.accounts = []
@@ -303,7 +304,7 @@ export class UsersService extends AutowiredService {
             const userAccounts: UserAccount[] = [...user.accounts.slice(0, index), ...user.accounts.slice(index + 1)]
             await this.updateUser({ _id: this.provider.toObjectId(id) }, { $set: { accounts: userAccounts } })
         } else {
-            throw new PreconditionFailedException(null, `The user has not registered this account`)
+            throw new NotFoundException(`The user has not registered this account`)
         }
         return true
     }
@@ -311,7 +312,7 @@ export class UsersService extends AutowiredService {
     public async updateUserData(id: string, data: UpdateUserRequestDTO): Promise<User> {
         const user: User = await this.getUserById(id)
         if (!user) {
-            throw new PreconditionFailedException(null, `Can't update user as does not exists`)
+            throw new NotFoundException('User not found')
         }
         return this.updateUser(
             { _id: this.provider.toObjectId(id) },
@@ -417,11 +418,11 @@ export class UsersService extends AutowiredService {
             filter: { _id: this.provider.toObjectId(id) },
         })
         if (accessTokens.length === 0) {
-            throw new PreconditionFailedException('Access token not found')
+            throw new NotFoundException('Access token not found')
         }
         const kysoAccessToken: KysoUserAccessToken = accessTokens[0]
         if (kysoAccessToken.user_id !== userId) {
-            throw new PreconditionFailedException('Invalid credentials')
+            throw new ForbiddenException('Invalid credentials')
         }
         delete kysoAccessToken.access_token
         await this.kysoAccessTokenProvider.deleteOne({ _id: this.provider.toObjectId(id) })

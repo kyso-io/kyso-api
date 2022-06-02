@@ -2,6 +2,7 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client
 import {
     AddUserOrganizationDto,
     Comment,
+    Discussion,
     KysoRole,
     KysoSettingsEnum,
     Organization,
@@ -26,6 +27,7 @@ import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { PlatformRole } from '../../security/platform-roles'
 import { CommentsService } from '../comments/comments.service'
+import { DiscussionsService } from '../discussions/discussions.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
@@ -62,7 +64,14 @@ export class OrganizationsService extends AutowiredService {
     @Autowired({ typeName: 'CommentsService' })
     private commentsService: CommentsService
 
-    constructor(private readonly mailerService: MailerService, private readonly provider: OrganizationsMongoProvider, private readonly organizationMemberProvider: OrganizationMemberMongoProvider) {
+    @Autowired({ typeName: 'DiscussionsService' })
+    private discussionsService: DiscussionsService
+
+    constructor(
+        private readonly mailerService: MailerService,
+        private readonly provider: OrganizationsMongoProvider,
+        private readonly organizationMemberProvider: OrganizationMemberMongoProvider,
+    ) {
         super()
     }
 
@@ -297,8 +306,8 @@ export class OrganizationsService extends AutowiredService {
             const isCentralized: boolean = organization?.options?.notifications?.centralized || false
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
             let emailsCentralized: string[] = []
-            
-            if(isCentralized) {
+
+            if (isCentralized) {
                 emailsCentralized = organization.options.notifications.emails
             }
 
@@ -307,7 +316,7 @@ export class OrganizationsService extends AutowiredService {
                 .sendMail({
                     to: user.email,
                     subject: `You are now member of ${organization.display_name} organization`,
-                    template: "organization-you-were-added",
+                    template: 'organization-you-were-added',
                     context: {
                         addedUser: user,
                         organization,
@@ -323,30 +332,29 @@ export class OrganizationsService extends AutowiredService {
                 })
 
             // If is centralized, to the centralized mails
-            if(isCentralized) {
+            if (isCentralized) {
                 this.mailerService
-                .sendMail({
-                    to: emailsCentralized,
-                    subject: `New member at ${organization.display_name} organization`,
-                    template: "organization-new-member",
-                    context: {
-                        addedUser: user,
-                        organization,
-                        role: addUserOrganizationDto.role,
-                        frontendUrl,
-                    },
-                })
-                .then((messageInfo) => {
-                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
-                })
-                .catch((err) => {
-                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
-                })
+                    .sendMail({
+                        to: emailsCentralized,
+                        subject: `New member at ${organization.display_name} organization`,
+                        template: 'organization-new-member',
+                        context: {
+                            addedUser: user,
+                            organization,
+                            role: addUserOrganizationDto.role,
+                            frontendUrl,
+                        },
+                    })
+                    .then((messageInfo) => {
+                        Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
+                    })
+                    .catch((err) => {
+                        Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
+                    })
             }
-        } catch(ex) {
-            Logger.error("Error sending notifications of new member in an organization", ex)
+        } catch (ex) {
+            Logger.error('Error sending notifications of new member in an organization', ex)
         }
-        
 
         return this.getOrganizationMembers(organization.id)
     }
@@ -375,14 +383,13 @@ export class OrganizationsService extends AutowiredService {
             await this.organizationMemberProvider.create(newMember)
         }
 
-
         // SEND NOTIFICATIONS
         try {
             const isCentralized: boolean = organization?.options?.notifications?.centralized || false
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
             let emailsCentralized: string[] = []
-            
-            if(isCentralized) {
+
+            if (isCentralized) {
                 emailsCentralized = organization.options.notifications.emails
             }
 
@@ -391,7 +398,7 @@ export class OrganizationsService extends AutowiredService {
                 .sendMail({
                     to: user.email,
                     subject: `You are now member of ${organization.display_name} organization`,
-                    template: "organization-you-were-added",
+                    template: 'organization-you-were-added',
                     context: {
                         addedUser: user,
                         organization,
@@ -407,28 +414,28 @@ export class OrganizationsService extends AutowiredService {
                 })
 
             // If is centralized, to the centralized mails
-            if(isCentralized) {
+            if (isCentralized) {
                 this.mailerService
-                .sendMail({
-                    to: emailsCentralized,
-                    subject: `New member at ${organization.display_name} organization`,
-                    template: "organization-new-member",
-                    context: {
-                        addedUser: user,
-                        organization,
-                        role: role,
-                        frontendUrl,
-                    },
-                })
-                .then((messageInfo) => {
-                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
-                })
-                .catch((err) => {
-                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
-                })
+                    .sendMail({
+                        to: emailsCentralized,
+                        subject: `New member at ${organization.display_name} organization`,
+                        template: 'organization-new-member',
+                        context: {
+                            addedUser: user,
+                            organization,
+                            role: role,
+                            frontendUrl,
+                        },
+                    })
+                    .then((messageInfo) => {
+                        Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
+                    })
+                    .catch((err) => {
+                        Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
+                    })
             }
-        } catch(ex) {
-            Logger.error("Error sending notifications of new member in an organization", ex)
+        } catch (ex) {
+            Logger.error('Error sending notifications of new member in an organization', ex)
         }
 
         return true
@@ -464,8 +471,8 @@ export class OrganizationsService extends AutowiredService {
             const isCentralized: boolean = organization?.options?.notifications?.centralized || false
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
             let emailsCentralized: string[] = []
-            
-            if(isCentralized) {
+
+            if (isCentralized) {
                 emailsCentralized = organization.options.notifications.emails
             }
 
@@ -474,7 +481,7 @@ export class OrganizationsService extends AutowiredService {
                 .sendMail({
                     to: user.email,
                     subject: `You were removed from ${organization.display_name} organization`,
-                    template: "organization-you-were-removed",
+                    template: 'organization-you-were-removed',
                     context: {
                         removedUser: user,
                         organization,
@@ -489,27 +496,27 @@ export class OrganizationsService extends AutowiredService {
                 })
 
             // If is centralized, to the centralized mails
-            if(isCentralized) {
+            if (isCentralized) {
                 this.mailerService
-                .sendMail({
-                    to: emailsCentralized,
-                    subject: `A member was removed from ${organization.display_name} organization`,
-                    template: "organization-removed-member",
-                    context: {
-                        removedUser: user,
-                        organization,
-                        frontendUrl,
-                    },
-                })
-                .then((messageInfo) => {
-                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
-                })
-                .catch((err) => {
-                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
-                })
+                    .sendMail({
+                        to: emailsCentralized,
+                        subject: `A member was removed from ${organization.display_name} organization`,
+                        template: 'organization-removed-member',
+                        context: {
+                            removedUser: user,
+                            organization,
+                            frontendUrl,
+                        },
+                    })
+                    .then((messageInfo) => {
+                        Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
+                    })
+                    .catch((err) => {
+                        Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
+                    })
             }
-        } catch(ex) {
-            Logger.error("Error sending notifications of new member in an organization", ex)
+        } catch (ex) {
+            Logger.error('Error sending notifications of new member in an organization', ex)
         }
 
         return this.getOrganizationMembers(organization.id)
@@ -677,9 +684,6 @@ export class OrganizationsService extends AutowiredService {
         const discussionsQuery: any = {
             filter: {},
         }
-        const commentsQuery: any = {
-            filter: {},
-        }
         if (organizationId && organizationId.length > 0) {
             teamsQuery.filter.organization_id = organizationId
         }
@@ -700,11 +704,12 @@ export class OrganizationsService extends AutowiredService {
         }
         teams.forEach((team: Team) => {
             teamOrgMap.set(team.id, team.organization_id)
-            map.get(team.organization_id).lastChange = moment.max(moment(team.updated_at), moment(map.get(team.organization_id).lastChange)).toDate()
+            if (map.has(team.organization_id)) {
+                map.get(team.organization_id).lastChange = moment.max(moment(team.updated_at), moment(map.get(team.organization_id).lastChange)).toDate()
+            }
         })
         const reports: Report[] = await this.reportsService.getReports(reportsQuery)
         const mapReportOrg: Map<string, string> = new Map<string, string>()
-        const comments: Comment[] = await this.commentsService.getComments(commentsQuery)
         reports.forEach((report: Report) => {
             const organizationId: string | undefined = teamOrgMap.get(report.team_id)
             if (!organizationId) {
@@ -717,6 +722,39 @@ export class OrganizationsService extends AutowiredService {
             map.get(organizationId).reports++
             map.get(organizationId).lastChange = moment.max(moment(report.updated_at), moment(map.get(organizationId).lastChange)).toDate()
         })
+        const discussions: Discussion[] = await this.discussionsService.getDiscussions(discussionsQuery)
+        discussions.forEach((discussion: Discussion) => {
+            const organizationId: string | undefined = teamOrgMap.get(discussion.team_id)
+            if (!organizationId) {
+                return
+            }
+            if (!map.has(organizationId)) {
+                map.set(organizationId, {
+                    members: 0,
+                    reports: 0,
+                    discussions: 0,
+                    comments: 0,
+                    lastChange: moment('1970-01-10').toDate(),
+                    avatar_url: null,
+                })
+            }
+            map.get(organizationId).discussions++
+            map.get(organizationId).lastChange = moment.max(moment(discussion.updated_at), moment(map.get(discussion.team_id).lastChange)).toDate()
+        })
+        const commentsQuery: any = {
+            filter: {},
+        }
+        if (!token.isGlobalAdmin()) {
+            commentsQuery.filter = {
+                $or: [
+                    {
+                        report_id: { $in: reports.map((report: Report) => report.id) },
+                        discussion_id: { $in: discussions.map((discussion: Discussion) => discussion.id) },
+                    },
+                ],
+            }
+        }
+        const comments: Comment[] = await this.commentsService.getComments(commentsQuery)
         comments.forEach((comment: Comment) => {
             const organizationId: string | undefined = mapReportOrg.get(comment.report_id)
             if (!organizationId) {

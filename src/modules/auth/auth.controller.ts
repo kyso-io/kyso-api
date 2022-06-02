@@ -5,6 +5,7 @@ import {
     LoginProviderEnum,
     NormalizedResponseDTO,
     Organization,
+    OrganizationAuthOptions,
     PingIdSAMLSpec,
     ReportPermissionsEnum,
     SignUpDto,
@@ -15,6 +16,7 @@ import {
     VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model'
 import {
+    BadRequestException,
     Body,
     Controller,
     ForbiddenException,
@@ -315,14 +317,18 @@ export class AuthController extends GenericController<string> {
         schema: { type: 'string' },
         example: 'JANSSEN-RANDD',
     })
-    async getOrganizationAuthOptions(@Param('organizationSlug') organizationSlug: string) {
+    @ApiNormalizedResponse({ status: 200, description: `Organization auth options`, type: OrganizationAuthOptions })
+    async getOrganizationAuthOptions(@Param('organizationSlug') organizationSlug: string): Promise<NormalizedResponseDTO<OrganizationAuthOptions>> {
         // Fetch organizationSlug configuration
         const organization: Organization = await this.organizationsService.getOrganization({
             filter: {
                 sluglified_name: organizationSlug,
             },
         })
-        return new NormalizedResponseDTO(organization?.options?.auth)
+        if (!organization) {
+            throw new NotFoundException(`Organization with slug ${organizationSlug} not found`)
+        }
+        return new NormalizedResponseDTO(organization.options?.auth ? organization.options.auth : null)
     }
 
     @Get('/username-available/:username')

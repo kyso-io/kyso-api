@@ -1,5 +1,7 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
+    Comment,
+    Discussion,
     GlobalPermissionsEnum,
     KysoRole,
     KysoSettingsEnum,
@@ -9,17 +11,18 @@ import {
     Report,
     ReportPermissionsEnum,
     Team,
-    teamContributorRoleContribution,
+    TeamInfoDto,
     TeamMember,
     TeamMemberJoin,
     TeamMembershipOriginEnum,
     TeamVisibilityEnum,
     Token,
     UpdateTeamMembersDTO,
-    User
+    User,
 } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
 import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import * as moment from 'moment'
 import { extname, join } from 'path'
 import * as Client from 'ssh2-sftp-client'
 import { v4 as uuidv4 } from 'uuid'
@@ -28,6 +31,8 @@ import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
 import slugify from '../../helpers/slugify'
 import { PlatformRole } from '../../security/platform-roles'
+import { CommentsService } from '../comments/comments.service'
+import { DiscussionsService } from '../discussions/discussions.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
@@ -65,7 +70,17 @@ export class TeamsService extends AutowiredService {
     @Autowired({ typeName: 'SftpService' })
     private sftpService: SftpService
 
-    constructor(private readonly mailerService: MailerService, private readonly provider: TeamsMongoProvider, private readonly teamMemberProvider: TeamMemberMongoProvider) {
+    @Autowired({ typeName: 'CommentsService' })
+    private commentsService: CommentsService
+
+    @Autowired({ typeName: 'DiscussionsService' })
+    private discussionsService: DiscussionsService
+
+    constructor(
+        private readonly mailerService: MailerService,
+        private readonly provider: TeamsMongoProvider,
+        private readonly teamMemberProvider: TeamMemberMongoProvider,
+    ) {
         super()
     }
 
@@ -82,8 +97,7 @@ export class TeamsService extends AutowiredService {
     }
 
     async getUniqueTeam(organizationId: string, teamSlugName: string): Promise<Team> {
-        return this.getTeam(
-            { filter: { sluglified_name: teamSlugName, organization_id: organizationId } })
+        return this.getTeam({ filter: { sluglified_name: teamSlugName, organization_id: organizationId } })
     }
 
     async getTeams(query): Promise<Team[]> {
@@ -124,7 +138,7 @@ export class TeamsService extends AutowiredService {
         }
 
         const finalResult = [...new Set(userTeamsResult.filter((team) => !!team))]
-        
+
         return finalResult
     }
 
@@ -219,7 +233,7 @@ export class TeamsService extends AutowiredService {
             })
             if (team.visibility === TeamVisibilityEnum.PUBLIC || team.visibility === TeamVisibilityEnum.PROTECTED) {
                 organizationMembers = await this.organizationsService.getOrganizationMembers(team.organization_id)
-                
+
                 organizationMembers.forEach((x: OrganizationMember) => {
                     const index: number = user_ids.indexOf(x.id)
                     if (index === -1) {
@@ -244,15 +258,14 @@ export class TeamsService extends AutowiredService {
                 const teamMember: TeamMemberJoin = members.find((tm: TeamMemberJoin) => u.id.toString() === tm.member_id)
                 const orgMember: OrganizationMember = organizationMembers.find((om: OrganizationMember) => om.email === u.email)
 
-                return { 
-                    ...u, 
+                return {
+                    ...u,
                     roles: teamMember ? teamMember.role_names : orgMember.organization_roles,
-                    membership_origin: teamMember ? TeamMembershipOriginEnum.TEAM : TeamMembershipOriginEnum.ORGANIZATION
-                 }
+                    membership_origin: teamMember ? TeamMembershipOriginEnum.TEAM : TeamMembershipOriginEnum.ORGANIZATION,
+                }
             })
 
-            return usersAndRoles.map((x) => new TeamMember(
-                x.id.toString(), x.display_name, x.name, x.roles, x.bio, x.avatar_url, x.email, x.membership_origin))
+            return usersAndRoles.map((x) => new TeamMember(x.id.toString(), x.display_name, x.name, x.roles, x.bio, x.avatar_url, x.email, x.membership_origin))
         } else {
             return []
         }
@@ -308,8 +321,15 @@ export class TeamsService extends AutowiredService {
             // CARE: THIS TEAM MEMBERSHIP IS NOT REAL, BUT AS IT'S USED FOR THE ASSIGNEES WE LET IT AS IS
             return users.map((user: User) => {
                 return new TeamMember(
-                    user.id.toString(), user.display_name, user.name, [], user.bio, user.avatar_url, user.email,
-                    TeamMembershipOriginEnum.ORGANIZATION)
+                    user.id.toString(),
+                    user.display_name,
+                    user.name,
+                    [],
+                    user.bio,
+                    user.avatar_url,
+                    user.email,
+                    TeamMembershipOriginEnum.ORGANIZATION,
+                )
             })
         } else {
             return []
@@ -451,15 +471,19 @@ export class TeamsService extends AutowiredService {
         if (!user) {
             throw new PreconditionFailedException('User not found')
         }
-        await this.addMembersById(teamId, [user.id], roles.map(x => x.name))
+        await this.addMembersById(
+            teamId,
+            [user.id],
+            roles.map((x) => x.name),
+        )
 
         // SEND NOTIFICATIONS
         try {
             const isCentralized: boolean = organization?.options?.notifications?.centralized || false
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
             let emailsCentralized: string[] = []
-            
-            if(isCentralized) {
+
+            if (isCentralized) {
                 emailsCentralized = organization.options.notifications.emails
             }
 
@@ -468,13 +492,13 @@ export class TeamsService extends AutowiredService {
                 .sendMail({
                     to: user.email,
                     subject: `You were added to ${team.display_name} team`,
-                    template: "team-you-were-added",
+                    template: 'team-you-were-added',
                     context: {
                         addedUser: user,
                         organization,
                         team,
                         frontendUrl,
-                        role: roles.map(x => x.name)
+                        role: roles.map((x) => x.name),
                     },
                 })
                 .then((messageInfo) => {
@@ -485,29 +509,29 @@ export class TeamsService extends AutowiredService {
                 })
 
             // If is centralized, to the centralized mails
-            if(isCentralized) {
+            if (isCentralized) {
                 this.mailerService
-                .sendMail({
-                    to: emailsCentralized,
-                    subject: `A member was added from ${team.display_name} team`,
-                    template: "team-new-member",
-                    context: {
-                        addedUser: user,
-                        organization,
-                        team,
-                        role: roles.map(x => x.name),
-                        frontendUrl,
-                    },
-                })
-                .then((messageInfo) => {
-                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
-                })
-                .catch((err) => {
-                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
-                })
+                    .sendMail({
+                        to: emailsCentralized,
+                        subject: `A member was added from ${team.display_name} team`,
+                        template: 'team-new-member',
+                        context: {
+                            addedUser: user,
+                            organization,
+                            team,
+                            role: roles.map((x) => x.name),
+                            frontendUrl,
+                        },
+                    })
+                    .then((messageInfo) => {
+                        Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
+                    })
+                    .catch((err) => {
+                        Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
+                    })
             }
-        } catch(ex) {
-            Logger.error("Error sending notifications of new member in a team", ex)
+        } catch (ex) {
+            Logger.error('Error sending notifications of new member in a team', ex)
         }
 
         return this.getMembers(teamId)
@@ -545,14 +569,13 @@ export class TeamsService extends AutowiredService {
             await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
         }*/
 
-
         // SEND NOTIFICATIONS
         try {
             const isCentralized: boolean = organization?.options?.notifications?.centralized || false
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
             let emailsCentralized: string[] = []
-            
-            if(isCentralized) {
+
+            if (isCentralized) {
                 emailsCentralized = organization.options.notifications.emails
             }
 
@@ -561,12 +584,12 @@ export class TeamsService extends AutowiredService {
                 .sendMail({
                     to: user.email,
                     subject: `You were removed to ${team.display_name} team`,
-                    template: "team-you-were-removed",
+                    template: 'team-you-were-removed',
                     context: {
                         removedUser: user,
                         organization,
                         team,
-                        frontendUrl
+                        frontendUrl,
                     },
                 })
                 .then((messageInfo) => {
@@ -577,28 +600,28 @@ export class TeamsService extends AutowiredService {
                 })
 
             // If is centralized, to the centralized mails
-            if(isCentralized) {
+            if (isCentralized) {
                 this.mailerService
-                .sendMail({
-                    to: emailsCentralized,
-                    subject: `A member was removed from ${team.display_name} team`,
-                    template: "team-removed-member",
-                    context: {
-                        removedUser: user,
-                        organization,
-                        team,
-                        frontendUrl,
-                    },
-                })
-                .then((messageInfo) => {
-                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
-                })
-                .catch((err) => {
-                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
-                })
+                    .sendMail({
+                        to: emailsCentralized,
+                        subject: `A member was removed from ${team.display_name} team`,
+                        template: 'team-removed-member',
+                        context: {
+                            removedUser: user,
+                            organization,
+                            team,
+                            frontendUrl,
+                        },
+                    })
+                    .then((messageInfo) => {
+                        Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
+                    })
+                    .catch((err) => {
+                        Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
+                    })
             }
-        } catch(ex) {
-            Logger.error("Error sending notifications of removed member in a team", ex)
+        } catch (ex) {
+            Logger.error('Error sending notifications of removed member in a team', ex)
         }
 
         return this.getMembers(team.id)
@@ -616,7 +639,7 @@ export class TeamsService extends AutowiredService {
             if (!user) {
                 throw new PreconditionFailedException('User does not exist')
             }
-            
+
             const member: TeamMemberJoin = members.find((x: TeamMemberJoin) => x.member_id === user.id)
 
             if (!member) {
@@ -626,7 +649,7 @@ export class TeamsService extends AutowiredService {
                 } catch(ex) {
                     Logger.error(ex)
                 }*/
-                // IF IS NOT A MEMBER. CREATE IT                
+                // IF IS NOT A MEMBER. CREATE IT
                 this.teamMemberProvider.create(new TeamMemberJoin(team.id, element.userId, [element.role], true))
             } else {
                 await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
@@ -753,7 +776,7 @@ export class TeamsService extends AutowiredService {
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const client: Client = await this.sftpService.getClient()
         const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
-        const containerFolder = `/${organization.sluglified_name}/${team.sluglified_name}/markdown-images`;
+        const containerFolder = `/${organization.sluglified_name}/${team.sluglified_name}/markdown-images`
         const destinationPath = join(sftpDestinationFolder, containerFolder)
         const existsPath: boolean | string = await client.exists(destinationPath)
         if (!existsPath) {
@@ -775,5 +798,148 @@ export class TeamsService extends AutowiredService {
         } while (true)
         await client.put(file.buffer, ftpFilePath)
         return publicFilePath
+    }
+
+    public async getTeamsInfo(token: Token, teamId?: string): Promise<TeamInfoDto[]> {
+        const map: Map<string, { members: number; reports: number; discussions: number; comments: number; lastChange: Date;}> = new Map<
+            string,
+            { members: number; reports: number; discussions: number; comments: number; lastChange: Date; }
+        >()
+        const query: any = {
+            filter: {},
+        }
+        if (!token.isGlobalAdmin()) {
+            query.filter.member_id = token.id
+        }
+        if (teamId && teamId.length > 0) {
+            query.filter.team_id = teamId
+        }
+        const teamsMembers: TeamMemberJoin[] = await this.teamMemberProvider.read(query)
+        for (const teamMemberJoin of teamsMembers) {
+            if (!map.has(teamMemberJoin.team_id)) {
+                const team: Team = await this.getTeamById(teamMemberJoin.team_id)
+                const teamMembers: TeamMemberJoin[] = await this.teamMemberProvider.read({
+                    filter: {
+                        team_id: teamMemberJoin.team_id,
+                    },
+                })
+                map.set(team.id, {
+                    members: teamMembers.length,
+                    reports: 0,
+                    discussions: 0,
+                    comments: 0,
+                    lastChange: team.updated_at,
+                })
+            }
+        }
+        let teams: Team[] = []
+        const teamsQuery: any = {
+            filter: {},
+        }
+        const reportsQuery: any = {
+            filter: {},
+        }
+        const discussionsQuery: any = {
+            filter: {},
+        }
+        if (teamId && teamId.length > 0) {
+            teamsQuery.filter.team_id = teamId
+        }
+        if (token.isGlobalAdmin()) {
+            teams = await this.getTeams(teamsQuery)
+        } else {
+            teams = await this.getTeamsForController(token.id, teamsQuery)
+            reportsQuery.filter = {
+                team_id: {
+                    $in: teams.map((x: Team) => x.id),
+                },
+            }
+            discussionsQuery.filter = {
+                team_id: {
+                    $in: teams.map((x: Team) => x.id),
+                },
+            }
+        }
+        teams.forEach((team: Team) => {
+            if (map.has(team.id)) {
+                map.get(team.id).lastChange = moment.max(moment(team.updated_at), moment(map.get(team.id).lastChange)).toDate()
+            }
+        })
+        const reports: Report[] = await this.reportsService.getReports(reportsQuery)
+        const reportTeamMap: Map<string, string> = new Map<string, string>()
+        reports.forEach((report: Report) => {
+            reportTeamMap.set(report.id, report.team_id)
+            if (!map.has(report.team_id)) {
+                map.set(report.team_id, { members: 0, reports: 0, discussions: 0, comments: 0, lastChange: moment('1970-01-10').toDate() })
+            }
+            map.get(report.team_id).reports++
+            map.get(report.team_id).lastChange = moment.max(moment(report.updated_at), moment(map.get(report.team_id).lastChange)).toDate()
+        })
+        const discussions: Discussion[] = await this.discussionsService.getDiscussions(discussionsQuery)
+        const discussionTeamMap: Map<string, string> = new Map<string, string>()
+        discussions.forEach((discussion: Discussion) => {
+            discussionTeamMap.set(discussion.id, discussion.team_id)
+            if (!map.has(discussion.team_id)) {
+                map.set(discussion.team_id, {
+                    members: 0,
+                    reports: 0,
+                    discussions: 0,
+                    comments: 0,
+                    lastChange: moment('1970-01-10').toDate(),
+                })
+            }
+            map.get(discussion.team_id).discussions++
+            map.get(discussion.team_id).lastChange = moment.max(moment(discussion.updated_at), moment(map.get(discussion.team_id).lastChange)).toDate()
+        })
+        const commentsQuery: any = {
+            filter: {},
+        }
+        if (!token.isGlobalAdmin()) {
+            commentsQuery.filter = {
+                $or: [
+                    {
+                        report_id: { $in: reports.map((report: Report) => report.id) },
+                        discussion_id: { $in: discussions.map((discussion: Discussion) => discussion.id) },
+                    },
+                ],
+            }
+        }
+        const comments: Comment[] = await this.commentsService.getComments(commentsQuery)
+        comments.forEach((comment: Comment) => {
+            let teamId: string | null = null
+            if (discussionTeamMap.has(comment.discussion_id)) {
+                teamId = discussionTeamMap.get(comment.discussion_id)
+            } else if (reportTeamMap.has(comment.report_id)) {
+                teamId = reportTeamMap.get(comment.report_id)
+            }
+            if (!teamId) {
+                return
+            }
+            if (!map.has(teamId)) {
+                map.set(teamId, {
+                    members: 0,
+                    reports: 0,
+                    discussions: 0,
+                    comments: 0,
+                    lastChange: moment('1970-01-10').toDate(),
+                })
+            }
+            map.get(teamId).comments++
+            map.get(teamId).lastChange = moment.max(moment(comment.updated_at), moment(map.get(teamId).lastChange)).toDate()
+        })
+        const result: TeamInfoDto[] = []
+        map.forEach(
+            (value: { members: number; reports: number; discussions: number; comments: number; lastChange: Date; avatar_url: string }, teamId: string) => {
+                result.push({
+                    team_id: teamId,
+                    members: value.members,
+                    reports: value.reports,
+                    discussions: value.discussions,
+                    comments: value.comments,
+                    lastChange: value.lastChange,
+                })
+            },
+        )
+        return result
     }
 }

@@ -5,6 +5,7 @@ import {
     Organization,
     OrganizationInfoDto,
     OrganizationMember,
+    OrganizationMemberJoin,
     OrganizationOptions,
     OrganizationPermissionsEnum,
     TeamPermissionsEnum,
@@ -30,6 +31,7 @@ import {
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
+import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
@@ -65,7 +67,7 @@ export class OrganizationsController extends GenericController<Organization> {
         description: `Allows fetching list of organizations`,
     })
     @ApiNormalizedResponse({ status: 200, description: `List of organizations`, type: Organization, isArray: true })
-    async getOrganizations(@Req() req): Promise<NormalizedResponseDTO<Organization[]>> {
+    async getOrganizations(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<Organization[]>> {
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) {
             query.sort = { created_at: -1 }
@@ -77,6 +79,16 @@ export class OrganizationsController extends GenericController<Organization> {
         }
         if (!query.filter) {
             query.filter = {}
+        }
+        if (!token.isGlobalAdmin()) {
+            const userInOrganizations: OrganizationMemberJoin[] = await this.organizationService.searchMembersJoin({
+                filter: {
+                    member_id: token.id,
+                },
+            })
+            query.filter._id = {
+                $in: userInOrganizations.map((o: OrganizationMemberJoin) => new ObjectId(o.organization_id)),
+            }
         }
         const organizations: Organization[] = await this.organizationService.getOrganizations(query)
         return new NormalizedResponseDTO(organizations)
