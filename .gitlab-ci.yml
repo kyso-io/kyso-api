@@ -25,7 +25,7 @@ docker-build:
       public/v.html
 
 e2e-newman:
-  stage: e2e-test
+  stage: test
 
   before_script:
   - !reference [.docker-config, before_script]
