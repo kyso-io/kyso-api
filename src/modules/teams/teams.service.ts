@@ -348,15 +348,17 @@ export class TeamsService extends AutowiredService {
             const teams: Team[] = await this.provider.read({ filter: { sluglified_name: team.sluglified_name, organization_id: team.organization_id } })
 
             if (teams.length > 0) {
+                let sluglified_name = team.sluglified_name
                 let i = teams.length + 1
                 do {
-                    team.sluglified_name = `${team.sluglified_name}-${i}`
-                    const index: number = teams.findIndex((t: Team) => t.sluglified_name === team.sluglified_name)
+                    sluglified_name = `${team.sluglified_name}-${i}`
+                    const index: number = teams.findIndex((t: Team) => t.sluglified_name === sluglified_name)
                     if (index === -1) {
                         break
                     }
                     i++
                 } while (true)
+                team.sluglified_name = sluglified_name
             }
 
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)

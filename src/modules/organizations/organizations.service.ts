@@ -25,6 +25,7 @@ import { extname } from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
+import slugify from '../../helpers/slugify'
 import { PlatformRole } from '../../security/platform-roles'
 import { CommentsService } from '../comments/comments.service'
 import { DiscussionsService } from '../discussions/discussions.service'
@@ -93,20 +94,26 @@ export class OrganizationsService extends AutowiredService {
     }
 
     public async createOrganization(organization: Organization): Promise<Organization> {
+        organization.sluglified_name = slugify(organization.display_name)
+
         // The name of this organization exists?
         const organizations: Organization[] = await this.provider.read({ filter: { sluglified_name: organization.sluglified_name } })
 
         if (organizations.length > 0) {
+            let sluglified_name = organization.sluglified_name
             let i = organizations.length + 1
             do {
-                organization.sluglified_name = `${organization.sluglified_name}-${i}`
-                const index: number = organizations.findIndex((org: Organization) => org.sluglified_name === organization.sluglified_name)
+                sluglified_name = `${organization.sluglified_name}-${i}`
+                const index: number = organizations.findIndex((org: Organization) => org.sluglified_name === sluglified_name)
                 if (index === -1) {
                     break
                 }
                 i++
             } while (true)
+            organization.sluglified_name = sluglified_name
         }
+
+        organization.invitation_code = uuidv4()
 
         const newOrganization: Organization = await this.provider.create(organization)
 
@@ -130,7 +137,7 @@ export class OrganizationsService extends AutowiredService {
     public async deleteOrganization(organizationId: string): Promise<Organization> {
         const organization: Organization = await this.getOrganizationById(organizationId)
         if (!organization) {
-            throw new PreconditionFailedException('Organization does not exist')
+            throw new NotFoundException('Organization does not exist')
         }
 
         // Delete all teams of this organization
@@ -194,42 +201,41 @@ export class OrganizationsService extends AutowiredService {
      */
     public async getOrganizationMembers(organizationId: string): Promise<OrganizationMember[]> {
         const organization: Organization = await this.getOrganizationById(organizationId)
-        if (organization) {
-            // Get all the members of this organization
-            const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
-
-            // Build query object to retrieve all the users
-            const user_ids = members.map((x: OrganizationMemberJoin) => {
-                return x.member_id
-            })
-
-            // Build the query to retrieve all the users
-            const filterArray = []
-            user_ids.forEach((id: string) => {
-                filterArray.push({ _id: this.provider.toObjectId(id) })
-            })
-
-            const filter = { filter: { $or: filterArray } }
-
-            const users = await this.usersService.getUsers(filter)
-
-            const usersAndRoles = users.map((u: User) => {
-                // Find role for this user in members
-                const thisMember: OrganizationMemberJoin = members.find((tm: OrganizationMemberJoin) => u.id.toString() === tm.member_id)
-
-                return { ...u, roles: thisMember.role_names }
-            })
-
-            return usersAndRoles.map((x) => new OrganizationMember(x.id.toString(), x.display_name, x.name, x.roles, x.bio, x.avatar_url, x.email))
-        } else {
-            return []
+        if (!organization) {
+            throw new NotFoundException('Organization does not exist')
         }
+        // Get all the members of this organization
+        const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
+
+        // Build query object to retrieve all the users
+        const user_ids = members.map((x: OrganizationMemberJoin) => {
+            return x.member_id
+        })
+
+        // Build the query to retrieve all the users
+        const filterArray = []
+        user_ids.forEach((id: string) => {
+            filterArray.push({ _id: this.provider.toObjectId(id) })
+        })
+
+        const filter = { filter: { $or: filterArray } }
+
+        const users = await this.usersService.getUsers(filter)
+
+        const usersAndRoles = users.map((u: User) => {
+            // Find role for this user in members
+            const thisMember: OrganizationMemberJoin = members.find((tm: OrganizationMemberJoin) => u.id.toString() === tm.member_id)
+
+            return { ...u, roles: thisMember.role_names }
+        })
+
+        return usersAndRoles.map((x) => new OrganizationMember(x.id.toString(), x.display_name, x.name, x.roles, x.bio, x.avatar_url, x.email))
     }
 
     public async updateOrganizationOptions(organizationId: string, options: OrganizationOptions): Promise<Organization> {
         const organizationDb: Organization = await this.getOrganizationById(organizationId)
         if (!organizationDb) {
-            throw new PreconditionFailedException('Organization does not exist')
+            throw new NotFoundException('Organization does not exist')
         }
         return await this.provider.update(
             { _id: this.provider.toObjectId(organizationDb.id) },
@@ -242,7 +248,7 @@ export class OrganizationsService extends AutowiredService {
     public async updateOrganization(organizationId: string, updateOrganizationDTO: UpdateOrganizationDTO): Promise<Organization> {
         const organizationDb: Organization = await this.getOrganizationById(organizationId)
         if (!organizationDb) {
-            throw new PreconditionFailedException('Organization does not exist')
+            throw new NotFoundException('Organization does not exist')
         }
         const data: any = {}
         if (updateOrganizationDTO.location) {
@@ -272,11 +278,11 @@ export class OrganizationsService extends AutowiredService {
     public async addMemberToOrganization(addUserOrganizationDto: AddUserOrganizationDto): Promise<OrganizationMember[]> {
         const organization: Organization = await this.getOrganizationById(addUserOrganizationDto.organizationId)
         if (!organization) {
-            throw new PreconditionFailedException('Organization does not exist')
+            throw new NotFoundException('Organization does not exist')
         }
         const user: User = await this.usersService.getUserById(addUserOrganizationDto.userId)
         if (!user) {
-            throw new PreconditionFailedException('User does not exist')
+            throw new NotFoundException('User does not exist')
         }
         const validRoles: string[] = [
             PlatformRole.TEAM_ADMIN_ROLE.name,
@@ -286,7 +292,7 @@ export class OrganizationsService extends AutowiredService {
             ...organization.roles.map((x: KysoRole) => x.name),
         ]
         if (!validRoles.includes(addUserOrganizationDto.role)) {
-            throw new PreconditionFailedException('Invalid role')
+            throw new BadRequestException('Invalid role')
         }
         const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
         let member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id)

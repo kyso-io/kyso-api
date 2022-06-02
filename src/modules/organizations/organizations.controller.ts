@@ -1,5 +1,6 @@
 import {
     AddUserOrganizationDto,
+    CreateOrganizationDto,
     GlobalPermissionsEnum,
     NormalizedResponseDTO,
     Organization,
@@ -19,10 +20,10 @@ import {
     Controller,
     Delete,
     Get,
+    NotFoundException,
     Param,
     Patch,
     Post,
-    PreconditionFailedException,
     Query,
     Req,
     UploadedFile,
@@ -36,6 +37,7 @@ import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
+import { Validators } from '../../helpers/validators'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
@@ -122,9 +124,12 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Organization matching id`, type: Organization })
     async getOrganization(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
+        if (!Validators.isValidObjectId(organizationId)) {
+            throw new BadRequestException(`Invalid organization id ${organizationId}`)
+        }
         const organization: Organization = await this.organizationService.getOrganizationById(organizationId)
         if (!organization) {
-            throw new PreconditionFailedException('Organization not found')
+            throw new NotFoundException('Organization not found')
         }
         return new NormalizedResponseDTO(organization)
     }
@@ -144,6 +149,9 @@ export class OrganizationsController extends GenericController<Organization> {
     @ApiNormalizedResponse({ status: 200, description: `Organization matching id`, type: Organization })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
     public async deleteOrganization(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
+        if (!Validators.isValidObjectId(organizationId)) {
+            throw new BadRequestException(`Invalid organization id ${organizationId}`)
+        }
         const organization: Organization = await this.organizationService.deleteOrganization(organizationId)
         return new NormalizedResponseDTO(organization)
     }
@@ -162,6 +170,9 @@ export class OrganizationsController extends GenericController<Organization> {
     @ApiNormalizedResponse({ status: 200, description: `Organization members`, type: OrganizationMember, isArray: true })
     @Permission([OrganizationPermissionsEnum.READ])
     async getOrganizationMembers(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
+        if (!Validators.isValidObjectId(organizationId)) {
+            throw new BadRequestException(`Invalid organization id ${organizationId}`)
+        }
         const data: OrganizationMember[] = await this.organizationService.getOrganizationMembers(organizationId)
         return new NormalizedResponseDTO(data)
     }
@@ -174,9 +185,23 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 201, description: `Created organization`, type: Organization })
     @Permission([OrganizationPermissionsEnum.CREATE])
-    async createOrganization(@Body() organization: Organization): Promise<NormalizedResponseDTO<Organization>> {
+    async createOrganization(@Body() createOrganizationDto: CreateOrganizationDto): Promise<NormalizedResponseDTO<Organization>> {
+        const organization: Organization = new Organization(
+            createOrganizationDto.display_name,
+            '',
+            [],
+            [],
+            createOrganizationDto.billing_email,
+            '',
+            '',
+            true,
+            '',
+            '',
+            '',
+            '',
+            '',
+        )
         const newOrganization: Organization = await this.organizationService.createOrganization(organization)
-
         return new NormalizedResponseDTO(newOrganization)
     }
 
@@ -192,6 +217,9 @@ export class OrganizationsController extends GenericController<Organization> {
         @Param('organizationId') organizationId: string,
         @Body() updateOrganizationDTO: UpdateOrganizationDTO,
     ): Promise<NormalizedResponseDTO<Organization>> {
+        if (!Validators.isValidObjectId(organizationId)) {
+            throw new BadRequestException(`Invalid organization id ${organizationId}`)
+        }
         const updatedOrganization: Organization = await this.organizationService.updateOrganization(organizationId, updateOrganizationDTO)
         return new NormalizedResponseDTO(updatedOrganization)
     }
@@ -235,6 +263,9 @@ export class OrganizationsController extends GenericController<Organization> {
         @Param('organizationId') organizationId: string,
         @Body() organizationOptions: OrganizationOptions,
     ): Promise<NormalizedResponseDTO<Organization>> {
+        if (!Validators.isValidObjectId(organizationId)) {
+            throw new BadRequestException(`Invalid organization id ${organizationId}`)
+        }
         const updatedOrganization: Organization = await this.organizationService.updateOrganizationOptions(organizationId, organizationOptions)
         return new NormalizedResponseDTO(updatedOrganization)
     }
