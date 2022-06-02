@@ -35,6 +35,7 @@ e2e-newman:
   script:
   - docker ps
   - docker-compose up
+  - apk add nodejs npm
   
 
 variables:
