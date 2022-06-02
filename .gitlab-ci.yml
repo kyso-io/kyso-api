@@ -24,18 +24,18 @@ docker-build:
       -e "s%__GIT_REF__%$GIT_REF%g" \
       public/v.html
 
-e2e-newman:
-  image: registry.kyso.io/docker/docker:20.10.12-dind
-  stage: test
+# e2e-newman:
+#   image: registry.kyso.io/docker/docker:20.10.12-dind
+#   stage: test
 
-  before_script:
-  - !reference [.docker-config, before_script]
-  - !reference [.npm-config, before_script]
+#   before_script:
+#   - !reference [.docker-config, before_script]
+#   - !reference [.npm-config, before_script]
   
-  script:
-  - docker ps
-  - docker-compose up
-  - apk add nodejs npm
+#   script:
+#   - docker ps
+#   - docker-compose up
+#   - apk add nodejs npm
   
 
 variables:
