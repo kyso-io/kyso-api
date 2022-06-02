@@ -1,0 +1,34 @@
+version: '3.7'
+
+services:
+  kyso-e2e-mongo:
+    image: mongo:latest
+    container_name: kyso-e2e-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: kadmin
+      MONGO_INITDB_ROOT_PASSWORD: ksecret
+    ports:
+      - 27017:27017
+
+  kyso-e2e-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: kyso-e2e-api
+    environment:
+      - PORT=4000
+      - DATABASE_URI=mongodb://kadmin:ksecret@kyso-e2e-mongo:27017/kyso?authSource=admin&retryWrites=true&w=majority
+      - APP_MOUNT_DIR=api
+    ports:
+      - 4000:4000
+    depends_on:
+      - kyso-e2e-mongo
+    links:
+      - kyso-e2e-mongo:kyso-e2e-mongo
+    # volumes:
+      # - .:/app
+      # - /app/node_modules
+    # command: npm run start:prod
+
+networks:
+  kyso-network:

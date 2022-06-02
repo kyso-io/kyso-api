@@ -1,0 +1,15 @@
+FROM node:alpine
+
+RUN addgroup app && adduser -S -G app app
+RUN mkdir /app && chown app:app /app
+
+WORKDIR /app
+COPY package*.json ./
+RUN echo "@kyso-io:registry=https://gitlab.kyso.io/api/v4/packages/npm/" >> .npmrc
+RUN echo "//gitlab.kyso.io/api/v4/packages/npm/:_authToken=wPecsMYCzbzCykmndL52" >> .npmrc
+RUN npm install
+COPY . .
+RUN npm run build
+
+CMD [ "node", "dist/main.js" ]
+EXPOSE 4000
