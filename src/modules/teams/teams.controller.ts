@@ -4,6 +4,7 @@ import {
     NormalizedResponseDTO,
     Report,
     Team,
+    TeamInfoDto,
     TeamMember,
     TeamPermissionsEnum,
     TeamVisibilityEnum,
@@ -22,6 +23,7 @@ import {
     Patch,
     Post,
     PreconditionFailedException,
+    Query,
     Req,
     UploadedFile,
     UseGuards,
@@ -38,10 +40,10 @@ import { QueryParser } from '../../helpers/queryParser'
 import slugify from '../../helpers/slugify'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
-import { AuthService } from '../auth/auth.service'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
+import { RelationsService } from '../relations/relations.service'
 import { TeamsService } from './teams.service'
 
 @ApiTags('teams')
@@ -60,8 +62,8 @@ import { TeamsService } from './teams.service'
     required: true,
 })
 export class TeamsController extends GenericController<Team> {
-    @Autowired({ typeName: 'AuthService' })
-    private readonly authService: AuthService
+    @Autowired({ typeName: 'RelationsService' })
+    private relationsService: RelationsService
 
     constructor(private readonly teamsService: TeamsService) {
         super()
@@ -98,6 +100,21 @@ export class TeamsController extends GenericController<Team> {
         }
         const teams: Team[] = await this.teamsService.getTeamsForController(userId, query)
         return new NormalizedResponseDTO(teams)
+    }
+
+    @Get('/info')
+    @ApiOperation({
+        summary: `Get the number of members, reports, discussions and comments by team`,
+        description: `Allows fetching the number of members, reports, discussions and comments by team`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Number of members and reports by team`, type: TeamInfoDto })
+    public async getNumMembersAndReportsByOrganization(
+        @CurrentToken() token: Token,
+        @Query('teamId') teamId: string,
+    ): Promise<NormalizedResponseDTO<TeamInfoDto[]>> {
+        const organizationInfoDto: TeamInfoDto[] = await this.teamsService.getTeamsInfo(token, teamId)
+        const relations = await this.relationsService.getRelations(organizationInfoDto)
+        return new NormalizedResponseDTO(organizationInfoDto, relations)
     }
 
     @Get('/:id')
@@ -314,19 +331,19 @@ export class TeamsController extends GenericController<Team> {
             throw new PreconditionFailedException('Team not found')
         }
         const updatedTeam: Team = await this.teamsService.updateTeam({ _id: new ObjectId(teamId) }, { $set: data })
-        
-        if(data.visibility === TeamVisibilityEnum.PRIVATE) {
+
+        if (data.visibility === TeamVisibilityEnum.PRIVATE) {
             try {
                 // The visibility has changed to private, that means no-one will have access to that team
                 // For that reason, we will add automatically the requested user as a TEAM_ADMIN of that
                 // team.
                 const userId = token.id
                 await this.teamsService.addMemberToTeam(teamId, userId, [PlatformRole.TEAM_ADMIN_ROLE])
-            } catch(ex) {
+            } catch (ex) {
                 Logger.error(`Can't add user ${token.id} to team ${teamId}`, ex)
             }
         }
-        
+
         return new NormalizedResponseDTO(updatedTeam)
     }
 
