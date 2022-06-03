@@ -16,7 +16,6 @@ import {
     VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model'
 import {
-    BadRequestException,
     Body,
     Controller,
     ForbiddenException,

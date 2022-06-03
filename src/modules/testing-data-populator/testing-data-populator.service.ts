@@ -129,7 +129,7 @@ export class TestingDataPopulatorService {
         }
     }
 
-    private async checkIfAlreadyExists() {
+    public async checkIfAlreadyExists() {
         // I assume only these two usernames exist if they were created by the test data populator
         const testUsersByUsername = await this.usersService.getUsers({
             filter: { $or: [{ email: `${mailPrefix}+rey@dev.kyso.io` }, { email: `${mailPrefix}+kylo@dev.kyso.io` }] },

@@ -9,6 +9,8 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ksecret
     ports:
       - 27017:27017
+    networks:
+      - kyso-network
 
   kyso-e2e-api:
     build:
@@ -19,16 +21,35 @@ services:
       - PORT=4000
       - DATABASE_URI=mongodb://kadmin:ksecret@kyso-e2e-mongo:27017/kyso?authSource=admin&retryWrites=true&w=majority
       - APP_MOUNT_DIR=api
+      - POPULATE_TEST_DATA=true
     ports:
       - 4000:4000
     depends_on:
       - kyso-e2e-mongo
-    links:
-      - kyso-e2e-mongo:kyso-e2e-mongo
-    # volumes:
-      # - .:/app
-      # - /app/node_modules
-    # command: npm run start:prod
+    networks:
+      - kyso-network
+
+  kyso-e2e-newman:
+    build:
+      context: newman
+      dockerfile: Dockerfile
+    container_name: kyso-e2e-newman
+    command:
+     - run
+     - "https://www.getpostman.com/collections/b6e9526498f21abc5e7c"
+     - --timeout-request=10000 
+     - -k 
+     - -r
+     - htmlextra,cli,json
+     - --reporter-htmlextra-export=kyso-e2e.html
+     - --reporter-json-export=kyso-e2e.json
+    volumes:
+      - ./newman/reports:/etc/newman
+    depends_on:
+      - kyso-e2e-mongo
+      - kyso-e2e-api
+    networks:
+      - kyso-network
 
 networks:
   kyso-network:
