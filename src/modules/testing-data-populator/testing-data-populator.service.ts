@@ -305,8 +305,8 @@ export class TestingDataPopulatorService {
                 $set: {
                     email_verified: true,
                     show_captcha: false,
-                    avatar_url: babyYoda_TestOrganizationAdminUser.avatar_url,
-                    global_permissions: babyYoda_TestOrganizationAdminUser.global_permissions,
+                    avatar_url: palpatine_TestPlatformAdminUser.avatar_url,
+                    global_permissions: palpatine_TestPlatformAdminUser.global_permissions,
                 },
             },
         )

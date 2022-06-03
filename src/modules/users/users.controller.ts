@@ -325,10 +325,7 @@ export class UsersController extends GenericController<User> {
         if (!Validators.isValidObjectId(userId)) {
             throw new BadRequestException(`Invalid user id ${userId}`)
         }
-        if (token.id !== userId) {
-            throw new ForbiddenException(`You are not allowed to update this user`)
-        }
-        const user: User = await this.usersService.updateUserData(userId, data)
+        const user: User = await this.usersService.updateUserData(token, userId, data)
         return new NormalizedResponseDTO(UserDTO.fromUser(user))
     }
 

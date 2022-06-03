@@ -1,7 +1,5 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
-    CreateOrganizationDto,
-    CreateUserRequestDTO,
     EmailUserChangePasswordDTO,
     KysoPermissions,
     KysoSettingsEnum,
@@ -25,7 +23,6 @@ import {
 import { MailerService } from '@nestjs-modules/mailer'
 import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import axios from 'axios'
-import { NODATA } from 'dns'
 import * as moment from 'moment'
 import { ObjectId } from 'mongodb'
 import { extname } from 'path'
@@ -310,10 +307,13 @@ export class UsersService extends AutowiredService {
         return true
     }
 
-    public async updateUserData(id: string, data: UpdateUserRequestDTO): Promise<User> {
+    public async updateUserData(token: Token, id: string, data: UpdateUserRequestDTO): Promise<User> {
         const user: User = await this.getUserById(id)
         if (!user) {
             throw new NotFoundException('User not found')
+        }
+        if (token.id !== id) {
+            throw new ForbiddenException(`You are not allowed to update this user`)
         }
         return this.updateUser(
             { _id: this.provider.toObjectId(id) },
@@ -373,14 +373,13 @@ export class UsersService extends AutowiredService {
     }
 
     public async deleteProfilePicture(token: Token): Promise<User> {
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-
         const user: User = await this.getUserById(token.id)
         if (!user) {
             throw new PreconditionFailedException('User not found')
         }
+        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
         const s3Client: S3Client = await this.getS3Client()
-        if (user?.avatar_url && user.avatar_url.length > 0) {
+        if (s3Bucket.length > 0 && user?.avatar_url && user.avatar_url.length > 0) {
             Logger.log(`Removing previous image of user ${user.name}`, OrganizationsService.name)
             const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
                 Bucket: s3Bucket,

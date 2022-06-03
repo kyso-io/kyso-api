@@ -364,7 +364,7 @@ export class AuthController extends GenericController<string> {
         }
 
         // If is not global admin, then only return this info if the requester is the same as the username parameter
-        if (requesterUser.username.toLowerCase() === username.toLowerCase()) {
+        if (requesterUser.isGlobalAdmin() || requesterUser.username.toLowerCase() === username.toLowerCase()) {
             return result
         } else {
             throw new UnauthorizedException(`The requester user has no rights to access other user permissions`)
@@ -391,7 +391,9 @@ export class AuthController extends GenericController<string> {
         // URI has the following structure /scs/{organizationName}/{teamName}/reports/{reportId}/...
         // Remove the first /scs/
         const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX)
-        originalUri = originalUri.replace(`${staticContentPrefix}/`, '')
+        if (staticContentPrefix && originalUri.startsWith(staticContentPrefix)) {
+            originalUri = originalUri.replace(`${staticContentPrefix}/`, '')
+        }
 
         // Split by "/"
         const splittedUri: string[] = originalUri.split('/')

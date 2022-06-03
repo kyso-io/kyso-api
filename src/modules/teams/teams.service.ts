@@ -21,7 +21,7 @@ import {
     User,
 } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
-import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import * as moment from 'moment'
 import { extname, join } from 'path'
 import * as Client from 'ssh2-sftp-client'
@@ -544,32 +544,26 @@ export class TeamsService extends AutowiredService {
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
 
         if (!team) {
-            throw new PreconditionFailedException('Team not found')
+            throw new NotFoundException('Team not found')
         }
-
+        
         if (!organization) {
-            throw new PreconditionFailedException("Team's organization not found")
+            throw new NotFoundException("Team's organization not found")
         }
-
+        
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
-            throw new PreconditionFailedException('User not found')
+            throw new NotFoundException('User not found')
         }
 
         const members: TeamMemberJoin[] = await this.teamMemberProvider.read({ filter: { team_id: team.id } })
         const index: number = members.findIndex((x) => x.member_id === user.id)
         if (index === -1) {
-            throw new PreconditionFailedException('User is not a member of this team')
+            throw new BadRequestException('User is not a member of this team')
         }
 
         await this.teamMemberProvider.deleteOne({ team_id: team.id, member_id: user.id })
         members.splice(index, 1)
-
-        /* WTH why that. Nope xD
-        if (members.length === 0) {
-            // Team without members, delete it
-            await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
-        }*/
 
         // SEND NOTIFICATIONS
         try {

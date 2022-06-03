@@ -166,7 +166,7 @@ async function bootstrap() {
         setTimeout(async () => {
             const testingDataPopulatorService: TestingDataPopulatorService = app.get(TestingDataPopulatorService)
             await testingDataPopulatorService.populateTestData()
-        }, 3000)
+        }, 1500)
     }
 
     // Autowired extension to allow injection outside the constructor and avoid circular dependencies
