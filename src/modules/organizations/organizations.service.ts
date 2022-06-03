@@ -217,6 +217,9 @@ export class OrganizationsService extends AutowiredService {
         user_ids.forEach((id: string) => {
             filterArray.push({ _id: this.provider.toObjectId(id) })
         })
+        if (filterArray.length === 0) {
+            return []
+        }
 
         const filter = { filter: { $or: filterArray } }
 
@@ -450,27 +453,22 @@ export class OrganizationsService extends AutowiredService {
     public async removeMemberFromOrganization(organizationId: string, userId: string): Promise<OrganizationMember[]> {
         const organization: Organization = await this.getOrganizationById(organizationId)
         if (!organization) {
-            throw new PreconditionFailedException('Organization does not exist')
+            throw new NotFoundException('Organization does not exist')
         }
 
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
-            throw new PreconditionFailedException('User does not exist')
+            throw new NotFoundException('User does not exist')
         }
 
         const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
         const index: number = members.findIndex((x: OrganizationMemberJoin) => x.member_id === user.id)
         if (index === -1) {
-            throw new PreconditionFailedException('User is not a member of this organization')
+            throw new NotFoundException('User is not a member of this organization')
         }
 
         await this.organizationMemberProvider.deleteOne({ organization_id: organization.id, member_id: user.id })
         members.splice(index, 1)
-
-        if (members.length === 0) {
-            // Organization without members, delete it
-            await this.provider.deleteOne({ _id: this.provider.toObjectId(organization.id) })
-        }
 
         // SEND NOTIFICATIONS
         try {
