@@ -24,5 +24,18 @@ docker-build:
       -e "s%__GIT_REF__%$GIT_REF%g" \
       public/v.html
 
+# e2e-newman:
+#   stage: test
+
+#   before_script:
+#   - !reference [.docker-config, before_script]
+#   - !reference [.npm-config, before_script]
+  
+#   script:
+#   - docker ps
+#   - docker-compose up
+#   - apk add nodejs npm
+ 
+
 variables:
   DOCKER_BUILDKIT: 1
