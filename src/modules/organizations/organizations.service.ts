@@ -529,7 +529,7 @@ export class OrganizationsService extends AutowiredService {
     public async UpdateOrganizationMembersDTORoles(organizationId: string, data: UpdateOrganizationMembersDTO): Promise<OrganizationMember[]> {
         const organization: Organization = await this.getOrganizationById(organizationId)
         if (!organization) {
-            throw new PreconditionFailedException('Organization does not exist')
+            throw new NotFoundException('Organization does not exist')
         }
         const validRoles: string[] = [
             PlatformRole.TEAM_ADMIN_ROLE.name,
@@ -542,14 +542,14 @@ export class OrganizationsService extends AutowiredService {
         for (const element of data.members) {
             const user: User = await this.usersService.getUserById(element.userId)
             if (!user) {
-                throw new PreconditionFailedException('User does not exist')
+                throw new NotFoundException('User does not exist')
             }
             const member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id)
             if (!member) {
-                throw new PreconditionFailedException('User is not a member of this organization')
+                throw new BadRequestException('User is not a member of this organization')
             }
             if (!validRoles.includes(element.role)) {
-                throw new PreconditionFailedException(`Role ${element.role} is not valid`)
+                throw new BadRequestException(`Role ${element.role} is not valid`)
             }
             await this.organizationMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
         }
@@ -559,20 +559,20 @@ export class OrganizationsService extends AutowiredService {
     public async removeOrganizationMemberRole(organizationId: string, userId: string, role: string): Promise<OrganizationMember[]> {
         const organization: Organization = await this.getOrganizationById(organizationId)
         if (!organization) {
-            throw new PreconditionFailedException('Organization does not exist')
+            throw new NotFoundException('Organization does not exist')
         }
         const user: User = await this.usersService.getUserById(userId)
         if (!user) {
-            throw new PreconditionFailedException('User does not exist')
+            throw new NotFoundException('User does not exist')
         }
         const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id)
         const data: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id)
         if (!data) {
-            throw new PreconditionFailedException('User is not a member of this organization')
+            throw new BadRequestException('User is not a member of this organization')
         }
         const index: number = data.role_names.findIndex((x: string) => x === role)
         if (index === -1) {
-            throw new PreconditionFailedException(`User does not have role ${role}`)
+            throw new BadRequestException(`User does not have role ${role}`)
         }
         await this.organizationMemberProvider.update({ _id: this.provider.toObjectId(data.id) }, { $pull: { role_names: role } })
         return this.getOrganizationMembers(organization.id)

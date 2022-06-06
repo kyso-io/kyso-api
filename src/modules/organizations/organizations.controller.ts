@@ -329,6 +329,9 @@ export class OrganizationsController extends GenericController<Organization> {
         @Param('organizationId') organizationId,
         @Param('userId') userId: string,
     ): Promise<NormalizedResponseDTO<boolean>> {
+        if (!Validators.isValidObjectId(organizationId)) {
+            throw new BadRequestException(`Invalid organization id ${organizationId}`)
+        }
         const members: OrganizationMember[] = await this.organizationService.removeMemberFromOrganization(organizationId, userId)
         return new NormalizedResponseDTO(members)
     }
@@ -351,6 +354,9 @@ export class OrganizationsController extends GenericController<Organization> {
         @Param('organizationId') organizationId: string,
         @Body() data: UpdateOrganizationMembersDTO,
     ): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
+        if (!Validators.isValidObjectId(organizationId)) {
+            throw new BadRequestException(`Invalid organization id ${organizationId}`)
+        }
         const organizationMembers: OrganizationMember[] = await this.organizationService.UpdateOrganizationMembersDTORoles(organizationId, data)
         return new NormalizedResponseDTO(organizationMembers)
     }
@@ -386,6 +392,12 @@ export class OrganizationsController extends GenericController<Organization> {
         @Param('userId') userId: string,
         @Param('role') role: string,
     ): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
+        if (!Validators.isValidObjectId(organizationId)) {
+            throw new BadRequestException(`Invalid organization id ${organizationId}`)
+        }
+        if (!Validators.isValidObjectId(userId)) {
+            throw new BadRequestException(`Invalid user id ${userId}`)
+        }
         const members: OrganizationMember[] = await this.organizationService.removeOrganizationMemberRole(organizationId, userId, role)
         return new NormalizedResponseDTO(members)
     }
