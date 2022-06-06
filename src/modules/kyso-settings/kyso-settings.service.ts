@@ -85,6 +85,8 @@ export class KysoSettingsService extends AutowiredService {
                 return '/app/data'
             case KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL:
                 return 'http://kyso-indexer-api.kyso-indexer-api-lo.svc.cluster.local:8080'
+            case KysoSettingsEnum.UNAUTHORIZED_REDIRECT_URL:
+                return 'https://about.kyso.io'
             default:
                 return ''
         }
@@ -172,6 +174,8 @@ export class KysoSettingsService extends AutowiredService {
                 return 'Path where temporary files are stored'
             case KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL:
                 return 'Base URL of the kyso indexing service'
+            case KysoSettingsEnum.UNAUTHORIZED_REDIRECT_URL:
+                return 'Redirection URL to which an unauthorized user is redirected'
             default:
                 return 'No description provided'
         }
