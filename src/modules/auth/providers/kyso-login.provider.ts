@@ -15,7 +15,7 @@ export class KysoLoginProvider {
     async login(password: string, username?: string): Promise<string> {
         // Get user from database
         const user = await this.usersService.getUser({
-            filter: { email: username },
+            filter: { email: username.toLowerCase() },
         })
 
         if (!user) {
@@ -63,7 +63,8 @@ export class KysoLoginProvider {
     async loginWithAccessToken(access_token: string, username: string): Promise<string> {
         // Get user from database
         const user = await this.usersService.getUser({
-            filter: { email: username },
+            filter: { email: username.toLowerCase()
+          },
         })
         if (!user) {
             throw new UnauthorizedException('User does not exist')
