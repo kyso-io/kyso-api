@@ -97,6 +97,10 @@ export class TeamsService extends AutowiredService {
     }
 
     async getUniqueTeam(organizationId: string, teamSlugName: string): Promise<Team> {
+        const organization: Organization = await this.organizationsService.getOrganizationById(organizationId)
+        if (!organization) {
+            throw new NotFoundException(`Organization with id ${organizationId} not found`)
+        }
         return this.getTeam({ filter: { sluglified_name: teamSlugName, organization_id: organizationId } })
     }
 
@@ -808,6 +812,10 @@ export class TeamsService extends AutowiredService {
             query.filter.member_id = token.id
         }
         if (teamId && teamId.length > 0) {
+            const team: Team = await this.getTeamById(teamId)
+            if (!team) {
+                throw new NotFoundException('Team not found')
+            }
             query.filter.team_id = teamId
         }
         const teamsMembers: TeamMemberJoin[] = await this.teamMemberProvider.read(query)

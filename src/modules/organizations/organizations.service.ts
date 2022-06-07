@@ -660,6 +660,10 @@ export class OrganizationsService extends AutowiredService {
             query.filter.member_id = token.id
         }
         if (organizationId && organizationId.length > 0) {
+            const organization: Organization = await this.getOrganizationById(organizationId)
+            if (!organization) {
+                throw new NotFoundException('Organization not found')
+            }
             query.filter.organization_id = organizationId
         }
         const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.read(query)

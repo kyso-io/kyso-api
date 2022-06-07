@@ -19,6 +19,7 @@ import {
     Delete,
     Get,
     Logger,
+    NotFoundException,
     Param,
     Patch,
     Post,
@@ -38,6 +39,7 @@ import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
 import slugify from '../../helpers/slugify'
+import { Validators } from '../../helpers/validators'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
@@ -96,6 +98,9 @@ export class TeamsController extends GenericController<Team> {
         let userId: string = token.id
         if (query.filter?.user_id && query.filter.user_id.length > 0) {
             userId = query.filter.user_id
+            if (!Validators.isValidObjectId(userId)) {
+                throw new BadRequestException(`Invalid user id ${userId}`)
+            }
             delete query.filter.user_id
         }
         const teams: Team[] = await this.teamsService.getTeamsForController(userId, query)
@@ -112,6 +117,9 @@ export class TeamsController extends GenericController<Team> {
         @CurrentToken() token: Token,
         @Query('teamId') teamId: string,
     ): Promise<NormalizedResponseDTO<TeamInfoDto[]>> {
+        if (!Validators.isValidObjectId(teamId)) {
+            throw new BadRequestException(`Invalid team id ${teamId}`)
+        }
         const organizationInfoDto: TeamInfoDto[] = await this.teamsService.getTeamsInfo(token, teamId)
         const relations = await this.relationsService.getRelations(organizationInfoDto)
         return new NormalizedResponseDTO(organizationInfoDto, relations)
@@ -131,9 +139,12 @@ export class TeamsController extends GenericController<Team> {
     @ApiNormalizedResponse({ status: 200, description: `Team matching id`, type: Team })
     @Permission([TeamPermissionsEnum.READ])
     async getTeamById(@Param('id') id: string): Promise<NormalizedResponseDTO<Team>> {
+        if (!Validators.isValidObjectId(id)) {
+            throw new BadRequestException(`Invalid team id ${id}`)
+        }
         const team: Team = await this.teamsService.getTeamById(id)
         if (!team) {
-            throw new PreconditionFailedException('Team not found')
+            throw new NotFoundException('Team not found')
         }
         this.assignReferences(team)
         return new NormalizedResponseDTO(team)
@@ -167,6 +178,9 @@ export class TeamsController extends GenericController<Team> {
         }
         if (!organizationId || organizationId.length === 0) {
             throw new BadRequestException('Organization id is required')
+        }
+        if (!Validators.isValidObjectId(organizationId)) {
+            throw new BadRequestException(`Invalid organization id ${organizationId}`)
         }
         const team: Team = await this.teamsService.getUniqueTeam(organizationId, slugify(name))
         return new NormalizedResponseDTO<boolean>(team === null)
