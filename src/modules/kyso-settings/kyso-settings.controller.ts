@@ -70,6 +70,7 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
                 case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITHUB:
                 case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GOOGLE:
                 case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_KYSO:
+                case KysoSettingsEnum.UNAUTHORIZED_REDIRECT_URL:
                     return true
                 default:
                     return false

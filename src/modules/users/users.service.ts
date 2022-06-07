@@ -127,7 +127,7 @@ export class UsersService extends AutowiredService {
 
     async createUser(signUpDto: SignUpDto): Promise<User> {
         // exists a prev user with same email?
-        const userWithEmail: User = await this.getUser({ filter: { email: signUpDto.email } })
+        const userWithEmail: User = await this.getUser({ filter: { email: signUpDto.email.toLowerCase() } })
         if (userWithEmail) {
             throw new ConflictException('User already exists')
         }
@@ -461,7 +461,7 @@ export class UsersService extends AutowiredService {
     public async verifyEmail(data: VerifyEmailRequestDTO): Promise<boolean> {
         const result: UserVerification[] = await this.userVerificationMongoProvider.read({
             filter: {
-                $and: [{ email: data.email }, { token: data.token }],
+                $and: [{ email: data.email.toLowerCase() }, { token: data.token }],
             },
         })
         if (result.length === 0) {
@@ -502,7 +502,7 @@ export class UsersService extends AutowiredService {
     public async changePassword(userChangePasswordDto: UserChangePasswordDTO): Promise<boolean> {
         const result: UserForgotPassword[] = await this.userChangePasswordMongoProvider.read({
             filter: {
-                $and: [{ email: userChangePasswordDto.email }, { token: userChangePasswordDto.token }],
+                $and: [{ email: userChangePasswordDto.email.toLowerCase() }, { token: userChangePasswordDto.token }],
             },
         })
         if (result.length === 0) {
