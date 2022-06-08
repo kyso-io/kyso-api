@@ -10,7 +10,10 @@ import {
     OrganizationMember,
     OrganizationMemberJoin,
     OrganizationOptions,
+    OrganizationStorageDto,
     Report,
+    ResourcePermissions,
+    StorageDto,
     Team,
     TeamVisibilityEnum,
     Token,
@@ -21,7 +24,9 @@ import {
 import { MailerService } from '@nestjs-modules/mailer'
 import { BadRequestException, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import * as moment from 'moment'
-import { extname } from 'path'
+import { extname, join } from 'path'
+import * as Client from 'ssh2-sftp-client'
+import { FileInfo } from 'ssh2-sftp-client'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -30,6 +35,7 @@ import { CommentsService } from '../comments/comments.service'
 import { DiscussionsService } from '../discussions/discussions.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { ReportsService } from '../reports/reports.service'
+import { SftpService } from '../reports/sftp.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
@@ -66,6 +72,9 @@ export class OrganizationsService extends AutowiredService {
 
     @Autowired({ typeName: 'DiscussionsService' })
     private discussionsService: DiscussionsService
+
+    @Autowired({ typeName: 'SftpService' })
+    private sftpService: SftpService
 
     constructor(
         private readonly mailerService: MailerService,
@@ -791,5 +800,47 @@ export class OrganizationsService extends AutowiredService {
             },
         )
         return result
+    }
+
+    public async getOrganizationStorage(user: Token, sluglified_name: string): Promise<OrganizationStorageDto> {
+        const organization: Organization = await this.getOrganization({ filter: { sluglified_name } })
+        if (!organization) {
+            throw new NotFoundException(`Organization ${sluglified_name} not found`)
+        }
+        let isOrgAdmin: boolean = false
+        if (!user.isGlobalAdmin()) {
+            const resourcePermissionOrg: ResourcePermissions = user.permissions.organizations.find((x: ResourcePermissions) => x.id === organization.id)
+            if (resourcePermissionOrg) {
+                isOrgAdmin = resourcePermissionOrg.role_names.indexOf(PlatformRole.ORGANIZATION_ADMIN_ROLE.name) > -1
+            }
+        }
+        const resourcePermissionTeams: ResourcePermissions[] = user.permissions.teams.filter(
+            (x: ResourcePermissions) => x.organization_id === organization.id && x.role_names.indexOf(PlatformRole.TEAM_ADMIN_ROLE.name) > -1,
+        )
+
+        const client: Client = await this.sftpService.getClient()
+        const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+        const destinationPath = join(sftpDestinationFolder, `/${organization.sluglified_name}`)
+        const organizationStorageDto: OrganizationStorageDto = new OrganizationStorageDto()
+        organizationStorageDto.name = sluglified_name
+        const filesInfo: FileInfo[] = await client.list(destinationPath)
+        for (const fileInfo of filesInfo) {
+            if (fileInfo.type !== 'd') {
+                continue
+            }
+            const indexTeam: number = resourcePermissionTeams.findIndex((x: ResourcePermissions) => x.name === fileInfo.name)
+            if (user.isGlobalAdmin() || isOrgAdmin || indexTeam > -1) {
+                organizationStorageDto.teams.push({
+                    name: fileInfo.name,
+                    consumed_space_kb: fileInfo.size / 1024,
+                    consumed_space_mb: fileInfo.size / 1024 / 1024,
+                    consumed_space_gb: fileInfo.size / 1024 / 1024 / 1024,
+                })
+            }
+        }
+        organizationStorageDto.consumed_space_kb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumed_space_kb, 0)
+        organizationStorageDto.consumed_space_mb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumed_space_mb, 0)
+        organizationStorageDto.consumed_space_gb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumed_space_gb, 0)
+        return organizationStorageDto
     }
 }

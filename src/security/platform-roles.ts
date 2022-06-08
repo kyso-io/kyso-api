@@ -9,6 +9,7 @@ import {
     KysoRole,
     OrganizationPermissionsEnum,
     ReportPermissionsEnum,
+    StoragePermissionsEnum,
     TeamPermissionsEnum,
     UserPermissionsEnum,
 } from '@kyso-io/kyso-model'
@@ -19,6 +20,7 @@ export class PlatformRole {
         'platform-admin',
         [
             GlobalPermissionsEnum.GLOBAL_ADMIN,
+            StoragePermissionsEnum.READ,
             CommentPermissionsEnum.ADMIN,
             CommentPermissionsEnum.CREATE,
             CommentPermissionsEnum.DELETE,
@@ -76,6 +78,7 @@ export class PlatformRole {
     public static TEAM_ADMIN_ROLE = new KysoRole(
         'team-admin',
         [
+            StoragePermissionsEnum.READ,
             CommentPermissionsEnum.ADMIN,
             CommentPermissionsEnum.CREATE,
             CommentPermissionsEnum.DELETE,
@@ -171,6 +174,7 @@ export class PlatformRole {
     public static ORGANIZATION_ADMIN_ROLE = new KysoRole(
         'organization-admin',
         [
+            StoragePermissionsEnum.READ,
             CommentPermissionsEnum.ADMIN,
             CommentPermissionsEnum.CREATE,
             CommentPermissionsEnum.DELETE,
@@ -225,10 +229,10 @@ export class PlatformRole {
     )
 
     public static ALL_PLATFORM_ROLES = [
-        this.PLATFORM_ADMIN_ROLE, 
+        this.PLATFORM_ADMIN_ROLE,
         this.ORGANIZATION_ADMIN_ROLE,
         this.TEAM_ADMIN_ROLE,
         this.TEAM_CONTRIBUTOR_ROLE,
-        this.TEAM_READER_ROLE
+        this.TEAM_READER_ROLE,
     ]
 }
