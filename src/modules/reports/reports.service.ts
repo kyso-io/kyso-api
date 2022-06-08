@@ -605,7 +605,6 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
 
         const team: Team = await this.teamsService.getUniqueTeam(organization.id, kysoConfigFile.team)
-        Logger.log(`Team: ${team.sluglified_name}`)
         if (!team) {
             Logger.error(`Team ${kysoConfigFile.team} does not exist`)
             throw new PreconditionFailedException(`Team ${kysoConfigFile.team} does not exist`)
@@ -615,6 +614,19 @@ export class ReportsService extends AutowiredService implements GenericService<R
             Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
             throw new PreconditionFailedException(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
         }
+
+        let mainFileFound = false;
+        for (const entry of zip.getEntries()) {
+            if (entry.entryName === kysoConfigFile.main) {
+                mainFileFound = true
+                break
+            }
+        }
+        if (!mainFileFound) {
+            Logger.error(`Main file ${kysoConfigFile.main} not found`, ReportsService.name)
+            throw new PreconditionFailedException(`Main file ${kysoConfigFile.main} not found`)
+        }
+
         let extractedDir = null
 
         const name: string = slugify(kysoConfigFile.title)
