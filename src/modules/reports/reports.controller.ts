@@ -39,6 +39,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
+import { report } from 'process'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { Public } from '../../decorators/is-public'
@@ -162,18 +163,13 @@ export class ReportsController extends GenericController<Report> {
         }
 
         const reports: Report[] = await this.reportsService.getReports(query)
-        let reportsDtos: ReportDTO[] = []
-        if (reports.length > 0) {
-            reportsDtos = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token.id, version)))
-            try {
-                await this.reportsService.increaseViews({ _id: { $in: reportsDtos.map((reportDto: ReportDTO) => new ObjectId(reportDto.id)) } })
-            } catch (ex) {
-                Logger.log('Error increasing views')
-            }
+        const reportsDtos: ReportDTO[] = await Promise.all(
+            reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token.id, version)),
+        )
+        if (query.filter?.team_id && query.filter?.sluglified_name && reportsDtos.length === 1) {
+            await this.reportsService.increaseViews({ _id: new ObjectId(reportsDtos[0].id) })
+            reportsDtos[0].views++
         }
-        reportsDtos.forEach((reportDto: ReportDTO) => {
-            reportDto.views++
-        })
         const relations = await this.relationsService.getRelations(reports, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportsDtos, relations)
     }
@@ -198,14 +194,7 @@ export class ReportsController extends GenericController<Report> {
     @Permission([ReportPermissionsEnum.READ])
     async getPinnedReportsForUser(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<ReportDTO[]>> {
         const reports: Report[] = await this.reportsService.getPinnedReportsForUser(token.id)
-        let reportsDtos: ReportDTO[] = []
-        if (reports.length > 0) {
-            reportsDtos = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token.id)))
-            await this.reportsService.increaseViews({ _id: { $in: reports.map((report: Report) => new ObjectId(report.id)) } })
-        }
-        reportsDtos.forEach((reportDto: ReportDTO) => {
-            reportDto.views++
-        })
+        const reportsDtos: ReportDTO[] = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token.id)))
         const relations = await this.relationsService.getRelations(reports, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportsDtos, relations)
     }
