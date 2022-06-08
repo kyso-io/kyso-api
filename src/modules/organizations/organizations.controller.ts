@@ -8,6 +8,8 @@ import {
     OrganizationMemberJoin,
     OrganizationOptions,
     OrganizationPermissionsEnum,
+    OrganizationStorageDto,
+    StoragePermissionsEnum,
     TeamPermissionsEnum,
     Token,
     UpdateOrganizationDTO,
@@ -107,6 +109,20 @@ export class OrganizationsController extends GenericController<Organization> {
         const organizationInfoDto: OrganizationInfoDto[] = await this.organizationService.getNumMembersAndReportsByOrganization(token, organizationId)
         const relations = await this.relationsService.getRelations(organizationInfoDto)
         return new NormalizedResponseDTO(organizationInfoDto, relations)
+    }
+
+    @Get('/:sluglified_name/storage')
+    @ApiOperation({
+        summary: `Get organization storage`,
+        description: `Allows fetching organization storage`,
+    })
+    @Permission([StoragePermissionsEnum.READ])
+    public async getOrganizationStorage(
+        @CurrentToken() token: Token,
+        @Param('sluglified_name') sluglified_name: string,
+    ): Promise<NormalizedResponseDTO<OrganizationStorageDto>> {
+        const result: OrganizationStorageDto = await this.organizationService.getOrganizationStorage(token, sluglified_name)
+        return new NormalizedResponseDTO(result)
     }
 
     @Get('/:organizationId')
