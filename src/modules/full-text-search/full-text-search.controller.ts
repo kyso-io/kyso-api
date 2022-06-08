@@ -1,18 +1,29 @@
-import { NormalizedResponseDTO, Tag, FullTextSearchDTO, FullTextSearchResult, Token, Team, TeamVisibilityEnum, KysoSettingsEnum } from '@kyso-io/kyso-model'
+import {
+    FullTextSearchDTO,
+    FullTextSearchResult,
+    GlobalPermissionsEnum,
+    KysoSettingsEnum,
+    NormalizedResponseDTO,
+    Tag,
+    Team,
+    TeamVisibilityEnum,
+    Token,
+} from '@kyso-io/kyso-model'
 import { Controller, Get, Headers, Logger, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
+import axios from 'axios'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
+import { Permission } from '../auth/annotations/permission.decorator'
 import { AuthService } from '../auth/auth.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { PlatformRoleService } from '../auth/platform-role.service'
 import { UserRoleService } from '../auth/user-role.service'
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { FullTextSearchService } from './full-text-search.service'
-import axios, { AxiosResponse } from 'axios'
-import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 
 @ApiTags('search')
 @UseGuards(PermissionsGuard)
@@ -68,20 +79,29 @@ export class FullTextSearchController {
         @Query('filter.orgs') filterOrgs: string,
         @Query('filter.teams') filterTeams: string,
         @Query('filter.people') filterPeople: string,
-        @Headers('authorization') authHeader: string
+        @Headers('authorization') authHeader: string,
     ): Promise<NormalizedResponseDTO<FullTextSearchDTO>> {
-        if(!perPage) {
+        if (!perPage) {
             perPage = 100
         }
 
-        const searchResults: FullTextSearchDTO =  await this.searchService.search(searchTerms, type, page, perPage, filterOrgs, filterTeams, filterTags, filterPeople);
+        const searchResults: FullTextSearchDTO = await this.searchService.search(
+            searchTerms,
+            type,
+            page,
+            perPage,
+            filterOrgs,
+            filterTeams,
+            filterTags,
+            filterPeople,
+        )
 
         // Filter the results to remove all the reports that are private or protected and belongs to an organization or team which the current user
         // does not belongs
 
         // Retrieve the current user
-        const token : Token = this.authService.evaluateAndDecodeTokenFromHeader(authHeader)
-        
+        const token: Token = this.authService.evaluateAndDecodeTokenFromHeader(authHeader)
+
         // Retrieve the organizations and teams the current user belongs to
         token.permissions = await AuthService.buildFinalPermissionsForUser(
             token.username,
@@ -93,9 +113,9 @@ export class FullTextSearchController {
         )
 
         // Put all the teams in an array
-        const allUserTeams: string[] = token.permissions.teams.map(x => x.name)
+        const allUserTeams: string[] = token.permissions.teams.map((x) => x.name)
         // const allUserOrganizations: string[] = token.permissions.organizations.map(x => x.name)
-        
+
         // Retrieve all the teams involved in the results of this page
         const resultsTeamsNames: string[] = searchResults.reports.results.map((x: FullTextSearchResult) => {
             return x.team
@@ -103,16 +123,16 @@ export class FullTextSearchController {
 
         const bannedTeams: string[] = []
 
-        // Remove duplicates 
+        // Remove duplicates
         const uniqueResultsTeamNames = new Set(resultsTeamsNames)
 
         // Retrieve team information to know if the team is public, private or protected
-        for(const aux of uniqueResultsTeamNames) {
-            const t_aux: Team = await this.teamsService.getTeam({ filter: {sluglified_name: aux} })
-            
-            if(t_aux) {
-                if(t_aux.visibility !== TeamVisibilityEnum.PUBLIC) {
-                    if(!allUserTeams.includes(t_aux.sluglified_name)) {
+        for (const aux of uniqueResultsTeamNames) {
+            const t_aux: Team = await this.teamsService.getTeam({ filter: { sluglified_name: aux } })
+
+            if (t_aux) {
+                if (t_aux.visibility !== TeamVisibilityEnum.PUBLIC) {
+                    if (!allUserTeams.includes(t_aux.sluglified_name)) {
                         bannedTeams.push(t_aux.sluglified_name)
                     }
                 }
@@ -125,38 +145,38 @@ export class FullTextSearchController {
         })
 
         // Remove duplicated tags, teams and organizations and process tags
-        const finalTagsSet = new Set<string>();
+        const finalTagsSet = new Set<string>()
         const finalOrganizationsSet = new Set<string>()
         const finalTeamsSet = new Set<string>()
 
-        for(let orgItem of searchResults.reports.organizations) {
+        for (let orgItem of searchResults.reports.organizations) {
             try {
                 finalOrganizationsSet.add(orgItem)
-            } catch(ex) {
+            } catch (ex) {
                 // silent it
             }
         }
 
-        for(let teamItem of searchResults.reports.teams) {
+        for (let teamItem of searchResults.reports.teams) {
             try {
                 finalTeamsSet.add(teamItem)
-            } catch(ex) {
+            } catch (ex) {
                 // silent it
             }
         }
 
-        for(let tagArray of searchResults.reports.tags) {
+        for (let tagArray of searchResults.reports.tags) {
             try {
-                const tags = tagArray.replace("[", "").replace("]", "").split(",")
-                for(let tag of tags) {
+                const tags = tagArray.replace('[', '').replace(']', '').split(',')
+                for (let tag of tags) {
                     finalTagsSet.add(tag)
                 }
-            } catch(ex) {
+            } catch (ex) {
                 // silent it
             }
         }
 
-        // start Hack requested by @kyle for a demo ;P       
+        // start Hack requested by @kyle for a demo ;P
         /*finalTagsSet.add("churn")
         finalTagsSet.add("engagement")
         finalTagsSet.add("b2b-chorts")
@@ -230,34 +250,31 @@ export class FullTextSearchController {
 
                 
         searchResults.reports.results = [...fakeData, ...censoredResults]*/
-        
+
         searchResults.reports.results = [...censoredResults]
         searchResults.reports.tags = Array.from(finalTagsSet)
         searchResults.reports.organizations = Array.from(finalOrganizationsSet)
         searchResults.reports.teams = Array.from(finalTeamsSet)
 
-        return new NormalizedResponseDTO(searchResults, null);
+        return new NormalizedResponseDTO(searchResults, null)
     }
 
-    @Get("/reindex")
+    @Get('/reindex')
     @ApiOperation({
         summary: `Reindex`,
         description: `Reindex`,
     })
     @ApiQuery({ name: 'pathToIndex', required: true, description: '/sftp/data/scs' })
     @ApiNormalizedResponse({ status: 200, description: `Search results`, type: Tag, isArray: true })
-    public async reindex(
-        @Query('pathToIndex') pathToIndex: string,
-    ) {
+    @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
+    public async reindex(@Query('pathToIndex') pathToIndex: string) {
         const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
-        
         axios.get(`${kysoIndexerApi}/api/reindex?pathToIndex=${pathToIndex}`).then(
             () => {},
             (err) => {
                 Logger.warn(`${pathToIndex} was not indexed properly`, err)
             },
         )
-
-        return { status: "queued" }
+        return { status: 'queued' }
     }
 }
