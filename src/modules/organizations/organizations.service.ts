@@ -22,11 +22,10 @@ import {
     User,
 } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
-import { BadRequestException, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import axios, { AxiosResponse } from 'axios'
 import * as moment from 'moment'
-import { extname, join } from 'path'
-import * as Client from 'ssh2-sftp-client'
-import { FileInfo } from 'ssh2-sftp-client'
+import { extname } from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -818,29 +817,28 @@ export class OrganizationsService extends AutowiredService {
             (x: ResourcePermissions) => x.organization_id === organization.id && x.role_names.indexOf(PlatformRole.TEAM_ADMIN_ROLE.name) > -1,
         )
 
-        const client: Client = await this.sftpService.getClient()
-        const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
-        const destinationPath = join(sftpDestinationFolder, `/${organization.sluglified_name}`)
+        let data: OrganizationStorageDto;
+        try {
+            const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
+            const axiosResponse: AxiosResponse<OrganizationStorageDto> = await axios.get<OrganizationStorageDto>(
+                `${kysoIndexerApi}/api/storage?organizationFolderPath=/sftp/data/scs/${sluglified_name}`,
+            )
+            data = axiosResponse.data
+        } catch (e: any) {
+            throw new InternalServerErrorException(e.message)
+        }
+
         const organizationStorageDto: OrganizationStorageDto = new OrganizationStorageDto()
         organizationStorageDto.name = sluglified_name
-        const filesInfo: FileInfo[] = await client.list(destinationPath)
-        for (const fileInfo of filesInfo) {
-            if (fileInfo.type !== 'd') {
-                continue
-            }
-            const indexTeam: number = resourcePermissionTeams.findIndex((x: ResourcePermissions) => x.name === fileInfo.name)
+        for (const storageTeam of data.teams) {
+            const indexTeam: number = resourcePermissionTeams.findIndex((x: ResourcePermissions) => x.name === storageTeam.name)
             if (user.isGlobalAdmin() || isOrgAdmin || indexTeam > -1) {
-                organizationStorageDto.teams.push({
-                    name: fileInfo.name,
-                    consumed_space_kb: fileInfo.size / 1024,
-                    consumed_space_mb: fileInfo.size / 1024 / 1024,
-                    consumed_space_gb: fileInfo.size / 1024 / 1024 / 1024,
-                })
+                organizationStorageDto.teams.push(storageTeam)
             }
         }
-        organizationStorageDto.consumed_space_kb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumed_space_kb, 0)
-        organizationStorageDto.consumed_space_mb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumed_space_mb, 0)
-        organizationStorageDto.consumed_space_gb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumed_space_gb, 0)
+        organizationStorageDto.consumedSpaceKb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumedSpaceKb, 0)
+        organizationStorageDto.consumedSpaceMb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumedSpaceMb, 0)
+        organizationStorageDto.consumedSpaceGb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumedSpaceGb, 0)
         return organizationStorageDto
     }
 }

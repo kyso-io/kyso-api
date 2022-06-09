@@ -94,7 +94,12 @@ export class RelationsService extends AutowiredService {
                 if (!model) {
                     return
                 }
-                if (collection === 'User') acc[model.id] = plainToInstance(User, model)
+                if (collection === 'User') {
+                    acc[model.id] = plainToInstance(User, model)
+                    delete acc[model.id].accessToken;
+                    delete acc[model.id].hashed_password;
+                    delete acc[model.id].accounts;
+                }
                 if (collection === 'Report') acc[model.id] = plainToInstance(Report, model)
                 if (collection === 'Comment') acc[model.id] = plainToInstance(Comment, model)
                 if (collection === 'Team') acc[model.id] = plainToInstance(Team, model)
