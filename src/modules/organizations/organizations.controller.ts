@@ -30,6 +30,7 @@ import {
     UploadedFile,
     UseGuards,
     UseInterceptors,
+    Logger
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'

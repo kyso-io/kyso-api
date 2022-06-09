@@ -804,6 +804,7 @@ export class OrganizationsService extends AutowiredService {
     public async getOrganizationStorage(user: Token, sluglified_name: string): Promise<OrganizationStorageDto> {
         const organization: Organization = await this.getOrganization({ filter: { sluglified_name } })
         if (!organization) {
+            Logger.log(`Organization ${sluglified_name} not found`)
             throw new NotFoundException(`Organization ${sluglified_name} not found`)
         }
         let isOrgAdmin: boolean = false
@@ -820,11 +821,15 @@ export class OrganizationsService extends AutowiredService {
         let data: OrganizationStorageDto;
         try {
             const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
+            const url = `${kysoIndexerApi}/api/storage?organizationFolderPath=/sftp/data/scs/${sluglified_name}`
+
+            Logger.log(`Calling ${url}`)
             const axiosResponse: AxiosResponse<OrganizationStorageDto> = await axios.get<OrganizationStorageDto>(
-                `${kysoIndexerApi}/api/storage?organizationFolderPath=/sftp/data/scs/${sluglified_name}`,
+                url,
             )
             data = axiosResponse.data
         } catch (e: any) {
+            Logger.error("Unexpected error", e)
             throw new InternalServerErrorException(e.message)
         }
 
@@ -839,6 +844,7 @@ export class OrganizationsService extends AutowiredService {
         organizationStorageDto.consumedSpaceKb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumedSpaceKb, 0)
         organizationStorageDto.consumedSpaceMb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumedSpaceMb, 0)
         organizationStorageDto.consumedSpaceGb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumedSpaceGb, 0)
+        
         return organizationStorageDto
     }
 }
