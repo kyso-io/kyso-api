@@ -87,6 +87,20 @@ export class KysoSettingsService extends AutowiredService {
                 return 'http://kyso-indexer-api.kyso-indexer-api-lo.svc.cluster.local:8080'
             case KysoSettingsEnum.UNAUTHORIZED_REDIRECT_URL:
                 return 'https://about.kyso.io'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_CENTRAL_LOGO_URL:
+                return 'https://www.gitbook.com/cdn-cgi/image/width=40,height=40,fit=contain,dpr=1,format=auto/https%3A%2F%2F4142543212-files.gitbook.io%2F~%2Ffiles%2Fv0%2Fb%2Fgitbook-legacy-files%2Fo%2Fspaces%252F-LjzfPqQ1fXmC4OMXwiD%252Favatar-1591004649776.png%3Fgeneration%3D1591004650222641%26alt%3Dmedia'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_CENTRAL_REDIRECT_URL:
+                return 'https://about.kyso.io'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_LEFT_LOGO_URL:
+                return ''
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_LEFT_REDIRECT_URL:
+                return ''
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_RIGHT_LOGO_URL:
+                return ''
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_RIGHT_REDIRECT_URL:
+                return ''
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_CSS_STYLES:
+                return ''
             default:
                 return ''
         }
@@ -176,6 +190,20 @@ export class KysoSettingsService extends AutowiredService {
                 return 'Base URL of the kyso indexing service'
             case KysoSettingsEnum.UNAUTHORIZED_REDIRECT_URL:
                 return 'Redirection URL to which an unauthorized user is redirected'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_CENTRAL_LOGO_URL:
+                return 'URL of the center image'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_CENTRAL_REDIRECT_URL:
+                return 'URL to redirect when someone clicks on center image'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_LEFT_LOGO_URL:
+                return 'URL of the left image'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_LEFT_REDIRECT_URL:
+                return 'URL to redirect when someone clicks on left image'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_RIGHT_LOGO_URL:
+                return 'URL of the right image'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_RIGHT_REDIRECT_URL:
+                return 'URL to redirect when someone clicks on right image'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_CSS_STYLES:
+                return 'Specific css styles to apply globally in the login page'
             default:
                 return 'No description provided'
         }
