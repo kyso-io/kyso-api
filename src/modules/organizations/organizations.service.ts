@@ -747,7 +747,7 @@ export class OrganizationsService extends AutowiredService {
                 })
             }
             map.get(organizationId).discussions++
-            map.get(organizationId).lastChange = moment.max(moment(discussion.updated_at), moment(map.get(discussion.team_id).lastChange)).toDate()
+            map.get(organizationId).lastChange = moment.max(moment(discussion.updated_at), moment(map.get(organizationId).lastChange)).toDate()
         })
         const commentsQuery: any = {
             filter: {},

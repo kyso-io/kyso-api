@@ -21,7 +21,7 @@ import {
     User,
 } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
-import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import * as moment from 'moment'
 import { extname, join } from 'path'
 import * as Client from 'ssh2-sftp-client'
@@ -333,6 +333,47 @@ export class TeamsService extends AutowiredService {
             })
         } else {
             return []
+        }
+    }
+
+    public async getAuthors(teamId: string): Promise<TeamMember[]> {
+        const team: Team = await this.getTeamById(teamId)
+        if (!team) {
+            throw new NotFoundException(`Team with id ${teamId} not found`)
+        }
+        switch (team.visibility) {
+            case TeamVisibilityEnum.PUBLIC:
+                const users: User[] = await this.usersService.getUsers({
+                    filter: {},
+                })
+                return users.map((user: User) => {
+                    return new TeamMember(
+                        user.id.toString(),
+                        user.display_name,
+                        user.name,
+                        [],
+                        user.bio,
+                        user.avatar_url,
+                        user.email,
+                        TeamMembershipOriginEnum.ORGANIZATION,
+                    )
+                })
+            case TeamVisibilityEnum.PROTECTED:
+                const organizationMembers: OrganizationMember[] = await this.organizationsService.getOrganizationMembers(team.organization_id)
+                return organizationMembers.map((member: OrganizationMember) => {
+                    return new TeamMember(
+                        member.id,
+                        member.nickname,
+                        member.username,
+                        [],
+                        member.bio,
+                        member.avatar_url,
+                        member.email,
+                        TeamMembershipOriginEnum.ORGANIZATION,
+                    )
+                })
+            case TeamVisibilityEnum.PRIVATE:
+                return this.getMembers(team.id)
         }
     }
 
@@ -801,9 +842,9 @@ export class TeamsService extends AutowiredService {
     }
 
     public async getTeamsInfo(token: Token, teamId?: string): Promise<TeamInfoDto[]> {
-        const map: Map<string, { members: number; reports: number; discussions: number; comments: number; lastChange: Date;}> = new Map<
+        const map: Map<string, { members: number; reports: number; discussions: number; comments: number; lastChange: Date }> = new Map<
             string,
-            { members: number; reports: number; discussions: number; comments: number; lastChange: Date; }
+            { members: number; reports: number; discussions: number; comments: number; lastChange: Date }
         >()
         const query: any = {
             filter: {},

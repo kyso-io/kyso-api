@@ -22,11 +22,12 @@ import {
     StarredReport,
     Tag,
     Team,
+    TeamVisibilityEnum,
     Token,
     TokenPermissions,
     UpdateReportRequestDTO,
     User,
-    UserAccount,
+    UserAccount
 } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import { MailerService } from '@nestjs-modules/mailer'
@@ -295,11 +296,18 @@ export class ReportsService extends AutowiredService implements GenericService<R
             await this.checkReportTags(report.id, updateReportRequestDTO.tags || [])
             delete updateReportRequestDTO.tags
         }
-        const dataToUpdate: any = {
-            author_ids: [...report.author_ids],
-        }
-        if (dataToUpdate.author_ids.indexOf(userId) === -1) {
-            dataToUpdate.author_ids.push(userId)
+        const dataToUpdate: any = {}
+        if (updateReportRequestDTO.author_emails && Array.isArray(updateReportRequestDTO.author_emails)) {
+            dataToUpdate.author_ids = [report.user_id]
+            for (const email of updateReportRequestDTO.author_emails) {
+                const user = await this.usersService.getUser({ filter: { email } })
+                if (user) {
+                    const index = dataToUpdate.author_ids.indexOf(user.id)
+                    if (index === -1) {
+                        dataToUpdate.author_ids.push(user.id)
+                    }
+                }
+            }
         }
         if (updateReportRequestDTO.title && updateReportRequestDTO.title !== report.title) {
             dataToUpdate.title = updateReportRequestDTO.title
@@ -615,7 +623,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             throw new PreconditionFailedException(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
         }
 
-        let mainFileFound = false;
+        let mainFileFound = false
         for (const entry of zip.getEntries()) {
             if (entry.entryName === kysoConfigFile.main) {
                 mainFileFound = true
@@ -657,9 +665,48 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 reportFile = await this.filesMongoProvider.create(reportFile)
                 reportFiles.push(reportFile)
             }
-            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { main_file: kysoConfigFile?.main } })
+            const authors: string[] = [...report.author_ids]
+            if (kysoConfigFile.authors && Array.isArray(kysoConfigFile.authors)) {
+                for (const email of kysoConfigFile.authors) {
+                    const author: User = await this.usersService.getUser({
+                        filter: {
+                            email,
+                        },
+                    })
+                    if (author) {
+                        const indexAuthor: number = authors.indexOf(author.id)
+                        const teams: Team[] = await this.teamsService.getTeamsForController(author.id, { filter: {} })
+                        const indexTeam: number = teams.findIndex((t: Team) => t.id === team.id)
+                        if (indexAuthor === -1 && (indexTeam > -1 || team.visibility === TeamVisibilityEnum.PUBLIC)) {
+                            authors.push(author.id)
+                        }
+                    }
+                }
+            }
+            report = await this.provider.update(
+                { _id: this.provider.toObjectId(report.id) },
+                { $set: { main_file: kysoConfigFile?.main, author_ids: authors } },
+            )
         } else {
             Logger.log(`Creating new report '${name}'`, ReportsService.name)
+            const authors: string[] = [user.id]
+            if (kysoConfigFile.authors && Array.isArray(kysoConfigFile.authors)) {
+                for (const email of kysoConfigFile.authors) {
+                    const author: User = await this.usersService.getUser({
+                        filter: {
+                            email,
+                        },
+                    })
+                    if (author) {
+                        const indexAuthor: number = authors.indexOf(author.id)
+                        const teams: Team[] = await this.teamsService.getTeamsForController(author.id, { filter: {} })
+                        const indexTeam: number = teams.findIndex((t: Team) => t.id === team.id)
+                        if (indexAuthor === -1 && (indexTeam > -1 || team.visibility === TeamVisibilityEnum.PUBLIC)) {
+                            authors.push(author.id)
+                        }
+                    }
+                }
+            }
             // New report
             report = new Report(
                 name,
@@ -675,7 +722,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 userId,
                 team.id,
                 kysoConfigFile.title,
-                [],
+                authors,
                 null,
                 false,
                 false,
@@ -1051,6 +1098,25 @@ export class ReportsService extends AutowiredService implements GenericService<R
             throw new PreconditionFailedException(`Report '${name}' already exists in team ${team.sluglified_name}`)
         }
 
+        const authors: string[] = [user.id]
+        if (kysoConfigFile.authors && Array.isArray(kysoConfigFile.authors)) {
+            for (const email of kysoConfigFile.authors) {
+                const author: User = await this.usersService.getUser({
+                    filter: {
+                        email,
+                    },
+                })
+                if (author) {
+                    const indexAuthor: number = authors.indexOf(author.id)
+                    const teams: Team[] = await this.teamsService.getTeamsForController(author.id, { filter: {} })
+                    const indexTeam: number = teams.findIndex((t: Team) => t.id === team.id)
+                    if (indexAuthor === -1 && (indexTeam > -1 || team.visibility === TeamVisibilityEnum.PUBLIC)) {
+                        authors.push(author.id)
+                    }
+                }
+            }
+        }
+
         Logger.log(`Creating new report '${name}'`, ReportsService.name)
         report = new Report(
             name,
@@ -1066,7 +1132,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             userId,
             team.id,
             kysoConfigFile.title,
-            [],
+            authors,
             null,
             false,
             false,

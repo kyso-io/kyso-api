@@ -218,6 +218,29 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponseDTO(data)
     }
 
+    @Get('/:teamId/authors')
+    @ApiOperation({
+        summary: `List of users who can be authors of a report`,
+        description: `List of users who can be authors of a report passing team id`,
+    })
+    @ApiParam({
+        name: 'teamId',
+        required: true,
+        description: `Id of the team that the report belongs to`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({ status: 200, description: `List of users`, type: TeamMember })
+    @ApiHeader({
+        name: HEADER_X_KYSO_TEAM,
+        description: 'Name of the team',
+        required: true,
+    })
+    @Permission([TeamPermissionsEnum.READ])
+    async getAuthors(@Param('teamId') teamId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
+        const data: TeamMember[] = await this.teamsService.getAuthors(teamId)
+        return new NormalizedResponseDTO(data)
+    }
+
     @Get('/:teamId/members/:userId')
     @ApiOperation({
         summary: `Check if users belongs to a team`,

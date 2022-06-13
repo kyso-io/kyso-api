@@ -25,7 +25,7 @@
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.48.0",
-        "@kyso-io/kyso-model": "1.0.54",
+        "@kyso-io/kyso-model": "1.0.57",
         "@nestjs-modules/mailer": "^1.6.1",
         "@nestjs/common": "^8.0.0",
         "@nestjs/config": "^1.1.0",
@@ -52,7 +52,7 @@
         "fast-glob": "^3.2.7",
         "fs-extra": "^10.0.1",
         "get-folder-size": "^3.1.0",
-        "glob": "^7.2.0",
+        "glob": "^7.2.3",
         "googleapis": "^95.0.0",
         "handlebars": "^4.7.7",
         "helmet": "^4.6.0",
