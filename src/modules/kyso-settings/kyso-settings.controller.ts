@@ -71,6 +71,13 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
                 case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GOOGLE:
                 case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_KYSO:
                 case KysoSettingsEnum.UNAUTHORIZED_REDIRECT_URL:
+                case KysoSettingsEnum.CUSTOMIZE_LOGIN_CENTRAL_LOGO_URL:
+                case KysoSettingsEnum.CUSTOMIZE_LOGIN_CENTRAL_REDIRECT_URL:
+                case KysoSettingsEnum.CUSTOMIZE_LOGIN_LEFT_LOGO_URL:
+                case KysoSettingsEnum.CUSTOMIZE_LOGIN_LEFT_REDIRECT_URL:
+                case KysoSettingsEnum.CUSTOMIZE_LOGIN_RIGHT_LOGO_URL:
+                case KysoSettingsEnum.CUSTOMIZE_LOGIN_RIGHT_REDIRECT_URL:
+                case KysoSettingsEnum.CUSTOMIZE_LOGIN_CSS_STYLES:
                     return true
                 default:
                     return false
