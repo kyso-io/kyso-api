@@ -846,22 +846,15 @@ export class TeamsService extends AutowiredService {
             string,
             { members: number; reports: number; discussions: number; comments: number; lastChange: Date }
         >()
-        const query: any = {
-            filter: {},
-        }
-        if (!token.isGlobalAdmin()) {
-            query.filter.member_id = token.id
-        }
-        if (teamId && teamId.length > 0) {
-            query.filter.team_id = teamId
-        }
-        const teamsMembers: TeamMemberJoin[] = await this.teamMemberProvider.read(query)
-        for (const teamMemberJoin of teamsMembers) {
-            if (!map.has(teamMemberJoin.team_id)) {
-                const team: Team = await this.getTeamById(teamMemberJoin.team_id)
+        for (const teamResourcePermission of token.permissions.teams) {
+            if (teamId && teamId.length > 0 && teamId !== teamResourcePermission.id) {
+                continue
+            }
+            if (!map.has(teamResourcePermission.id)) {
+                const team: Team = await this.getTeamById(teamResourcePermission.id)
                 const teamMembers: TeamMemberJoin[] = await this.teamMemberProvider.read({
                     filter: {
-                        team_id: teamMemberJoin.team_id,
+                        team_id: team.id,
                     },
                 })
                 map.set(team.id, {
