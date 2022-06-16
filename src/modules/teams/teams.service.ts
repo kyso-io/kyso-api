@@ -877,7 +877,7 @@ export class TeamsService extends AutowiredService {
             filter: {},
         }
         if (teamId && teamId.length > 0) {
-            teamsQuery.filter.team_id = teamId
+            teamsQuery.filter.id = teamId
         }
         if (token.isGlobalAdmin()) {
             teams = await this.getTeams(teamsQuery)
