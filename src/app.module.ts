@@ -63,12 +63,10 @@ import { UsersModule } from './modules/users/users.module'
         TestingDataPopulatorModule,
         UsersModule.forRoot(),
     ],
-    providers: [
-        RequestLoggerMiddleware
-    ]
+    providers: [RequestLoggerMiddleware],
 })
-export class AppModule implements NestModule{
+export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer) {
-        consumer.apply(RequestLoggerMiddleware).forRoutes("*");
+        consumer.apply(RequestLoggerMiddleware).forRoutes('*')
     }
 }

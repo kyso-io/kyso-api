@@ -101,6 +101,8 @@ export class KysoSettingsService extends AutowiredService {
                 return ''
             case KysoSettingsEnum.CUSTOMIZE_LOGIN_CSS_STYLES:
                 return ''
+            case KysoSettingsEnum.KYSO_NATS_URL:
+                return 'nats://localhost:4222'
             default:
                 return ''
         }

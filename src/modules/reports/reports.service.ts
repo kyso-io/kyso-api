@@ -8,6 +8,9 @@ import {
     GithubRepository,
     GlobalPermissionsEnum,
     KysoConfigFile,
+    KysoEvent,
+    KysoReportsCreateEvent,
+    KysoReportsNewVersionEvent,
     KysoSettingsEnum,
     LoginProviderEnum,
     Organization,
@@ -27,11 +30,12 @@ import {
     TokenPermissions,
     UpdateReportRequestDTO,
     User,
-    UserAccount
+    UserAccount,
 } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import { MailerService } from '@nestjs-modules/mailer'
-import { ForbiddenException, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ClientProxy } from '@nestjs/microservices'
 import { Octokit } from '@octokit/rest'
 import * as AdmZip from 'adm-zip'
 import axios, { AxiosResponse } from 'axios'
@@ -133,6 +137,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider,
         private readonly starredReportsMongoProvider: StarredReportsMongoProvider,
         private readonly filesMongoProvider: FilesMongoProvider,
+        @Inject('NATS_SERVICE') private client: ClientProxy,
     ) {
         super()
     }
@@ -217,6 +222,12 @@ export class ReportsService extends AutowiredService implements GenericService<R
             throw new PreconditionFailedException("The specified team couldn't be found")
         }
 
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        if (!organization) {
+            Logger.error("The specified organization couldn't be found")
+            throw new PreconditionFailedException("The specified organization couldn't be found")
+        }
+
         createReportDto.name = slugify(createReportDto.name)
 
         // Check if exists a report with this name
@@ -260,7 +271,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             }
         }
 
-        const report: Report = new Report(
+        let report: Report = new Report(
             createReportDto.name,
             null,
             createReportDto.provider,
@@ -281,14 +292,24 @@ export class ReportsService extends AutowiredService implements GenericService<R
             kysoConfigFile && kysoConfigFile.main ? kysoConfigFile.main : null,
         )
         Logger.log('Creating report')
-        return this.provider.create(report)
+        report = await this.provider.create(report)
+
+        this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
+            user,
+            organization,
+            team,
+            report,
+            frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+        })
+
+        return report
     }
 
     public async updateReport(userId: string, reportId: string, updateReportRequestDTO: UpdateReportRequestDTO): Promise<Report> {
         Logger.log(`Updating report ${reportId}`)
         Logger.log(`With data ${updateReportRequestDTO}`)
 
-        const report: Report = await this.getReportById(reportId)
+        let report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
         }
@@ -324,7 +345,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
         if (updateReportRequestDTO.hasOwnProperty('main_file') && updateReportRequestDTO.main_file != null && updateReportRequestDTO.main_file.length > 0) {
             dataToUpdate.main_file = updateReportRequestDTO.main_file
         }
-        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: dataToUpdate })
+        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: dataToUpdate })
+        this.client.emit<Report>(KysoEvent.REPORTS_UPDATE, report)
+        return report
     }
 
     public async deleteReport(reportId: string): Promise<Report> {
@@ -365,6 +388,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
         await this.deletePreviewPicture(reportId)
 
         await this.provider.deleteOne({ _id: this.provider.toObjectId(reportId) })
+
+        this.client.emit<Report>(KysoEvent.REPORTS_DELETE, report)
+
         return report
     }
 
@@ -786,9 +812,24 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 },
             )
 
-            // writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
-
-            await this.sendNewReportMail(report, team, organization, isNew)
+            const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+            if (isNew) {
+                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                })
+            } else {
+                this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                })
+            }
         })
 
         return report
@@ -1014,7 +1055,24 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     },
                 )
 
-                await this.sendNewReportMail(report, team, organization, isNew)
+                const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+                if (isNew) {
+                    this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
+                        user,
+                        organization,
+                        team,
+                        report,
+                        frontendUrl,
+                    })
+                } else {
+                    this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
+                        user,
+                        organization,
+                        team,
+                        report,
+                        frontendUrl,
+                    })
+                }
             })
         }
         return newReports
@@ -1197,38 +1255,16 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 },
             )
 
-            // writeFileSync(join(reportPath, `/${report.id}.indexer`), files.join('\n'))
-
-            await this.sendNewReportMail(report, team, organization, true)
+            this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
+                user,
+                organization,
+                team,
+                report,
+                frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+            })
         })
 
         return report
-    }
-
-    private async sendNewReportMail(report: Report, team: Team, organization: Organization, isNew: boolean): Promise<void> {
-        const user: User = await this.usersService.getUserById(report.user_id)
-        const centralizedMails: boolean = organization?.options?.notifications?.centralized || false
-        const emails: string[] = organization?.options?.notifications?.emails || []
-        const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-        const to = centralizedMails && emails.length > 0 ? emails : user.email
-        this.mailerService
-            .sendMail({
-                to,
-                subject: isNew ? `New report '${report.title}' published` : `Existing report '${report.title}' updated`,
-                template: isNew ? 'report-new' : 'report-updated',
-                context: {
-                    organization,
-                    team,
-                    report,
-                    frontendUrl,
-                },
-            })
-            .then((messageInfo) => {
-                Logger.log(`Report mail ${messageInfo.messageId} sent to ${Array.isArray(to) ? to.join(', ') : to}`, ReportsService.name)
-            })
-            .catch((err) => {
-                Logger.error(`An error occurrend sending report mail to ${Array.isArray(to) ? to.join(', ') : to}`, err, ReportsService.name)
-            })
     }
 
     public async updateMainFileReport(userId: string, reportId: string, file: any): Promise<Report> {
@@ -1321,6 +1357,17 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 Logger.warn(`${pathToIndex} was not indexed properly`, err)
             },
         )
+
+        const user: User = await this.usersService.getUserById(userId)
+        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+        this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
+            user,
+            organization,
+            team,
+            report,
+            frontendUrl,
+        })
+
         return report
     }
 
@@ -1473,6 +1520,27 @@ export class ReportsService extends AutowiredService implements GenericService<R
             }
 
             await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, isNew)
+
+            const team: Team = await this.teamsService.getTeamById(report.team_id)
+            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+            if (isNew) {
+                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                })
+            } else {
+                this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                })
+            }
         })
 
         return report
@@ -1648,6 +1716,27 @@ export class ReportsService extends AutowiredService implements GenericService<R
             }
 
             await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, isNew)
+
+            const team: Team = await this.teamsService.getTeamById(report.team_id)
+            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+            if (isNew) {
+                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                })
+            } else {
+                this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                })
+            }
         })
 
         return report
@@ -1783,6 +1872,27 @@ export class ReportsService extends AutowiredService implements GenericService<R
             }
 
             await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, isNew)
+
+            const team: Team = await this.teamsService.getTeamById(report.team_id)
+            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+            if (isNew) {
+                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                })
+            } else {
+                this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                })
+            }
         })
 
         return report
@@ -2036,12 +2146,8 @@ export class ReportsService extends AutowiredService implements GenericService<R
             },
         )
 
-        // writeFileSync(join(reportPath, `/${report.id}.indexer`), tmpFiles.join('\n'))
-
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
         Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
-
-        await this.sendNewReportMail(report, team, organization, isNew)
     }
 
     private async downloadGithubFiles(commit: string, extractedDir: string, repository: any, accessToken: string): Promise<AdmZip> {
