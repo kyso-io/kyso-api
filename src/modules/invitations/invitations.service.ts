@@ -1,9 +1,20 @@
-import { CreateInvitationDto, Invitation, InvitationStatus, InvitationType, Organization, Team, TeamMember, User } from '@kyso-io/kyso-model'
-import { MailerService } from '@nestjs-modules/mailer'
-import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import {
+    CreateInvitationDto,
+    Invitation,
+    InvitationStatus,
+    InvitationType,
+    KysoEvent,
+    KysoInvitationsTeamCreateEvent,
+    KysoSettingsEnum,
+    Organization,
+    Team,
+    TeamMember,
+    User,
+} from '@kyso-io/kyso-model'
+import { Inject, Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ClientProxy } from '@nestjs/microservices'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
-import { KysoSettingsEnum } from '@kyso-io/kyso-model'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
@@ -36,7 +47,7 @@ export class InvitationsService extends AutowiredService {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
 
-    constructor(private mailerService: MailerService, private readonly provider: InvitationsMongoProvider) {
+    constructor(private readonly provider: InvitationsMongoProvider, @Inject('NATS_SERVICE') private client: ClientProxy) {
         super()
     }
 
@@ -79,26 +90,14 @@ export class InvitationsService extends AutowiredService {
                 const user: User = await this.usersService.getUserById(invitation.creator_id)
                 const team: Team = await this.teamsService.getTeamById(invitation.entity_id)
                 const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-                this.mailerService
-                    .sendMail({
-                        to: invitation.email,
-                        subject: `Kyso: New invitation to join team ${team.sluglified_name}`,
-                        template: 'invitation-team',
-                        context: {
-                            user,
-                            roles: invitation.payload.roles.map((role: string) => role.replace('-', ' ')).join(','),
-                            frontendUrl,
-                            organization,
-                            team,
-                            invitation,
-                        },
-                    })
-                    .then((messageInfo) => {
-                        Logger.log(`Invitation mail ${messageInfo.messageId} sent to ${invitation.email}`, UsersService.name)
-                    })
-                    .catch((err) => {
-                        Logger.error(`An error occurrend sending invitation welcome mail to ${invitation.email}`, err, UsersService.name)
-                    })
+                this.client.emit<KysoInvitationsTeamCreateEvent>(KysoEvent.INVITATIONS_TEAM_CREATE, {
+                    user,
+                    roles: invitation.payload.roles.map((role: string) => role.replace('-', ' ')),
+                    frontendUrl,
+                    organization,
+                    team,
+                    invitation,
+                })
                 break
             case InvitationType.Organization:
                 break

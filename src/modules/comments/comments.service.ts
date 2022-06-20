@@ -6,6 +6,7 @@ import {
     KysoCommentsCreateEvent,
     KysoCommentsDeleteEvent,
     KysoCommentsUpdateEvent,
+    KysoDiscussionsNewMentionEvent,
     KysoEvent,
     KysoSettingsEnum,
     Organization,
@@ -14,7 +15,6 @@ import {
     Token,
     User,
 } from '@kyso-io/kyso-model'
-import { MailerService } from '@nestjs-modules/mailer'
 import { Inject, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import { Autowired } from '../../decorators/autowired'
@@ -60,7 +60,7 @@ export class CommentsService extends AutowiredService {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
 
-    constructor(private mailerService: MailerService, private readonly provider: CommentsMongoProvider, @Inject('NATS_SERVICE') private client: ClientProxy) {
+    constructor(private readonly provider: CommentsMongoProvider, @Inject('NATS_SERVICE') private client: ClientProxy) {
         super()
     }
 
@@ -169,49 +169,27 @@ export class CommentsService extends AutowiredService {
                 if (centralizedMails) {
                     continue
                 }
-                this.mailerService
-                    .sendMail({
-                        to: user.email,
-                        subject: 'You have been mentioned in a discussion',
-                        template: 'discussion-mention',
-                        context: {
-                            creator,
-                            organization,
-                            team,
-                            discussion,
-                            frontendUrl,
-                        },
-                    })
-                    .then((messageInfo) => {
-                        Logger.log(`Mention in discussion mail ${messageInfo.messageId} sent to ${user.email}`, CommentsService.name)
-                    })
-                    .catch((err) => {
-                        Logger.error(`An error occurrend sending mention in discussion mail to ${user.email}`, err, CommentsService.name)
-                    })
+                this.client.emit<KysoDiscussionsNewMentionEvent>(KysoEvent.DISCUSSIONS_NEW_MENTION, {
+                    to: user.email,
+                    creator,
+                    organization,
+                    team,
+                    discussion,
+                    frontendUrl,
+                })
             }
         }
         if (centralizedMails && organization.options.notifications.emails.length > 0 && mentionedUsers.length > 0) {
             const emails: string[] = organization.options.notifications.emails
-            this.mailerService
-                .sendMail({
-                    to: emails,
-                    subject: 'Mentions in a discussion',
-                    template: 'discussion-mentions',
-                    context: {
-                        creator,
-                        users: mentionedUsers.map((u: User) => u.display_name).join(','),
-                        organization,
-                        team,
-                        discussion,
-                        frontendUrl,
-                    },
-                })
-                .then((messageInfo) => {
-                    Logger.log(`Mention in discussion mail ${messageInfo.messageId} sent to ${emails.join(', ')}`, UsersService.name)
-                })
-                .catch((err) => {
-                    Logger.error(`An error occurrend sending mention in discussion mail to ${emails.join(', ')}`, err, UsersService.name)
-                })
+            this.client.emit<KysoDiscussionsNewMentionEvent>(KysoEvent.DISCUSSIONS_MENTIONS, {
+                to: emails,
+                creator,
+                users: mentionedUsers,
+                organization,
+                team,
+                discussion,
+                frontendUrl,
+            })
         }
     }
 
