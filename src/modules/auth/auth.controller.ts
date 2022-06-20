@@ -218,8 +218,13 @@ export class AuthController extends GenericController<string> {
     @Post('/login/sso/ping-saml/callback')
     async loginSSOCallback(@Req() request, @Res() response) {
         const xmlResponse = request.body.SAMLResponse
+
+        console.log(xmlResponse)
+
         const parser = new Saml2js(xmlResponse)
         const data = parser.toObject()
+
+        console.log(data)
 
         if (data && data.samlSubject && data.email && data.portrait && data.name) {
             // Build JWT token and redirect to frontend
