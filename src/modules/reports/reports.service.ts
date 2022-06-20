@@ -33,7 +33,6 @@ import {
     UserAccount,
 } from '@kyso-io/kyso-model'
 import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
-import { MailerService } from '@nestjs-modules/mailer'
 import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import { Octokit } from '@octokit/rest'
@@ -132,7 +131,6 @@ export class ReportsService extends AutowiredService implements GenericService<R
     private fullTextSearchService: FullTextSearchService
 
     constructor(
-        private readonly mailerService: MailerService,
         private readonly provider: ReportsMongoProvider,
         private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider,
         private readonly starredReportsMongoProvider: StarredReportsMongoProvider,
@@ -1504,18 +1502,10 @@ export class ReportsService extends AutowiredService implements GenericService<R
             if (!userHasPermission) {
                 Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
                 await this.deleteReport(report.id)
-                this.mailerService
-                    .sendMail({
-                        to: user.email,
-                        subject: 'Error creating report',
-                        template: 'report-error-permissions',
-                    })
-                    .then(() => {
-                        Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)
-                    })
-                    .catch((err) => {
-                        Logger.error(`Error sending mail 'Invalid permissions for creating report' to ${user.display_name}`, err, UsersService.name)
-                    })
+                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
+                    user,
+                    kysoConfigFile,
+                })
                 return
             }
 
@@ -1700,18 +1690,10 @@ export class ReportsService extends AutowiredService implements GenericService<R
             if (!userHasPermission) {
                 Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
                 await this.deleteReport(report.id)
-                this.mailerService
-                    .sendMail({
-                        to: user.email,
-                        subject: 'Error creating report',
-                        template: 'report-error-permissions',
-                    })
-                    .then(() => {
-                        Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)
-                    })
-                    .catch((err) => {
-                        Logger.error(`Error sending mail 'Invalid permissions for creating report' to ${user.display_name}`, err, UsersService.name)
-                    })
+                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
+                    user,
+                    kysoConfigFile,
+                })
                 return
             }
 
@@ -1856,18 +1838,10 @@ export class ReportsService extends AutowiredService implements GenericService<R
             if (!userHasPermission) {
                 Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
                 await this.deleteReport(report.id)
-                this.mailerService
-                    .sendMail({
-                        to: user.email,
-                        subject: 'Error creating report',
-                        template: 'report-error-permissions',
-                    })
-                    .then(() => {
-                        Logger.log(`Mail 'Invalid permissions for creating report' sent to ${user.display_name}`, UsersService.name)
-                    })
-                    .catch((err) => {
-                        Logger.error(`Error sending mail 'Invalid permissions for creating report' to ${user.display_name}`, err, UsersService.name)
-                    })
+                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
+                    user,
+                    kysoConfigFile,
+                })
                 return
             }
 

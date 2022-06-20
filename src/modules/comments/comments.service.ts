@@ -1,11 +1,26 @@
-import { Comment, CommentPermissionsEnum, Discussion, GlobalPermissionsEnum, Organization, Report, Team, Token, User } from '@kyso-io/kyso-model'
+import {
+    Comment,
+    CommentPermissionsEnum,
+    Discussion,
+    GlobalPermissionsEnum,
+    KysoCommentsCreateEvent,
+    KysoCommentsDeleteEvent,
+    KysoCommentsUpdateEvent,
+    KysoEvent,
+    KysoSettingsEnum,
+    Organization,
+    Report,
+    Team,
+    Token,
+    User,
+} from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
-import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { Inject, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ClientProxy } from '@nestjs/microservices'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
 import { DiscussionsService } from '../discussions/discussions.service'
-import { KysoSettingsEnum } from '@kyso-io/kyso-model'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
@@ -45,7 +60,7 @@ export class CommentsService extends AutowiredService {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
 
-    constructor(private mailerService: MailerService, private readonly provider: CommentsMongoProvider) {
+    constructor(private mailerService: MailerService, private readonly provider: CommentsMongoProvider, @Inject('NATS_SERVICE') private client: ClientProxy) {
         super()
     }
 
@@ -97,6 +112,18 @@ export class CommentsService extends AutowiredService {
         }*/
 
         const newComment: Comment = await this.createComment(comment)
+
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const user: User = await this.usersService.getUserById(token.id)
+        this.client.emit<KysoCommentsCreateEvent>(KysoEvent.COMMENTS_CREATE, {
+            user,
+            organization,
+            team,
+            comment,
+            discussion,
+            report,
+        })
+
         if (discussion) {
             await this.checkMentionsInDiscussionComment(newComment)
         }
@@ -211,9 +238,33 @@ export class CommentsService extends AutowiredService {
             dataFields.edited = true
         }
         const updatedComment: Comment = await this.provider.update({ _id: this.provider.toObjectId(id) }, { $set: dataFields })
+
+        let discussion: Discussion = null
+        let report: Report = null
+        let teamId: string = ''
+        if (comment.discussion_id) {
+            discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
+            teamId = discussion.team_id
+        } else if (comment.report_id) {
+            report = await this.reportsService.getReportById(comment.report_id)
+            teamId = report.team_id
+        }
+        const team: Team = await this.teamsService.getTeamById(teamId)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const user: User = await this.usersService.getUserById(token.id)
+        this.client.emit<KysoCommentsUpdateEvent>(KysoEvent.COMMENTS_UPDATE, {
+            user,
+            organization,
+            team,
+            comment,
+            discussion,
+            report,
+        })
+
         if (updatedComment?.discussion_id) {
             await this.checkMentionsInDiscussionComment(updatedComment)
         }
+
         return updatedComment
     }
 
@@ -226,27 +277,30 @@ export class CommentsService extends AutowiredService {
         if (!comment) {
             throw new PreconditionFailedException('The specified comment could not be found')
         }
+        let team: Team = null
+        let report: Report = null
+        let discussion: Discussion = null
         if (comment?.report_id) {
-            const report: Report = await this.reportsService.getReportById(comment.report_id)
+            report = await this.reportsService.getReportById(comment.report_id)
             if (!report) {
                 throw new PreconditionFailedException('The specified report could not be found')
             }
             if (!report.team_id || report.team_id == null || report.team_id === '') {
                 throw new PreconditionFailedException('The specified report does not have a team associated')
             }
-            const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
+            team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
             if (!team) {
                 throw new PreconditionFailedException('The specified team could not be found')
             }
         } else if (comment?.discussion_id) {
-            const discussion: Discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
+            discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
             if (!discussion) {
                 throw new PreconditionFailedException('The specified discussion could not be found')
             }
             if (!discussion.team_id || discussion.team_id == null || discussion.team_id === '') {
                 throw new PreconditionFailedException('The specified discussion does not have a team associated')
             }
-            const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(discussion.team_id) } })
+            team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(discussion.team_id) } })
             if (!team) {
                 throw new PreconditionFailedException('The specified team could not be found')
             }
@@ -267,6 +321,16 @@ export class CommentsService extends AutowiredService {
         } else {
             await this.provider.deleteOne({ _id: this.provider.toObjectId(commentId) })
         }
+
+        this.client.emit<KysoCommentsDeleteEvent>(KysoEvent.COMMENTS_DELETE, {
+            user: await this.usersService.getUserById(token.id),
+            organization: await this.organizationsService.getOrganizationById(team.organization_id),
+            team,
+            comment,
+            discussion,
+            report,
+        })
+
         return comment
     }
 
