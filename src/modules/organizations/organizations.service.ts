@@ -3,6 +3,9 @@ import {
     AddUserOrganizationDto,
     Comment,
     Discussion,
+    KysoEvent,
+    KysoOrganizationsAddMemberEvent,
+    KysoOrganizationsRemoveMemberEvent,
     KysoRole,
     KysoSettingsEnum,
     Organization,
@@ -21,8 +24,17 @@ import {
     UpdateOrganizationMembersDTO,
     User,
 } from '@kyso-io/kyso-model'
-import { MailerService } from '@nestjs-modules/mailer'
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import {
+    BadRequestException,
+    Inject,
+    Injectable,
+    InternalServerErrorException,
+    Logger,
+    NotFoundException,
+    PreconditionFailedException,
+    Provider,
+} from '@nestjs/common'
+import { ClientProxy } from '@nestjs/microservices'
 import axios, { AxiosResponse } from 'axios'
 import * as moment from 'moment'
 import { extname } from 'path'
@@ -34,7 +46,6 @@ import { CommentsService } from '../comments/comments.service'
 import { DiscussionsService } from '../discussions/discussions.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { ReportsService } from '../reports/reports.service'
-import { SftpService } from '../reports/sftp.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
@@ -72,13 +83,10 @@ export class OrganizationsService extends AutowiredService {
     @Autowired({ typeName: 'DiscussionsService' })
     private discussionsService: DiscussionsService
 
-    @Autowired({ typeName: 'SftpService' })
-    private sftpService: SftpService
-
     constructor(
-        private readonly mailerService: MailerService,
         private readonly provider: OrganizationsMongoProvider,
         private readonly organizationMemberProvider: OrganizationMemberMongoProvider,
+        @Inject('NATS_SERVICE') private client: ClientProxy,
     ) {
         super()
     }
@@ -314,52 +322,16 @@ export class OrganizationsService extends AutowiredService {
             const isCentralized: boolean = organization?.options?.notifications?.centralized || false
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
             let emailsCentralized: string[] = []
-
             if (isCentralized) {
                 emailsCentralized = organization.options.notifications.emails
             }
-
-            // To the recently added user
-            this.mailerService
-                .sendMail({
-                    to: user.email,
-                    subject: `You are now member of ${organization.display_name} organization`,
-                    template: 'organization-you-were-added',
-                    context: {
-                        addedUser: user,
-                        organization,
-                        role: addUserOrganizationDto.role,
-                        frontendUrl,
-                    },
-                })
-                .then((messageInfo) => {
-                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
-                })
-                .catch((err) => {
-                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
-                })
-
-            // If is centralized, to the centralized mails
-            if (isCentralized) {
-                this.mailerService
-                    .sendMail({
-                        to: emailsCentralized,
-                        subject: `New member at ${organization.display_name} organization`,
-                        template: 'organization-new-member',
-                        context: {
-                            addedUser: user,
-                            organization,
-                            role: addUserOrganizationDto.role,
-                            frontendUrl,
-                        },
-                    })
-                    .then((messageInfo) => {
-                        Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
-                    })
-                    .catch((err) => {
-                        Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
-                    })
-            }
+            this.client.send<KysoOrganizationsAddMemberEvent>(KysoEvent.ORGANIZATIONS_ADD_MEMBER, {
+                user,
+                organization,
+                emailsCentralized,
+                role: addUserOrganizationDto.role,
+                frontendUrl,
+            })
         } catch (ex) {
             Logger.error('Error sending notifications of new member in an organization', ex)
         }
@@ -392,59 +364,19 @@ export class OrganizationsService extends AutowiredService {
         }
 
         // SEND NOTIFICATIONS
-        try {
-            const isCentralized: boolean = organization?.options?.notifications?.centralized || false
-            const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-            let emailsCentralized: string[] = []
-
-            if (isCentralized) {
-                emailsCentralized = organization.options.notifications.emails
-            }
-
-            // To the recently added user
-            this.mailerService
-                .sendMail({
-                    to: user.email,
-                    subject: `You are now member of ${organization.display_name} organization`,
-                    template: 'organization-you-were-added',
-                    context: {
-                        addedUser: user,
-                        organization,
-                        role: role,
-                        frontendUrl,
-                    },
-                })
-                .then((messageInfo) => {
-                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
-                })
-                .catch((err) => {
-                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
-                })
-
-            // If is centralized, to the centralized mails
-            if (isCentralized) {
-                this.mailerService
-                    .sendMail({
-                        to: emailsCentralized,
-                        subject: `New member at ${organization.display_name} organization`,
-                        template: 'organization-new-member',
-                        context: {
-                            addedUser: user,
-                            organization,
-                            role: role,
-                            frontendUrl,
-                        },
-                    })
-                    .then((messageInfo) => {
-                        Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
-                    })
-                    .catch((err) => {
-                        Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
-                    })
-            }
-        } catch (ex) {
-            Logger.error('Error sending notifications of new member in an organization', ex)
+        const isCentralized: boolean = organization?.options?.notifications?.centralized || false
+        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+        let emailsCentralized: string[] = []
+        if (isCentralized) {
+            emailsCentralized = organization.options.notifications.emails
         }
+        this.client.send<KysoOrganizationsAddMemberEvent>(KysoEvent.ORGANIZATIONS_ADD_MEMBER, {
+            user,
+            organization,
+            emailsCentralized,
+            role,
+            frontendUrl,
+        })
 
         return true
     }
@@ -475,57 +407,18 @@ export class OrganizationsService extends AutowiredService {
         }
 
         // SEND NOTIFICATIONS
-        try {
-            const isCentralized: boolean = organization?.options?.notifications?.centralized || false
-            const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-            let emailsCentralized: string[] = []
-
-            if (isCentralized) {
-                emailsCentralized = organization.options.notifications.emails
-            }
-
-            // To the recently added user
-            this.mailerService
-                .sendMail({
-                    to: user.email,
-                    subject: `You were removed from ${organization.display_name} organization`,
-                    template: 'organization-you-were-removed',
-                    context: {
-                        removedUser: user,
-                        organization,
-                        frontendUrl,
-                    },
-                })
-                .then((messageInfo) => {
-                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
-                })
-                .catch((err) => {
-                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
-                })
-
-            // If is centralized, to the centralized mails
-            if (isCentralized) {
-                this.mailerService
-                    .sendMail({
-                        to: emailsCentralized,
-                        subject: `A member was removed from ${organization.display_name} organization`,
-                        template: 'organization-removed-member',
-                        context: {
-                            removedUser: user,
-                            organization,
-                            frontendUrl,
-                        },
-                    })
-                    .then((messageInfo) => {
-                        Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
-                    })
-                    .catch((err) => {
-                        Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
-                    })
-            }
-        } catch (ex) {
-            Logger.error('Error sending notifications of new member in an organization', ex)
+        const isCentralized: boolean = organization?.options?.notifications?.centralized || false
+        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+        let emailsCentralized: string[] = []
+        if (isCentralized) {
+            emailsCentralized = organization.options.notifications.emails
         }
+        this.client.send<KysoOrganizationsRemoveMemberEvent>(KysoEvent.ORGANIZATIONS_REMOVE_MEMBER, {
+            user,
+            organization,
+            emailsCentralized,
+            frontendUrl,
+        })
 
         return this.getOrganizationMembers(organization.id)
     }
@@ -818,18 +711,16 @@ export class OrganizationsService extends AutowiredService {
             (x: ResourcePermissions) => x.organization_id === organization.id && x.role_names.indexOf(PlatformRole.TEAM_ADMIN_ROLE.name) > -1,
         )
 
-        let data: OrganizationStorageDto;
+        let data: OrganizationStorageDto
         try {
             const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
             const url = `${kysoIndexerApi}/api/storage?organizationFolderPath=/sftp/data/scs/${sluglified_name}`
 
             Logger.log(`Calling ${url}`)
-            const axiosResponse: AxiosResponse<OrganizationStorageDto> = await axios.get<OrganizationStorageDto>(
-                url,
-            )
+            const axiosResponse: AxiosResponse<OrganizationStorageDto> = await axios.get<OrganizationStorageDto>(url)
             data = axiosResponse.data
         } catch (e: any) {
-            Logger.error("Unexpected error", e)
+            Logger.error('Unexpected error', e)
             throw new InternalServerErrorException(e.message)
         }
 
@@ -844,7 +735,7 @@ export class OrganizationsService extends AutowiredService {
         organizationStorageDto.consumedSpaceKb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumedSpaceKb, 0)
         organizationStorageDto.consumedSpaceMb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumedSpaceMb, 0)
         organizationStorageDto.consumedSpaceGb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumedSpaceGb, 0)
-        
+
         return organizationStorageDto
     }
 }

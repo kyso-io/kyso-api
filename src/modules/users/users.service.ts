@@ -8,7 +8,7 @@ import {
     KysoUserAccessTokenStatus,
     KysoUsersCreateEvent,
     KysoUsersRecoveryPasswordEvent,
-    KysoUsersVerificationEvent,
+    KysoUsersVerificationEmailEvent,
     LoginProviderEnum,
     Organization,
     SignUpDto,
@@ -189,10 +189,10 @@ export class UsersService extends AutowiredService {
         return user
     }
 
-    public async sendVerificationEmail(user: User): Promise<void> {
+    public async sendVerificationEmail(user: User): Promise<boolean> {
         if (user.email_verified) {
             Logger.log(`User ${user.display_name} already verified. Email is not sent...`, UsersService.name)
-            return
+            return false
         }
 
         // Link to verify user email
@@ -200,11 +200,12 @@ export class UsersService extends AutowiredService {
         let userVerification: UserVerification = new UserVerification(user.email, uuidv4(), user.id, moment().add(hours, 'hours').toDate())
         userVerification = await this.userVerificationMongoProvider.create(userVerification)
 
-        this.client.emit<KysoUsersVerificationEvent>(KysoEvent.USERS_VERIFICATION_EMAIL, {
+        this.client.emit<KysoUsersVerificationEmailEvent>(KysoEvent.USERS_VERIFICATION_EMAIL, {
             user,
             userVerification,
             frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
         })
+        return true
     }
 
     async deleteUser(id: string): Promise<boolean> {
