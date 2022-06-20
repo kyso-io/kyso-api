@@ -81,6 +81,8 @@ export class KysoSettingsService extends AutowiredService {
                 return 'true'
             case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITHUB:
                 return 'true'
+            case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_PINGID_SAML:
+                return 'false'
             case KysoSettingsEnum.TMP_FOLDER_PATH:
                 return '/app/data'
             case KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL:
@@ -128,6 +130,8 @@ export class KysoSettingsService extends AutowiredService {
                 return 'Secret used for OAUTH2 authentication using Gitlab provider'
             case KysoSettingsEnum.AUTH_GITLAB_REDIRECT_URI:
                 return 'Redirect URI used for OAUTH2 authentication using Gitlab provider'
+            case KysoSettingsEnum.AUTH_PINGID_SAML_SSO_URL:
+                return 'Initiate Single Sign-On (SSO) URL'
             case KysoSettingsEnum.KYSO_FILES_CLOUDFRONT_URL:
                 return 'https://d1kser01wv8mbw.cloudfront.net'
             case KysoSettingsEnum.BASE_URL:
@@ -176,6 +180,8 @@ export class KysoSettingsService extends AutowiredService {
                 return 'Enables globally the authorization using kyso provider. Settings this to false makes the Kyso login form to dissapear'
             case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITHUB:
                 return 'Enables globally the authorization using github provider. Settings this to false makes the button "Sign in with Github" to dissapear'
+            case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_PINGID_SAML:
+                return 'Enables globally the authorization using PingID SAML provider. Settings this to false makes the button "Sign in with PingID" to dissapear'
             case KysoSettingsEnum.TMP_FOLDER_PATH:
                 return 'Path where temporary files are stored'
             case KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL:
