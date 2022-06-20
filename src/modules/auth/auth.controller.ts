@@ -207,7 +207,8 @@ export class AuthController extends GenericController<string> {
             } else {
                 return 'Your organization has not configured PingSAML as auth provider'
             }
-            import { v4 as uuidv4 } from 'uuid'
+        }
+        catch(ex) {    
             Logger.error('Error using ping saml auth sso', ex)
             return 'Your organization has not properly configured PingSAML as auth provider'
         }
