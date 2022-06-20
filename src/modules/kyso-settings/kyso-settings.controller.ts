@@ -78,6 +78,11 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
                 case KysoSettingsEnum.CUSTOMIZE_LOGIN_RIGHT_LOGO_URL:
                 case KysoSettingsEnum.CUSTOMIZE_LOGIN_RIGHT_REDIRECT_URL:
                 case KysoSettingsEnum.CUSTOMIZE_LOGIN_CSS_STYLES:
+                case KysoSettingsEnum.CUSTOMIZE_LOGIN_LINK_CSS_STYLES:
+                case KysoSettingsEnum.CUSTOMIZE_LOGIN_HEADER_CSS_STYLES:
+                case KysoSettingsEnum.CUSTOMIZE_LOGIN_SHOWDIV_CSS_STYLES:
+                case KysoSettingsEnum.CUSTOMIZE_LOGIN_HIDDENDIV_CSS_STYLES:
+                case KysoSettingsEnum.CUSTOMIZE_LOGIN_BUTTON_HOVER_CSS_STYLES:
                     return true
                 default:
                     return false

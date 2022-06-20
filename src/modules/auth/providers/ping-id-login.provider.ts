@@ -23,8 +23,8 @@ export class PingIdLoginProvider {
 
             if (!user) {
                 // New User
-                const name = login.payload.name
-                const portrait = login.payload.profilePicture
+                const name = `${login.payload.givenName} ${login.payload.sn}`
+                const portrait = login.payload.profilePicture ? login.payload.profilePicture : ""
                 Logger.log(`User ${login.email} is a new user`)
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
                     login.email,

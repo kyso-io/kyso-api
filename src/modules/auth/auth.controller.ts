@@ -16,7 +16,6 @@ import {
     VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model'
 import {
-    BadRequestException,
     Body,
     Controller,
     ForbiddenException,
@@ -47,6 +46,7 @@ import { CurrentToken } from './annotations/current-token.decorator'
 import { AuthService, TOKEN_EXPIRATION_HOURS } from './auth.service'
 import { PlatformRoleService } from './platform-role.service'
 import { UserRoleService } from './user-role.service'
+import { v4 as uuidv4 } from 'uuid'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Saml2js = require('saml2js')
 
@@ -207,15 +207,17 @@ export class AuthController extends GenericController<string> {
             } else {
                 return 'Your organization has not configured PingSAML as auth provider'
             }
-
-            response.redirect(`${authPingIdSamlSsoUrl}/${authPingIdSamlEnvironmentCode}/saml20/idp/startsso?spEntityId=${authPingIdSPEntityId}`)
-        } catch (ex) {
+            import { v4 as uuidv4 } from 'uuid'
             Logger.error('Error using ping saml auth sso', ex)
             return 'Your organization has not properly configured PingSAML as auth provider'
         }
     }
 
     @Post('/login/sso/ping-saml/callback')
+    @ApiOperation({
+        summary: `Callback URL for pingID`,
+        description: `Callback URL. Expects an object with the properties: mail, givenName (name) and sn (surname)`
+    })
     async loginSSOCallback(@Req() request, @Res() response) {
         const xmlResponse = request.body.SAMLResponse
 
@@ -226,9 +228,13 @@ export class AuthController extends GenericController<string> {
 
         console.log(data)
 
-        if (data && data.samlSubject && data.email && data.portrait && data.name) {
+        if (data && data.mail && data.givenName && data.sn) {
             // Build JWT token and redirect to frontend
-            const login: Login = new Login(data.samlSubject, LoginProviderEnum.PING_ID_SAML, data.email, data)
+            const login: Login = new Login(
+                uuidv4(), // set a random password
+                LoginProviderEnum.PING_ID_SAML, 
+                data.mail, 
+                data)
 
             const jwt = await this.authService.login(login)
             const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
