@@ -86,21 +86,13 @@ export class KysoSettingsService extends AutowiredService {
             case KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL:
                 return 'http://kyso-indexer-api.kyso-indexer-api-lo.svc.cluster.local:8080'
             case KysoSettingsEnum.UNAUTHORIZED_REDIRECT_URL:
-                return 'https://about.kyso.io'
+                return '/login'
             case KysoSettingsEnum.CUSTOMIZE_LOGIN_CENTRAL_LOGO_URL:
                 return 'https://www.gitbook.com/cdn-cgi/image/width=40,height=40,fit=contain,dpr=1,format=auto/https%3A%2F%2F4142543212-files.gitbook.io%2F~%2Ffiles%2Fv0%2Fb%2Fgitbook-legacy-files%2Fo%2Fspaces%252F-LjzfPqQ1fXmC4OMXwiD%252Favatar-1591004649776.png%3Fgeneration%3D1591004650222641%26alt%3Dmedia'
             case KysoSettingsEnum.CUSTOMIZE_LOGIN_CENTRAL_REDIRECT_URL:
-                return 'https://about.kyso.io'
-            case KysoSettingsEnum.CUSTOMIZE_LOGIN_LEFT_LOGO_URL:
-                return ''
-            case KysoSettingsEnum.CUSTOMIZE_LOGIN_LEFT_REDIRECT_URL:
-                return ''
-            case KysoSettingsEnum.CUSTOMIZE_LOGIN_RIGHT_LOGO_URL:
-                return ''
-            case KysoSettingsEnum.CUSTOMIZE_LOGIN_RIGHT_REDIRECT_URL:
-                return ''
-            case KysoSettingsEnum.CUSTOMIZE_LOGIN_CSS_STYLES:
-                return ''
+                return '/login'
+            case KysoSettingsEnum.REPORT_PATH:
+                return '/data'
             default:
                 return ''
         }
@@ -175,7 +167,7 @@ export class KysoSettingsService extends AutowiredService {
             case KysoSettingsEnum.SERVICE_DESK_EMAIL:
                 return `Service desk email`
             case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GOOGLE:
-                return 'Enables globally the authorization using google provider. Settings this to false makes the button "Sign in with Google" to dissapear'
+                return 'Enables globally the authorization using google provider. Setti//ngs this to false makes the button "Sign in with Google" to dissapear'
             case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITLAB:
                 return 'Enables globally the authorization using gitlab provider. Settings this to false makes the button "Sign in with Gitlab" to dissapear'
             case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_BITBUCKET:
@@ -204,6 +196,16 @@ export class KysoSettingsService extends AutowiredService {
                 return 'URL to redirect when someone clicks on right image'
             case KysoSettingsEnum.CUSTOMIZE_LOGIN_CSS_STYLES:
                 return 'Specific css styles to apply globally in the login page'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_LINK_CSS_STYLES:
+                return 'Specific css styles to apply only in the login link'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_HEADER_CSS_STYLES:
+                return 'Specific css styles to apply only in the header'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_SHOWDIV_CSS_STYLES:
+                return 'Specific css styles to apply only in showdiv'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_HIDDENDIV_CSS_STYLES:
+                return 'Specific css styles to apply only in hiddendiv'
+            case KysoSettingsEnum.CUSTOMIZE_LOGIN_BUTTON_HOVER_CSS_STYLES:
+                return 'Specific css styles to apply only in the login button'
             default:
                 return 'No description provided'
         }
