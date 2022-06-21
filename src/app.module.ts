@@ -1,9 +1,5 @@
-import { MailerModule } from '@nestjs-modules/mailer'
-import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter'
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
 import { PrometheusModule } from '@willsoto/nestjs-prometheus'
-import { join } from 'path'
-import { mailFrom, mailTransport } from './main'
 import { RequestLoggerMiddleware } from './middleware/request-logger.middleware'
 import { AuthModule } from './modules/auth/auth.module'
 import { BitbucketReposModule } from './modules/bitbucket-repos/bitbucket-repos.module'
@@ -37,23 +33,6 @@ import { UsersModule } from './modules/users/users.module'
         KysoSettingsModule.forRoot(),
         InlineCommentsModule.forRoot(),
         InvitationsModule.forRoot(),
-        MailerModule.forRootAsync({
-            useFactory: () => {
-                return {
-                    transport: mailTransport,
-                    defaults: {
-                        from: mailFrom,
-                    },
-                    template: {
-                        dir: join(__dirname, '../templates'),
-                        adapter: new HandlebarsAdapter(),
-                        options: {
-                            strict: true,
-                        },
-                    },
-                }
-            },
-        }),
         OrganizationsModule.forRoot(),
         PrometheusModule.register(),
         RelationsModule.forRoot(),
