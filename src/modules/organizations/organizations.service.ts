@@ -5,7 +5,10 @@ import {
     Discussion,
     KysoEvent,
     KysoOrganizationsAddMemberEvent,
+    KysoOrganizationsCreateEvent,
+    KysoOrganizationsDeleteEvent,
     KysoOrganizationsRemoveMemberEvent,
+    KysoOrganizationsUpdateEvent,
     KysoRole,
     KysoSettingsEnum,
     Organization,
@@ -126,6 +129,8 @@ export class OrganizationsService extends AutowiredService {
 
         const newOrganization: Organization = await this.provider.create(organization)
 
+        this.client.emit<KysoOrganizationsCreateEvent>(KysoEvent.ORGANIZATIONS_CREATE, { organization: newOrganization })
+
         // Now, create the default teams for that organization
         const generalTeam = new Team(
             'General',
@@ -157,6 +162,8 @@ export class OrganizationsService extends AutowiredService {
 
         // Delete the organization
         await this.provider.deleteOne({ _id: this.provider.toObjectId(organization.id) })
+
+        this.client.emit<KysoOrganizationsDeleteEvent>(KysoEvent.ORGANIZATIONS_DELETE, { organization })
 
         return organization
     }
@@ -256,7 +263,7 @@ export class OrganizationsService extends AutowiredService {
     }
 
     public async updateOrganization(organizationId: string, updateOrganizationDTO: UpdateOrganizationDTO): Promise<Organization> {
-        const organizationDb: Organization = await this.getOrganizationById(organizationId)
+        let organizationDb: Organization = await this.getOrganizationById(organizationId)
         if (!organizationDb) {
             throw new PreconditionFailedException('Organization does not exist')
         }
@@ -273,12 +280,14 @@ export class OrganizationsService extends AutowiredService {
         if (updateOrganizationDTO.allowed_access_domains) {
             data.allowed_access_domains = updateOrganizationDTO.allowed_access_domains
         }
-        return await this.provider.update(
+        organizationDb = await this.provider.update(
             { _id: this.provider.toObjectId(organizationDb.id) },
             {
                 $set: data,
             },
         )
+        this.client.emit<KysoOrganizationsUpdateEvent>(KysoEvent.ORGANIZATIONS_UPDATE, { organization: organizationDb })
+        return organizationDb
     }
 
     public async getMembers(organizationId: string): Promise<OrganizationMemberJoin[]> {
@@ -377,7 +386,6 @@ export class OrganizationsService extends AutowiredService {
             role,
             frontendUrl,
         })
-
         return true
     }
 
@@ -419,7 +427,6 @@ export class OrganizationsService extends AutowiredService {
             emailsCentralized,
             frontendUrl,
         })
-
         return this.getOrganizationMembers(organization.id)
     }
 
