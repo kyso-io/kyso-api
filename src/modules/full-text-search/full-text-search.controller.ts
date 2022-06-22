@@ -31,7 +31,7 @@ import { FullTextSearchService } from './full-text-search.service'
 @Controller('search')
 export class FullTextSearchController {
     @Autowired({ typeName: 'FullTextSearchService' })
-    private searchService: FullTextSearchService
+    private fullTextSearchService: FullTextSearchService
 
     @Autowired({ typeName: 'AuthService' })
     private authService: AuthService
@@ -85,7 +85,7 @@ export class FullTextSearchController {
             perPage = 100
         }
 
-        const searchResults: FullTextSearchDTO = await this.searchService.search(
+        const searchResults: FullTextSearchDTO = await this.fullTextSearchService.search(
             searchTerms,
             type,
             page,
@@ -276,5 +276,17 @@ export class FullTextSearchController {
             },
         )
         return { status: 'queued' }
+    }
+    
+    @Get('/reindex-users')
+    @ApiOperation({
+        summary: `Reindex users`,
+        description: `Reindex users`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Search results`, type: Tag, isArray: true })
+    @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
+    public async reindexUsers() {
+        this.usersService.reindexUsers()
+        return { status: 'indexing' }
     }
 }

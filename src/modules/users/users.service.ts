@@ -1,7 +1,9 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
+    ElasticSearchIndex,
     EmailUserChangePasswordDTO,
     KysoEvent,
+    KysoIndex,
     KysoPermissions,
     KysoSettingsEnum,
     KysoUserAccessToken,
@@ -37,6 +39,7 @@ import { PlatformRole } from '../../security/platform-roles'
 import { AuthService } from '../auth/auth.service'
 import { GitlabLoginProvider } from '../auth/providers/gitlab-login.provider'
 import { CommentsService } from '../comments/comments.service'
+import { FullTextSearchService } from '../full-text-search/full-text-search.service'
 import { GitlabAccessToken } from '../gitlab-repos/interfaces/gitlab-access-token'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
@@ -75,6 +78,9 @@ export class UsersService extends AutowiredService {
 
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
+
+    @Autowired({ typeName: 'FullTextSearchService' })
+    private fullTextSearchService: FullTextSearchService
 
     constructor(
         private readonly kysoAccessTokenProvider: KysoUserAccessTokensMongoProvider,
@@ -234,6 +240,10 @@ export class UsersService extends AutowiredService {
         await this.commentsService.deleteUserComments(user.id)
 
         await this.provider.deleteOne({ _id: this.provider.toObjectId(id) })
+
+        Logger.log(`Deleting user '${user.id} ${user.display_name}' in ElasticSearch...`, UsersService.name)
+        this.fullTextSearchService.deleteDocument(ElasticSearchIndex.User, user.id)
+
         return true
     }
 
@@ -283,11 +293,11 @@ export class UsersService extends AutowiredService {
     }
 
     public async updateUserData(id: string, data: UpdateUserRequestDTO): Promise<User> {
-        const user: User = await this.getUserById(id)
+        let user: User = await this.getUserById(id)
         if (!user) {
             throw new NotFoundException('User not found')
         }
-        return this.updateUser(
+        user = await this.updateUser(
             { _id: this.provider.toObjectId(id) },
             {
                 $set: {
@@ -297,6 +307,10 @@ export class UsersService extends AutowiredService {
                 },
             },
         )
+        Logger.log(`Updating user '${user.id} ${user.display_name}' in Elasticsearch...`, UsersService.name)
+        const kysoIndex: KysoIndex = this.userToKysoIndex(user)
+        this.fullTextSearchService.updateDocument(kysoIndex)
+        return user
     }
 
     private async getS3Client(): Promise<S3Client> {
@@ -534,5 +548,38 @@ export class UsersService extends AutowiredService {
         })
 
         return true
+    }
+
+    private userToKysoIndex(user: User): KysoIndex {
+        const kysoIndex: KysoIndex = new KysoIndex()
+        kysoIndex.title = user.display_name
+        kysoIndex.type = ElasticSearchIndex.User
+        kysoIndex.entityId = user.id
+        const content: string[] = [user.email, user.display_name]
+        if (user.bio) {
+            content.push(user.bio)
+        }
+        if (user.location) {
+            content.push(user.location)
+        }
+        if (user.link) {
+            content.push(user.link)
+        }
+        kysoIndex.content = content.join(' ')
+        return kysoIndex
+    }
+
+    public async reindexUsers(): Promise<void> {
+        const users: User[] = await this.getUsers({})
+        await this.fullTextSearchService.deleteAllDocumentsOfType(ElasticSearchIndex.User)
+        for (const user of users) {
+            await this.indexUser(user)
+        }
+    }
+
+    private async indexUser(user: User): Promise<any> {
+        Logger.log(`Indexing user '${user.id} ${user.email}'...`, UsersService.name)
+        const kysoIndex: KysoIndex = this.userToKysoIndex(user)
+        return this.fullTextSearchService.indexDocument(kysoIndex)
     }
 }
