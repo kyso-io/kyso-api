@@ -269,7 +269,7 @@ export class FullTextSearchService extends AutowiredService {
     public async indexDocument(kysoIndex: KysoIndex): Promise<any> {
         try {
             const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
-            const url = `${elasticsearchUrl}/kyso-index/${kysoIndex.type}`
+            const url = `${elasticsearchUrl}/kyso-index/_doc?refresh=true`
             const response: AxiosResponse<any> = await axios.post(url, kysoIndex)
             if (response.status === 201) {
                 return response.data
@@ -277,7 +277,7 @@ export class FullTextSearchService extends AutowiredService {
                 return null
             }
         } catch (e: any) {
-            Logger.error(`An error occurred indexing an element into ${kysoIndex.type}`, e, FullTextSearchService.name)
+            Logger.error(`An error occurred indexing an element of type '${kysoIndex.type}'`, e, FullTextSearchService.name)
             return null
         }
     }
@@ -285,10 +285,12 @@ export class FullTextSearchService extends AutowiredService {
     public async deleteAllDocumentsOfType(elasticSearchIndex: ElasticSearchIndex): Promise<any> {
         try {
             const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
-            const url = `${elasticsearchUrl}/kyso-index/${elasticSearchIndex}/_delete_by_query`
+            const url = `${elasticsearchUrl}/kyso-index/_delete_by_query`
             const response: AxiosResponse<any> = await axios.post(url, {
                 query: {
-                    match_all: {},
+                    match: {
+                        type: elasticSearchIndex,
+                    },
                 },
             })
             if (response.status === 200) {
@@ -297,7 +299,7 @@ export class FullTextSearchService extends AutowiredService {
                 return null
             }
         } catch (e: any) {
-            Logger.error(`An error occurred deleting an element from ${elasticSearchIndex}`, e, FullTextSearchService.name)
+            Logger.error(`An error occurred deleting elements with type '${elasticSearchIndex}'`, e, FullTextSearchService.name)
             return null
         }
     }
@@ -308,16 +310,18 @@ export class FullTextSearchService extends AutowiredService {
             const url = `${elasticsearchUrl}/kyso-index/_delete_by_query`
             const response: AxiosResponse<any> = await axios.post(url, {
                 query: {
-                    match: {
-                        entityId,
-                        type,
+                    bool: {
+                        must: [{ term: { type } }, { term: { entityId } }],
                     },
                 },
             })
-            console.log(response)
-            return response
+            if (response.status === 200) {
+                return response.data
+            } else {
+                return null
+            }
         } catch (e: any) {
-            Logger.error(`An error occurred deleting element with id ${entityId} of type ${type}`, e, FullTextSearchService.name)
+            Logger.error(`An error occurred deleting element with id '${entityId}' of type '${type}'`, e, FullTextSearchService.name)
             return null
         }
     }

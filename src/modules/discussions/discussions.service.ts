@@ -1,11 +1,14 @@
 import {
     CreateDiscussionRequestDTO,
+    Comment,
     Discussion,
+    ElasticSearchIndex,
     KysoCommentsDeleteEvent,
     KysoDiscussionsAssigneeEvent,
     KysoDiscussionsCreateEvent,
     KysoDiscussionsUpdateEvent,
     KysoEvent,
+    KysoIndex,
     KysoSettingsEnum,
     Organization,
     Team,
@@ -19,6 +22,8 @@ import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { GenericService } from '../../generic/service.generic'
 import { PlatformRole } from '../../security/platform-roles'
+import { CommentsService } from '../comments/comments.service'
+import { FullTextSearchService } from '../full-text-search/full-text-search.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
@@ -50,6 +55,12 @@ export class DiscussionsService extends AutowiredService implements GenericServi
 
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
+
+    @Autowired({ typeName: 'FullTextSearchService' })
+    private fullTextSearchService: FullTextSearchService
+
+    @Autowired({ typeName: 'CommentsService' })
+    private commentsService: CommentsService
 
     constructor(private readonly provider: DiscussionsMongoProvider, @Inject('NATS_SERVICE') private client: ClientProxy) {
         super()
@@ -107,6 +118,11 @@ export class DiscussionsService extends AutowiredService implements GenericServi
             }
         }
 
+        const index: number = data.participants.indexOf(author.id)
+        if (index === -1) {
+            data.participants.push(author.id)
+        }
+
         const team: Team = await this.teamsService.getTeamById(data.team_id)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
@@ -143,22 +159,42 @@ export class DiscussionsService extends AutowiredService implements GenericServi
             frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
         })
 
+        this.indexDiscussion(discussion)
+
         return discussion
     }
 
-    public async addParticipantToDiscussion(reportId: string, userId: string): Promise<Discussion> {
-        return this.provider.update(
-            { _id: this.provider.toObjectId(reportId) },
+    public async checkParticipantsInDiscussion(discussionId: string): Promise<Discussion> {
+        let discussion: Discussion = await this.getDiscussionById(discussionId)
+        const comments: Comment[] = await this.commentsService.getComments({ filter: { discussion_id: discussionId } })
+        const participants: string[] = [discussion.user_id]
+        for (const comment of comments) {
+            const usersIds: string[] = [comment.user_id, ...comment.user_ids]
+            for (const userId of usersIds) {
+                const index: number = participants.indexOf(userId)
+                if (index === -1) {
+                    participants.push(userId)
+                }
+            }
+        }
+
+        discussion = await this.provider.update(
+            { _id: this.provider.toObjectId(discussionId) },
             {
-                $push: {
-                    participants: userId,
+                $set: {
+                    participants,
                 },
             },
         )
+
+        const kysoIndex: KysoIndex = await this.discussionToKysoIndex(discussion)
+        this.fullTextSearchService.updateDocument(kysoIndex)
+
+        return discussion
     }
 
     public async removeParticipantFromDiscussion(reportId: string, userId: string): Promise<Discussion> {
-        return this.provider.update(
+        const discussion: Discussion = await this.provider.update(
             { _id: this.provider.toObjectId(reportId) },
             {
                 $pull: {
@@ -166,6 +202,11 @@ export class DiscussionsService extends AutowiredService implements GenericServi
                 },
             },
         )
+
+        const kysoIndex: KysoIndex = await this.discussionToKysoIndex(discussion)
+        this.fullTextSearchService.updateDocument(kysoIndex)
+
+        return discussion
     }
 
     public async updateDiscussion(id: string, data: UpdateDiscussionRequestDTO): Promise<Discussion> {
@@ -284,6 +325,9 @@ export class DiscussionsService extends AutowiredService implements GenericServi
             frontendUrl,
         })
 
+        const kysoIndex: KysoIndex = await this.discussionToKysoIndex(discussion)
+        this.fullTextSearchService.updateDocument(kysoIndex)
+
         return discussion
     }
 
@@ -313,6 +357,43 @@ export class DiscussionsService extends AutowiredService implements GenericServi
             frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
         })
 
+        Logger.log(`Deleting discussion '${discussion.id} ${discussion.title}' in ElasticSearch...`, UsersService.name)
+        this.fullTextSearchService.deleteDocument(ElasticSearchIndex.Discussion, discussion.id)
+
         return discussion
+    }
+
+    private async discussionToKysoIndex(discussion: Discussion): Promise<KysoIndex> {
+        const team: Team = await this.teamsService.getTeamById(discussion.team_id)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        let users: User[] = []
+        if (discussion.participants) {
+            users = await this.usersService.getUsers({
+                filter: { id: { $in: [...discussion.participants, discussion.user_id] } },
+            })
+        }
+        const kysoIndex: KysoIndex = new KysoIndex()
+        kysoIndex.title = discussion.title
+        kysoIndex.type = ElasticSearchIndex.Discussion
+        kysoIndex.entityId = discussion.id
+        kysoIndex.organizationSlug = organization.sluglified_name
+        kysoIndex.teamSlug = team.sluglified_name
+        kysoIndex.people = users.map((user) => user.email).join(' ')
+        kysoIndex.content = discussion.main
+        return kysoIndex
+    }
+
+    public async reindexDiscussions(): Promise<void> {
+        const discussions: Discussion[] = await this.getDiscussions({ filter: { mark_delete_at: null } })
+        await this.fullTextSearchService.deleteAllDocumentsOfType(ElasticSearchIndex.Discussion)
+        for (const discussion of discussions) {
+            await this.indexDiscussion(discussion)
+        }
+    }
+
+    private async indexDiscussion(discussion: Discussion): Promise<any> {
+        Logger.log(`Indexing discussion '${discussion.id} ${discussion.title}'...`, UsersService.name)
+        const kysoIndex: KysoIndex = await this.discussionToKysoIndex(discussion)
+        return this.fullTextSearchService.indexDocument(kysoIndex)
     }
 }

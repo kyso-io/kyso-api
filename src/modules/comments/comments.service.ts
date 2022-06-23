@@ -1,6 +1,7 @@
 import {
     Comment,
     CommentPermissionsEnum,
+    CommentDto,
     Discussion,
     GlobalPermissionsEnum,
     KysoCommentsCreateEvent,
@@ -64,19 +65,17 @@ export class CommentsService extends AutowiredService {
         super()
     }
 
-    async createCommentGivenToken(token: Token, comment: Comment): Promise<Comment> {
-        comment.user_id = token.id
-        // comment.username = token.username
-        if (comment?.comment_id) {
-            const relatedComments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(comment.comment_id) } })
+    async createCommentGivenToken(token: Token, commentDto: CommentDto): Promise<Comment> {
+        if (commentDto?.comment_id) {
+            const relatedComments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(commentDto.comment_id) } })
             if (relatedComments.length === 0) {
                 throw new PreconditionFailedException('The specified related comment could not be found')
             }
         }
 
-        const report: Report = await this.reportsService.getReportById(comment.report_id)
+        const report: Report = await this.reportsService.getReportById(commentDto.report_id)
         const discussion: Discussion = await this.discussionsService.getDiscussion({
-            filter: { id: comment.discussion_id, mark_delete_at: { $eq: null } },
+            filter: { id: commentDto.discussion_id, mark_delete_at: { $eq: null } },
         })
 
         if (!report && !discussion) {
@@ -100,18 +99,17 @@ export class CommentsService extends AutowiredService {
         if (!team) {
             throw new PreconditionFailedException('The specified team could not be found')
         }
-        // THis is checked in the guard
-        /*const userTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(comment.user_id)
-        
-        /*const hasGlobalPermissionAdmin: boolean = userHasPermission(token, GlobalPermissionsEnum.GLOBAL_ADMIN)
-        const userBelongsToTheTeam: boolean = userTeams.find((t: Team) => t.id === team.id) !== undefined
-        
 
-        /*if (!hasGlobalPermissionAdmin && !userBelongsToTheTeam) {
-            throw new PreconditionFailedException('The specified user does not belong to the team of the specified report')
-        }*/
-
-        const newComment: Comment = await this.createComment(comment)
+        let newComment: Comment = new Comment(
+            commentDto.text,
+            commentDto.plain_text,
+            token.id,
+            commentDto.report_id,
+            commentDto.discussion_id,
+            commentDto.comment_id,
+            commentDto.user_ids,
+        )
+        newComment = await this.createComment(newComment)
 
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const user: User = await this.usersService.getUserById(token.id)
@@ -119,40 +117,28 @@ export class CommentsService extends AutowiredService {
             user,
             organization,
             team,
-            comment,
+            comment: commentDto,
             discussion,
             report,
         })
 
         if (discussion) {
-            await this.checkMentionsInDiscussionComment(newComment)
+            await this.checkMentionsInDiscussionComment(newComment, commentDto.user_ids)
         }
 
         return newComment
     }
 
-    private async checkMentionsInDiscussionComment(comment: Comment): Promise<void> {
+    private async checkMentionsInDiscussionComment(comment: Comment, userIds: string[]): Promise<void> {
         const discussion: Discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
-        // Detect all mentions
-        const regExpMentions = /@\[(.*?)\]\(.*?\)/g
-        const matches = [...comment.text.matchAll(regExpMentions)]
-        const userIds: string[] = [comment.user_id]
-        if (matches) {
-            const regExpUserId = /\(([^)]+)\)/
-            matches.forEach((match) => {
-                const matchesUserId = regExpUserId.exec(match[0])
-                const userId = matchesUserId[1]
-                if (!userIds.includes(userId)) {
-                    userIds.push(userId)
-                }
-            })
-        }
+        userIds = [comment.user_id, ...userIds]
         const team: Team = await this.teamsService.getTeamById(discussion.team_id)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
         const creator: User = await this.usersService.getUserById(comment.user_id)
         const mentionedUsers: User[] = []
         const centralizedMails: boolean = organization?.options?.notifications?.centralized || false
+        let checkParticipantsInDiscussion: boolean = false
         for (const userId of userIds) {
             const index: number = discussion.participants.findIndex((participant: string) => participant === userId)
             if (index === -1) {
@@ -161,8 +147,9 @@ export class CommentsService extends AutowiredService {
                     Logger.error(`Could not find user with id ${userId}`, CommentsService.name)
                     continue
                 }
+                discussion.participants.push(userId)
                 mentionedUsers.push(user)
-                await this.discussionsService.addParticipantToDiscussion(discussion.id, userId)
+                checkParticipantsInDiscussion = true
                 if (creator.id === userId) {
                     continue
                 }
@@ -191,13 +178,16 @@ export class CommentsService extends AutowiredService {
                 frontendUrl,
             })
         }
+        if (checkParticipantsInDiscussion) {
+            await this.discussionsService.checkParticipantsInDiscussion(comment.discussion_id)
+        }
     }
 
     async createComment(comment: Comment): Promise<Comment> {
         return this.provider.create(comment)
     }
 
-    public async updateComment(token: Token, id: string, updateCommentRequest: Comment): Promise<Comment> {
+    public async updateComment(token: Token, id: string, updateCommentRequest: CommentDto): Promise<Comment> {
         const comment: Comment = await this.getCommentById(id)
         if (!comment) {
             throw new PreconditionFailedException('The specified comment could not be found')
@@ -208,6 +198,7 @@ export class CommentsService extends AutowiredService {
         const dataFields: any = {
             text: updateCommentRequest.text,
             marked: updateCommentRequest.marked,
+            user_ids: updateCommentRequest.user_ids,
         }
         if (updateCommentRequest.marked) {
             dataFields.marked_by = token.id
@@ -240,7 +231,7 @@ export class CommentsService extends AutowiredService {
         })
 
         if (updatedComment?.discussion_id) {
-            await this.checkMentionsInDiscussionComment(updatedComment)
+            await this.discussionsService.checkParticipantsInDiscussion(updatedComment.discussion_id)
         }
 
         return updatedComment
@@ -308,6 +299,10 @@ export class CommentsService extends AutowiredService {
             discussion,
             report,
         })
+
+        if (discussion) {
+            await this.discussionsService.checkParticipantsInDiscussion(discussion.id)
+        }
 
         return comment
     }

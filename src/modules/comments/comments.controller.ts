@@ -1,4 +1,4 @@
-import { Comment, CommentPermissionsEnum, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model'
+import { CommentDto, Comment, CommentPermissionsEnum, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model'
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -68,8 +68,8 @@ export class CommentsController extends GenericController<Comment> {
         type: Comment,
     })
     @Permission([CommentPermissionsEnum.CREATE])
-    public async createComment(@CurrentToken() token: Token, @Body() comment: Comment): Promise<NormalizedResponseDTO<Comment>> {
-        const newComment: Comment = await this.commentsService.createCommentGivenToken(token, comment)
+    public async createComment(@CurrentToken() token: Token, @Body() createCommentDto: CommentDto): Promise<NormalizedResponseDTO<Comment>> {
+        const newComment: Comment = await this.commentsService.createCommentGivenToken(token, createCommentDto)
         return new NormalizedResponseDTO(newComment)
     }
 
@@ -95,9 +95,9 @@ export class CommentsController extends GenericController<Comment> {
     public async updateComment(
         @CurrentToken() token: Token,
         @Param('commentId') commentId: string,
-        @Body() comment: Comment,
+        @Body() updateCommentDto: CommentDto,
     ): Promise<NormalizedResponseDTO<Comment>> {
-        const updatedComment: Comment = await this.commentsService.updateComment(token, commentId, comment)
+        const updatedComment: Comment = await this.commentsService.updateComment(token, commentId, updateCommentDto)
         return new NormalizedResponseDTO(updatedComment)
     }
 

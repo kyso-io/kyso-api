@@ -563,13 +563,37 @@ export class TestingDataPopulatorService {
     }
 
     private async createTestingComments() {
-        const testComment = new Comment('Best pokemon is Charmander', this.Rey_TeamAdminUser.id, this.BestPokemonReport.id, null, null)
+        const testComment = new Comment(
+            'Best pokemon is Charmander',
+            'Best pokemon is Charmander',
+            this.Rey_TeamAdminUser.id,
+            this.BestPokemonReport.id,
+            null,
+            null,
+            [],
+        )
         this.TestComment = await this._createComment(testComment)
         this.TestChildComment1 = await this._createComment(
-            new Comment('Are you mad? Obviously Pikachu', this.Gideon_OrganizationAdminUser.id, this.BestPokemonReport.id, null, this.TestComment.id),
+            new Comment(
+                'Are you mad? Obviously Pikachu',
+                'Are you mad? Obviously Pikachu',
+                this.Gideon_OrganizationAdminUser.id,
+                this.BestPokemonReport.id,
+                null,
+                this.TestComment.id,
+                [],
+            ),
         )
         this.TestChildComment2 = await this._createComment(
-            new Comment('WTF Gideon, you deserve to be arrested', this.Rey_TeamAdminUser.id, this.BestPokemonReport.id, null, this.TestComment.id),
+            new Comment(
+                'WTF Gideon, you deserve to be arrested',
+                'WTF Gideon, you deserve to be arrested',
+                this.Rey_TeamAdminUser.id,
+                this.BestPokemonReport.id,
+                null,
+                this.TestComment.id,
+                [],
+            ),
         )
     }
 
@@ -800,10 +824,12 @@ export class TestingDataPopulatorService {
         // Add comments to every discussion
         const d1_c1 = new Comment(
             "We can't satisfy the deadline, I suggest to add a small gate and push to production. The probability to receive an attack there is ridiculous",
+            "We can't satisfy the deadline, I suggest to add a small gate and push to production. The probability to receive an attack there is ridiculous",
             this.Gideon_OrganizationAdminUser.id,
             this.DeathStarEngineeringReport.id,
             null,
             null,
+            [],
         )
 
         d1_c1.discussion_id = entityD1.id
@@ -811,10 +837,12 @@ export class TestingDataPopulatorService {
 
         const d1_c2 = new Comment(
             "Are you sure Gideon? I don't want to lose the war for that...",
+            "Are you sure Gideon? I don't want to lose the war for that...",
             this.Palpatine_PlatformAdminUser.id,
             this.DeathStarEngineeringReport.id,
             entityD1C1.comment_id,
             null,
+            [],
         )
 
         d1_c2.discussion_id = entityD1.id
@@ -822,10 +850,12 @@ export class TestingDataPopulatorService {
 
         const d1_c3 = new Comment(
             "It's a good idea, if not you'll have delays and enter in a debt with Jabba",
+            "It's a good idea, if not you'll have delays and enter in a debt with Jabba",
             this.Rey_TeamAdminUser.id,
             this.DeathStarEngineeringReport.id,
             null,
             null,
+            [],
         )
         d1_c2.discussion_id = entityD1.id
 
@@ -835,21 +865,39 @@ export class TestingDataPopulatorService {
 
         const d2_c1 = new Comment(
             "Folks, I just drop a message to Dark Star engineering discussion enforcing shitty Gideon argument, hopefully they'll do it and we can win hahahaha",
+            "Folks, I just drop a message to Dark Star engineering discussion enforcing shitty Gideon argument, hopefully they'll do it and we can win hahahaha",
             this.Rey_TeamAdminUser.id,
             this.RebelScumCounterAttackReport.id,
             null,
             null,
+            [],
         )
 
         d2_c1.discussion_id = entityD2.id
         await this.commentsService.createComment(d2_c1)
 
-        const d2_c2 = new Comment('RRWWWGG GGWWWRGHH RAWRGWAWGGR', this.Chewbacca_TeamReaderUser.id, this.RebelScumCounterAttackReport.id, null, null)
+        const d2_c2 = new Comment(
+            'RRWWWGG GGWWWRGHH RAWRGWAWGGR',
+            'RRWWWGG GGWWWRGHH RAWRGWAWGGR',
+            this.Chewbacca_TeamReaderUser.id,
+            this.RebelScumCounterAttackReport.id,
+            null,
+            null,
+            [],
+        )
 
         d2_c2.discussion_id = entityD2.id
         await this.commentsService.createComment(d2_c2)
 
-        const d2_c3 = new Comment('Hahahahaha good one Chewy', this.Kylo_TeamContributorUser.id, this.RebelScumCounterAttackReport.id, null, null)
+        const d2_c3 = new Comment(
+            'Hahahahaha good one Chewy',
+            'Hahahahaha good one Chewy',
+            this.Kylo_TeamContributorUser.id,
+            this.RebelScumCounterAttackReport.id,
+            null,
+            null,
+            [],
+        )
 
         d2_c3.discussion_id = entityD2.id
         await this.commentsService.createComment(d2_c3)
@@ -858,10 +906,12 @@ export class TestingDataPopulatorService {
 
         const d3_c1 = new Comment(
             "I'm in a hurry, I want the power that the dark side brings to me, but I also like to be near Rey, I don't know why :S",
+            "I'm in a hurry, I want the power that the dark side brings to me, but I also like to be near Rey, I don't know why :S",
             this.Kylo_TeamContributorUser.id,
             this.KyloThoughtsReport.id,
             null,
             null,
+            [],
         )
 
         d3_c1.discussion_id = entityD3.id

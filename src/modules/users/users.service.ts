@@ -192,6 +192,8 @@ export class UsersService extends AutowiredService {
 
         await this.sendVerificationEmail(user)
 
+        this.indexUser(user)
+
         return user
     }
 

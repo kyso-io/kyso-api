@@ -19,6 +19,7 @@ import { AuthService } from '../auth/auth.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { PlatformRoleService } from '../auth/platform-role.service'
 import { UserRoleService } from '../auth/user-role.service'
+import { DiscussionsService } from '../discussions/discussions.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
@@ -53,6 +54,9 @@ export class FullTextSearchController {
 
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
+
+    @Autowired({ typeName: 'DiscussionsService' })
+    private discussionsService: DiscussionsService
 
     constructor() {}
 
@@ -277,16 +281,28 @@ export class FullTextSearchController {
         )
         return { status: 'queued' }
     }
-    
+
     @Get('/reindex-users')
     @ApiOperation({
         summary: `Reindex users`,
         description: `Reindex users`,
     })
-    @ApiNormalizedResponse({ status: 200, description: `Search results`, type: Tag, isArray: true })
+    @ApiNormalizedResponse({ status: 200, description: `Indexing users`, type: Tag, isArray: true })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
     public async reindexUsers() {
         this.usersService.reindexUsers()
+        return { status: 'indexing' }
+    }
+
+    @Get('/reindex-discussions')
+    @ApiOperation({
+        summary: `Reindex discussions`,
+        description: `Reindex discussions`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Indexing discussions`, type: Tag, isArray: true })
+    @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
+    public async reindexDiscussions() {
+        this.discussionsService.reindexDiscussions()
         return { status: 'indexing' }
     }
 }
