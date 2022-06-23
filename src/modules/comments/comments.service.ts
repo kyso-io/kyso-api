@@ -1,14 +1,16 @@
 import {
     Comment,
-    CommentPermissionsEnum,
     CommentDto,
+    CommentPermissionsEnum,
     Discussion,
+    ElasticSearchIndex,
     GlobalPermissionsEnum,
     KysoCommentsCreateEvent,
     KysoCommentsDeleteEvent,
     KysoCommentsUpdateEvent,
     KysoDiscussionsNewMentionEvent,
     KysoEvent,
+    KysoIndex,
     KysoSettingsEnum,
     Organization,
     Report,
@@ -22,6 +24,7 @@ import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
 import { DiscussionsService } from '../discussions/discussions.service'
+import { FullTextSearchService } from '../full-text-search/full-text-search.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
@@ -60,6 +63,9 @@ export class CommentsService extends AutowiredService {
 
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
+
+    @Autowired({ typeName: 'FullTextSearchService' })
+    private fullTextSearchService: FullTextSearchService
 
     constructor(private readonly provider: CommentsMongoProvider, @Inject('NATS_SERVICE') private client: ClientProxy) {
         super()
@@ -100,6 +106,11 @@ export class CommentsService extends AutowiredService {
             throw new PreconditionFailedException('The specified team could not be found')
         }
 
+        const index: number = commentDto.user_ids.indexOf(token.id)
+        if (index === -1) {
+            commentDto.user_ids.push(token.id)
+        }
+
         let newComment: Comment = new Comment(
             commentDto.text,
             commentDto.plain_text,
@@ -125,6 +136,8 @@ export class CommentsService extends AutowiredService {
         if (discussion) {
             await this.checkMentionsInDiscussionComment(newComment, commentDto.user_ids)
         }
+
+        this.indexComment(newComment)
 
         return newComment
     }
@@ -197,6 +210,7 @@ export class CommentsService extends AutowiredService {
         }
         const dataFields: any = {
             text: updateCommentRequest.text,
+            plain_text: updateCommentRequest.plain_text,
             marked: updateCommentRequest.marked,
             user_ids: updateCommentRequest.user_ids,
         }
@@ -233,6 +247,10 @@ export class CommentsService extends AutowiredService {
         if (updatedComment?.discussion_id) {
             await this.discussionsService.checkParticipantsInDiscussion(updatedComment.discussion_id)
         }
+
+        Logger.log(`Updating comment '${updatedComment.id}' of user '${updatedComment.user_id}' in Elasticsearch...`, CommentsService.name)
+        const kysoIndex: KysoIndex = await this.commentToKysoIndex(updatedComment)
+        this.fullTextSearchService.updateDocument(kysoIndex)
 
         return updatedComment
     }
@@ -285,11 +303,7 @@ export class CommentsService extends AutowiredService {
         const relatedComments: Comment[] = await this.provider.read({
             filter: { comment_id: this.provider.toObjectId(commentId) },
         })
-        if (relatedComments.length > 0) {
-            comment = await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } })
-        } else {
-            await this.provider.deleteOne({ _id: this.provider.toObjectId(commentId) })
-        }
+        comment = await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } })
 
         this.client.emit<KysoCommentsDeleteEvent>(KysoEvent.COMMENTS_DELETE, {
             user: await this.usersService.getUserById(token.id),
@@ -303,6 +317,9 @@ export class CommentsService extends AutowiredService {
         if (discussion) {
             await this.discussionsService.checkParticipantsInDiscussion(discussion.id)
         }
+
+        Logger.log(`Deleting comment '${comment.id}' of user '${comment.user_id}' in ElasticSearch...`, CommentsService.name)
+        this.fullTextSearchService.deleteDocument(ElasticSearchIndex.Comment, comment.id)
 
         return comment
     }
@@ -325,10 +342,65 @@ export class CommentsService extends AutowiredService {
     }
 
     public async deleteReportComments(reportId: string): Promise<void> {
-        await this.provider.deleteMany({ report_id: reportId })
+        const comments: Comment[] = await this.provider.read({ filter: { report_id: reportId } })
+        for (const comment of comments) {
+            await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } })
+            Logger.log(`Deleting comment '${comment.id}' of user '${comment.user_id}' in ElasticSearch...`, CommentsService.name)
+            this.fullTextSearchService.deleteDocument(ElasticSearchIndex.Comment, comment.id)
+        }
     }
 
     public async deleteUserComments(userId: string): Promise<void> {
-        await this.provider.deleteMany({ user_id: userId })
+        const comments: Comment[] = await this.provider.read({ filter: { user_id: userId } })
+        for (const comment of comments) {
+            await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } })
+            Logger.log(`Deleting comment '${comment.id}' of user '${comment.user_id}' in ElasticSearch...`, CommentsService.name)
+            this.fullTextSearchService.deleteDocument(ElasticSearchIndex.Comment, comment.id)
+        }
+    }
+
+    private async commentToKysoIndex(comment: Comment): Promise<KysoIndex> {
+        const kysoIndex: KysoIndex = new KysoIndex()
+        kysoIndex.title = comment.plain_text
+        kysoIndex.content = comment.plain_text
+        kysoIndex.type = ElasticSearchIndex.Comment
+        kysoIndex.entityId = comment.id
+
+        let organization: Organization = null
+        let team: Team = null
+        if (comment.report_id) {
+            const report: Report = await this.reportsService.getReportById(comment.report_id)
+            team = await this.teamsService.getTeamById(report.team_id)
+            organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        } else if (comment.discussion_id) {
+            const discussion: Discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
+            team = await this.teamsService.getTeamById(discussion.team_id)
+            organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        }
+        kysoIndex.organizationSlug = organization?.sluglified_name ? organization.sluglified_name : ''
+        kysoIndex.teamSlug = team?.sluglified_name ? team.sluglified_name : ''
+
+        if (comment?.user_ids && comment.user_ids.length > 0) {
+            const users: User[] = await this.usersService.getUsers({ filter: { id: { $in: comment.user_ids } } })
+            if (users.length > 0) {
+                kysoIndex.people = users.map((user) => user.email).join(' ')
+            }
+        }
+
+        return kysoIndex
+    }
+
+    public async reindexComments(): Promise<void> {
+        const comments: Comment[] = await this.provider.read({})
+        await this.fullTextSearchService.deleteAllDocumentsOfType(ElasticSearchIndex.Comment)
+        for (const comment of comments) {
+            await this.indexComment(comment)
+        }
+    }
+
+    private async indexComment(comment: Comment): Promise<any> {
+        Logger.log(`Indexing comment '${comment.id}' of user '${comment.user_id}'`, CommentsService.name)
+        const kysoIndex: KysoIndex = await this.commentToKysoIndex(comment)
+        return this.fullTextSearchService.indexDocument(kysoIndex)
     }
 }

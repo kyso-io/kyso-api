@@ -19,6 +19,7 @@ import { AuthService } from '../auth/auth.service'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { PlatformRoleService } from '../auth/platform-role.service'
 import { UserRoleService } from '../auth/user-role.service'
+import { CommentsService } from '../comments/comments.service'
 import { DiscussionsService } from '../discussions/discussions.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
@@ -57,6 +58,9 @@ export class FullTextSearchController {
 
     @Autowired({ typeName: 'DiscussionsService' })
     private discussionsService: DiscussionsService
+
+    @Autowired({ typeName: 'CommentsService' })
+    private commentsService: CommentsService
 
     constructor() {}
 
@@ -303,6 +307,18 @@ export class FullTextSearchController {
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
     public async reindexDiscussions() {
         this.discussionsService.reindexDiscussions()
+        return { status: 'indexing' }
+    }
+
+    @Get('/reindex-comments')
+    @ApiOperation({
+        summary: `Reindex comments`,
+        description: `Reindex comments`,
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Indexing comments`, type: Tag, isArray: true })
+    @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
+    public async reindexComments() {
+        this.commentsService.reindexComments()
         return { status: 'indexing' }
     }
 }

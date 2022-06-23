@@ -177,7 +177,7 @@ export class DiscussionsController extends GenericController<Discussion> {
         if (!query.sort) {
             query.sort = { created_at: -1 }
         }
-        const comments: Comment[] = await this.commentsService.getComments({ filter: { discussion_id: discussionId }, sort: query.sort })
+        const comments: Comment[] = await this.commentsService.getComments({ filter: { discussion_id: discussionId, mark_delete_at: null }, sort: query.sort })
         const relations = await this.relationsService.getRelations(comments, 'comment')
         return new NormalizedResponseDTO(
             comments.filter((comment: Comment) => !comment.comment_id),
@@ -193,10 +193,7 @@ export class DiscussionsController extends GenericController<Discussion> {
     })
     @Permission([DiscussionPermissionsEnum.CREATE])
     @ApiNormalizedResponse({ status: 201, description: `Discussion`, type: Discussion })
-    public async createDiscussion(
-        @CurrentToken() token: Token,
-        @Body() data: CreateDiscussionRequestDTO,
-    ): Promise<NormalizedResponseDTO<Discussion>> {
+    public async createDiscussion(@CurrentToken() token: Token, @Body() data: CreateDiscussionRequestDTO): Promise<NormalizedResponseDTO<Discussion>> {
         const updatedDiscussion: Discussion = await this.discussionsService.createDiscussion(data)
         const relations = await this.relationsService.getRelations(updatedDiscussion, 'discussion', { participants: 'User', assignees: 'User' })
         return new NormalizedResponseDTO(updatedDiscussion, relations)

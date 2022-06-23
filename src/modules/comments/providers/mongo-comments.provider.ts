@@ -56,7 +56,7 @@ export class CommentsMongoProvider extends MongoProvider<Comment> {
     async migrate_from_1_to_2(): Promise<void> {
         const comments: Comment[] = await this.read({})
         for (const comment of comments) {
-            await this.update({ _id: this.toObjectId(comment.id) }, { $set: { plain_text: comment.text } })
+            await this.update({ _id: this.toObjectId(comment.id) }, { $set: { plain_text: comment.text, user_ids: comment.user_ids || [] } })
         }
     }
 }
