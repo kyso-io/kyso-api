@@ -568,6 +568,7 @@ export class UsersService extends AutowiredService {
             content.push(user.link)
         }
         kysoIndex.content = content.join(' ')
+        kysoIndex.isPublic = true
         return kysoIndex
     }
 

@@ -15,6 +15,7 @@ import {
     Organization,
     Report,
     Team,
+    TeamVisibilityEnum,
     Token,
     User,
 } from '@kyso-io/kyso-model'
@@ -372,10 +373,12 @@ export class CommentsService extends AutowiredService {
             const report: Report = await this.reportsService.getReportById(comment.report_id)
             team = await this.teamsService.getTeamById(report.team_id)
             organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC
         } else if (comment.discussion_id) {
             const discussion: Discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
             team = await this.teamsService.getTeamById(discussion.team_id)
             organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC
         }
         kysoIndex.organizationSlug = organization?.sluglified_name ? organization.sluglified_name : ''
         kysoIndex.teamSlug = team?.sluglified_name ? team.sluglified_name : ''

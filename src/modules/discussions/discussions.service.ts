@@ -1,6 +1,6 @@
 import {
-    CreateDiscussionRequestDTO,
     Comment,
+    CreateDiscussionRequestDTO,
     Discussion,
     ElasticSearchIndex,
     KysoCommentsDeleteEvent,
@@ -12,6 +12,7 @@ import {
     KysoSettingsEnum,
     Organization,
     Team,
+    TeamVisibilityEnum,
     Token,
     UpdateDiscussionRequestDTO,
     User,
@@ -380,6 +381,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
         kysoIndex.teamSlug = team.sluglified_name
         kysoIndex.people = users.map((user) => user.email).join(' ')
         kysoIndex.content = discussion.main
+        kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC
         return kysoIndex
     }
 
