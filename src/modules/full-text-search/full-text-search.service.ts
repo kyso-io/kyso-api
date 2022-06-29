@@ -50,38 +50,40 @@ export class FullTextSearchService extends AutowiredService {
         super()
     }
 
-    public async deleteIndexedResults(organizationSlug: string, teamSlug: string, entityId: string, type: string): Promise<any> {
+    public async deleteIndexedResults(organizationSlug: string, teamSlug: string, entityId: string, type: ElasticSearchIndex): Promise<any> {
         Logger.log(`Deleting indexed data for ${organizationSlug} and ${teamSlug} and ${entityId} for ${type}`)
-
-        const elasticsearchUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
-
+        const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
         let query = {
             query: {
                 bool: {
                     must: [
                         {
                             match: {
-                                organizationSlug: organizationSlug,
+                                organizationSlug,
                             },
                         },
                         {
                             match: {
-                                teamSlug: teamSlug,
+                                teamSlug,
                             },
                         },
                         {
                             match: {
-                                entityId: entityId,
+                                entityId,
+                            },
+                        },
+                        {
+                            match: {
+                                type,
                             },
                         },
                     ],
                 },
             },
         }
-
         let res
         try {
-            res = await axios(`${elasticsearchUrl}/${this.KYSO_INDEX}/${type}/_delete_by_query`, {
+            res = await axios(`${elasticsearchUrl}/${this.KYSO_INDEX}/_delete_by_query`, {
                 method: 'post',
                 data: query,
                 headers: {
@@ -92,7 +94,6 @@ export class FullTextSearchService extends AutowiredService {
         } catch (ex) {
             Logger.log('Error', ex)
         }
-
         return res
     }
 
@@ -124,6 +125,7 @@ export class FullTextSearchService extends AutowiredService {
                 },
             })
             if (response.status === 200) {
+                Logger.log(`Deleted all documents for index ${elasticSearchIndex}`, FullTextSearchService.name)
                 return response.data
             } else {
                 return null
