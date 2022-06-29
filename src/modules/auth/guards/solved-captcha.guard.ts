@@ -19,7 +19,7 @@ export class SolvedCaptchaGuard implements CanActivate {
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const request = context.switchToHttp().getRequest()
 
-        const captchaEnabled = await this.kysoSettingsService.getValue(KysoSettingsEnum.RECAPTCHA2_ENABLED) === 'true' ? true : false;
+        const captchaEnabled = await this.kysoSettingsService.getValue(KysoSettingsEnum.HCAPTCHA_ENABLED) === 'true' ? true : false;
 
         if (!request.headers.hasOwnProperty('authorization') || request.headers['authorization'] === null || request.headers['authorization'] === '') {
             Logger.log('Missing authorization header')
