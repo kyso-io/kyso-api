@@ -2,7 +2,6 @@ import {
     ElasticSearchIndex,
     FullTextSearchDTO,
     FullTextSearchMetadata,
-    FullTextSearchResult,
     FullTextSearchResultType,
     KysoIndex,
     KysoSettingsEnum,
@@ -271,10 +270,8 @@ export class FullTextSearchService extends AutowiredService {
 
         const aggregateData: AggregateData = await this.aggregateData(token, searchTerms, filterOrganizations, filterTeams)
         const aggregations: Aggregations = aggregateData.aggregations
-        console.log(aggregateData.aggregations.type)
 
         const searchResults: SearchData = await this.searchV2(token, searchTerms, type, page, perPage, filterOrganizations, filterTeams)
-        console.log(searchResults)
 
         // Reports
         const reportsFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0)
@@ -352,13 +349,29 @@ export class FullTextSearchService extends AutowiredService {
         }
 
         if (type === ElasticSearchIndex.Report) {
-            reportsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({ ...hit._source, score: hit._score }))
+            reportsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({
+                ...hit._source,
+                score: hit._score,
+                content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
+            }))
         } else if (type === ElasticSearchIndex.Discussion) {
-            discussionsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({ ...hit._source, score: hit._score }))
+            discussionsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({
+                ...hit._source,
+                score: hit._score,
+                content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
+            }))
         } else if (type === ElasticSearchIndex.Comment) {
-            commentsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({ ...hit._source, score: hit._score }))
+            commentsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({
+                ...hit._source,
+                score: hit._score,
+                content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
+            }))
         } else if (type === ElasticSearchIndex.User) {
-            membersFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({ ...hit._source, score: hit._score }))
+            membersFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({
+                ...hit._source,
+                score: hit._score,
+                content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
+            }))
         }
 
         const fullTextSearchDTO: FullTextSearchDTO = new FullTextSearchDTO(

@@ -374,21 +374,36 @@ export class CommentsService extends AutowiredService {
             team = await this.teamsService.getTeamById(report.team_id)
             organization = await this.organizationsService.getOrganizationById(team.organization_id)
             kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC
+            kysoIndex.link = `/${organization.sluglified_name}/${team.sluglified_name}/${report.sluglified_name}`
         } else if (comment.discussion_id) {
             const discussion: Discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
             team = await this.teamsService.getTeamById(discussion.team_id)
             organization = await this.organizationsService.getOrganizationById(team.organization_id)
             kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC
+            kysoIndex.link = `/${organization.sluglified_name}/${team.sluglified_name}/discussions/${discussion.id}`
         }
         kysoIndex.organizationSlug = organization?.sluglified_name ? organization.sluglified_name : ''
         kysoIndex.teamSlug = team?.sluglified_name ? team.sluglified_name : ''
 
-        if (comment?.user_ids && comment.user_ids.length > 0) {
-            const users: User[] = await this.usersService.getUsers({ filter: { id: { $in: comment.user_ids } } })
-            if (users.length > 0) {
-                kysoIndex.people = users.map((user) => user.email).join(' ')
+        let people: string[] = []
+        if (comment.user_id) {
+            const user: User = await this.usersService.getUserById(comment.user_id)
+            if (user) {
+                people.push(user.email)
             }
         }
+        if (comment?.user_ids && comment.user_ids.length > 0) {
+            for (const userId of comment.user_ids) {
+                const user: User = await this.usersService.getUserById(userId)
+                if (user) {
+                    const index: number = people.indexOf(user.email)
+                    if (index === -1) {
+                        people.push(user.email)
+                    }
+                }
+            }
+        }
+        kysoIndex.people = people.join(' ')
 
         return kysoIndex
     }
