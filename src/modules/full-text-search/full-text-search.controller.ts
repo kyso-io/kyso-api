@@ -1,7 +1,7 @@
 import { ElasticSearchIndex, FullTextSearchDTO, GlobalPermissionsEnum, KysoSettingsEnum, NormalizedResponseDTO, Tag, Token } from '@kyso-io/kyso-model'
 import { Controller, Get, Logger, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
-import axios from 'axios'
+import axios, { AxiosResponse } from 'axios'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { Public } from '../../decorators/is-public'
@@ -85,14 +85,14 @@ export class FullTextSearchController {
     @ApiNormalizedResponse({ status: 200, description: `Search results`, type: Tag, isArray: true })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
     public async reindex(@Query('pathToIndex') pathToIndex: string) {
-        const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
-        axios.get(`${kysoIndexerApi}/api/reindex?pathToIndex=${pathToIndex}`).then(
-            () => {},
-            (err) => {
-                Logger.warn(`${pathToIndex} was not indexed properly`, err)
-            },
-        )
-        return { status: 'queued' }
+        try {
+            const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
+            const axiosResponse: AxiosResponse<any> = await axios.get(`${kysoIndexerApi}/api/reindex?pathToIndex=${pathToIndex}`)
+            return axiosResponse.data
+        } catch (e) {
+            Logger.warn(`${pathToIndex} was not indexed properly`, e, FullTextSearchService.name)
+            return { status: 'error' }
+        }
     }
 
     @Get('/reindex-users')

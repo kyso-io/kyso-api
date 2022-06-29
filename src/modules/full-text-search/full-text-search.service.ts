@@ -13,7 +13,6 @@ import {
 } from '@kyso-io/kyso-model'
 import { Injectable, Logger, Provider } from '@nestjs/common'
 import axios, { AxiosResponse } from 'axios'
-import { writeFileSync } from 'fs'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
@@ -477,7 +476,6 @@ export class FullTextSearchService extends AutowiredService {
         }
         try {
             const response = await axios.post(url, body)
-            writeFileSync('aggregate.json', JSON.stringify(response.data, null, 2))
             return response.data
         } catch (e: any) {
             Logger.error(`Error while aggregating data`, e, FullTextSearchService.name)
@@ -559,7 +557,6 @@ export class FullTextSearchService extends AutowiredService {
         }
         try {
             const response = await axios.post(url, body)
-            writeFileSync('search.json', JSON.stringify(response.data, null, 2))
             return response.data
         } catch (e: any) {
             Logger.error(`Error while aggregating data`, e, FullTextSearchService.name)
