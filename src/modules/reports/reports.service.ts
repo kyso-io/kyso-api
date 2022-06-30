@@ -2,6 +2,7 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client
 import {
     Comment,
     CreateReportDTO,
+    ElasticSearchIndex,
     File,
     GithubBranch,
     GithubFileHash,
@@ -9,6 +10,7 @@ import {
     GlobalPermissionsEnum,
     KysoConfigFile,
     KysoEvent,
+    KysoIndex,
     KysoReportsCreateEvent,
     KysoReportsNewVersionEvent,
     KysoSettingsEnum,
@@ -139,6 +141,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     ) {
         super()
     }
+
     checkOwnership(item: Report, requester: Token, organizationName: string, teamName: string): Promise<boolean> {
         let hasAdequatePermissions
 
@@ -345,6 +348,18 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: dataToUpdate })
         this.client.emit<Report>(KysoEvent.REPORTS_UPDATE, report)
+
+        const kysoIndex: KysoIndex = new KysoIndex()
+        kysoIndex.entityId = report.id
+        kysoIndex.type = ElasticSearchIndex.Report
+        kysoIndex.title = report.title
+        const users: User[] = await this.usersService.getUsers({ filter: { id: { $in: report.author_ids } } })
+        kysoIndex.people = users.map((user: User) => user.email).join(' ')
+        const tags: Tag[] = await this.tagsService.getTagsOfEntity(report.id, EntityEnum.REPORT)
+        kysoIndex.tags = tags.map((tag: Tag) => tag.name).join(' ')
+        Logger.log(`Updating report ${report.id} ${report.sluglified_name} in ElasticSearch...`, ReportsService.name)
+        this.fullTextSearchService.updateReportFiles(kysoIndex)
+
         return report
     }
 
@@ -375,7 +390,12 @@ export class ReportsService extends AutowiredService implements GenericService<R
         if (team) {
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
             if (organization) {
-                this.fullTextSearchService.deleteIndexedResults(organization.sluglified_name, team.sluglified_name, report.sluglified_name, 'report')
+                this.fullTextSearchService.deleteIndexedResults(
+                    organization.sluglified_name,
+                    team.sluglified_name,
+                    report.sluglified_name,
+                    ElasticSearchIndex.Report,
+                )
             }
         }
 
