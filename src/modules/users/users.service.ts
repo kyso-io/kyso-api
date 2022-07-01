@@ -1,6 +1,5 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
-    CreateUserRequestDTO,
     EmailUserChangePasswordDTO,
     KysoPermissions,
     KysoSettingsEnum,
@@ -24,7 +23,6 @@ import {
 import { MailerService } from '@nestjs-modules/mailer'
 import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import axios from 'axios'
-import { NODATA } from 'dns'
 import * as moment from 'moment'
 import { ObjectId } from 'mongodb'
 import { extname } from 'path'
@@ -41,6 +39,7 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
 import { KysoUserAccessTokensMongoProvider } from './providers/mongo-kyso-user-access-token.provider'
+import { URLSearchParams } from 'url'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 import { UserChangePasswordMongoProvider } from './providers/user-change-password-mongo.provider'
 import { UserVerificationMongoProvider } from './providers/user-verification-mongo.provider'
@@ -169,7 +168,7 @@ export class UsersService extends AutowiredService {
         await this.organizationsService.addMembersById(organizationDb.id, [user.id], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name])
 
         // Create user team
-        const teamName: string = 'My Private Team'
+        const teamName = 'My Private Team'
         const newUserTeam: Team = new Team(teamName, '', '', '', '', [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
         Logger.log(`Creating new team ${newUserTeam.sluglified_name}...`)
         const userTeamDb: Team = await this.teamsService.createTeam(newUserTeam)
@@ -484,13 +483,15 @@ export class UsersService extends AutowiredService {
     }
 
     public async verifyCaptcha(userId: string, data: VerifyCaptchaRequestDto): Promise<boolean> {
-        const recaptchaEnabled: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.RECAPTCHA2_ENABLED)
-        if (recaptchaEnabled.toLowerCase() === 'false') {
+        const hCaptchaEnabled: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.HCAPTCHA_ENABLED)
+        if (hCaptchaEnabled.toLowerCase() === 'false') {
             await this.provider.update({ _id: new ObjectId(userId) }, { $set: { show_captcha: false } })
             return true
         } else {
-            const secret: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.RECAPTCHA2_SECRET_KEY)
-            const response: any = await axios.post(`https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${data.token}`)
+            const secret: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.HCAPTCHA_SECRET_KEY)
+            const sitekey: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.HCAPTCHA_SITE_KEY)
+            const params = new URLSearchParams({'secret': secret, 'response': data.token, 'sitekey': sitekey})
+            const response: any = await axios.post('https://hcaptcha.com/siteverify', params)
             if (response.data.success) {
                 await this.provider.update({ _id: new ObjectId(userId) }, { $set: { show_captcha: false } })
                 return true
@@ -539,9 +540,9 @@ export class UsersService extends AutowiredService {
             throw new PreconditionFailedException('User not registered')
         }
 
-        const recaptchaEnabled = (await this.kysoSettingsService.getValue(KysoSettingsEnum.RECAPTCHA2_ENABLED)) === 'true' ? true : false
+        const hCaptchaEnabled = (await this.kysoSettingsService.getValue(KysoSettingsEnum.HCAPTCHA_ENABLED)) === 'true' ? true : false
 
-        if (recaptchaEnabled) {
+        if (hCaptchaEnabled) {
             const validCaptcha: boolean = await this.verifyCaptcha(user.id, { token: emailUserChangePasswordDTO.captchaToken })
 
             if (!validCaptcha) {
