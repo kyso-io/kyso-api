@@ -158,7 +158,7 @@ export class AuthService extends AutowiredService {
                     id: team.id,
                     permissions: [...new Set(computedPermissions)], // Remove duplicated permissions
                     organization_id: team.organization_id,
-                    role_names: teamMembership.role_names
+                    role_names: teamMembership.role_names,
                 })
             }
         }
@@ -173,6 +173,13 @@ export class AuthService extends AutowiredService {
                     // For every organization, retrieve the base object
                     const objectId = new mongo.ObjectId(organizationMembership.organization_id)
                     const organization: Organization = await organizationService.getOrganization({ filter: { _id: objectId } })
+
+                    if (organization?.allowed_access_domains && organization.allowed_access_domains.length > 0) {
+                        const allowedDomain: boolean = organization.allowed_access_domains.some((domain: string) => user.email.indexOf(domain.toLowerCase()) > -1)
+                        if (!allowedDomain) {
+                            continue
+                        }
+                    }
 
                     // These are the specific roles built for that team
                     const organizationRoles: KysoRole[] = organization.roles
@@ -210,12 +217,14 @@ export class AuthService extends AutowiredService {
                         name: organization.sluglified_name,
                         display_name: organization.display_name,
                         permissions: computedPermissions,
-                        role_names: organizationMembership.role_names
+                        role_names: organizationMembership.role_names,
                     })
 
                     // Get all the teams that belong to that organizations (an user can belong to multiple organizations)
                     // const organizationTeams: Team[] = await teamService.getTeams({ filter: { organization_id: organization.id } })
-                    const teamsVisibleByUser: Team[] = await (await teamService.getTeamsVisibleForUser(user.id)).filter(x => x.organization_id === organization.id)
+                    const teamsVisibleByUser: Team[] = await (
+                        await teamService.getTeamsVisibleForUser(user.id)
+                    ).filter((x) => x.organization_id === organization.id)
 
                     // For-each team
                     for (const orgTeam of teamsVisibleByUser) {
@@ -226,8 +235,7 @@ export class AuthService extends AutowiredService {
                         if (alreadyExistsInResponse.length === 0) {
                             // If the team is private, we must ensure that the user belongs explicitly
                             // to the team
-                            if(orgTeam.visibility === TeamVisibilityEnum.PRIVATE) {
-                                
+                            if (orgTeam.visibility === TeamVisibilityEnum.PRIVATE) {
                             }
                             // If not, retrieve the roles
                             response.teams.push({
@@ -236,16 +244,15 @@ export class AuthService extends AutowiredService {
                                 id: orgTeam.id,
                                 organization_inherited: true,
                                 organization_id: orgTeam.organization_id, // Remove duplicated permissions
-                                role_names: organizationMembership.role_names
+                                role_names: organizationMembership.role_names,
                             })
                         }
                     }
-                } catch(ex) {
+                } catch (ex) {
                     Logger.error(`Can't retrieve information of organization ${organizationMembership.organization_id}`)
                     Logger.error(ex)
                 }
             }
-            
         }
 
         // TODO: Global permissions, not related to teams
@@ -288,13 +295,13 @@ export class AuthService extends AutowiredService {
         return response
     }
 
-    static async hasPermissions(tokenPayload: Token, permissionToActivateEndpoint: KysoPermissions[], team: string, organization: string): Promise<boolean> {
+    static hasPermissions(tokenPayload: Token, permissionToActivateEndpoint: KysoPermissions[], team: string, organization: string): boolean {
         if (!tokenPayload) {
-            Logger.log("Received null token")
+            Logger.log('Received null token')
             return false
         }
 
-        const isGlobalAdmin = tokenPayload.permissions.global.find((x) => x === GlobalPermissionsEnum.GLOBAL_ADMIN)
+        const isGlobalAdmin: KysoPermissions = tokenPayload.permissions.global.find((x) => x === GlobalPermissionsEnum.GLOBAL_ADMIN)
 
         // triple absurd checking because a GLOBAL ADMIN DESERVES IT
         if (isGlobalAdmin) {
@@ -342,7 +349,7 @@ export class AuthService extends AutowiredService {
                 allUserPermissions = [...allUserPermissions, ...userGlobalPermissions]
             }
 
-            const hasAllThePermissions = permissionToActivateEndpoint.every((i) => allUserPermissions.includes(i))
+            const hasAllThePermissions: boolean = permissionToActivateEndpoint.every((i) => allUserPermissions.includes(i))
 
             if (hasAllThePermissions) {
                 return true
