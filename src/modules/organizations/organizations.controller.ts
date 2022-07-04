@@ -35,6 +35,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
+import { Public } from 'src/decorators/is-public'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
@@ -69,6 +70,7 @@ export class OrganizationsController extends GenericController<Organization> {
         summary: `Get organizations`,
         description: `Allows fetching list of organizations`,
     })
+    @Public()
     @ApiNormalizedResponse({ status: 200, description: `List of organizations`, type: Organization, isArray: true })
     async getOrganizations(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<Organization[]>> {
         const query = QueryParser.toQueryObject(req.url)
@@ -79,10 +81,16 @@ export class OrganizationsController extends GenericController<Organization> {
             _id: 1,
             sluglified_name: 1,
             display_name: 1,
+            location: 1,
+            link: 1,
+            bio: 1,
+            avatar_url: 1,
+            legal_name: 1
         }
         if (!query.filter) {
             query.filter = {}
         }
+        /*
         if (!token.isGlobalAdmin()) {
             const userInOrganizations: OrganizationMemberJoin[] = await this.organizationService.searchMembersJoin({
                 filter: {
@@ -92,7 +100,7 @@ export class OrganizationsController extends GenericController<Organization> {
             query.filter._id = {
                 $in: userInOrganizations.map((o: OrganizationMemberJoin) => new ObjectId(o.organization_id)),
             }
-        }
+        }*/
         const organizations: Organization[] = await this.organizationService.getOrganizations(query)
         return new NormalizedResponseDTO(organizations)
     }
