@@ -117,7 +117,7 @@ export class DiscussionsController extends GenericController<Discussion> {
         }
         const team: Team = await this.teamsService.getTeamById(discussion.team_id)
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = await AuthService.hasPermissions(token, [DiscussionPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [DiscussionPermissionsEnum.READ], teamName, organizationName)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -155,7 +155,7 @@ export class DiscussionsController extends GenericController<Discussion> {
             throw new NotFoundException(`Team ${discussion.team_id} not found`)
         }
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = await AuthService.hasPermissions(token, [DiscussionPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [DiscussionPermissionsEnum.READ], teamName, organizationName)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -199,24 +199,14 @@ export class DiscussionsController extends GenericController<Discussion> {
         schema: { type: 'string' },
         example: 'K1bOzHjEmN',
     })
-    @Permission([DiscussionPermissionsEnum.EDIT])
+    @Permission([DiscussionPermissionsEnum.EDIT, DiscussionPermissionsEnum.EDIT_ONLY_MINE])
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
     public async updateDiscussion(
-        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
-        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
         @Param('discussionId') discussionId: string,
         @Body() data: UpdateDiscussionRequestDTO,
     ): Promise<NormalizedResponseDTO<Discussion>> {
-        const discussionData: Discussion = await this.discussionsService.getDiscussionById(discussionId);
-        
-        const isOwner = await this.discussionsService.checkOwnership(discussionData, token, organizationName, teamName)
-        
-        if(!isOwner) {
-            throw new ForbiddenException("Insufficient permissions")
-        }
-
-        const updatedDiscussion: Discussion = await this.discussionsService.updateDiscussion(discussionId, data)
+        const updatedDiscussion: Discussion = await this.discussionsService.updateDiscussion(token, discussionId, data)
         const relations = await this.relationsService.getRelations(updatedDiscussion, 'discussion', { participants: 'User', assignees: 'User' })
         return new NormalizedResponseDTO(updatedDiscussion, relations)
     }
@@ -240,13 +230,14 @@ export class DiscussionsController extends GenericController<Discussion> {
         @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
         @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
-        @Param('discussionId') discussionId: string): Promise<NormalizedResponseDTO<Discussion>> {
-        const discussionData: Discussion = await this.discussionsService.getDiscussionById(discussionId);
-        
+        @Param('discussionId') discussionId: string,
+    ): Promise<NormalizedResponseDTO<Discussion>> {
+        const discussionData: Discussion = await this.discussionsService.getDiscussionById(discussionId)
+
         const isOwner = await this.discussionsService.checkOwnership(discussionData, token, organizationName, teamName)
-        
-        if(!isOwner) {
-            throw new ForbiddenException("Insufficient permissions")
+
+        if (!isOwner) {
+            throw new ForbiddenException('Insufficient permissions')
         }
 
         const deletedDiscussion: Discussion = await this.discussionsService.deleteDiscussion(discussionId)

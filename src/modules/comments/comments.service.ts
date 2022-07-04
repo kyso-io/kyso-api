@@ -1,6 +1,6 @@
 import { Comment, CommentPermissionsEnum, Discussion, GlobalPermissionsEnum, Organization, Report, Team, Token, User } from '@kyso-io/kyso-model'
 import { MailerService } from '@nestjs-modules/mailer'
-import { Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ForbiddenException, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
@@ -12,6 +12,7 @@ import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { CommentsMongoProvider } from './providers/mongo-comments.provider'
+import { AuthService } from '../auth/auth.service'
 
 function factory(service: CommentsService) {
     return service
@@ -226,6 +227,8 @@ export class CommentsService extends AutowiredService {
         if (!comment) {
             throw new PreconditionFailedException('The specified comment could not be found')
         }
+
+        let team: Team
         if (comment?.report_id) {
             const report: Report = await this.reportsService.getReportById(comment.report_id)
             if (!report) {
@@ -234,7 +237,7 @@ export class CommentsService extends AutowiredService {
             if (!report.team_id || report.team_id == null || report.team_id === '') {
                 throw new PreconditionFailedException('The specified report does not have a team associated')
             }
-            const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
+            team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
             if (!team) {
                 throw new PreconditionFailedException('The specified team could not be found')
             }
@@ -246,18 +249,23 @@ export class CommentsService extends AutowiredService {
             if (!discussion.team_id || discussion.team_id == null || discussion.team_id === '') {
                 throw new PreconditionFailedException('The specified discussion does not have a team associated')
             }
-            const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(discussion.team_id) } })
+            team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(discussion.team_id) } })
             if (!team) {
                 throw new PreconditionFailedException('The specified team could not be found')
             }
         } else {
             throw new PreconditionFailedException('The specified comment does not have a report or discussion associated')
         }
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        if (!organization) {
+            throw new PreconditionFailedException('The specified organization could not be found')
+        }
         const userIsCommentCreator: boolean = comment.user_id === token.id
-        const hasCommentPermissionAdmin: boolean = userHasPermission(token, CommentPermissionsEnum.ADMIN)
-        const hasGlobalPermissionAdmin: boolean = userHasPermission(token, GlobalPermissionsEnum.GLOBAL_ADMIN)
-        if (!userIsCommentCreator && !hasCommentPermissionAdmin && !hasGlobalPermissionAdmin) {
-            throw new PreconditionFailedException('The specified user does not have permission to delete this comment')
+        if (!userIsCommentCreator) {
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [CommentPermissionsEnum.DELETE], team.sluglified_name, organization.sluglified_name)
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to delete this comment')
+            }
         }
         const relatedComments: Comment[] = await this.provider.read({
             filter: { comment_id: this.provider.toObjectId(commentId) },

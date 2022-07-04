@@ -284,14 +284,36 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return this.provider.create(report)
     }
 
-    public async updateReport(userId: string, reportId: string, updateReportRequestDTO: UpdateReportRequestDTO): Promise<Report> {
+    public async updateReport(token: Token, reportId: string, updateReportRequestDTO: UpdateReportRequestDTO): Promise<Report> {
         Logger.log(`Updating report ${reportId}`)
-        Logger.log(`With data ${updateReportRequestDTO}`)
 
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
         }
+        const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
+        if (!team) {
+            throw new PreconditionFailedException('The specified team could not be found')
+        }
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        if (!organization) {
+            throw new PreconditionFailedException('The specified organization could not be found')
+        }
+
+        const reportCreator: boolean = report.user_id === token.id
+        const reportAuthor: boolean = report.author_ids.includes(token.id)
+        if (!reportCreator && !reportAuthor) {
+            const hasPermissions: boolean = AuthService.hasPermissions(
+                token,
+                [ReportPermissionsEnum.EDIT],
+                team.sluglified_name,
+                organization.sluglified_name,
+            )
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to update this report')
+            }
+        }
+
         if (updateReportRequestDTO?.tags) {
             await this.checkReportTags(report.id, updateReportRequestDTO.tags || [])
             delete updateReportRequestDTO.tags
