@@ -60,9 +60,9 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
                 case KysoSettingsEnum.AUTH_GOOGLE_CLIENT_ID:
                 case KysoSettingsEnum.AUTH_GITLAB_REDIRECT_URI:
                 case KysoSettingsEnum.AUTH_PINGID_SAML_SSO_URL:
-                case KysoSettingsEnum.RECAPTCHA2_SITE_KEY:
+                case KysoSettingsEnum.HCAPTCHA_SITE_KEY:
                 case KysoSettingsEnum.KYSO_FILES_CLOUDFRONT_URL:
-                case KysoSettingsEnum.RECAPTCHA2_ENABLED:
+                case KysoSettingsEnum.HCAPTCHA_ENABLED:
                 case KysoSettingsEnum.BASE_URL:
                 case KysoSettingsEnum.BITBUCKET_API:
                 case KysoSettingsEnum.STATIC_CONTENT_PREFIX:
