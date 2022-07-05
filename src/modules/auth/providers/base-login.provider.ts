@@ -53,6 +53,8 @@ export class BaseLoginProvider {
             KysoSettingsEnum.ADD_NEW_USERS_AUTOMATICALLY_TO_ORG
         );
 
+        console.log(automaticOrgs)
+
         if(automaticOrgs) {
             Logger.log(`Adding ${user.email} as TEAM_READER automatically to the following orgs ${automaticOrgs}`)
 
