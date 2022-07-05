@@ -227,8 +227,6 @@ export class AuthController extends GenericController<string> {
         const parser = new Saml2js(xmlResponse)
         const data = parser.toObject()
 
-        console.log(data)
-
         if (data && data.mail && data.givenName && data.sn) {
             // Build JWT token and redirect to frontend
             const login: Login = new Login(

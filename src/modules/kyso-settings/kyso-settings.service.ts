@@ -59,6 +59,8 @@ export class KysoSettingsService extends AutowiredService {
                 return '"kyso" <dev@dev.kyso.io>'
             case KysoSettingsEnum.ELASTICSEARCH_URL:
                 return 'http://elasticsearch-master.elasticsearch-lo.svc.cluster.local:9200'
+            case KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN:
+                return '8'
             case KysoSettingsEnum.DURATION_HOURS_TOKEN_EMAIL_VERIFICATION:
                 return '2'
             case KysoSettingsEnum.DURATION_MINUTES_TOKEN_RECOVERY_PASSWORD:
@@ -97,6 +99,8 @@ export class KysoSettingsService extends AutowiredService {
                 return '/login'
             case KysoSettingsEnum.REPORT_PATH:
                 return '/data'
+            case KysoSettingsEnum.ADD_NEW_USERS_AUTOMATICALLY_TO_ORG:
+                return ''
             default:
                 return ''
         }
@@ -160,6 +164,8 @@ export class KysoSettingsService extends AutowiredService {
                 return `Path where reports are unzipped`
             case KysoSettingsEnum.ELASTICSEARCH_URL:
                 return `Internal Kubernetes URL for Elasticsearch`
+            case KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN:
+                return `Duration in hours for jwt token`
             case KysoSettingsEnum.DURATION_HOURS_TOKEN_EMAIL_VERIFICATION:
                 return `Duration in hours for token email verification`
             case KysoSettingsEnum.HCAPTCHA_ENABLED:
@@ -214,6 +220,8 @@ export class KysoSettingsService extends AutowiredService {
                 return 'Specific css styles to apply only in hiddendiv'
             case KysoSettingsEnum.CUSTOMIZE_LOGIN_BUTTON_HOVER_CSS_STYLES:
                 return 'Specific css styles to apply only in the login button'
+            case KysoSettingsEnum.ADD_NEW_USERS_AUTOMATICALLY_TO_ORG:
+                return 'If empty, has no effect. If has a value, adds any new user in the platform to the organizations set in this property (comma separated) with TEAM_READER role'
             default:
                 return 'No description provided'
         }

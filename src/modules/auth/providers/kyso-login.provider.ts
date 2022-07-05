@@ -4,13 +4,16 @@ import { JwtService } from '@nestjs/jwt'
 import { Autowired } from '../../../decorators/autowired'
 import { UsersService } from '../../users/users.service'
 import { AuthService, TOKEN_EXPIRATION_TIME } from '../auth.service'
+import { BaseLoginProvider } from './base-login.provider'
 
 @Injectable()
-export class KysoLoginProvider {
+export class KysoLoginProvider extends BaseLoginProvider {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
-    constructor(private readonly jwtService: JwtService) {}
+    constructor(protected readonly jwtService: JwtService) {
+        super(jwtService)
+    }
 
     async login(password: string, username?: string): Promise<string> {
         // Get user from database
@@ -25,36 +28,7 @@ export class KysoLoginProvider {
         const isRightPassword = await AuthService.isPasswordCorrect(password, user.hashed_password)
 
         if (isRightPassword) {
-            const payload: Token = new Token(
-                user.id.toString(),
-                user.name,
-                user.username,
-                user.display_name,
-                user.email,
-                user.plan,
-                user.avatar_url,
-                user.location,
-                user.link,
-                user.bio,
-                user.email_verified,
-                user.show_captcha,
-                user.accounts.map((userAccount: UserAccount) => ({
-                    type: userAccount.type,
-                    accountId: userAccount.accountId,
-                    username: userAccount.username,
-                })),
-            )
-
-            // generate token
-            const token = this.jwtService.sign(
-                { payload },
-                {
-                    expiresIn: TOKEN_EXPIRATION_TIME,
-                    issuer: 'kyso',
-                },
-            )
-
-            return token
+            return await this.createToken(user);
         } else {
             throw new UnauthorizedException('Invalid credentials')
         }
@@ -75,36 +49,7 @@ export class KysoLoginProvider {
         if (!dbAccessToken) {
             throw new UnauthorizedException('Invalid credentials')
         } else {
-            const payload: Token = new Token(
-                user.id.toString(),
-                user.name,
-                user.username,
-                user.display_name,
-                user.email,
-                user.plan,
-                user.avatar_url,
-                user.location,
-                user.link,
-                user.bio,
-                user.email_verified,
-                user.show_captcha,
-                user.accounts.map((userAccount: UserAccount) => ({
-                    type: userAccount.type,
-                    accountId: userAccount.accountId,
-                    username: userAccount.username,
-                })),
-            )
-
-            // generate token
-            const token = this.jwtService.sign(
-                { payload },
-                {
-                    expiresIn: TOKEN_EXPIRATION_TIME,
-                    issuer: 'kyso',
-                },
-            )
-
-            return token
+            return await this.createToken(user);
         }
     }
 }

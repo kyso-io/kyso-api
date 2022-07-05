@@ -8,18 +8,19 @@ import { BitbucketReposService } from '../../bitbucket-repos/bitbucket-repos.ser
 import { BitbucketEmail } from '../../bitbucket-repos/classes/bitbucket-email'
 import { BitbucketPaginatedResponse } from '../../bitbucket-repos/classes/bitbucket-paginated-response'
 import { UsersService } from '../../users/users.service'
-
-export const TOKEN_EXPIRATION_TIME = '8h'
+import { BaseLoginProvider } from './base-login.provider'
 
 @Injectable()
-export class BitbucketLoginProvider {
+export class BitbucketLoginProvider extends BaseLoginProvider {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
     @Autowired({ typeName: 'BitbucketReposService' })
     private bitbucketReposService: BitbucketReposService
 
-    constructor(private readonly jwtService: JwtService) {}
+    constructor(protected readonly jwtService: JwtService) {
+        super(jwtService)
+    }
 
     async login(login: Login): Promise<string> {
         try {
@@ -78,32 +79,9 @@ export class BitbucketLoginProvider {
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
 
-            const payload: Token = new Token(
-                user.id.toString(),
-                user.name,
-                user.username,
-                user.display_name,
-                user.email,
-                user.plan,
-                user.avatar_url,
-                user.location,
-                user.link,
-                user.bio,
-                user.email_verified,
-                user.show_captcha,
-                user.accounts.map((userAccount: UserAccount) => ({
-                    type: userAccount.type,
-                    accountId: userAccount.accountId,
-                    username: userAccount.username,
-                })),
-            )
-            return this.jwtService.sign(
-                { payload },
-                {
-                    expiresIn: TOKEN_EXPIRATION_TIME,
-                    issuer: 'kyso',
-                },
-            )
+
+            await this.addUserToOrganizationsAutomatically(user);
+            return await this.createToken(user);
         } catch (e) {
             Logger.error(`An error occurred loging a user in Bitbucket`, e, BitbucketLoginProvider.name)
             return null
