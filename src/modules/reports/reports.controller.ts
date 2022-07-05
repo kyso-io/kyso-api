@@ -227,7 +227,7 @@ export class ReportsController extends GenericController<Report> {
         }
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -267,7 +267,7 @@ export class ReportsController extends GenericController<Report> {
         }
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -574,24 +574,14 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @ApiBody({ type: UpdateReportRequestDTO })
-    @Permission([ReportPermissionsEnum.EDIT])
+    @Permission([ReportPermissionsEnum.EDIT, ReportPermissionsEnum.EDIT_ONLY_MINE])
     async updateReport(
-        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
-        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
         @Param('reportId') reportId: string,
         @Body() updateReportRequestDTO: UpdateReportRequestDTO,
     ): Promise<NormalizedResponseDTO<ReportDTO>> {
         Logger.log(`Called updateReport`)
-        const reportData: Report = await this.reportsService.getReportById(reportId)
-
-        const isOwner = await this.reportsService.checkOwnership(reportData, token, organizationName, teamName)
-
-        if (!isOwner) {
-            throw new ForbiddenException('Insufficient permissions')
-        }
-
-        const report: Report = await this.reportsService.updateReport(token.id, reportId, updateReportRequestDTO)
+        const report: Report = await this.reportsService.updateReport(token, reportId, updateReportRequestDTO)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(reportDto, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(report, relations)
@@ -753,7 +743,7 @@ export class ReportsController extends GenericController<Report> {
         }
 
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -800,7 +790,7 @@ export class ReportsController extends GenericController<Report> {
         }
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -845,7 +835,7 @@ export class ReportsController extends GenericController<Report> {
         }
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -878,7 +868,7 @@ export class ReportsController extends GenericController<Report> {
         }
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -925,7 +915,7 @@ export class ReportsController extends GenericController<Report> {
         }
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -965,7 +955,7 @@ export class ReportsController extends GenericController<Report> {
         }
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -1015,7 +1005,7 @@ export class ReportsController extends GenericController<Report> {
             if (index === -1) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
-            // const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            // const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
             // if (!hasPermissions) {
             //     throw new ForbiddenException('You do not have permissions to access this report')
             // }
@@ -1135,7 +1125,7 @@ export class ReportsController extends GenericController<Report> {
         const report: Report = await this.reportsService.getReportByName(reportName, teamNameParam, organization.id)
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }

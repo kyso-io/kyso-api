@@ -2,6 +2,7 @@ import {
     Comment,
     CreateDiscussionRequestDTO,
     Discussion,
+    DiscussionPermissionsEnum,
     ElasticSearchIndex,
     KysoCommentsDeleteEvent,
     KysoDiscussionsAssigneeEvent,
@@ -17,12 +18,13 @@ import {
     UpdateDiscussionRequestDTO,
     User,
 } from '@kyso-io/kyso-model'
-import { Inject, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { GenericService } from '../../generic/service.generic'
 import { PlatformRole } from '../../security/platform-roles'
+import { AuthService } from '../auth/auth.service'
 import { CommentsService } from '../comments/comments.service'
 import { FullTextSearchService } from '../full-text-search/full-text-search.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
@@ -210,19 +212,31 @@ export class DiscussionsService extends AutowiredService implements GenericServi
         return discussion
     }
 
-    public async updateDiscussion(id: string, data: UpdateDiscussionRequestDTO): Promise<Discussion> {
+    public async updateDiscussion(token: Token, id: string, data: UpdateDiscussionRequestDTO): Promise<Discussion> {
         let discussion: Discussion = await this.getDiscussion({ filter: { id: id, mark_delete_at: { $eq: null } } })
-        const user: User = await this.usersService.getUserById(discussion.user_id)
-        const team: Team = await this.teamsService.getTeamById(discussion.team_id)
-        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-        const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-
-        if (!discussion || !team || !organization) {
-            Logger.error(`Discussion: ${discussion.id}`)
-            Logger.error(`Team: ${team.id}`)
-            Logger.error(`Organization: ${organization.id}`)
-            throw new PreconditionFailedException('Discussion, team or organization not found')
+        if (!discussion) {
+            throw new NotFoundException('Discussion not found')
         }
+        const team: Team = await this.teamsService.getTeamById(discussion.team_id)
+        if (!team) {
+            throw new NotFoundException('Team not found')
+        }
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        if (!organization) {
+            throw new NotFoundException('Organization not found')
+        }
+        if (discussion.user_id !== token.id) {
+            const hasPermissions: boolean = AuthService.hasPermissions(
+                token,
+                [DiscussionPermissionsEnum.EDIT],
+                team.sluglified_name,
+                organization.sluglified_name,
+            )
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to update this discussion')
+            }
+        }
+        const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
 
         // SEND NOTIFICATIONS
         try {
@@ -319,7 +333,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
         )
 
         this.client.emit<KysoDiscussionsUpdateEvent>(KysoEvent.DISCUSSIONS_UPDATE, {
-            user,
+            user: await this.usersService.getUserById(token.id),
             organization,
             team,
             discussion,

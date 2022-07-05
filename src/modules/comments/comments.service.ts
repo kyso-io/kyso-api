@@ -4,7 +4,6 @@ import {
     CommentPermissionsEnum,
     Discussion,
     ElasticSearchIndex,
-    GlobalPermissionsEnum,
     KysoCommentsCreateEvent,
     KysoCommentsDeleteEvent,
     KysoCommentsUpdateEvent,
@@ -19,11 +18,11 @@ import {
     Token,
     User,
 } from '@kyso-io/kyso-model'
-import { Inject, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ForbiddenException, Inject, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
-import { userHasPermission } from '../../helpers/permissions'
+import { AuthService } from '../auth/auth.service'
 import { DiscussionsService } from '../discussions/discussions.service'
 import { FullTextSearchService } from '../full-text-search/full-text-search.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
@@ -295,15 +294,22 @@ export class CommentsService extends AutowiredService {
         } else {
             throw new PreconditionFailedException('The specified comment does not have a report or discussion associated')
         }
-        const userIsCommentCreator: boolean = comment.user_id === token.id
-        const hasCommentPermissionAdmin: boolean = userHasPermission(token, CommentPermissionsEnum.ADMIN)
-        const hasGlobalPermissionAdmin: boolean = userHasPermission(token, GlobalPermissionsEnum.GLOBAL_ADMIN)
-        if (!userIsCommentCreator && !hasCommentPermissionAdmin && !hasGlobalPermissionAdmin) {
-            throw new PreconditionFailedException('The specified user does not have permission to delete this comment')
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        if (!organization) {
+            throw new PreconditionFailedException('The specified organization could not be found')
         }
-        const relatedComments: Comment[] = await this.provider.read({
-            filter: { comment_id: this.provider.toObjectId(commentId) },
-        })
+        const userIsCommentCreator: boolean = comment.user_id === token.id
+        if (!userIsCommentCreator) {
+            const hasPermissions: boolean = AuthService.hasPermissions(
+                token,
+                [CommentPermissionsEnum.DELETE],
+                team.sluglified_name,
+                organization.sluglified_name,
+            )
+            if (!hasPermissions) {
+                throw new ForbiddenException('You do not have permissions to delete this comment')
+            }
+        }
         comment = await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } })
 
         this.client.emit<KysoCommentsDeleteEvent>(KysoEvent.COMMENTS_DELETE, {

@@ -119,7 +119,7 @@ export class CommentsController extends GenericController<Comment> {
         schema: { type: 'string' },
         example: 'K1bOzHjEmN',
     })
-    @Permission([CommentPermissionsEnum.DELETE])
+    @Permission([CommentPermissionsEnum.DELETE, CommentPermissionsEnum.DELETE_ONLY_MINE])
     async deleteComment(@CurrentToken() token: Token, @Param('commentId') commentId: string): Promise<NormalizedResponseDTO<Comment>> {
         const comment: Comment = await this.commentsService.deleteComment(token, commentId)
         return new NormalizedResponseDTO(comment)

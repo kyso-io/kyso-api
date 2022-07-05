@@ -63,14 +63,16 @@ export class KysoSettingsService extends AutowiredService {
                 return '2'
             case KysoSettingsEnum.DURATION_MINUTES_TOKEN_RECOVERY_PASSWORD:
                 return '15'
-            case KysoSettingsEnum.RECAPTCHA2_ENABLED:
+            case KysoSettingsEnum.HCAPTCHA_ENABLED:
                 return 'false'
-            case KysoSettingsEnum.RECAPTCHA2_SITE_KEY:
-                // Development default's https://developers.google.com/recaptcha/docs/faq#id-like-to-run-automated-tests-with-recaptcha.-what-should-i-do
-                return '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
-            case KysoSettingsEnum.RECAPTCHA2_SECRET_KEY:
-                // Development default's https://developers.google.com/recaptcha/docs/faq#id-like-to-run-automated-tests-with-recaptcha.-what-should-i-do
-                return '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe'
+            case KysoSettingsEnum.HCAPTCHA_SITE_KEY:
+                // Development default from
+                // https://docs.hcaptcha.com/#integration-testing-test-keys
+                return '10000000-ffff-ffff-ffff-000000000001'
+            case KysoSettingsEnum.HCAPTCHA_SECRET_KEY:
+                // Development default from
+                // https://docs.hcaptcha.com/#integration-testing-test-keys
+                return '0x0000000000000000000000000000000000000000'
             case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GOOGLE:
                 return 'true'
             case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GITLAB:
@@ -162,14 +164,14 @@ export class KysoSettingsService extends AutowiredService {
                 return `Internal Kubernetes URL for Elasticsearch`
             case KysoSettingsEnum.DURATION_HOURS_TOKEN_EMAIL_VERIFICATION:
                 return `Duration in hours for token email verification`
-            case KysoSettingsEnum.RECAPTCHA2_ENABLED:
-                return `Enables recaptcha globally in the platform`
+            case KysoSettingsEnum.HCAPTCHA_ENABLED:
+                return `Enables hCaptcha globally in the platform`
             case KysoSettingsEnum.DURATION_MINUTES_TOKEN_RECOVERY_PASSWORD:
                 return `Duration in minutes for token recovery password`
-            case KysoSettingsEnum.RECAPTCHA2_SITE_KEY:
-                return `Recaptcha2 site key`
-            case KysoSettingsEnum.RECAPTCHA2_SECRET_KEY:
-                return `Recaptcha2 secret key`
+            case KysoSettingsEnum.HCAPTCHA_SITE_KEY:
+                return `hCaptcha site key`
+            case KysoSettingsEnum.HCAPTCHA_SECRET_KEY:
+                return `hCaptcha secret key`
             case KysoSettingsEnum.SERVICE_DESK_EMAIL:
                 return `Service desk email`
             case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_GOOGLE:
