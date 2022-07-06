@@ -376,9 +376,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
         kysoIndex.type = ElasticSearchIndex.Report
         kysoIndex.title = report.title
         const users: User[] = await this.usersService.getUsers({ filter: { id: { $in: report.author_ids } } })
-        kysoIndex.people = users.map((user: User) => user.email).join(' ')
+        kysoIndex.people = users.map((user: User) => user.email)
         const tags: Tag[] = await this.tagsService.getTagsOfEntity(report.id, EntityEnum.REPORT)
-        kysoIndex.tags = tags.map((tag: Tag) => tag.name).join(' ')
+        kysoIndex.tags = tags.map((tag: Tag) => tag.name)
         Logger.log(`Updating report ${report.id} ${report.sluglified_name} in ElasticSearch...`, ReportsService.name)
         this.fullTextSearchService.updateReportFiles(kysoIndex)
 

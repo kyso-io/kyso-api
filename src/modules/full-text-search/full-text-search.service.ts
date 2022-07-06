@@ -233,14 +233,7 @@ export class FullTextSearchService extends AutowiredService {
         }
     }
 
-    public async fullTextSearch(
-        token: Token,
-        searchTerms: string,
-        page: number,
-        perPage: number,
-        type: ElasticSearchIndex,
-        filterTags: string,
-    ): Promise<FullTextSearchDTO> {
+    public async fullTextSearch(token: Token, searchTerms: string, page: number, perPage: number, type: ElasticSearchIndex): Promise<FullTextSearchDTO> {
         if (!page) {
             page = 1
         }
@@ -251,7 +244,8 @@ export class FullTextSearchService extends AutowiredService {
         const organizationSlugs: { slugs: string[]; newQuery: string } = this.getTerms(searchTerms, 'org:')
         const teamSlugs: { slugs: string[]; newQuery: string } = this.getTerms(organizationSlugs.newQuery, 'team:')
         const emailSlugs: { slugs: string[]; newQuery: string } = this.getTerms(teamSlugs.newQuery, 'email:')
-        searchTerms = emailSlugs.newQuery
+        const tagSlugs: { slugs: string[]; newQuery: string } = this.getTerms(emailSlugs.newQuery, 'tag:')
+        searchTerms = tagSlugs.newQuery
 
         // Reports
         const reportsFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0)
@@ -275,8 +269,9 @@ export class FullTextSearchService extends AutowiredService {
 
         const filterTeams: string[] = []
         const filterOrganizations: string[] = []
-        const filterPeople: string[] = []
- 
+        const filterPeople: string[] = emailSlugs.slugs
+        const filterTags: string[] = tagSlugs.slugs
+
         if (organizationSlugs.slugs.length > 0) {
             for (const organizationSlug of organizationSlugs.slugs) {
                 const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationSlug } })
@@ -296,6 +291,7 @@ export class FullTextSearchService extends AutowiredService {
                             }
                             const indexTeamOrg: number = teams.findIndex((t: Team) => t.sluglified_name === teamSlug)
                             if (indexTeamOrg === -1) {
+                                // the logged in user has filtered by a team of an organization for which he does not have permissions
                                 return fullTextSearchDTO
                             }
                         }
@@ -306,6 +302,7 @@ export class FullTextSearchService extends AutowiredService {
                             if (team) {
                                 filterTeams.push(teamSlug)
                             } else {
+                                // the user not logged has filtered by team but that team is not public
                                 return fullTextSearchDTO
                             }
                         }
@@ -338,16 +335,32 @@ export class FullTextSearchService extends AutowiredService {
                             }
                         }
                     } else {
+                        // the user not logged has filtered by non-public team
                         return fullTextSearchDTO
                     }
                 }
             }
         }
 
-        const aggregateData: AggregateData = await this.aggregateData(token, searchTerms, filterOrganizations, filterTeams, filterPeople)
+        if (token && teamSlugs.slugs.length > 0 && filterTeams.length === 0) {
+            // the logged user has filtered by team but that team is not in the permissions
+            return fullTextSearchDTO
+        }
+
+        const aggregateData: AggregateData = await this.aggregateData(token, searchTerms, filterOrganizations, filterTeams, filterPeople, filterTags)
         const aggregations: Aggregations = aggregateData.aggregations
 
-        const searchResults: SearchData = await this.searchV2(token, searchTerms, type, page, perPage, filterOrganizations, filterTeams, filterPeople)
+        const searchResults: SearchData = await this.searchV2(
+            token,
+            searchTerms,
+            type,
+            page,
+            perPage,
+            filterOrganizations,
+            filterTeams,
+            filterPeople,
+            filterTags,
+        )
 
         // Reports
         if (aggregations?.type) {
@@ -445,7 +458,14 @@ export class FullTextSearchService extends AutowiredService {
         return fullTextSearchDTO
     }
 
-    private async aggregateData(token: Token, terms: string, filterOrgs: string[], filterTeams: string[], filterPeople: string[]): Promise<AggregateData> {
+    private async aggregateData(
+        token: Token,
+        terms: string,
+        filterOrgs: string[],
+        filterTeams: string[],
+        filterPeople: string[],
+        filterTags: string[],
+    ): Promise<AggregateData> {
         const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
         const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_search`
         const body: any = {
@@ -498,7 +518,7 @@ export class FullTextSearchService extends AutowiredService {
         }
 
         if (!token) {
-            body.query.bool.filter.bool.should.push({
+            body.query.bool.filter.bool.must.push({
                 term: {
                     isPublic: true,
                 },
@@ -538,10 +558,34 @@ export class FullTextSearchService extends AutowiredService {
                 })
             })
         }
+        if (filterPeople && filterPeople.length > 0) {
+            filterPeople.forEach((email: string) => {
+                body.query.bool.filter.bool.must.push({
+                    term: {
+                        'people.keyword': {
+                            value: email,
+                        },
+                    },
+                })
+            })
+        }
+        if (filterTags && filterTags.length > 0) {
+            filterTags.forEach((tag: string) => {
+                body.query.bool.filter.bool.must.push({
+                    term: {
+                        'tags.keyword': {
+                            value: tag,
+                        },
+                    },
+                })
+            })
+        }
+
         try {
             const response = await axios.post(url, body)
             return response.data
         } catch (e: any) {
+            console.log(e.response.data.error)
             Logger.error(`Error while aggregating data`, e, FullTextSearchService.name)
             return null
         }
@@ -556,6 +600,7 @@ export class FullTextSearchService extends AutowiredService {
         filterOrgs: string[],
         filterTeams: string[],
         filterPeople: string[],
+        filterTags: string[],
     ): Promise<SearchData> {
         const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
         const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_search`
@@ -567,19 +612,22 @@ export class FullTextSearchService extends AutowiredService {
                     must: [],
                     filter: {
                         bool: {
+                            must: [],
                             should: [],
                         },
                     },
                 },
             },
         }
+
         if (!token) {
-            body.query.bool.filter.bool.should.push({
+            body.query.bool.filter.bool.must.push({
                 term: {
                     isPublic: true,
                 },
             })
         }
+
         if (terms) {
             body.query.bool.must.push({
                 query_string: {
@@ -620,6 +668,29 @@ export class FullTextSearchService extends AutowiredService {
                 })
             })
         }
+        if (filterPeople && filterPeople.length > 0) {
+            filterPeople.forEach((email: string) => {
+                body.query.bool.filter.bool.must.push({
+                    term: {
+                        'people.keyword': {
+                            value: email,
+                        },
+                    },
+                })
+            })
+        }
+        if (filterTags && filterTags.length > 0) {
+            filterTags.forEach((tag: string) => {
+                body.query.bool.filter.bool.must.push({
+                    term: {
+                        'tags.keyword': {
+                            value: tag,
+                        },
+                    },
+                })
+            })
+        }
+
         try {
             const response = await axios.post(url, body)
             return response.data

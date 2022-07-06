@@ -391,25 +391,23 @@ export class CommentsService extends AutowiredService {
         kysoIndex.organizationSlug = organization?.sluglified_name ? organization.sluglified_name : ''
         kysoIndex.teamSlug = team?.sluglified_name ? team.sluglified_name : ''
 
-        let people: string[] = []
         if (comment.user_id) {
             const user: User = await this.usersService.getUserById(comment.user_id)
             if (user) {
-                people.push(user.email)
+                kysoIndex.people.push(user.email)
             }
         }
         if (comment?.user_ids && comment.user_ids.length > 0) {
             for (const userId of comment.user_ids) {
                 const user: User = await this.usersService.getUserById(userId)
                 if (user) {
-                    const index: number = people.indexOf(user.email)
+                    const index: number = kysoIndex.people.indexOf(user.email)
                     if (index === -1) {
-                        people.push(user.email)
+                        kysoIndex.people.push(user.email)
                     }
                 }
             }
         }
-        kysoIndex.people = people.join(' ')
 
         return kysoIndex
     }
