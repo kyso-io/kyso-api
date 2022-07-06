@@ -58,9 +58,6 @@ export class FullTextSearchController {
         @Query('perPage') perPage: number,
         @Query('type') type: string,
         @Query('filter.tags') filterTags: string,
-        @Query('filter.orgs') filterOrgs: string,
-        @Query('filter.teams') filterTeams: string,
-        @Query('filter.people') filterPeople: string,
     ): Promise<NormalizedResponseDTO<FullTextSearchDTO>> {
         const fullTextSearchDTO: FullTextSearchDTO = await this.fullTextSearchService.fullTextSearch(
             token,
@@ -69,9 +66,6 @@ export class FullTextSearchController {
             perPage,
             type as ElasticSearchIndex,
             filterTags,
-            filterOrgs,
-            filterTeams,
-            filterPeople,
         )
         return new NormalizedResponseDTO(fullTextSearchDTO, null)
     }

@@ -212,6 +212,27 @@ export class FullTextSearchService extends AutowiredService {
         }
     }
 
+    private getTerms(query: string, key: string): { slugs: string[]; newQuery: string } {
+        if (query.includes(key)) {
+            const parts: string[] = query.split(' ').filter((element: string) => element !== '')
+            const index: number = parts.findIndex((element: string) => element.indexOf(key) > -1)
+            const element: string = parts.splice(index, 1)[0]
+            const slugs: string[] = element
+                .replace(key, '')
+                .split(',')
+                .filter((element: string) => element !== '')
+            return {
+                slugs: slugs.length === 0 ? [] : slugs,
+                newQuery: parts.join(' '),
+            }
+        } else {
+            return {
+                slugs: [],
+                newQuery: query,
+            }
+        }
+    }
+
     public async fullTextSearch(
         token: Token,
         searchTerms: string,
@@ -219,9 +240,6 @@ export class FullTextSearchService extends AutowiredService {
         perPage: number,
         type: ElasticSearchIndex,
         filterTags: string,
-        filterOrganizationsStr: string,
-        filterTeamsStr: string,
-        filterPeople: string,
     ): Promise<FullTextSearchDTO> {
         if (!page) {
             page = 1
@@ -230,39 +248,77 @@ export class FullTextSearchService extends AutowiredService {
             perPage = 100
         }
 
+        const organizationSlugs: { slugs: string[]; newQuery: string } = this.getTerms(searchTerms, 'org:')
+        const teamSlugs: { slugs: string[]; newQuery: string } = this.getTerms(organizationSlugs.newQuery, 'team:')
+        const emailSlugs: { slugs: string[]; newQuery: string } = this.getTerms(teamSlugs.newQuery, 'email:')
+        searchTerms = emailSlugs.newQuery
+
+        // Reports
+        const reportsFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0)
+        const reportsFullTextSearchResultType: FullTextSearchResultType = new FullTextSearchResultType([], [], [], [], reportsFullTextSearchMetadata)
+        // Discussions
+        const discussionsFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0)
+        const discussionsFullTextSearchResultType: FullTextSearchResultType = new FullTextSearchResultType([], [], [], [], discussionsFullTextSearchMetadata)
+        // Comments
+        const commentsFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0)
+        const commentsFullTextSearchResultType: FullTextSearchResultType = new FullTextSearchResultType([], [], [], [], commentsFullTextSearchMetadata)
+        // Members
+        const membersFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0)
+        const membersFullTextSearchResultType: FullTextSearchResultType = new FullTextSearchResultType([], [], [], [], membersFullTextSearchMetadata)
+        // Result
+        const fullTextSearchDTO: FullTextSearchDTO = new FullTextSearchDTO(
+            reportsFullTextSearchResultType,
+            discussionsFullTextSearchResultType,
+            commentsFullTextSearchResultType,
+            membersFullTextSearchResultType,
+        )
+
         const filterTeams: string[] = []
         const filterOrganizations: string[] = []
-
-        if (filterOrganizationsStr) {
-            for (const organizationSlug of filterOrganizationsStr.split(',')) {
-                const indexOrganization: number = filterOrganizations.findIndex((org) => org === organizationSlug)
-                if (indexOrganization !== -1) {
-                    continue
-                }
-
+        const filterPeople: string[] = []
+ 
+        if (organizationSlugs.slugs.length > 0) {
+            for (const organizationSlug of organizationSlugs.slugs) {
                 const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationSlug } })
                 if (!organization) {
                     continue
                 }
 
                 const teams: Team[] = await this.teamsService.getTeams({ filter: { organization_id: organization.id } })
-                const publicTeams: Team[] = teams.filter((team: Team) => team.visibility === TeamVisibilityEnum.PUBLIC)
-                if (publicTeams.length > 0 || (token && token.isGlobalAdmin())) {
-                    filterOrganizations.push(organizationSlug)
-                    for (const teamSlug of publicTeams) {
-                        filterTeams.push(teamSlug.sluglified_name)
+
+                if (teamSlugs.slugs.length > 0) {
+                    if (token) {
+                        for (const teamSlug of teamSlugs.slugs) {
+                            const index: number = token.permissions.teams.findIndex((t: ResourcePermissions) => t.name === teamSlug)
+                            if (index !== -1) {
+                                filterTeams.push(teamSlug)
+                                continue
+                            }
+                            const indexTeamOrg: number = teams.findIndex((t: Team) => t.sluglified_name === teamSlug)
+                            if (indexTeamOrg === -1) {
+                                return fullTextSearchDTO
+                            }
+                        }
+                    } else {
+                        const publicTeams: Team[] = teams.filter((team: Team) => team.visibility === TeamVisibilityEnum.PUBLIC)
+                        for (const teamSlug of teamSlugs.slugs) {
+                            const team: Team = publicTeams.find((t: Team) => t.sluglified_name === teamSlug)
+                            if (team) {
+                                filterTeams.push(teamSlug)
+                            } else {
+                                return fullTextSearchDTO
+                            }
+                        }
                     }
-                } else if (token) {
-                    const index: number = token.permissions.organizations.findIndex((org: ResourcePermissions) => org.name === organization.sluglified_name)
-                    if (index !== -1 || token.isGlobalAdmin()) {
+                } else {
+                    const index: number = filterOrganizations.indexOf(organizationSlug)
+                    if (index === -1) {
                         filterOrganizations.push(organizationSlug)
                     }
                 }
             }
-        }
-
-        if (filterTeamsStr) {
-            for (const teamSlug of filterTeamsStr.split(',')) {
+        } else if (teamSlugs.slugs.length > 0) {
+            for (const teamSlug of teamSlugs.slugs) {
                 const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: teamSlug } })
                 if (!team) {
                     continue
@@ -281,28 +337,19 @@ export class FullTextSearchService extends AutowiredService {
                                 filterTeams.push(team.sluglified_name)
                             }
                         }
-                    }
-                }
-            }
-        } else {
-            if (token) {
-                for (const team of token.permissions.teams) {
-                    const index: number = filterTeams.indexOf(team.name)
-                    if (index === -1) {
-                        filterTeams.push(team.name)
+                    } else {
+                        return fullTextSearchDTO
                     }
                 }
             }
         }
 
-        const aggregateData: AggregateData = await this.aggregateData(token, searchTerms, filterOrganizations, filterTeams)
+        const aggregateData: AggregateData = await this.aggregateData(token, searchTerms, filterOrganizations, filterTeams, filterPeople)
         const aggregations: Aggregations = aggregateData.aggregations
 
-        const searchResults: SearchData = await this.searchV2(token, searchTerms, type, page, perPage, filterOrganizations, filterTeams)
+        const searchResults: SearchData = await this.searchV2(token, searchTerms, type, page, perPage, filterOrganizations, filterTeams, filterPeople)
 
         // Reports
-        const reportsFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0)
-        const reportsFullTextSearchResultType: FullTextSearchResultType = new FullTextSearchResultType([], [], [], [], reportsFullTextSearchMetadata)
         if (aggregations?.type) {
             const typeBucket: TypeBucket = aggregations.type.buckets.find((tb: TypeBucket) => tb.key === ElasticSearchIndex.Report)
             if (typeBucket) {
@@ -314,8 +361,6 @@ export class FullTextSearchService extends AutowiredService {
         }
 
         // Discussions
-        const discussionsFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0)
-        const discussionsFullTextSearchResultType: FullTextSearchResultType = new FullTextSearchResultType([], [], [], [], discussionsFullTextSearchMetadata)
         if (aggregations?.type) {
             const typeBucket: TypeBucket = aggregations.type.buckets.find((tb: TypeBucket) => tb.key === ElasticSearchIndex.Discussion)
             if (typeBucket) {
@@ -327,8 +372,6 @@ export class FullTextSearchService extends AutowiredService {
         }
 
         // Comments
-        const commentsFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0)
-        const commentsFullTextSearchResultType: FullTextSearchResultType = new FullTextSearchResultType([], [], [], [], commentsFullTextSearchMetadata)
         if (aggregations?.type) {
             const typeBucket: TypeBucket = aggregations.type.buckets.find((tb: TypeBucket) => tb.key === ElasticSearchIndex.Comment)
             if (typeBucket) {
@@ -340,8 +383,6 @@ export class FullTextSearchService extends AutowiredService {
         }
 
         // Members
-        const membersFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0)
-        const membersFullTextSearchResultType: FullTextSearchResultType = new FullTextSearchResultType([], [], [], [], membersFullTextSearchMetadata)
         if (aggregations?.type) {
             const typeBucket: TypeBucket = aggregations.type.buckets.find((tb: TypeBucket) => tb.key === ElasticSearchIndex.User)
             if (typeBucket) {
@@ -401,16 +442,10 @@ export class FullTextSearchService extends AutowiredService {
             }))
         }
 
-        const fullTextSearchDTO: FullTextSearchDTO = new FullTextSearchDTO(
-            reportsFullTextSearchResultType,
-            discussionsFullTextSearchResultType,
-            commentsFullTextSearchResultType,
-            membersFullTextSearchResultType,
-        )
         return fullTextSearchDTO
     }
 
-    private async aggregateData(token: Token, terms: string, filterOrgs: string[], filterTeams: string[]): Promise<AggregateData> {
+    private async aggregateData(token: Token, terms: string, filterOrgs: string[], filterTeams: string[], filterPeople: string[]): Promise<AggregateData> {
         const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
         const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_search`
         const body: any = {
@@ -455,13 +490,14 @@ export class FullTextSearchService extends AutowiredService {
                     filter: {
                         bool: {
                             should: [],
+                            must: [],
                         },
                     },
                 },
             },
         }
 
-        if (!token || !token.isGlobalAdmin()) {
+        if (!token) {
             body.query.bool.filter.bool.should.push({
                 term: {
                     isPublic: true,
@@ -519,6 +555,7 @@ export class FullTextSearchService extends AutowiredService {
         perPage: number,
         filterOrgs: string[],
         filterTeams: string[],
+        filterPeople: string[],
     ): Promise<SearchData> {
         const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
         const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_search`
@@ -536,7 +573,7 @@ export class FullTextSearchService extends AutowiredService {
                 },
             },
         }
-        if (!token || !token.isGlobalAdmin()) {
+        if (!token) {
             body.query.bool.filter.bool.should.push({
                 term: {
                     isPublic: true,
