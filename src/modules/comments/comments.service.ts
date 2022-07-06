@@ -1,11 +1,30 @@
-import { Comment, CommentPermissionsEnum, Discussion, GlobalPermissionsEnum, Organization, Report, Team, Token, User } from '@kyso-io/kyso-model'
-import { MailerService } from '@nestjs-modules/mailer'
-import { ForbiddenException, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import {
+    Comment,
+    CommentDto,
+    CommentPermissionsEnum,
+    Discussion,
+    ElasticSearchIndex,
+    GlobalPermissionsEnum,
+    KysoCommentsCreateEvent,
+    KysoCommentsDeleteEvent,
+    KysoCommentsUpdateEvent,
+    KysoDiscussionsNewMentionEvent,
+    KysoEvent,
+    KysoIndex,
+    KysoSettingsEnum,
+    Organization,
+    Report,
+    Team,
+    Token,
+    User,
+} from '@kyso-io/kyso-model'
+import { Inject, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ClientProxy } from '@nestjs/microservices'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
 import { DiscussionsService } from '../discussions/discussions.service'
-import { KysoSettingsEnum } from '@kyso-io/kyso-model'
+import { FullTextSearchService } from '../full-text-search/full-text-search.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
@@ -46,23 +65,24 @@ export class CommentsService extends AutowiredService {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
 
-    constructor(private mailerService: MailerService, private readonly provider: CommentsMongoProvider) {
+    @Autowired({ typeName: 'FullTextSearchService' })
+    private fullTextSearchService: FullTextSearchService
+
+    constructor(private readonly provider: CommentsMongoProvider, @Inject('NATS_SERVICE') private client: ClientProxy) {
         super()
     }
 
-    async createCommentGivenToken(token: Token, comment: Comment): Promise<Comment> {
-        comment.user_id = token.id
-        // comment.username = token.username
-        if (comment?.comment_id) {
-            const relatedComments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(comment.comment_id) } })
+    async createCommentGivenToken(token: Token, commentDto: CommentDto): Promise<Comment> {
+        if (commentDto?.comment_id) {
+            const relatedComments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(commentDto.comment_id) } })
             if (relatedComments.length === 0) {
                 throw new PreconditionFailedException('The specified related comment could not be found')
             }
         }
 
-        const report: Report = await this.reportsService.getReportById(comment.report_id)
+        const report: Report = await this.reportsService.getReportById(commentDto.report_id)
         const discussion: Discussion = await this.discussionsService.getDiscussion({
-            filter: { id: comment.discussion_id, mark_delete_at: { $eq: null } },
+            filter: { id: commentDto.discussion_id, mark_delete_at: { $eq: null } },
         })
 
         if (!report && !discussion) {
@@ -86,47 +106,53 @@ export class CommentsService extends AutowiredService {
         if (!team) {
             throw new PreconditionFailedException('The specified team could not be found')
         }
-        // THis is checked in the guard
-        /*const userTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(comment.user_id)
-        
-        /*const hasGlobalPermissionAdmin: boolean = userHasPermission(token, GlobalPermissionsEnum.GLOBAL_ADMIN)
-        const userBelongsToTheTeam: boolean = userTeams.find((t: Team) => t.id === team.id) !== undefined
-        
 
-        /*if (!hasGlobalPermissionAdmin && !userBelongsToTheTeam) {
-            throw new PreconditionFailedException('The specified user does not belong to the team of the specified report')
-        }*/
-
-        const newComment: Comment = await this.createComment(comment)
-        if (discussion) {
-            await this.checkMentionsInDiscussionComment(newComment)
+        const index: number = commentDto.user_ids.indexOf(token.id)
+        if (index === -1) {
+            commentDto.user_ids.push(token.id)
         }
+
+        let newComment: Comment = new Comment(
+            commentDto.text,
+            commentDto.plain_text,
+            token.id,
+            commentDto.report_id,
+            commentDto.discussion_id,
+            commentDto.comment_id,
+            commentDto.user_ids,
+        )
+        newComment = await this.createComment(newComment)
+
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const user: User = await this.usersService.getUserById(token.id)
+        this.client.emit<KysoCommentsCreateEvent>(KysoEvent.COMMENTS_CREATE, {
+            user,
+            organization,
+            team,
+            comment: commentDto,
+            discussion,
+            report,
+        })
+
+        if (discussion) {
+            await this.checkMentionsInDiscussionComment(newComment, commentDto.user_ids)
+        }
+
+        this.indexComment(newComment)
 
         return newComment
     }
 
-    private async checkMentionsInDiscussionComment(comment: Comment): Promise<void> {
+    private async checkMentionsInDiscussionComment(comment: Comment, userIds: string[]): Promise<void> {
         const discussion: Discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
-        // Detect all mentions
-        const regExpMentions = /@\[(.*?)\]\(.*?\)/g
-        const matches = [...comment.text.matchAll(regExpMentions)]
-        const userIds: string[] = [comment.user_id]
-        if (matches) {
-            const regExpUserId = /\(([^)]+)\)/
-            matches.forEach((match) => {
-                const matchesUserId = regExpUserId.exec(match[0])
-                const userId = matchesUserId[1]
-                if (!userIds.includes(userId)) {
-                    userIds.push(userId)
-                }
-            })
-        }
+        userIds = [comment.user_id, ...userIds]
         const team: Team = await this.teamsService.getTeamById(discussion.team_id)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
         const creator: User = await this.usersService.getUserById(comment.user_id)
         const mentionedUsers: User[] = []
         const centralizedMails: boolean = organization?.options?.notifications?.centralized || false
+        let checkParticipantsInDiscussion: boolean = false
         for (const userId of userIds) {
             const index: number = discussion.participants.findIndex((participant: string) => participant === userId)
             if (index === -1) {
@@ -135,57 +161,39 @@ export class CommentsService extends AutowiredService {
                     Logger.error(`Could not find user with id ${userId}`, CommentsService.name)
                     continue
                 }
+                discussion.participants.push(userId)
                 mentionedUsers.push(user)
-                await this.discussionsService.addParticipantToDiscussion(discussion.id, userId)
+                checkParticipantsInDiscussion = true
                 if (creator.id === userId) {
                     continue
                 }
                 if (centralizedMails) {
                     continue
                 }
-                this.mailerService
-                    .sendMail({
-                        to: user.email,
-                        subject: 'You have been mentioned in a discussion',
-                        template: 'discussion-mention',
-                        context: {
-                            creator,
-                            organization,
-                            team,
-                            discussion,
-                            frontendUrl,
-                        },
-                    })
-                    .then((messageInfo) => {
-                        Logger.log(`Mention in discussion mail ${messageInfo.messageId} sent to ${user.email}`, CommentsService.name)
-                    })
-                    .catch((err) => {
-                        Logger.error(`An error occurrend sending mention in discussion mail to ${user.email}`, err, CommentsService.name)
-                    })
+                this.client.emit<KysoDiscussionsNewMentionEvent>(KysoEvent.DISCUSSIONS_NEW_MENTION, {
+                    to: user.email,
+                    creator,
+                    organization,
+                    team,
+                    discussion,
+                    frontendUrl,
+                })
             }
         }
         if (centralizedMails && organization.options.notifications.emails.length > 0 && mentionedUsers.length > 0) {
             const emails: string[] = organization.options.notifications.emails
-            this.mailerService
-                .sendMail({
-                    to: emails,
-                    subject: 'Mentions in a discussion',
-                    template: 'discussion-mentions',
-                    context: {
-                        creator,
-                        users: mentionedUsers.map((u: User) => u.display_name).join(','),
-                        organization,
-                        team,
-                        discussion,
-                        frontendUrl,
-                    },
-                })
-                .then((messageInfo) => {
-                    Logger.log(`Mention in discussion mail ${messageInfo.messageId} sent to ${emails.join(', ')}`, UsersService.name)
-                })
-                .catch((err) => {
-                    Logger.error(`An error occurrend sending mention in discussion mail to ${emails.join(', ')}`, err, UsersService.name)
-                })
+            this.client.emit<KysoDiscussionsNewMentionEvent>(KysoEvent.DISCUSSIONS_MENTIONS, {
+                to: emails,
+                creator,
+                users: mentionedUsers,
+                organization,
+                team,
+                discussion,
+                frontendUrl,
+            })
+        }
+        if (checkParticipantsInDiscussion) {
+            await this.discussionsService.checkParticipantsInDiscussion(comment.discussion_id)
         }
     }
 
@@ -193,7 +201,7 @@ export class CommentsService extends AutowiredService {
         return this.provider.create(comment)
     }
 
-    public async updateComment(token: Token, id: string, updateCommentRequest: Comment): Promise<Comment> {
+    public async updateComment(token: Token, id: string, updateCommentRequest: CommentDto): Promise<Comment> {
         const comment: Comment = await this.getCommentById(id)
         if (!comment) {
             throw new PreconditionFailedException('The specified comment could not be found')
@@ -203,7 +211,9 @@ export class CommentsService extends AutowiredService {
         }
         const dataFields: any = {
             text: updateCommentRequest.text,
+            plain_text: updateCommentRequest.plain_text,
             marked: updateCommentRequest.marked,
+            user_ids: updateCommentRequest.user_ids,
         }
         if (updateCommentRequest.marked) {
             dataFields.marked_by = token.id
@@ -212,9 +222,37 @@ export class CommentsService extends AutowiredService {
             dataFields.edited = true
         }
         const updatedComment: Comment = await this.provider.update({ _id: this.provider.toObjectId(id) }, { $set: dataFields })
-        if (updatedComment?.discussion_id) {
-            await this.checkMentionsInDiscussionComment(updatedComment)
+
+        let discussion: Discussion = null
+        let report: Report = null
+        let teamId: string = ''
+        if (comment.discussion_id) {
+            discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
+            teamId = discussion.team_id
+        } else if (comment.report_id) {
+            report = await this.reportsService.getReportById(comment.report_id)
+            teamId = report.team_id
         }
+        const team: Team = await this.teamsService.getTeamById(teamId)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const user: User = await this.usersService.getUserById(token.id)
+        this.client.emit<KysoCommentsUpdateEvent>(KysoEvent.COMMENTS_UPDATE, {
+            user,
+            organization,
+            team,
+            comment,
+            discussion,
+            report,
+        })
+
+        if (updatedComment?.discussion_id) {
+            await this.discussionsService.checkParticipantsInDiscussion(updatedComment.discussion_id)
+        }
+
+        Logger.log(`Updating comment '${updatedComment.id}' of user '${updatedComment.user_id}' in Elasticsearch...`, CommentsService.name)
+        const kysoIndex: KysoIndex = await this.commentToKysoIndex(updatedComment)
+        this.fullTextSearchService.updateDocument(kysoIndex)
+
         return updatedComment
     }
 
@@ -227,10 +265,11 @@ export class CommentsService extends AutowiredService {
         if (!comment) {
             throw new PreconditionFailedException('The specified comment could not be found')
         }
-
-        let team: Team
+        let team: Team = null
+        let report: Report = null
+        let discussion: Discussion = null
         if (comment?.report_id) {
-            const report: Report = await this.reportsService.getReportById(comment.report_id)
+            report = await this.reportsService.getReportById(comment.report_id)
             if (!report) {
                 throw new PreconditionFailedException('The specified report could not be found')
             }
@@ -242,7 +281,7 @@ export class CommentsService extends AutowiredService {
                 throw new PreconditionFailedException('The specified team could not be found')
             }
         } else if (comment?.discussion_id) {
-            const discussion: Discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
+            discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
             if (!discussion) {
                 throw new PreconditionFailedException('The specified discussion could not be found')
             }
@@ -270,11 +309,24 @@ export class CommentsService extends AutowiredService {
         const relatedComments: Comment[] = await this.provider.read({
             filter: { comment_id: this.provider.toObjectId(commentId) },
         })
-        if (relatedComments.length > 0) {
-            comment = await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } })
-        } else {
-            await this.provider.deleteOne({ _id: this.provider.toObjectId(commentId) })
+        comment = await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } })
+
+        this.client.emit<KysoCommentsDeleteEvent>(KysoEvent.COMMENTS_DELETE, {
+            user: await this.usersService.getUserById(token.id),
+            organization: await this.organizationsService.getOrganizationById(team.organization_id),
+            team,
+            comment,
+            discussion,
+            report,
+        })
+
+        if (discussion) {
+            await this.discussionsService.checkParticipantsInDiscussion(discussion.id)
         }
+
+        Logger.log(`Deleting comment '${comment.id}' of user '${comment.user_id}' in ElasticSearch...`, CommentsService.name)
+        this.fullTextSearchService.deleteDocument(ElasticSearchIndex.Comment, comment.id)
+
         return comment
     }
 
@@ -296,10 +348,65 @@ export class CommentsService extends AutowiredService {
     }
 
     public async deleteReportComments(reportId: string): Promise<void> {
-        await this.provider.deleteMany({ report_id: reportId })
+        const comments: Comment[] = await this.provider.read({ filter: { report_id: reportId } })
+        for (const comment of comments) {
+            await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } })
+            Logger.log(`Deleting comment '${comment.id}' of user '${comment.user_id}' in ElasticSearch...`, CommentsService.name)
+            this.fullTextSearchService.deleteDocument(ElasticSearchIndex.Comment, comment.id)
+        }
     }
 
     public async deleteUserComments(userId: string): Promise<void> {
-        await this.provider.deleteMany({ user_id: userId })
+        const comments: Comment[] = await this.provider.read({ filter: { user_id: userId } })
+        for (const comment of comments) {
+            await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } })
+            Logger.log(`Deleting comment '${comment.id}' of user '${comment.user_id}' in ElasticSearch...`, CommentsService.name)
+            this.fullTextSearchService.deleteDocument(ElasticSearchIndex.Comment, comment.id)
+        }
+    }
+
+    private async commentToKysoIndex(comment: Comment): Promise<KysoIndex> {
+        const kysoIndex: KysoIndex = new KysoIndex()
+        kysoIndex.title = comment.plain_text
+        kysoIndex.content = comment.plain_text
+        kysoIndex.type = ElasticSearchIndex.Comment
+        kysoIndex.entityId = comment.id
+
+        let organization: Organization = null
+        let team: Team = null
+        if (comment.report_id) {
+            const report: Report = await this.reportsService.getReportById(comment.report_id)
+            team = await this.teamsService.getTeamById(report.team_id)
+            organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        } else if (comment.discussion_id) {
+            const discussion: Discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
+            team = await this.teamsService.getTeamById(discussion.team_id)
+            organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        }
+        kysoIndex.organizationSlug = organization?.sluglified_name ? organization.sluglified_name : ''
+        kysoIndex.teamSlug = team?.sluglified_name ? team.sluglified_name : ''
+
+        if (comment?.user_ids && comment.user_ids.length > 0) {
+            const users: User[] = await this.usersService.getUsers({ filter: { id: { $in: comment.user_ids } } })
+            if (users.length > 0) {
+                kysoIndex.people = users.map((user) => user.email).join(' ')
+            }
+        }
+
+        return kysoIndex
+    }
+
+    public async reindexComments(): Promise<void> {
+        const comments: Comment[] = await this.provider.read({})
+        await this.fullTextSearchService.deleteAllDocumentsOfType(ElasticSearchIndex.Comment)
+        for (const comment of comments) {
+            await this.indexComment(comment)
+        }
+    }
+
+    private async indexComment(comment: Comment): Promise<any> {
+        Logger.log(`Indexing comment '${comment.id}' of user '${comment.user_id}'`, CommentsService.name)
+        const kysoIndex: KysoIndex = await this.commentToKysoIndex(comment)
+        return this.fullTextSearchService.indexDocument(kysoIndex)
     }
 }

@@ -89,7 +89,7 @@ export abstract class MongoProvider<T> {
 
         for (const x of callableMigrationMethods) {
             try {
-                Logger.log('Executing migration ' + x)
+                Logger.log('Executing migration ' + x, this.baseCollection)
                 const migrationResult = await this.runDynamicMethod(x)
                 // Update migration in database
                 await this.saveModelVersion(x.split('_to_')[1] as number)

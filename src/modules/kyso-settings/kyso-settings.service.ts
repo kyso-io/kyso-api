@@ -101,6 +101,8 @@ export class KysoSettingsService extends AutowiredService {
                 return '/data'
             case KysoSettingsEnum.ADD_NEW_USERS_AUTOMATICALLY_TO_ORG:
                 return ''
+            case KysoSettingsEnum.KYSO_NATS_URL:
+                return 'nats://localhost:4222'
             default:
                 return ''
         }

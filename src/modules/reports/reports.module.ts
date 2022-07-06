@@ -1,4 +1,7 @@
+import { KysoSetting, KysoSettingsEnum } from '@kyso-io/kyso-model'
 import { DynamicModule } from '@nestjs/common'
+import { ClientsModule, Transport } from '@nestjs/microservices'
+import { db } from '../../main'
 import { createLocalReportsProvider, LocalReportsService } from './local-reports.service'
 import { FilesMongoProvider } from './providers/mongo-files.provider'
 import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider'
@@ -11,7 +14,7 @@ import { createProvider, ReportsService } from './reports.service'
 import { createSftpProvider, SftpService } from './sftp.service'
 
 export class ReportsModule {
-    static forRoot(): DynamicModule {
+    static async forRoot(): Promise<DynamicModule> {
         const reportServiceDynamicProvider = createProvider()
         const localRepositoryDynamicProvider = createLocalReportsProvider()
         const sftpDynamicProvider = createSftpProvider()
@@ -31,6 +34,24 @@ export class ReportsModule {
                 SftpService,
                 StarredReportsMongoProvider,
                 VersionsMongoProvider,
+            ],
+            imports: [
+                ClientsModule.registerAsync([
+                    {
+                        name: 'NATS_SERVICE',
+                        useFactory: async () => {
+                            const kysoSettingCollection = db.collection('KysoSettings')
+                            const server: KysoSetting[] = await kysoSettingCollection.find({ key: KysoSettingsEnum.KYSO_NATS_URL }).toArray()
+                            return {
+                                name: 'NATS_SERVICE',
+                                transport: Transport.NATS,
+                                options: {
+                                    servers: [server[0].value],
+                                },
+                            }
+                        },
+                    },
+                ]),
             ],
             controllers: [ReportsController],
             exports: [reportServiceDynamicProvider, localRepositoryDynamicProvider],

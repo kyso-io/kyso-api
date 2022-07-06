@@ -1,11 +1,17 @@
-import { FullTextSearchDTO, FullTextSearchMetadata, FullTextSearchResult, FullTextSearchResultType } from '@kyso-io/kyso-model'
+import {
+    ElasticSearchIndex,
+    FullTextSearchDTO,
+    FullTextSearchMetadata,
+    FullTextSearchResult,
+    FullTextSearchResultType,
+    KysoIndex,
+    KysoSettingsEnum,
+} from '@kyso-io/kyso-model'
 import { Injectable, Logger, Provider } from '@nestjs/common'
-import axios from 'axios'
+import axios, { AxiosResponse } from 'axios'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
-import { KysoSettingsEnum } from '@kyso-io/kyso-model'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
-
 
 function factory(service: FullTextSearchService) {
     return service
@@ -23,13 +29,13 @@ export function createProvider(): Provider<FullTextSearchService> {
 export class FullTextSearchService extends AutowiredService {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
-    
-    constructor() { 
+
+    constructor() {
         super()
     }
 
     private async buildFilter(terms: string[], type: string) {
-        const finalTerms = terms.map(x => { 
+        const finalTerms = terms.map((x) => {
             let res = { match: {} }
             res.match[type] = x
             return res
@@ -37,26 +43,34 @@ export class FullTextSearchService extends AutowiredService {
 
         return {
             bool: {
-                should: finalTerms
-            }
+                should: finalTerms,
+            },
         }
     }
 
-    public async search(terms: string, entity: string, page: number, perPage: number, 
-        filterOrgs: string, filterTeams: string, filterTags: string, filterPeople: string): Promise<FullTextSearchDTO> {
+    public async search(
+        terms: string,
+        entity: string,
+        page: number,
+        perPage: number,
+        filterOrgs: string,
+        filterTeams: string,
+        filterTags: string,
+        filterPeople: string,
+    ): Promise<FullTextSearchDTO> {
         const elasticsearchUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
         // Calculate from
-        const fromIndex = ((page - 1) * perPage)
+        const fromIndex = (page - 1) * perPage
 
-        const allOrgsToFilter: string[] = filterOrgs ? filterOrgs.split(',') : [];
-        const allTeamsToFilter: string[] = filterTeams ? filterTeams.split(','): [];
-        const allTagsToFilter: string[] = filterTags ? filterTags.split(','): [];
-        const allPeopleToFilter: string[] = filterPeople ? filterPeople.split(','): [];
+        const allOrgsToFilter: string[] = filterOrgs ? filterOrgs.split(',') : []
+        const allTeamsToFilter: string[] = filterTeams ? filterTeams.split(',') : []
+        const allTagsToFilter: string[] = filterTags ? filterTags.split(',') : []
+        const allPeopleToFilter: string[] = filterPeople ? filterPeople.split(',') : []
 
-        const mappedTerms = terms.split(" ").map(x => '*' + x + '*')
+        const mappedTerms = terms.split(' ').map((x) => '*' + x + '*')
         //console.log(mappedTerms)
 
-        const joinedTerms = mappedTerms.join(" ")
+        const joinedTerms = mappedTerms.join(' ')
         //console.log(joinedTerms)
 
         let query = {
@@ -67,10 +81,10 @@ export class FullTextSearchService extends AutowiredService {
                     must: [
                         {
                             query_string: {
-                                default_field: "content",
-                                query: joinedTerms
-                            }
-                        }/*,
+                                default_field: 'content',
+                                query: joinedTerms,
+                            },
+                        } /*,
                         {
                             bool: {
                                 must: [
@@ -80,124 +94,128 @@ export class FullTextSearchService extends AutowiredService {
                                     ,filterPeople ? await this.buildFilter(allPeopleToFilter, "people") : { match: { content: terms } }
                                 ]
                             }
-                        }*/
-                    ]
-                }
-            }
-        };
+                        }*/,
+                    ],
+                },
+            },
+        }
 
         console.log(JSON.stringify(query))
 
-
         let res
         try {
-            res = await axios(
-                `${elasticsearchUrl}/kyso-index/${entity}/_search`,
-                {
-                    method: "post", 
-                    data: query, 
-                    headers: {
-                        'accept': "application/json",
-                        'content-type': "application/json"
-                    }
-                }
-            )
+            res = await axios(`${elasticsearchUrl}/kyso-index/${entity}/_search`, {
+                method: 'post',
+                data: query,
+                headers: {
+                    accept: 'application/json',
+                    'content-type': 'application/json',
+                },
+            })
 
             console.log(res.data.hits.hits)
-        } catch(ex) {
-            Logger.log("Error", ex)
+        } catch (ex) {
+            Logger.log('Error', ex)
         }
 
-        
-
         // Retrieve aggregations
-        const aggregations = await axios.post(
-            `${elasticsearchUrl}/kyso-index/${entity}/_search`,
-            {
-                size: 0, 
-                query: {
-                    match: {
-                        content: terms
-                    }
+        const aggregations = await axios.post(`${elasticsearchUrl}/kyso-index/${entity}/_search`, {
+            size: 0,
+            query: {
+                match: {
+                    content: terms,
                 },
-                aggs: {
-                    organizations: {
-                        composite: {
-                            sources: [
-                                {
-                                    name: {
-                                        terms: {
-                                            field: "organizationSlug.keyword"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
+            },
+            aggs: {
+                organizations: {
+                    composite: {
+                        sources: [
+                            {
+                                name: {
+                                    terms: {
+                                        field: 'organizationSlug.keyword',
+                                    },
+                                },
+                            },
+                        ],
                     },
-                    teams: {
-                        composite: {
-                            sources: [
-                                {
-                                    name: {
-                                        terms: {
-                                            field: "teamSlug.keyword"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
+                },
+                teams: {
+                    composite: {
+                        sources: [
+                            {
+                                name: {
+                                    terms: {
+                                        field: 'teamSlug.keyword',
+                                    },
+                                },
+                            },
+                        ],
                     },
-                    tags: {
-                        composite: {
-                            sources: [
-                                {
-                                    name: {
-                                        terms: {
-                                            field: "tags.keyword"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
+                },
+                tags: {
+                    composite: {
+                        sources: [
+                            {
+                                name: {
+                                    terms: {
+                                        field: 'tags.keyword',
+                                    },
+                                },
+                            },
+                        ],
                     },
-                    people: {
-                        composite: {
-                            sources: [
-                                {
-                                    name: {
-                                        terms: {
-                                            field: "people.keyword"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        )
-
-        const organizationsList = aggregations.data.aggregations.organizations.buckets.map(x => x.key.name)
-        const teamsList = aggregations.data.aggregations.teams.buckets.map(x => x.key.name)
-        // const peopleList = aggregations.data.aggregations.people.buckets.map(x => x.key.name)
-        const tagsList = aggregations.data.aggregations.tags.buckets.map(x => x.key.name)
-        
-        const results: FullTextSearchResult[] = res.data.hits.hits.map(x => {
-            return new FullTextSearchResult(x._source.title, 
-                x._source.content.length > 700 ? x._source.content.substring(0, 700) + "..." : x._source.content, 
-                x._source.link, x._source.type, x._source.people, 
-                x._source.teamSlug, x._source.organizationSlug, x._source.tags, x._source.entityId,
-                x._source.version, x._source.filePath, x._score)
+                },
+                people: {
+                    composite: {
+                        sources: [
+                            {
+                                name: {
+                                    terms: {
+                                        field: 'people.keyword',
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                },
+            },
         })
 
-        const reportResult = new FullTextSearchResultType(results, organizationsList, teamsList, tagsList, 
-            new FullTextSearchMetadata(page, Math.ceil(res.data.hits.total.value / perPage), perPage, res.data.hits.total.value))
+        const organizationsList = aggregations.data.aggregations.organizations.buckets.map((x) => x.key.name)
+        const teamsList = aggregations.data.aggregations.teams.buckets.map((x) => x.key.name)
+        // const peopleList = aggregations.data.aggregations.people.buckets.map(x => x.key.name)
+        const tagsList = aggregations.data.aggregations.tags.buckets.map((x) => x.key.name)
+
+        const results: FullTextSearchResult[] = res.data.hits.hits.map((x) => {
+            return new FullTextSearchResult(
+                x._source.title,
+                x._source.content.length > 700 ? x._source.content.substring(0, 700) + '...' : x._source.content,
+                x._source.link,
+                x._source.type,
+                x._source.people,
+                x._source.teamSlug,
+                x._source.organizationSlug,
+                x._source.tags,
+                x._source.entityId,
+                x._source.version,
+                x._source.filePath,
+                x._score,
+            )
+        })
+
+        const reportResult = new FullTextSearchResultType(
+            results,
+            organizationsList,
+            teamsList,
+            tagsList,
+            new FullTextSearchMetadata(page, Math.ceil(res.data.hits.total.value / perPage), perPage, res.data.hits.total.value),
+        )
 
         // We're not indexing that information for now, so always the results are 0 until is implemented
-        const restOfResults = new FullTextSearchResultType([], [], [], [], 
-            new FullTextSearchMetadata(1, 1, perPage, 0))
+        const restOfResults = new FullTextSearchResultType([], [], [], [], new FullTextSearchMetadata(1, 1, perPage, 0))
 
-        return new FullTextSearchDTO(reportResult, restOfResults, restOfResults, restOfResults);
+        return new FullTextSearchDTO(reportResult, restOfResults, restOfResults, restOfResults)
     }
 
     public async deleteIndexedResults(organizationSlug: string, teamSlug: string, entityId: string, type: string): Promise<any> {
@@ -211,43 +229,128 @@ export class FullTextSearchService extends AutowiredService {
                     must: [
                         {
                             match: {
-                                organizationSlug: organizationSlug
-                            }
+                                organizationSlug: organizationSlug,
+                            },
                         },
                         {
                             match: {
-                                teamSlug: teamSlug
-                            }
+                                teamSlug: teamSlug,
+                            },
                         },
                         {
                             match: {
-                                entityId: entityId
-                            }
-                        }
-                    ]   
-                }
-            }
-        };
+                                entityId: entityId,
+                            },
+                        },
+                    ],
+                },
+            },
+        }
 
         console.log(`${elasticsearchUrl}/kyso-index/${type}/_delete_by_query`)
 
         let res
         try {
-            res = await axios(
-                `${elasticsearchUrl}/kyso-index/${type}/_delete_by_query`,
-                {
-                    method: "post", 
-                    data: query, 
-                    headers: {
-                        'accept': "application/json",
-                        'content-type': "application/json"
-                    }
-                }
-            )
-        } catch(ex) {
-            Logger.log("Error", ex)
+            res = await axios(`${elasticsearchUrl}/kyso-index/${type}/_delete_by_query`, {
+                method: 'post',
+                data: query,
+                headers: {
+                    accept: 'application/json',
+                    'content-type': 'application/json',
+                },
+            })
+        } catch (ex) {
+            Logger.log('Error', ex)
         }
 
         return res
+    }
+
+    public async indexDocument(kysoIndex: KysoIndex): Promise<any> {
+        try {
+            const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
+            const url = `${elasticsearchUrl}/kyso-index/_doc?refresh=true`
+            const response: AxiosResponse<any> = await axios.post(url, kysoIndex)
+            if (response.status === 201) {
+                return response.data
+            } else {
+                return null
+            }
+        } catch (e: any) {
+            Logger.error(`An error occurred indexing an element of type '${kysoIndex.type}'`, e, FullTextSearchService.name)
+            return null
+        }
+    }
+
+    public async deleteAllDocumentsOfType(elasticSearchIndex: ElasticSearchIndex): Promise<any> {
+        try {
+            const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
+            const url = `${elasticsearchUrl}/kyso-index/_delete_by_query`
+            const response: AxiosResponse<any> = await axios.post(url, {
+                query: {
+                    match: {
+                        type: elasticSearchIndex,
+                    },
+                },
+            })
+            if (response.status === 200) {
+                return response.data
+            } else {
+                return null
+            }
+        } catch (e: any) {
+            Logger.error(`An error occurred deleting elements with type '${elasticSearchIndex}'`, e, FullTextSearchService.name)
+            return null
+        }
+    }
+
+    public async deleteDocument(type: ElasticSearchIndex, entityId: string): Promise<any> {
+        try {
+            const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
+            const url = `${elasticsearchUrl}/kyso-index/_delete_by_query`
+            const response: AxiosResponse<any> = await axios.post(url, {
+                query: {
+                    bool: {
+                        must: [{ term: { type } }, { term: { entityId } }],
+                    },
+                },
+            })
+            if (response.status === 200) {
+                return response.data
+            } else {
+                return null
+            }
+        } catch (e: any) {
+            Logger.error(`An error occurred deleting element with id '${entityId}' of type '${type}'`, e, FullTextSearchService.name)
+            return null
+        }
+    }
+
+    public async updateDocument(kysoIndex: KysoIndex): Promise<any> {
+        try {
+            const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
+            const url = `${elasticsearchUrl}/kyso-index/_update_by_query`
+            const response: AxiosResponse<any> = await axios.post(url, {
+                query: {
+                    match: {
+                        entityId: kysoIndex.entityId,
+                    },
+                },
+                script: {
+                    source: 'ctx._source = params.document',
+                    params: {
+                        document: kysoIndex,
+                    },
+                },
+            })
+            if (response.status === 200) {
+                return response.data
+            } else {
+                return null
+            }
+        } catch (e: any) {
+            Logger.error(`An error occurred updating element with id ${kysoIndex.entityId} of type ${kysoIndex.type}`, e, FullTextSearchService.name)
+            return null
+        }
     }
 }
