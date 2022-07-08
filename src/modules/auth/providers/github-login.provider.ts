@@ -1,4 +1,4 @@
-import { AddUserAccountDTO, CreateUserRequestDTO, GithubEmail, KysoSettingsEnum, Login, LoginProviderEnum, Token, User, UserAccount } from '@kyso-io/kyso-model'
+import { AddUserAccountDTO, AddUserOrganizationDto, CreateUserRequestDTO, GithubEmail, KysoRole, KysoSettingsEnum, Login, LoginProviderEnum, Organization, Token, User, UserAccount } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
@@ -7,23 +7,21 @@ import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../../decorators/autowired'
 import { UnauthorizedError } from '../../../helpers/errorHandling'
 import { GithubReposService } from '../../github-repos/github-repos.service'
-import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 import { UsersService } from '../../users/users.service'
-
-export const TOKEN_EXPIRATION_TIME = '8h'
+import { BaseLoginProvider } from './base-login.provider'
 
 @Injectable()
-export class GithubLoginProvider {
+export class GithubLoginProvider extends BaseLoginProvider {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
-
+    
     @Autowired({ typeName: 'GithubReposService' })
     private githubReposService: GithubReposService
 
-    @Autowired({ typeName: 'KysoSettingsService' })
-    private kysoSettingsService: KysoSettingsService
+    constructor(protected readonly jwtService: JwtService) {
+        super(jwtService)
+    }
 
-    constructor(private readonly jwtService: JwtService) {}
     // FLOW:
     //     * After calling login, frontend should call to
     // https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_url=${REDIRECT}&state=${RANDOM_STRING}
@@ -85,6 +83,8 @@ export class GithubLoginProvider {
                     uuidv4(),
                 )
                 user = await this.usersService.createUser(createUserRequestDto)
+
+                await this.addUserToOrganizationsAutomatically(user)
             }
 
             const index: number = user.accounts.findIndex(
@@ -105,32 +105,8 @@ export class GithubLoginProvider {
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
 
-            const payload: Token = new Token(
-                user.id.toString(),
-                user.name,
-                user.username,
-                user.display_name,
-                user.email,
-                user.plan,
-                user.avatar_url,
-                user.location,
-                user.link,
-                user.bio,
-                user.email_verified,
-                user.show_captcha,
-                user.accounts.map((userAccount: UserAccount) => ({
-                    type: userAccount.type,
-                    accountId: userAccount.accountId,
-                    username: userAccount.username,
-                })),
-            )
-            return this.jwtService.sign(
-                { payload },
-                {
-                    expiresIn: TOKEN_EXPIRATION_TIME,
-                    issuer: 'kyso',
-                },
-            )
+
+            return await this.createToken(user);
         } catch (e) {
             console.log(e)
             return null

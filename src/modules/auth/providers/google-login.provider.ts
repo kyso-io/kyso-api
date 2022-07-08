@@ -6,19 +6,17 @@ import { google } from 'googleapis'
 import { ObjectId } from 'mongodb'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../../decorators/autowired'
-import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service'
 import { UsersService } from '../../users/users.service'
+import { BaseLoginProvider } from './base-login.provider'
 
-export const TOKEN_EXPIRATION_TIME = '8h'
 @Injectable()
-export class GoogleLoginProvider {
+export class GoogleLoginProvider extends BaseLoginProvider {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
-    @Autowired({ typeName: 'KysoSettingsService' })
-    private kysoSettingsService: KysoSettingsService
-
-    constructor(private readonly jwtService: JwtService) {}
+    constructor(protected readonly jwtService: JwtService) {
+        super(jwtService)
+    }
 
     public async login(login: Login): Promise<string> {
         if (!login?.payload || login.payload == null || login.payload.length == 0) {
@@ -78,35 +76,15 @@ export class GoogleLoginProvider {
                 user.accounts[index].payload = tokens
                 Logger.log(`User ${googleUser.email} is updating Google account`, GoogleLoginProvider.name)
             }
+            
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
-            const payload: Token = new Token(
-                user.id.toString(),
-                user.name,
-                user.username,
-                user.display_name,
-                user.email,
-                user.plan,
-                user.avatar_url,
-                user.location,
-                user.link,
-                user.bio,
-                user.email_verified,
-                user.show_captcha,
-                user.accounts.map((userAccount: UserAccount) => ({
-                    type: userAccount.type,
-                    accountId: userAccount.accountId,
-                    username: userAccount.username,
-                })),
-            )
-            return this.jwtService.sign(
-                { payload },
-                {
-                    expiresIn: TOKEN_EXPIRATION_TIME,
-                    issuer: 'kyso',
-                },
-            )
+            
+
+            await this.addUserToOrganizationsAutomatically(user);
+
+            return await this.createToken(user);
         } catch (e) {
-            console.log(e)
+            Logger.error("Error login with google provider", e)
             throw new UnauthorizedException('Invalid credentials')
         }
     }

@@ -8,18 +8,19 @@ import { GitlabReposService } from '../../gitlab-repos/gitlab-repos.service'
 import { GitlabAccessToken } from '../../gitlab-repos/interfaces/gitlab-access-token'
 import { GitlabUser } from '../../gitlab-repos/interfaces/gitlab-user'
 import { UsersService } from '../../users/users.service'
-
-export const TOKEN_EXPIRATION_TIME = '8h'
+import { BaseLoginProvider } from './base-login.provider'
 
 @Injectable()
-export class GitlabLoginProvider {
+export class GitlabLoginProvider extends BaseLoginProvider {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
     @Autowired({ typeName: 'GitlabReposService' })
     private gitlabReposService: GitlabReposService
 
-    constructor(private readonly jwtService: JwtService) {}
+    constructor(protected readonly jwtService: JwtService) {
+        super(jwtService)
+    }
 
     async login(login: Login): Promise<string> {
         try {
@@ -70,32 +71,9 @@ export class GitlabLoginProvider {
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
 
-            const payload: Token = new Token(
-                user.id.toString(),
-                user.name,
-                user.username,
-                user.display_name,
-                user.email,
-                user.plan,
-                user.avatar_url,
-                user.location,
-                user.link,
-                user.bio,
-                user.email_verified,
-                user.show_captcha,
-                user.accounts.map((userAccount: UserAccount) => ({
-                    type: userAccount.type,
-                    accountId: userAccount.accountId,
-                    username: userAccount.username,
-                })),
-            )
-            return this.jwtService.sign(
-                { payload },
-                {
-                    expiresIn: TOKEN_EXPIRATION_TIME,
-                    issuer: 'kyso',
-                },
-            )
+            await this.addUserToOrganizationsAutomatically(user);
+
+            return await this.createToken(user)
         } catch (e) {
             console.log(e)
             return null

@@ -295,6 +295,14 @@ export class AuthService extends AutowiredService {
         return response
     }
 
+    /**
+     * 
+     * @param tokenPayload 
+     * @param permissionToActivateEndpoint 
+     * @param team teamSlugName ie: protected-team
+     * @param organization organizationSlugName ie: lightside
+     * @returns 
+     */
     static hasPermissions(tokenPayload: Token, permissionToActivateEndpoint: KysoPermissions[], team: string, organization: string): boolean {
         if (!tokenPayload) {
             Logger.log('Received null token')

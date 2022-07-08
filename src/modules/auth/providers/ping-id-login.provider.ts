@@ -3,15 +3,16 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { Autowired } from '../../../decorators/autowired'
 import { UsersService } from '../../users/users.service'
-
-export const TOKEN_EXPIRATION_TIME = '8h'
+import { BaseLoginProvider } from './base-login.provider'
 
 @Injectable()
-export class PingIdLoginProvider {
+export class PingIdLoginProvider extends BaseLoginProvider {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
 
-    constructor(private readonly jwtService: JwtService) {}
+    constructor(protected readonly jwtService: JwtService) {
+        super(jwtService)
+    }
 
     public async login(login: Login): Promise<string> {
         Logger.log(`User ${login.email} is trying to login with PingId`)
@@ -44,32 +45,7 @@ export class PingIdLoginProvider {
                 user = await this.usersService.createUser(createUserRequestDto)
             }
 
-            const payload: Token = new Token(
-                user.id.toString(),
-                user.name,
-                user.username,
-                user.display_name,
-                user.email,
-                user.plan,
-                user.avatar_url,
-                user.location,
-                user.link,
-                user.bio,
-                user.email_verified,
-                user.show_captcha,
-                user.accounts.map((userAccount: UserAccount) => ({
-                    type: userAccount.type,
-                    accountId: userAccount.accountId,
-                    username: userAccount.username,
-                })),
-            )
-            return this.jwtService.sign(
-                { payload },
-                {
-                    expiresIn: TOKEN_EXPIRATION_TIME,
-                    issuer: 'kyso',
-                },
-            )
+            return await this.createToken(user);
         } catch (e) {
             console.log(e)
             throw new UnauthorizedException('Invalid credentials')
