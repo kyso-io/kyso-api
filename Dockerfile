@@ -22,7 +22,7 @@ COPY src ./src/
 RUN npm run build
 # Execute `npm ci` (not install) for production with an externally mounted npmrc
 RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,gid=1000,required\
- npm ci --only=production
+ npm ci --omit=dev
 
 # Production image
 FROM ${SERVICE_IMG}:${SERVICE_TAG} AS service
