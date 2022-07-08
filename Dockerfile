@@ -15,8 +15,8 @@ RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,gid=1000,required\
   npm ci
 # Copy the sources
 COPY src ./src/
-# Copy the templates
-COPY templates ./templates/
+# Copy the templates (moved to notification-consumer project)
+# COPY templates ./templates/
 
 # Build the application (leaves result on ./dist)
 RUN npm run build

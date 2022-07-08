@@ -99,6 +99,8 @@ export class KysoSettingsService extends AutowiredService {
                 return '/login'
             case KysoSettingsEnum.REPORT_PATH:
                 return '/data'
+            case KysoSettingsEnum.KYSO_NATS_URL:
+                return 'nats://localhost:4222'
             case KysoSettingsEnum.ADD_NEW_USERS_AUTOMATICALLY_TO_ORG:
                 return ''
             default:

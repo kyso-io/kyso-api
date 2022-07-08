@@ -1,10 +1,16 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
+    ElasticSearchIndex,
     EmailUserChangePasswordDTO,
+    KysoEvent,
+    KysoIndex,
     KysoPermissions,
     KysoSettingsEnum,
     KysoUserAccessToken,
     KysoUserAccessTokenStatus,
+    KysoUsersCreateEvent,
+    KysoUsersRecoveryPasswordEvent,
+    KysoUsersVerificationEmailEvent,
     LoginProviderEnum,
     Organization,
     SignUpDto,
@@ -20,12 +26,13 @@ import {
     VerifyCaptchaRequestDto,
     VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model'
-import { MailerService } from '@nestjs-modules/mailer'
-import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ClientProxy } from '@nestjs/microservices'
 import axios from 'axios'
 import * as moment from 'moment'
 import { ObjectId } from 'mongodb'
 import { extname } from 'path'
+import { URLSearchParams } from 'url'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -33,13 +40,13 @@ import { PlatformRole } from '../../security/platform-roles'
 import { AuthService } from '../auth/auth.service'
 import { GitlabLoginProvider } from '../auth/providers/gitlab-login.provider'
 import { CommentsService } from '../comments/comments.service'
+import { FullTextSearchService } from '../full-text-search/full-text-search.service'
 import { GitlabAccessToken } from '../gitlab-repos/interfaces/gitlab-access-token'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
 import { KysoUserAccessTokensMongoProvider } from './providers/mongo-kyso-user-access-token.provider'
-import { URLSearchParams } from 'url'
 import { UsersMongoProvider } from './providers/mongo-users.provider'
 import { UserChangePasswordMongoProvider } from './providers/user-change-password-mongo.provider'
 import { UserVerificationMongoProvider } from './providers/user-verification-mongo.provider'
@@ -73,12 +80,15 @@ export class UsersService extends AutowiredService {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
 
+    @Autowired({ typeName: 'FullTextSearchService' })
+    private fullTextSearchService: FullTextSearchService
+
     constructor(
         private readonly kysoAccessTokenProvider: KysoUserAccessTokensMongoProvider,
-        private readonly mailerService: MailerService,
         private readonly provider: UsersMongoProvider,
         private readonly userChangePasswordMongoProvider: UserChangePasswordMongoProvider,
         private readonly userVerificationMongoProvider: UserVerificationMongoProvider,
+        @Inject('NATS_SERVICE') private client: ClientProxy,
     ) {
         super()
     }
@@ -179,23 +189,11 @@ export class UsersService extends AutowiredService {
 
         Logger.log(`Sending email to ${user.email}`)
 
-        this.mailerService
-            .sendMail({
-                to: user.email,
-                subject: 'Welcome to Kyso',
-                template: 'user-new',
-                context: {
-                    user,
-                },
-            })
-            .then(() => {
-                Logger.log(`Welcome e-mail sent to ${user.display_name} ${user.email}`, UsersService.name)
-            })
-            .catch((err) => {
-                Logger.error(`Error sending welcome e-mail to ${user.display_name} ${user.email}`, err, UsersService.name)
-            })
+        this.client.emit<KysoUsersCreateEvent>(KysoEvent.USERS_CREATE, { user })
 
         await this.sendVerificationEmail(user)
+
+        this.indexUser(user)
 
         return user
     }
@@ -203,35 +201,20 @@ export class UsersService extends AutowiredService {
     public async sendVerificationEmail(user: User): Promise<boolean> {
         if (user.email_verified) {
             Logger.log(`User ${user.display_name} already verified. Email is not sent...`, UsersService.name)
-            return true
+            return false
         }
 
         // Link to verify user email
         const hours: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_TOKEN_EMAIL_VERIFICATION)
-        const userVerification: UserVerification = new UserVerification(user.email, uuidv4(), user.id, moment().add(hours, 'hours').toDate())
-        await this.userVerificationMongoProvider.create(userVerification)
+        let userVerification: UserVerification = new UserVerification(user.email, uuidv4(), user.id, moment().add(hours, 'hours').toDate())
+        userVerification = await this.userVerificationMongoProvider.create(userVerification)
 
-        return new Promise<boolean>(async (resolve) => {
-            this.mailerService
-                .sendMail({
-                    to: user.email,
-                    subject: 'Verify your account',
-                    template: 'verify-email',
-                    context: {
-                        user,
-                        userVerification,
-                        frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-                    },
-                })
-                .then(() => {
-                    Logger.log(`Verify account e-mail sent to ${user.display_name}`, UsersService.name)
-                    resolve(true)
-                })
-                .catch((err) => {
-                    Logger.error(`Error sending verify account e-mail to ${user.display_name}`, err, UsersService.name)
-                    resolve(false)
-                })
+        this.client.emit<KysoUsersVerificationEmailEvent>(KysoEvent.USERS_VERIFICATION_EMAIL, {
+            user,
+            userVerification,
+            frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
         })
+        return true
     }
 
     async deleteUser(id: string): Promise<boolean> {
@@ -260,6 +243,10 @@ export class UsersService extends AutowiredService {
         await this.commentsService.deleteUserComments(user.id)
 
         await this.provider.deleteOne({ _id: this.provider.toObjectId(id) })
+
+        Logger.log(`Deleting user '${user.id} ${user.display_name}' in ElasticSearch...`, UsersService.name)
+        this.fullTextSearchService.deleteDocument(ElasticSearchIndex.User, user.id)
+
         return true
     }
 
@@ -309,11 +296,11 @@ export class UsersService extends AutowiredService {
     }
 
     public async updateUserData(id: string, data: UpdateUserRequestDTO): Promise<User> {
-        const user: User = await this.getUserById(id)
+        let user: User = await this.getUserById(id)
         if (!user) {
             throw new NotFoundException('User not found')
         }
-        return this.updateUser(
+        user = await this.updateUser(
             { _id: this.provider.toObjectId(id) },
             {
                 $set: {
@@ -323,6 +310,10 @@ export class UsersService extends AutowiredService {
                 },
             },
         )
+        Logger.log(`Updating user '${user.id} ${user.display_name}' in Elasticsearch...`, UsersService.name)
+        const kysoIndex: KysoIndex = this.userToKysoIndex(user)
+        this.fullTextSearchService.updateDocument(kysoIndex)
+        return user
     }
 
     private async getS3Client(): Promise<S3Client> {
@@ -490,7 +481,7 @@ export class UsersService extends AutowiredService {
         } else {
             const secret: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.HCAPTCHA_SECRET_KEY)
             const sitekey: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.HCAPTCHA_SITE_KEY)
-            const params = new URLSearchParams({'secret': secret, 'response': data.token, 'sitekey': sitekey})
+            const params = new URLSearchParams({ secret: secret, response: data.token, sitekey: sitekey })
             const response: any = await axios.post('https://hcaptcha.com/siteverify', params)
             if (response.data.success) {
                 await this.provider.update({ _id: new ObjectId(userId) }, { $set: { show_captcha: false } })
@@ -555,26 +546,46 @@ export class UsersService extends AutowiredService {
         let userForgotPassword: UserForgotPassword = new UserForgotPassword(encodeURI(user.email), uuidv4(), user.id, moment().add(minutes, 'minutes').toDate())
         userForgotPassword = await this.userChangePasswordMongoProvider.create(userForgotPassword)
 
-        return new Promise<boolean>(async (resolve) => {
-            this.mailerService
-                .sendMail({
-                    to: user.email,
-                    subject: 'Change password',
-                    template: 'change-password',
-                    context: {
-                        user,
-                        userForgotPassword,
-                        frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-                    },
-                })
-                .then(() => {
-                    Logger.log(`Recovery password e-mail sent to ${user.display_name}`, UsersService.name)
-                    resolve(true)
-                })
-                .catch((err) => {
-                    Logger.error(`Error sending recovery password e-mail to ${user.display_name}`, err, UsersService.name)
-                    resolve(false)
-                })
+        this.client.send<KysoUsersRecoveryPasswordEvent>(KysoEvent.USERS_RECOVERY_PASSWORD, {
+            user,
+            userForgotPassword,
+            frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
         })
+
+        return true
+    }
+
+    private userToKysoIndex(user: User): KysoIndex {
+        const kysoIndex: KysoIndex = new KysoIndex()
+        kysoIndex.title = user.display_name
+        kysoIndex.type = ElasticSearchIndex.User
+        kysoIndex.entityId = user.id
+        const content: string[] = [user.email, user.display_name]
+        if (user.bio) {
+            content.push(user.bio)
+        }
+        if (user.location) {
+            content.push(user.location)
+        }
+        if (user.link) {
+            content.push(user.link)
+        }
+        kysoIndex.content = content.join(' ')
+        kysoIndex.isPublic = true
+        return kysoIndex
+    }
+
+    public async reindexUsers(): Promise<void> {
+        const users: User[] = await this.getUsers({})
+        await this.fullTextSearchService.deleteAllDocumentsOfType(ElasticSearchIndex.User)
+        for (const user of users) {
+            await this.indexUser(user)
+        }
+    }
+
+    private async indexUser(user: User): Promise<any> {
+        Logger.log(`Indexing user '${user.id} ${user.email}'...`, UsersService.name)
+        const kysoIndex: KysoIndex = this.userToKysoIndex(user)
+        return this.fullTextSearchService.indexDocument(kysoIndex)
     }
 }

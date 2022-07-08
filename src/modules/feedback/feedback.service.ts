@@ -1,38 +1,26 @@
-import { FeedbackDto, KysoSettingsEnum, Token } from '@kyso-io/kyso-model'
-import { MailerService } from '@nestjs-modules/mailer'
-import { Injectable, Logger } from '@nestjs/common'
+import { FeedbackDto, KysoEvent, KysoFeedbackCreateEvent, KysoSettingsEnum, Token } from '@kyso-io/kyso-model'
+import { Inject, Injectable } from '@nestjs/common'
+import { ClientProxy } from '@nestjs/microservices'
 import { Autowired } from '../../decorators/autowired'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
+import { UsersService } from '../users/users.service'
 
 @Injectable()
 export class FeedbackService {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
 
-    constructor(private readonly mailerService: MailerService) {}
+    @Autowired({ typeName: 'UsersService' })
+    private usersService: UsersService
+
+    constructor(@Inject('NATS_SERVICE') private client: ClientProxy) {}
 
     public async sendMessageToServiceDesk(token: Token, feedbackDto: FeedbackDto): Promise<boolean> {
-        const serviceDeskEmail: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SERVICE_DESK_EMAIL)
-        this.mailerService
-            .sendMail({
-                from: `"${token.username}" <${token.email}>`,
-                to: serviceDeskEmail,
-                subject: feedbackDto.subject,
-                html: feedbackDto.message,
-            })
-            .then((messageInfo) => {
-                Logger.log(
-                    `Feedback e-mail ${messageInfo.messageId} from user '${token.id} - ${token.username}' send to ${serviceDeskEmail}`,
-                    FeedbackService.name,
-                )
-            })
-            .catch((err) => {
-                Logger.error(
-                    `An error occurrend sending feedback e-mail from user '${token.id} - ${token.username}' to ${serviceDeskEmail}`,
-                    err,
-                    FeedbackService.name,
-                )
-            })
+        this.client.emit<KysoFeedbackCreateEvent>(KysoEvent.FEEDBACK_CREATE, {
+            user: await this.usersService.getUserById(token.id),
+            feedbackDto,
+            serviceDeskEmail: await this.kysoSettingsService.getValue(KysoSettingsEnum.SERVICE_DESK_EMAIL),
+        })
         return true
     }
 }

@@ -3,8 +3,14 @@ import {
     Comment,
     Discussion,
     GlobalPermissionsEnum,
+    KysoEvent,
     KysoRole,
     KysoSettingsEnum,
+    KysoTeamsAddMemberEvent,
+    KysoTeamsCreateEvent,
+    KysoTeamsDeleteEvent,
+    KysoTeamsRemoveMemberEvent,
+    KysoTeamsUpdateEvent,
     Organization,
     OrganizationMember,
     OrganizationMemberJoin,
@@ -20,8 +26,8 @@ import {
     UpdateTeamMembersDTO,
     User,
 } from '@kyso-io/kyso-model'
-import { MailerService } from '@nestjs-modules/mailer'
-import { Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import { Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ClientProxy } from '@nestjs/microservices'
 import * as moment from 'moment'
 import { extname, join } from 'path'
 import * as Client from 'ssh2-sftp-client'
@@ -77,9 +83,9 @@ export class TeamsService extends AutowiredService {
     private discussionsService: DiscussionsService
 
     constructor(
-        private readonly mailerService: MailerService,
         private readonly provider: TeamsMongoProvider,
         private readonly teamMemberProvider: TeamMemberMongoProvider,
+        @Inject('NATS_SERVICE') private client: ClientProxy,
     ) {
         super()
     }
@@ -378,7 +384,12 @@ export class TeamsService extends AutowiredService {
     }
 
     async updateTeam(filterQuery: any, updateQuery: any): Promise<Team> {
-        return this.provider.update(filterQuery, updateQuery)
+        const team: Team = await this.provider.update(filterQuery, updateQuery)
+        if (team) {
+            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            this.client.emit<KysoTeamsUpdateEvent>(KysoEvent.TEAMS_UPDATE, { organization, team })
+        }
+        return team
     }
 
     async createTeam(team: Team, userId?: string) {
@@ -414,6 +425,7 @@ export class TeamsService extends AutowiredService {
             if (userId) {
                 await this.addMembersById(newTeam.id, [userId], [PlatformRole.TEAM_ADMIN_ROLE.name])
             }
+            this.client.emit<KysoTeamsCreateEvent>(KysoEvent.TEAMS_CREATE, { organization, team: newTeam })
             return newTeam
         } catch (e) {
             console.log(e)
@@ -461,6 +473,7 @@ export class TeamsService extends AutowiredService {
     }
 
     public async deleteGivenOrganization(organization_id: string): Promise<void> {
+        const organization: Organization = await this.organizationsService.getOrganizationById(organization_id)
         // Get all team  of the organization
         const teams: Team[] = await this.getTeams({ filter: { organization_id } })
         for (const team of teams) {
@@ -468,6 +481,7 @@ export class TeamsService extends AutowiredService {
             await this.teamMemberProvider.deleteMany({ team_id: team.id })
             // Delete team
             await this.provider.deleteOne({ filter: { _id: this.provider.toObjectId(team.id) } })
+            this.client.emit<KysoTeamsDeleteEvent>(KysoEvent.TEAMS_DELETE, { organization, team })
         }
     }
 
@@ -523,54 +537,17 @@ export class TeamsService extends AutowiredService {
             const isCentralized: boolean = organization?.options?.notifications?.centralized || false
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
             let emailsCentralized: string[] = []
-
             if (isCentralized) {
                 emailsCentralized = organization.options.notifications.emails
             }
-
-            // To the recently added user
-            this.mailerService
-                .sendMail({
-                    to: user.email,
-                    subject: `You were added to ${team.display_name} team`,
-                    template: 'team-you-were-added',
-                    context: {
-                        addedUser: user,
-                        organization,
-                        team,
-                        frontendUrl,
-                        role: roles.map((x) => x.name),
-                    },
-                })
-                .then((messageInfo) => {
-                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, TeamsService.name)
-                })
-                .catch((err) => {
-                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, TeamsService.name)
-                })
-
-            // If is centralized, to the centralized mails
-            if (isCentralized) {
-                this.mailerService
-                    .sendMail({
-                        to: emailsCentralized,
-                        subject: `A member was added from ${team.display_name} team`,
-                        template: 'team-new-member',
-                        context: {
-                            addedUser: user,
-                            organization,
-                            team,
-                            role: roles.map((x) => x.name),
-                            frontendUrl,
-                        },
-                    })
-                    .then((messageInfo) => {
-                        Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
-                    })
-                    .catch((err) => {
-                        Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
-                    })
-            }
+            this.client.emit<KysoTeamsAddMemberEvent>(KysoEvent.TEAMS_ADD_MEMBER, {
+                user,
+                organization,
+                team,
+                emailsCentralized,
+                frontendUrl,
+                roles: roles.map((x) => x.name),
+            })
         } catch (ex) {
             Logger.error('Error sending notifications of new member in a team', ex)
         }
@@ -603,64 +580,21 @@ export class TeamsService extends AutowiredService {
 
         await this.teamMemberProvider.deleteOne({ team_id: team.id, member_id: user.id })
         members.splice(index, 1)
-
-        /* WTH why that. Nope xD
-        if (members.length === 0) {
-            // Team without members, delete it
-            await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
-        }*/
-
         // SEND NOTIFICATIONS
         try {
             const isCentralized: boolean = organization?.options?.notifications?.centralized || false
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
             let emailsCentralized: string[] = []
-
             if (isCentralized) {
                 emailsCentralized = organization.options.notifications.emails
             }
-
-            // To the recently added user
-            this.mailerService
-                .sendMail({
-                    to: user.email,
-                    subject: `You were removed to ${team.display_name} team`,
-                    template: 'team-you-were-removed',
-                    context: {
-                        removedUser: user,
-                        organization,
-                        team,
-                        frontendUrl,
-                    },
-                })
-                .then((messageInfo) => {
-                    Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, TeamsService.name)
-                })
-                .catch((err) => {
-                    Logger.error(`An error occurrend sending report mail to ${user.email}`, err, TeamsService.name)
-                })
-
-            // If is centralized, to the centralized mails
-            if (isCentralized) {
-                this.mailerService
-                    .sendMail({
-                        to: emailsCentralized,
-                        subject: `A member was removed from ${team.display_name} team`,
-                        template: 'team-removed-member',
-                        context: {
-                            removedUser: user,
-                            organization,
-                            team,
-                            frontendUrl,
-                        },
-                    })
-                    .then((messageInfo) => {
-                        Logger.log(`Report mail ${messageInfo.messageId} sent to ${user.email}`, OrganizationsService.name)
-                    })
-                    .catch((err) => {
-                        Logger.error(`An error occurrend sending report mail to ${user.email}`, err, OrganizationsService.name)
-                    })
-            }
+            this.client.emit<KysoTeamsRemoveMemberEvent>(KysoEvent.TEAMS_REMOVE_MEMBER, {
+                user,
+                organization,
+                team,
+                emailsCentralized,
+                frontendUrl,
+            })
         } catch (ex) {
             Logger.error('Error sending notifications of removed member in a team', ex)
         }
@@ -738,7 +672,7 @@ export class TeamsService extends AutowiredService {
 
     public async setProfilePicture(teamId: string, file: any): Promise<Team> {
         const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-        const team: Team = await this.getTeamById(teamId)
+        let team: Team = await this.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
@@ -762,11 +696,16 @@ export class TeamsService extends AutowiredService {
         )
         Logger.log(`Uploaded image for team ${team.sluglified_name}`, OrganizationsService.name)
         const avatar_url = `https://${s3Bucket}.s3.amazonaws.com/${Key}`
-        return this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url } })
+        team = await this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url } })
+        if (team) {
+            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            this.client.emit<KysoTeamsUpdateEvent>(KysoEvent.TEAMS_UPDATE, { organization, team })
+        }
+        return team
     }
 
     public async deleteProfilePicture(teamId: string): Promise<Team> {
-        const team: Team = await this.getTeamById(teamId)
+        let team: Team = await this.getTeamById(teamId)
         const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
 
         if (!team) {
@@ -781,7 +720,12 @@ export class TeamsService extends AutowiredService {
             })
             await s3Client.send(deleteObjectCommand)
         }
-        return this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url: null } })
+        team = await this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url: null } })
+        if (team) {
+            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            this.client.emit<KysoTeamsUpdateEvent>(KysoEvent.TEAMS_UPDATE, { organization, team })
+        }
+        return team
     }
 
     public async deleteTeam(teamId: string): Promise<Team> {
@@ -802,6 +746,8 @@ export class TeamsService extends AutowiredService {
         await this.teamMemberProvider.deleteMany({ team_id: team.id })
         // Delete team
         await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        this.client.emit<KysoTeamsDeleteEvent>(KysoEvent.TEAMS_DELETE, { organization, team })
         return team
     }
 
