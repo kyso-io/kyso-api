@@ -260,6 +260,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
                     // To the assignee
                     this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_NEW_ASSIGNEE, {
                         to: assigneeUser.email,
+                        assigneeUser,
                         organization,
                         team,
                         discussion,
@@ -269,7 +270,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
                     // To the author
                     this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_USER_ASSIGNED, {
                         to: isCentralized ? emailsCentralized : authorUser.email,
-                        assigneeUser: assigneeUser,
+                        assigneeUser,
                         organization,
                         team,
                         discussion,
@@ -292,12 +293,13 @@ export class DiscussionsService extends AutowiredService implements GenericServi
                     // To the assignee
                     this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_REMOVE_ASSIGNEE, {
                         to: removedUser.email,
+                        assigneeUser: removedUser,
                         organization,
                         team,
                         discussion,
                         frontendUrl,
                     })
-
+                    
                     // To the author
                     this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_USER_UNASSIGNED, {
                         to: isCentralized ? emailsCentralized : authorUser.email,

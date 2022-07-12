@@ -5,7 +5,6 @@ import {
     Organization,
     OrganizationInfoDto,
     OrganizationMember,
-    OrganizationMemberJoin,
     OrganizationOptions,
     OrganizationPermissionsEnum,
     OrganizationStorageDto,
@@ -30,11 +29,9 @@ import {
     UploadedFile,
     UseGuards,
     UseInterceptors,
-    Logger
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
-import { ObjectId } from 'mongodb'
 import { Public } from 'src/decorators/is-public'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -85,7 +82,7 @@ export class OrganizationsController extends GenericController<Organization> {
             link: 1,
             bio: 1,
             avatar_url: 1,
-            legal_name: 1
+            legal_name: 1,
         }
         if (!query.filter) {
             query.filter = {}
@@ -168,8 +165,11 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Organization matching id`, type: Organization })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
-    public async deleteOrganization(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
-        const organization: Organization = await this.organizationService.deleteOrganization(organizationId)
+    public async deleteOrganization(
+        @CurrentToken() token: Token,
+        @Param('organizationId') organizationId: string,
+    ): Promise<NormalizedResponseDTO<Organization>> {
+        const organization: Organization = await this.organizationService.deleteOrganization(token, organizationId)
         return new NormalizedResponseDTO(organization)
     }
 
@@ -199,8 +199,8 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 201, description: `Created organization`, type: Organization })
     @Permission([OrganizationPermissionsEnum.CREATE])
-    async createOrganization(@Body() organization: Organization): Promise<NormalizedResponseDTO<Organization>> {
-        const newOrganization: Organization = await this.organizationService.createOrganization(organization)
+    async createOrganization(@CurrentToken() token: Token, @Body() organization: Organization): Promise<NormalizedResponseDTO<Organization>> {
+        const newOrganization: Organization = await this.organizationService.createOrganization(token, organization)
 
         return new NormalizedResponseDTO(newOrganization)
     }
@@ -214,10 +214,11 @@ export class OrganizationsController extends GenericController<Organization> {
     @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Organization })
     @Permission([OrganizationPermissionsEnum.EDIT])
     public async updateOrganization(
+        @CurrentToken() token: Token,
         @Param('organizationId') organizationId: string,
         @Body() updateOrganizationDTO: UpdateOrganizationDTO,
     ): Promise<NormalizedResponseDTO<Organization>> {
-        const updatedOrganization: Organization = await this.organizationService.updateOrganization(organizationId, updateOrganizationDTO)
+        const updatedOrganization: Organization = await this.organizationService.updateOrganization(token, organizationId, updateOrganizationDTO)
         return new NormalizedResponseDTO(updatedOrganization)
     }
 

@@ -353,7 +353,7 @@ export class TeamsController extends GenericController<Team> {
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
-        const updatedTeam: Team = await this.teamsService.updateTeam({ _id: new ObjectId(teamId) }, { $set: data })
+        const updatedTeam: Team = await this.teamsService.updateTeam(token, { _id: new ObjectId(teamId) }, { $set: data })
 
         if (data.visibility === TeamVisibilityEnum.PRIVATE) {
             try {
@@ -383,7 +383,7 @@ export class TeamsController extends GenericController<Team> {
     })
     @Permission([TeamPermissionsEnum.CREATE])
     async createTeam(@CurrentToken() token: Token, @Body() team: Team): Promise<NormalizedResponseDTO<Team>> {
-        const newTeam: Team = await this.teamsService.createTeam(team, token.id)
+        const newTeam: Team = await this.teamsService.createTeam(token, team)
         return new NormalizedResponseDTO(newTeam)
     }
 
@@ -501,14 +501,18 @@ export class TeamsController extends GenericController<Team> {
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated team`, type: Team })
     @Permission([TeamPermissionsEnum.EDIT])
-    public async setProfilePicture(@Param('teamId') teamId: string, @UploadedFile() file: any): Promise<NormalizedResponseDTO<Team>> {
+    public async setProfilePicture(
+        @CurrentToken() token: Token,
+        @Param('teamId') teamId: string,
+        @UploadedFile() file: any,
+    ): Promise<NormalizedResponseDTO<Team>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }
         if (file.mimetype.split('/')[0] !== 'image') {
             throw new BadRequestException(`Only image files are allowed`)
         }
-        const team: Team = await this.teamsService.setProfilePicture(teamId, file)
+        const team: Team = await this.teamsService.setProfilePicture(token, teamId, file)
         return new NormalizedResponseDTO(team)
     }
 
@@ -525,8 +529,10 @@ export class TeamsController extends GenericController<Team> {
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Team })
-    public async deleteBackgroundImage(@Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Team>> {
-        const team: Team = await this.teamsService.deleteProfilePicture(teamId)
+    public async deleteBackgroundImage(
+        @CurrentToken() token: Token,
+        @Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Team>> {
+        const team: Team = await this.teamsService.deleteProfilePicture(token, teamId)
         return new NormalizedResponseDTO(team)
     }
 
@@ -544,8 +550,8 @@ export class TeamsController extends GenericController<Team> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Deleted team`, type: Team })
     @Permission([TeamPermissionsEnum.DELETE])
-    public async deleteTeam(@Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Team>> {
-        const team: Team = await this.teamsService.deleteTeam(teamId)
+    public async deleteTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Team>> {
+        const team: Team = await this.teamsService.deleteTeam(token, teamId)
         return new NormalizedResponseDTO(team)
     }
 

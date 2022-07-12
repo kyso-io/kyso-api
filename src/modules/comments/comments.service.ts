@@ -170,7 +170,7 @@ export class CommentsService extends AutowiredService {
                     continue
                 }
                 this.client.emit<KysoDiscussionsNewMentionEvent>(KysoEvent.DISCUSSIONS_NEW_MENTION, {
-                    to: user.email,
+                    user,
                     creator,
                     organization,
                     team,

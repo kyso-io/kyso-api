@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
 import { PrometheusModule } from '@willsoto/nestjs-prometheus'
 import { RequestLoggerMiddleware } from './middleware/request-logger.middleware'
+import { ActivityFeedModule } from './modules/activity-feed/activity-feed.module'
 import { AuthModule } from './modules/auth/auth.module'
 import { BitbucketReposModule } from './modules/bitbucket-repos/bitbucket-repos.module'
 import { CommentsModule } from './modules/comments/comments.module'
@@ -22,6 +23,7 @@ import { UsersModule } from './modules/users/users.module'
 
 @Module({
     imports: [
+        ActivityFeedModule.forRoot(),
         AuthModule.forRoot(),
         BitbucketReposModule.forRoot(),
         CommentsModule.forRoot(),

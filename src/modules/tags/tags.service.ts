@@ -1,5 +1,4 @@
-import { Report, Tag, TagAssign, TagRequestDTO } from '@kyso-io/kyso-model'
-import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
+import { EntityEnum, Report, Tag, TagAssign, TagRequestDTO } from '@kyso-io/kyso-model'
 import { Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'

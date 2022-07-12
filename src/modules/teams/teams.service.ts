@@ -383,16 +383,20 @@ export class TeamsService extends AutowiredService {
         }
     }
 
-    async updateTeam(filterQuery: any, updateQuery: any): Promise<Team> {
+    async updateTeam(token: Token, filterQuery: any, updateQuery: any): Promise<Team> {
         const team: Team = await this.provider.update(filterQuery, updateQuery)
         if (team) {
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-            this.client.emit<KysoTeamsUpdateEvent>(KysoEvent.TEAMS_UPDATE, { organization, team })
+            this.client.emit<KysoTeamsUpdateEvent>(KysoEvent.TEAMS_UPDATE, {
+                user: await this.usersService.getUserById(token.id),
+                organization,
+                team,
+            })
         }
         return team
     }
 
-    async createTeam(team: Team, userId?: string) {
+    async createTeam(token: Token, team: Team) {
         try {
             team.sluglified_name = slugify(team.display_name)
 
@@ -422,10 +426,14 @@ export class TeamsService extends AutowiredService {
             }
 
             const newTeam: Team = await this.provider.create(team)
-            if (userId) {
-                await this.addMembersById(newTeam.id, [userId], [PlatformRole.TEAM_ADMIN_ROLE.name])
+            if (token) {
+                await this.addMembersById(newTeam.id, [token.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
+                this.client.emit<KysoTeamsCreateEvent>(KysoEvent.TEAMS_CREATE, {
+                    user: await this.usersService.getUserById(token.id),
+                    organization,
+                    team: newTeam,
+                })
             }
-            this.client.emit<KysoTeamsCreateEvent>(KysoEvent.TEAMS_CREATE, { organization, team: newTeam })
             return newTeam
         } catch (e) {
             console.log(e)
@@ -670,7 +678,7 @@ export class TeamsService extends AutowiredService {
         })
     }
 
-    public async setProfilePicture(teamId: string, file: any): Promise<Team> {
+    public async setProfilePicture(token: Token, teamId: string, file: any): Promise<Team> {
         const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
         let team: Team = await this.getTeamById(teamId)
         if (!team) {
@@ -699,12 +707,16 @@ export class TeamsService extends AutowiredService {
         team = await this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url } })
         if (team) {
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-            this.client.emit<KysoTeamsUpdateEvent>(KysoEvent.TEAMS_UPDATE, { organization, team })
+            this.client.emit<KysoTeamsUpdateEvent>(KysoEvent.TEAMS_UPDATE, {
+                user: await this.usersService.getUserById(token.id),
+                organization,
+                team,
+            })
         }
         return team
     }
 
-    public async deleteProfilePicture(teamId: string): Promise<Team> {
+    public async deleteProfilePicture(token: Token, teamId: string): Promise<Team> {
         let team: Team = await this.getTeamById(teamId)
         const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
 
@@ -723,12 +735,16 @@ export class TeamsService extends AutowiredService {
         team = await this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url: null } })
         if (team) {
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-            this.client.emit<KysoTeamsUpdateEvent>(KysoEvent.TEAMS_UPDATE, { organization, team })
+            this.client.emit<KysoTeamsUpdateEvent>(KysoEvent.TEAMS_UPDATE, {
+                user: await this.usersService.getUserById(token.id),
+                organization,
+                team,
+            })
         }
         return team
     }
 
-    public async deleteTeam(teamId: string): Promise<Team> {
+    public async deleteTeam(token: Token, teamId: string): Promise<Team> {
         const team: Team = await this.getTeamById(teamId)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
@@ -740,7 +756,7 @@ export class TeamsService extends AutowiredService {
             },
         })
         for (const report of teamReports) {
-            await this.reportsService.deleteReport(report.id)
+            await this.reportsService.deleteReport(token, report.id, true)
         }
         // Delete all members of this team
         await this.teamMemberProvider.deleteMany({ team_id: team.id })
