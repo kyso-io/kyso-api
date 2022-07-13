@@ -474,7 +474,7 @@ export class ReportsController extends GenericController<Report> {
         @Query('branch') branch: string,
     ): Promise<NormalizedResponseDTO<Report | Report[]>> {
         Logger.log(`Called createReportFromGithubRepository`)
-        const data: Report | Report[] = await this.reportsService.createReportFromGithubRepository(token.id, repositoryName, branch)
+        const data: Report | Report[] = await this.reportsService.createReportFromGithubRepository(token, repositoryName, branch)
         if (Array.isArray(data)) {
             const reportDtos: ReportDTO[] = []
             for (const report of data) {
@@ -509,7 +509,7 @@ export class ReportsController extends GenericController<Report> {
             throw new PreconditionFailedException('Repository name is required')
         }
         Logger.log(`Called createReportFromBitbucketRepository`)
-        const data: Report | Report[] = await this.reportsService.createReportFromBitbucketRepository(token.id, name, branch)
+        const data: Report | Report[] = await this.reportsService.createReportFromBitbucketRepository(token, name, branch)
         if (Array.isArray(data)) {
             const reportDtos: ReportDTO[] = []
             for (const report of data) {
@@ -541,7 +541,7 @@ export class ReportsController extends GenericController<Report> {
         @Query('branch') branch: string,
     ): Promise<NormalizedResponseDTO<Report | Report[]>> {
         Logger.log(`Called createReportFromGitlabRepository`)
-        const data: Report | Report[] = await this.reportsService.createReportFromGitlabRepository(token.id, id, branch)
+        const data: Report | Report[] = await this.reportsService.createReportFromGitlabRepository(token, id, branch)
         if (Array.isArray(data)) {
             const reportDtos: ReportDTO[] = []
             for (const report of data) {
@@ -614,7 +614,7 @@ export class ReportsController extends GenericController<Report> {
         if (!isOwner) {
             throw new ForbiddenException('Insufficient permissions')
         }
-        const report: Report = await this.reportsService.deleteReport(reportId)
+        const report: Report = await this.reportsService.deleteReport(token, reportId, true)
         return new NormalizedResponseDTO(report)
     }
 
@@ -637,7 +637,7 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.GLOBAL_PIN])
     async toggleGlobalPin(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
-        const report: Report = await this.reportsService.toggleGlobalPin(reportId)
+        const report: Report = await this.reportsService.toggleGlobalPin(token, reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
@@ -661,7 +661,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     async toggleUserPin(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
-        const report: Report = await this.reportsService.toggleUserPin(token.id, reportId)
+        const report: Report = await this.reportsService.toggleUserPin(token, reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)
@@ -685,7 +685,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     async toggleUserStar(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
-        const report: Report = await this.reportsService.toggleUserStar(token.id, reportId)
+        const report: Report = await this.reportsService.toggleUserStar(token, reportId)
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportDto, relations)

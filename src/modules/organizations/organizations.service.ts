@@ -111,7 +111,7 @@ export class OrganizationsService extends AutowiredService {
         return this.getOrganization({ filter: { _id: this.provider.toObjectId(id) } })
     }
 
-    public async createOrganization(organization: Organization): Promise<Organization> {
+    public async createOrganization(token: Token, organization: Organization): Promise<Organization> {
         // The name of this organization exists?
         const organizations: Organization[] = await this.provider.read({ filter: { sluglified_name: organization.sluglified_name } })
 
@@ -129,7 +129,10 @@ export class OrganizationsService extends AutowiredService {
 
         const newOrganization: Organization = await this.provider.create(organization)
 
-        this.client.emit<KysoOrganizationsCreateEvent>(KysoEvent.ORGANIZATIONS_CREATE, { organization: newOrganization })
+        this.client.emit<KysoOrganizationsCreateEvent>(KysoEvent.ORGANIZATIONS_CREATE, {
+            user: await this.usersService.getUserById(token.id),
+            organization: newOrganization,
+        })
 
         // Now, create the default teams for that organization
         const generalTeam = new Team(
@@ -142,13 +145,12 @@ export class OrganizationsService extends AutowiredService {
             newOrganization.id,
             TeamVisibilityEnum.PROTECTED,
         )
-
-        await this.teamsService.createTeam(generalTeam)
+        await this.teamsService.createTeam(token, generalTeam)
 
         return newOrganization
     }
 
-    public async deleteOrganization(organizationId: string): Promise<Organization> {
+    public async deleteOrganization(token: Token, organizationId: string): Promise<Organization> {
         const organization: Organization = await this.getOrganizationById(organizationId)
         if (!organization) {
             throw new PreconditionFailedException('Organization does not exist')
@@ -163,7 +165,10 @@ export class OrganizationsService extends AutowiredService {
         // Delete the organization
         await this.provider.deleteOne({ _id: this.provider.toObjectId(organization.id) })
 
-        this.client.emit<KysoOrganizationsDeleteEvent>(KysoEvent.ORGANIZATIONS_DELETE, { organization })
+        this.client.emit<KysoOrganizationsDeleteEvent>(KysoEvent.ORGANIZATIONS_DELETE, {
+            user: await this.usersService.getUserById(token.id),
+            organization,
+        })
 
         return organization
     }
@@ -262,7 +267,7 @@ export class OrganizationsService extends AutowiredService {
         )
     }
 
-    public async updateOrganization(organizationId: string, updateOrganizationDTO: UpdateOrganizationDTO): Promise<Organization> {
+    public async updateOrganization(token: Token, organizationId: string, updateOrganizationDTO: UpdateOrganizationDTO): Promise<Organization> {
         let organizationDb: Organization = await this.getOrganizationById(organizationId)
         if (!organizationDb) {
             throw new PreconditionFailedException('Organization does not exist')
@@ -286,7 +291,10 @@ export class OrganizationsService extends AutowiredService {
                 $set: data,
             },
         )
-        this.client.emit<KysoOrganizationsUpdateEvent>(KysoEvent.ORGANIZATIONS_UPDATE, { organization: organizationDb })
+        this.client.emit<KysoOrganizationsUpdateEvent>(KysoEvent.ORGANIZATIONS_UPDATE, {
+            user: await this.usersService.getUserById(token.id),
+            organization: organizationDb,
+        })
         return organizationDb
     }
 

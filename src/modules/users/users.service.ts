@@ -9,7 +9,9 @@ import {
     KysoUserAccessToken,
     KysoUserAccessTokenStatus,
     KysoUsersCreateEvent,
+    KysoUsersDeleteEvent,
     KysoUsersRecoveryPasswordEvent,
+    KysoUsersUpdateEvent,
     KysoUsersVerificationEmailEvent,
     LoginProviderEnum,
     Organization,
@@ -171,7 +173,7 @@ export class UsersService extends AutowiredService {
         const organizationName: string = user.display_name.charAt(0).toUpperCase() + user.display_name.slice(1)
         const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], user.email, '', '', true, '', '', '', '', uuidv4())
         Logger.log(`Creating new organization ${newOrganization.sluglified_name}`)
-        const organizationDb: Organization = await this.organizationsService.createOrganization(newOrganization)
+        const organizationDb: Organization = await this.organizationsService.createOrganization(null, newOrganization)
 
         // Add user to organization as admin
         Logger.log(`Adding ${user.display_name} to organization ${organizationDb.sluglified_name} with role ${PlatformRole.ORGANIZATION_ADMIN_ROLE.name}...`)
@@ -181,7 +183,7 @@ export class UsersService extends AutowiredService {
         const teamName = 'My Private Team'
         const newUserTeam: Team = new Team(teamName, '', '', '', '', [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
         Logger.log(`Creating new team ${newUserTeam.sluglified_name}...`)
-        const userTeamDb: Team = await this.teamsService.createTeam(newUserTeam)
+        const userTeamDb: Team = await this.teamsService.createTeam(null, newUserTeam)
 
         // Add user to team as admin
         Logger.log(`Adding ${user.display_name} to team ${userTeamDb.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}...`)
@@ -217,7 +219,7 @@ export class UsersService extends AutowiredService {
         return true
     }
 
-    async deleteUser(id: string): Promise<boolean> {
+    async deleteUser(token: Token, id: string): Promise<boolean> {
         const user: User = await this.getUserById(id)
         if (!user) {
             throw new NotFoundException('User not found')
@@ -246,6 +248,8 @@ export class UsersService extends AutowiredService {
 
         Logger.log(`Deleting user '${user.id} ${user.display_name}' in ElasticSearch...`, UsersService.name)
         this.fullTextSearchService.deleteDocument(ElasticSearchIndex.User, user.id)
+
+        this.client.emit<KysoUsersDeleteEvent>(KysoEvent.USERS_DELETE, { user, owner: await this.getUserById(token.id) })
 
         return true
     }
@@ -295,7 +299,7 @@ export class UsersService extends AutowiredService {
         return true
     }
 
-    public async updateUserData(id: string, data: UpdateUserRequestDTO): Promise<User> {
+    public async updateUserData(token: Token, id: string, data: UpdateUserRequestDTO): Promise<User> {
         let user: User = await this.getUserById(id)
         if (!user) {
             throw new NotFoundException('User not found')
@@ -313,6 +317,9 @@ export class UsersService extends AutowiredService {
         Logger.log(`Updating user '${user.id} ${user.display_name}' in Elasticsearch...`, UsersService.name)
         const kysoIndex: KysoIndex = this.userToKysoIndex(user)
         this.fullTextSearchService.updateDocument(kysoIndex)
+
+        this.client.emit<KysoUsersUpdateEvent>(KysoEvent.USERS_UPDATE, { user, owner: await this.getUserById(token.id) })
+
         return user
     }
 

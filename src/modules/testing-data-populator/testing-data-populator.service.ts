@@ -4,6 +4,7 @@ import {
     CreateReportDTO,
     CreateUserRequestDTO,
     Discussion,
+    EntityEnum,
     GlobalPermissionsEnum,
     KysoRole,
     LoginProviderEnum,
@@ -19,7 +20,6 @@ import {
     User,
     UserAccount,
 } from '@kyso-io/kyso-model'
-import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import { Injectable, Logger } from '@nestjs/common'
 import * as moment from 'moment'
 import { v4 as uuidv4 } from 'uuid'
@@ -649,7 +649,7 @@ export class TestingDataPopulatorService {
     private async _createOrganization(organization: Organization) {
         try {
             Logger.log(`Creating ${organization.sluglified_name} organization...`)
-            return await this.organizationsService.createOrganization(organization)
+            return await this.organizationsService.createOrganization(null, organization)
         } catch (ex) {
             Logger.log(` ${organization.sluglified_name} organization already exists`)
         }
@@ -703,7 +703,7 @@ export class TestingDataPopulatorService {
     private async _createTeam(team: Team) {
         try {
             Logger.log(`Creating ${team.sluglified_name} team...`)
-            return await this.teamsService.createTeam(team)
+            return await this.teamsService.createTeam(null, team)
         } catch (ex) {
             Logger.log(` ${team.sluglified_name} team already exists`)
         }

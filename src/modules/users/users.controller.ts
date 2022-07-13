@@ -328,7 +328,7 @@ export class UsersController extends GenericController<User> {
         if (token.id !== userId) {
             throw new ForbiddenException(`You are not allowed to update this user`)
         }
-        const user: User = await this.usersService.updateUserData(userId, data)
+        const user: User = await this.usersService.updateUserData(token, userId, data)
         return new NormalizedResponseDTO(UserDTO.fromUser(user))
     }
 
@@ -359,11 +359,11 @@ export class UsersController extends GenericController<User> {
     @ApiResponse({ status: 200, description: `Deletion done successfully` })
     @ApiNormalizedResponse({ status: 200, description: `Organization matching name`, type: Boolean })
     @Permission([UserPermissionsEnum.DELETE])
-    async deleteUser(@Param('userId') userId: string): Promise<NormalizedResponseDTO<boolean>> {
+    async deleteUser(@CurrentToken() token: Token, @Param('userId') userId: string): Promise<NormalizedResponseDTO<boolean>> {
         if (!Validators.isValidObjectId(userId)) {
             throw new BadRequestException(`Invalid user id ${userId}`)
         }
-        const deleted: boolean = await this.usersService.deleteUser(userId)
+        const deleted: boolean = await this.usersService.deleteUser(token, userId)
         return new NormalizedResponseDTO(deleted)
     }
 

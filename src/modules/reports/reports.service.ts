@@ -3,6 +3,7 @@ import {
     Comment,
     CreateReportDTO,
     ElasticSearchIndex,
+    EntityEnum,
     File,
     GithubBranch,
     GithubFileHash,
@@ -12,7 +13,11 @@ import {
     KysoEvent,
     KysoIndex,
     KysoReportsCreateEvent,
+    KysoReportsDeleteEvent,
     KysoReportsNewVersionEvent,
+    KysoReportsPinEvent,
+    KysoReportsStarEvent,
+    KysoReportsUpdateEvent,
     KysoSettingsEnum,
     LoginProviderEnum,
     Organization,
@@ -34,7 +39,6 @@ import {
     User,
     UserAccount,
 } from '@kyso-io/kyso-model'
-import { EntityEnum } from '@kyso-io/kyso-model/dist/enums/entity.enum'
 import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import { Octokit } from '@octokit/rest'
@@ -325,12 +329,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const reportCreator: boolean = report.user_id === token.id
         const reportAuthor: boolean = report.author_ids.includes(token.id)
         if (!reportCreator && !reportAuthor) {
-            const hasPermissions: boolean = AuthService.hasPermissions(
-                token,
-                [ReportPermissionsEnum.EDIT],
-                team.sluglified_name,
-                organization.sluglified_name,
-            )
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.EDIT], team.sluglified_name, organization.sluglified_name)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to update this report')
             }
@@ -369,7 +368,14 @@ export class ReportsService extends AutowiredService implements GenericService<R
             dataToUpdate.main_file = updateReportRequestDTO.main_file
         }
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: dataToUpdate })
-        this.client.emit<Report>(KysoEvent.REPORTS_UPDATE, report)
+
+        this.client.emit<KysoReportsUpdateEvent>(KysoEvent.REPORTS_UPDATE, {
+            user: await this.usersService.getUserById(token.id),
+            organization,
+            team,
+            report,
+            frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+        })
 
         const kysoIndex: KysoIndex = new KysoIndex()
         kysoIndex.entityId = report.id
@@ -385,7 +391,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return report
     }
 
-    public async deleteReport(reportId: string): Promise<Report> {
+    public async deleteReport(token: Token, reportId: string, notify: boolean = false): Promise<Report> {
         const report: Report = await this.getReportById(reportId)
 
         if (!report) {
@@ -408,9 +414,10 @@ export class ReportsService extends AutowiredService implements GenericService<R
         this.deleteReportFromFtp(report.id)
 
         // Delete all indexed contents in fulltextsearch
+        let organization: Organization
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         if (team) {
-            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            organization = await this.organizationsService.getOrganizationById(team.organization_id)
             if (organization) {
                 this.fullTextSearchService.deleteIndexedResults(
                     organization.sluglified_name,
@@ -429,7 +436,15 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
         await this.provider.deleteOne({ _id: this.provider.toObjectId(reportId) })
 
-        this.client.emit<Report>(KysoEvent.REPORTS_DELETE, report)
+        if (notify) {
+            this.client.emit<KysoReportsDeleteEvent>(KysoEvent.REPORTS_DELETE, {
+                user: await this.usersService.getUserById(token.id),
+                organization,
+                team,
+                report,
+                frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+            })
+        }
 
         return report
     }
@@ -476,50 +491,107 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
     }
 
-    public async toggleGlobalPin(reportId: string): Promise<Report> {
-        const report: Report = await this.getReportById(reportId)
+    public async toggleGlobalPin(token: Token, reportId: string): Promise<Report> {
+        let report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new NotFoundError({ message: 'The specified report could not be found' })
         }
-        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { pin: !report.pin } })
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const user: User = await this.usersService.getUserById(token.id)
+        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { pin: !report.pin } })
+        if (report.pin) {
+            this.client.emit<KysoReportsPinEvent>(KysoEvent.REPORTS_PIN_GLOBAL, {
+                user,
+                organization,
+                team,
+                report,
+            })
+        } else {
+            this.client.emit<KysoReportsPinEvent>(KysoEvent.REPORTS_UNPIN_GLOBAL, {
+                user,
+                organization,
+                team,
+                report,
+            })
+        }
+        return report
     }
 
-    public async toggleUserPin(userId: string, reportId: string): Promise<Report> {
+    public async toggleUserPin(token: Token, reportId: string): Promise<Report> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new NotFoundException('The report not be found')
+        }
         const pinnedReports: PinnedReport[] = await this.pinnedReportsMongoProvider.read({
             filter: {
-                user_id: userId,
-                report_id: reportId,
+                user_id: token.id,
+                report_id: report.id,
             },
         })
+        const user: User = await this.usersService.getUserById(token.id)
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         if (pinnedReports.length === 0) {
             await this.pinnedReportsMongoProvider.create({
-                user_id: userId,
-                report_id: reportId,
+                user_id: token.id,
+                report_id: report.id,
+            })
+            this.client.emit<KysoReportsPinEvent>(KysoEvent.REPORTS_PIN, {
+                user,
+                organization,
+                team,
+                report,
             })
         } else {
             const pinnedReport: PinnedReport = pinnedReports[0]
             await this.pinnedReportsMongoProvider.deleteOne({ _id: this.provider.toObjectId(pinnedReport.id) })
+            this.client.emit<KysoReportsPinEvent>(KysoEvent.REPORTS_UNPIN, {
+                user,
+                organization,
+                team,
+                report,
+            })
         }
-        return this.getReportById(reportId)
+        return this.getReportById(report.id)
     }
 
-    public async toggleUserStar(userId: string, reportId: string): Promise<Report> {
+    public async toggleUserStar(token: Token, reportId: string): Promise<Report> {
+        const report: Report = await this.getReportById(reportId)
+        if (!report) {
+            throw new NotFoundException('The report not be found')
+        }
         const starredReports: StarredReport[] = await this.starredReportsMongoProvider.read({
             filter: {
-                user_id: userId,
+                user_id: token.id,
                 report_id: reportId,
             },
         })
+        const user: User = await this.usersService.getUserById(token.id)
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         if (starredReports.length === 0) {
             await this.starredReportsMongoProvider.create({
-                user_id: userId,
-                report_id: reportId,
+                user_id: token.id,
+                report_id: report.id,
+            })
+            this.client.emit<KysoReportsStarEvent>(KysoEvent.REPORTS_STAR, {
+                user,
+                organization,
+                team,
+                report,
             })
         } else {
             const pinnedReport: StarredReport = starredReports[0]
             await this.starredReportsMongoProvider.deleteOne({ _id: this.provider.toObjectId(pinnedReport.id) })
+            this.client.emit<KysoReportsStarEvent>(KysoEvent.REPORTS_UNSTAR, {
+                user,
+                organization,
+                team,
+                report,
+            })
         }
-        return this.getReportById(reportId)
+        return this.getReportById(report.id)
     }
 
     public async reportModelToReportDTO(report: Report, userId: string, version?: number): Promise<ReportDTO> {
@@ -1411,10 +1483,10 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return report
     }
 
-    public async createReportFromGithubRepository(userId: string, repositoryName: string, branch: string): Promise<Report | Report[]> {
-        const user: User = await this.usersService.getUserById(userId)
+    public async createReportFromGithubRepository(token: Token, repositoryName: string, branch: string): Promise<Report | Report[]> {
+        const user: User = await this.usersService.getUserById(token.id)
         if (!user) {
-            throw new NotFoundError(`User ${userId} does not exist`)
+            throw new NotFoundError(`User ${user.id} does not exist`)
         }
         const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB)
         if (!userAccount) {
@@ -1528,22 +1600,25 @@ export class ReportsService extends AutowiredService implements GenericService<R
             kysoConfigFile = result.kysoConfigFile
             Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${branch}'`, ReportsService.name)
         } catch (e) {
-            await this.deleteReport(report.id)
+            await this.deleteReport(token, report.id)
             throw e
         }
 
         if (kysoConfigFile.type === ReportType.Meta) {
-            await this.deleteReport(report.id)
+            await this.deleteReport(token, report.id)
             return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName)
         }
 
         new Promise<void>(async () => {
             Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${sha}'`, ReportsService.name)
 
-            const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
+            const userHasPermission: boolean = await this.checkCreateReportPermission(token.id, kysoConfigFile.team)
             if (!userHasPermission) {
-                Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
-                await this.deleteReport(report.id)
+                Logger.error(
+                    `User ${user.username} does not have permission to delete report ${report.sluglified_name} in team ${kysoConfigFile.team}`,
+                    ReportsService.name,
+                )
+                await this.deleteReport(token, report.id)
                 this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
                     user,
                     kysoConfigFile,
@@ -1578,7 +1653,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return report
     }
 
-    public async downloadGithubRepo(report: Report, repository: any, sha: string, userAccount: UserAccount): Promise<void> {
+    public async downloadGithubRepo(token: Token, report: Report, repository: any, sha: string, userAccount: UserAccount): Promise<void> {
         Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name)
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
 
@@ -1610,7 +1685,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             kysoConfigFile = result.kysoConfigFile
             Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name)
         } catch (e) {
-            await this.deleteReport(report.id)
+            await this.deleteReport(token, report.id)
             return null
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name)
@@ -1618,10 +1693,10 @@ export class ReportsService extends AutowiredService implements GenericService<R
         await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, false)
     }
 
-    public async createReportFromBitbucketRepository(userId: string, repositoryName: string, branch: string): Promise<Report | Report[]> {
-        const user: User = await this.usersService.getUserById(userId)
+    public async createReportFromBitbucketRepository(token: Token, repositoryName: string, branch: string): Promise<Report | Report[]> {
+        const user: User = await this.usersService.getUserById(token.id)
         if (!user) {
-            throw new NotFoundError(`User ${userId} does not exist`)
+            throw new NotFoundError(`User ${user.id} does not exist`)
         }
         const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET)
         if (!userAccount) {
@@ -1698,7 +1773,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             moveSync(`${tmpFolder}/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
             Logger.log(`Extracted repository '${repositoryName}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
         } catch (e) {
-            await this.deleteReport(report.id)
+            await this.deleteReport(token, report.id)
             throw Error(`An error occurred downloading repository '${repositoryName}'`)
         }
 
@@ -1718,20 +1793,20 @@ export class ReportsService extends AutowiredService implements GenericService<R
             kysoConfigFile = result.kysoConfigFile
             Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name)
         } catch (e) {
-            await this.deleteReport(report.id)
+            await this.deleteReport(token, report.id)
             throw e
         }
 
         if (kysoConfigFile.type === ReportType.Meta) {
-            await this.deleteReport(report.id)
+            await this.deleteReport(token, report.id)
             return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName)
         }
 
         new Promise<void>(async () => {
-            const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
+            const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.team)
             if (!userHasPermission) {
                 Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
-                await this.deleteReport(report.id)
+                await this.deleteReport(token, report.id)
                 this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
                     user,
                     kysoConfigFile,
@@ -1766,10 +1841,10 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return report
     }
 
-    public async createReportFromGitlabRepository(userId: string, repositoryId: number | string, branch: string): Promise<Report | Report[]> {
-        const user: User = await this.usersService.getUserById(userId)
+    public async createReportFromGitlabRepository(token: Token, repositoryId: number | string, branch: string): Promise<Report | Report[]> {
+        const user: User = await this.usersService.getUserById(token.id)
         if (!user) {
-            throw new NotFoundError(`User ${userId} does not exist`)
+            throw new NotFoundError(`User ${user.id} does not exist`)
         }
         const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITLAB)
         if (!userAccount) {
@@ -1846,7 +1921,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             moveSync(`${tmpFolder}/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true })
             Logger.log(`Extracted repository '${repositoryId}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
         } catch (e) {
-            await this.deleteReport(report.id)
+            await this.deleteReport(token, report.id)
             throw Error(`An error occurred downloading repository '${repositoryId}'`)
         }
 
@@ -1866,20 +1941,20 @@ export class ReportsService extends AutowiredService implements GenericService<R
             kysoConfigFile = result.kysoConfigFile
             Logger.log(`Downloaded ${files.length} files from repository ${repositoryId}' commit '${desiredCommit}'`, ReportsService.name)
         } catch (e) {
-            await this.deleteReport(report.id)
+            await this.deleteReport(token, report.id)
             return null
         }
 
         if (kysoConfigFile.type === ReportType.Meta) {
-            await this.deleteReport(report.id)
+            await this.deleteReport(token, report.id)
             return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName)
         }
 
         new Promise<void>(async () => {
-            const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
+            const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.team)
             if (!userHasPermission) {
                 Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
-                await this.deleteReport(report.id)
+                await this.deleteReport(token, report.id)
                 this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
                     user,
                     kysoConfigFile,
@@ -1914,7 +1989,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return report
     }
 
-    public async downloadBitbucketRepo(report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
+    public async downloadBitbucketRepo(token: Token, report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
         Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
         const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
@@ -1933,7 +2008,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             zip.extractAllTo(extractedDir, true)
             Logger.log(`Extracted repository '${repositoryName}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
         } catch (e) {
-            await this.deleteReport(report.id)
+            await this.deleteReport(token, report.id)
             throw Error(`An error occurred downloading repository '${repositoryName}'`)
         }
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
@@ -1955,7 +2030,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             kysoConfigFile = result.kysoConfigFile
             Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
         } catch (e) {
-            await this.deleteReport(report.id)
+            await this.deleteReport(token, report.id)
             return null
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
@@ -1963,7 +2038,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, false)
     }
 
-    public async downloadGitlabRepo(report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
+    public async downloadGitlabRepo(token: Token, report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
         Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } })
         const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
@@ -1982,7 +2057,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             zip.extractAllTo(extractedDir, true)
             Logger.log(`Extracted repository '${repositoryName}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name)
         } catch (e) {
-            await this.deleteReport(report.id)
+            await this.deleteReport(token, report.id)
             throw Error(`An error occurred downloading repository '${repositoryName}'`)
         }
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name)
@@ -2004,7 +2079,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             kysoConfigFile = result.kysoConfigFile
             Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
         } catch (e) {
-            await this.deleteReport(report.id)
+            await this.deleteReport(token, report.id)
             return null
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
