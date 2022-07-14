@@ -357,7 +357,7 @@ export class AuthService extends AutowiredService {
                 allUserPermissions = [...allUserPermissions, ...userGlobalPermissions]
             }
 
-            const hasAllThePermissions: boolean = permissionToActivateEndpoint.every((i) => allUserPermissions.includes(i))
+            const hasAllThePermissions: boolean = permissionToActivateEndpoint.some((i) => allUserPermissions.includes(i))
 
             if (hasAllThePermissions) {
                 return true

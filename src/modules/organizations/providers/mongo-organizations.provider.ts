@@ -7,7 +7,7 @@ import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
 export class OrganizationsMongoProvider extends MongoProvider<Organization> {
-    version = 6
+    version = 7
 
     constructor() {
         super('Organization', db)
@@ -198,6 +198,27 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
                 { _id: this.toObjectId(organization.id) },
                 {
                     $set: data,
+                },
+            )
+        }
+    }
+
+    public async migrate_from_6_to_7(): Promise<void> {
+        const cursor = await this.getCollection().find({})
+        const allOrganizations: any[] = await cursor.toArray()
+        for (let organization of allOrganizations) {
+            if (!organization.options || Object.keys(organization.options).length === 0) {
+                organization.options = new OrganizationOptions()
+            }
+            const notifications: OrganizationNotifications = organization.options.notifications
+            notifications.slackToken = null
+            notifications.slackChannel = null
+            await this.update(
+                { _id: this.toObjectId(organization.id) },
+                {
+                    $set: {
+                        options: organization.options,
+                    },
                 },
             )
         }

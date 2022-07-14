@@ -249,6 +249,8 @@ export class DiscussionsService extends AutowiredService implements GenericServi
                 emailsCentralized = organization.options.notifications.emails
             }
 
+            const user: User = await this.usersService.getUserById(token.id)
+
             // Notify when a new assignment is settled
             for (const dbAssignee of data.assignees) {
                 const existsInNewAssignees = discussion.assignees.find((incomingAssignee) => dbAssignee === incomingAssignee)
@@ -259,6 +261,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
 
                     // To the assignee
                     this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_NEW_ASSIGNEE, {
+                        user,
                         to: assigneeUser.email,
                         assigneeUser,
                         organization,
@@ -266,9 +269,10 @@ export class DiscussionsService extends AutowiredService implements GenericServi
                         discussion,
                         frontendUrl,
                     })
-
+                    
                     // To the author
                     this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_USER_ASSIGNED, {
+                        user,
                         to: isCentralized ? emailsCentralized : authorUser.email,
                         assigneeUser,
                         organization,
@@ -285,13 +289,13 @@ export class DiscussionsService extends AutowiredService implements GenericServi
 
             if (removedAssignees) {
                 // Notify to removed assignees and creator
-                console.log(`Removed ${removedAssignees}`)
 
                 for (const removed of removedAssignees) {
                     const removedUser: User = await this.usersService.getUserById(removed)
 
                     // To the assignee
                     this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_REMOVE_ASSIGNEE, {
+                        user,
                         to: removedUser.email,
                         assigneeUser: removedUser,
                         organization,
@@ -299,9 +303,10 @@ export class DiscussionsService extends AutowiredService implements GenericServi
                         discussion,
                         frontendUrl,
                     })
-                    
+
                     // To the author
                     this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_USER_UNASSIGNED, {
+                        user,
                         to: isCentralized ? emailsCentralized : authorUser.email,
                         assigneeUser: removedUser,
                         organization,

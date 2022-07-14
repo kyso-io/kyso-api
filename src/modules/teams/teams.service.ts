@@ -11,6 +11,7 @@ import {
     KysoTeamsDeleteEvent,
     KysoTeamsRemoveMemberEvent,
     KysoTeamsUpdateEvent,
+    KysoTeamsUpdateMemberRolesEvent,
     Organization,
     OrganizationMember,
     OrganizationMemberJoin,
@@ -217,6 +218,14 @@ export class TeamsService extends AutowiredService {
     }
 
     async addMembersById(teamId: string, memberIds: string[], rolesToApply: string[]): Promise<void> {
+        const team: Team = await this.getTeamById(teamId)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const isCentralized: boolean = organization?.options?.notifications?.centralized || false
+        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+        let emailsCentralized: string[] = []
+        if (isCentralized) {
+            emailsCentralized = organization.options.notifications.emails
+        }
         for (const userId of memberIds) {
             const belongs: boolean = await this.userBelongsToTeam(teamId, userId)
             if (belongs) {
@@ -224,6 +233,21 @@ export class TeamsService extends AutowiredService {
             }
             const member: TeamMemberJoin = new TeamMemberJoin(teamId, userId, rolesToApply, true)
             await this.teamMemberProvider.create(member)
+            const user: User = await this.usersService.getUserById(userId)
+            try {
+                this.client
+                    .emit<KysoTeamsAddMemberEvent>(KysoEvent.TEAMS_ADD_MEMBER, {
+                        user,
+                        organization,
+                        team,
+                        emailsCentralized,
+                        frontendUrl,
+                        roles: rolesToApply,
+                    })
+                    .subscribe((result) => console.log(result))
+            } catch (ex) {
+                Logger.error('Error sending notifications of new member in a team', ex)
+            }
         }
     }
 
@@ -539,27 +563,6 @@ export class TeamsService extends AutowiredService {
             [user.id],
             roles.map((x) => x.name),
         )
-
-        // SEND NOTIFICATIONS
-        try {
-            const isCentralized: boolean = organization?.options?.notifications?.centralized || false
-            const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-            let emailsCentralized: string[] = []
-            if (isCentralized) {
-                emailsCentralized = organization.options.notifications.emails
-            }
-            this.client.emit<KysoTeamsAddMemberEvent>(KysoEvent.TEAMS_ADD_MEMBER, {
-                user,
-                organization,
-                team,
-                emailsCentralized,
-                frontendUrl,
-                roles: roles.map((x) => x.name),
-            })
-        } catch (ex) {
-            Logger.error('Error sending notifications of new member in a team', ex)
-        }
-
         return this.getMembers(teamId)
     }
 
@@ -596,13 +599,15 @@ export class TeamsService extends AutowiredService {
             if (isCentralized) {
                 emailsCentralized = organization.options.notifications.emails
             }
-            this.client.emit<KysoTeamsRemoveMemberEvent>(KysoEvent.TEAMS_REMOVE_MEMBER, {
-                user,
-                organization,
-                team,
-                emailsCentralized,
-                frontendUrl,
-            })
+            this.client
+                .emit<KysoTeamsRemoveMemberEvent>(KysoEvent.TEAMS_REMOVE_MEMBER, {
+                    user,
+                    organization,
+                    team,
+                    emailsCentralized,
+                    frontendUrl,
+                })
+                .subscribe((result) => console.log(result))
         } catch (ex) {
             Logger.error('Error sending notifications of removed member in a team', ex)
         }
@@ -615,30 +620,38 @@ export class TeamsService extends AutowiredService {
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
-        // const validRoles: string[] = team.roles.map((role: KysoRole) => role.name)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const isCentralized: boolean = organization?.options?.notifications?.centralized || false
+        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+        let emailsCentralized: string[] = []
+        if (isCentralized) {
+            emailsCentralized = organization.options.notifications.emails
+        }
+
         const members: TeamMemberJoin[] = await this.teamMemberProvider.getMembers(team.id)
         for (const element of data.members) {
             const user: User = await this.usersService.getUserById(element.userId)
             if (!user) {
                 throw new PreconditionFailedException('User does not exist')
             }
-
             const member: TeamMemberJoin = members.find((x: TeamMemberJoin) => x.member_id === user.id)
-
             if (!member) {
-                /*try {
-                    const kysoRole: KysoRole = PlatformRole.ALL_PLATFORM_ROLES.find(x => x.name === element.role)
-                    this.addMemberToTeam(team.id, element.userId, [kysoRole])
-                } catch(ex) {
-                    Logger.error(ex)
-                }*/
-                // IF IS NOT A MEMBER. CREATE IT
-                this.teamMemberProvider.create(new TeamMemberJoin(team.id, element.userId, [element.role], true))
+                await this.addMembersById(teamId, [user.id], [element.role])
             } else {
                 await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
+                this.client
+                    .emit<KysoTeamsUpdateMemberRolesEvent>(KysoEvent.TEAMS_UPDATE_MEMBER_ROLES, {
+                        user,
+                        organization,
+                        team,
+                        emailsCentralized,
+                        frontendUrl,
+                        previousRoles: member.role_names,
+                        currentRoles: [element.role],
+                    })
+                    .subscribe((result) => console.log(result))
             }
         }
-
         return this.getMembers(team.id)
     }
 

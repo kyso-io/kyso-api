@@ -342,13 +342,15 @@ export class OrganizationsService extends AutowiredService {
             if (isCentralized) {
                 emailsCentralized = organization.options.notifications.emails
             }
-            this.client.send<KysoOrganizationsAddMemberEvent>(KysoEvent.ORGANIZATIONS_ADD_MEMBER, {
-                user,
-                organization,
-                emailsCentralized,
-                role: addUserOrganizationDto.role,
-                frontendUrl,
-            })
+            this.client
+                .send<KysoOrganizationsAddMemberEvent>(KysoEvent.ORGANIZATIONS_ADD_MEMBER, {
+                    user,
+                    organization,
+                    emailsCentralized,
+                    role: addUserOrganizationDto.role,
+                    frontendUrl,
+                })
+                .subscribe((result) => console.log(result))
         } catch (ex) {
             Logger.error('Error sending notifications of new member in an organization', ex)
         }
@@ -387,13 +389,15 @@ export class OrganizationsService extends AutowiredService {
         if (isCentralized) {
             emailsCentralized = organization.options.notifications.emails
         }
-        this.client.send<KysoOrganizationsAddMemberEvent>(KysoEvent.ORGANIZATIONS_ADD_MEMBER, {
-            user,
-            organization,
-            emailsCentralized,
-            role,
-            frontendUrl,
-        })
+        this.client
+            .send<KysoOrganizationsAddMemberEvent>(KysoEvent.ORGANIZATIONS_ADD_MEMBER, {
+                user,
+                organization,
+                emailsCentralized,
+                role,
+                frontendUrl,
+            })
+            .subscribe((result) => console.log(result))
         return true
     }
 
@@ -429,12 +433,15 @@ export class OrganizationsService extends AutowiredService {
         if (isCentralized) {
             emailsCentralized = organization.options.notifications.emails
         }
-        this.client.send<KysoOrganizationsRemoveMemberEvent>(KysoEvent.ORGANIZATIONS_REMOVE_MEMBER, {
-            user,
-            organization,
-            emailsCentralized,
-            frontendUrl,
-        })
+
+        this.client
+            .send<KysoOrganizationsRemoveMemberEvent>(KysoEvent.ORGANIZATIONS_REMOVE_MEMBER, {
+                user,
+                organization,
+                emailsCentralized,
+                frontendUrl,
+            })
+            .subscribe((result) => console.log(result))
         return this.getOrganizationMembers(organization.id)
     }
 
@@ -442,6 +449,12 @@ export class OrganizationsService extends AutowiredService {
         const organization: Organization = await this.getOrganizationById(organizationId)
         if (!organization) {
             throw new PreconditionFailedException('Organization does not exist')
+        }
+        const isCentralized: boolean = organization?.options?.notifications?.centralized || false
+        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+        let emailsCentralized: string[] = []
+        if (isCentralized) {
+            emailsCentralized = organization.options.notifications.emails
         }
         const validRoles: string[] = [
             PlatformRole.TEAM_ADMIN_ROLE.name,
@@ -462,6 +475,18 @@ export class OrganizationsService extends AutowiredService {
             }
             if (!validRoles.includes(element.role)) {
                 throw new PreconditionFailedException(`Role ${element.role} is not valid`)
+            }
+            if (!member.role_names.includes(element.role)) {
+                this.client
+                    .send<KysoOrganizationsAddMemberEvent>(KysoEvent.ORGANIZATIONS_UPDATE_MEMBER_ROLE, {
+                        user,
+                        organization,
+                        emailsCentralized,
+                        previousRole: member.role_names[0],
+                        currentRole: element.role,
+                        frontendUrl,
+                    })
+                    .subscribe((result) => console.log(result))
             }
             await this.organizationMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
         }
