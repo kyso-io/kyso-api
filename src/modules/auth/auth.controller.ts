@@ -48,6 +48,8 @@ import { PlatformRoleService } from './platform-role.service'
 import { UserRoleService } from './user-role.service'
 import { v4 as uuidv4 } from 'uuid'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
+const querystring = require('querystring');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const Saml2js = require('saml2js')
 
 @ApiTags('auth')
@@ -408,7 +410,7 @@ export class AuthController extends GenericController<string> {
         const splittedUri: string[] = originalUri.split('/')
         const organizationName = splittedUri[0]
         const teamName = splittedUri[1]
-        const reportName = splittedUri[3]
+        // const reportName = splittedUri[3]
 
         const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
         if (!organization) {
@@ -425,12 +427,23 @@ export class AuthController extends GenericController<string> {
             return
         }
 
+        // Read token from cookie or querystring
+        let token: Token
         if (!cookies || !cookies['kyso-jwt-token'] || cookies['kyso-jwt-token'].length === 0) {
-            response.status(HttpStatus.FORBIDDEN).send()
-            return
+            // check if we have a query string
+            const qi: number = originalUri.indexOf('?')
+            // no token in cookies or querystring, forbidden
+            if (qi == -1) {
+                response.status(HttpStatus.FORBIDDEN).send()
+                return
+            }
+            // try to find the token on the query string
+            const qs = querystring.parse(originalUri.substring(qi + 1))
+            token = this.authService.evaluateAndDecodeToken(qs.get('token'))
+        } else {
+            token = this.authService.evaluateAndDecodeToken(cookies['kyso-jwt-token'])
         }
 
-        const token: Token = this.authService.evaluateAndDecodeToken(cookies['kyso-jwt-token'])
         if (!token) {
             response.status(HttpStatus.FORBIDDEN).send()
             return
