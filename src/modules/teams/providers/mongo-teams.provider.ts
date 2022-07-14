@@ -6,7 +6,8 @@ import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
 export class TeamsMongoProvider extends MongoProvider<Team> {
-    version = 2
+    version = 3
+
     constructor() {
         super('Team', db)
     }
@@ -19,7 +20,7 @@ export class TeamsMongoProvider extends MongoProvider<Team> {
      * Refactored properties:
      *     - nickname to display_name
      *     - name to sluglified_name
-     * 
+     *
      * This migration do:
      *     - Iterates through every document in Teams collection
      *     - For each of them:
@@ -27,7 +28,7 @@ export class TeamsMongoProvider extends MongoProvider<Team> {
      *         - Updates new display_name with nickname value
      *         - Updates new sluglified_name with name value, but sluglifing it
      *         - Updates name value as well but sluglifing it
-     * 
+     *
      * This migration DOES NOT DELETE name nor nickname, to be backwards compatible, but these properties are deprecated and will be deleted in next migrations
      *
      */
@@ -35,11 +36,11 @@ export class TeamsMongoProvider extends MongoProvider<Team> {
         const cursor = await this.getCollection().find({})
         const allTeams: any[] = await cursor.toArray()
 
-        for(let team of allTeams) {
+        for (let team of allTeams) {
             const data: any = {
                 display_name: team.nickname,
                 name: slug(team.name),
-                sluglified_name: slug(team.name)
+                sluglified_name: slug(team.name),
             }
 
             await this.update(
@@ -49,8 +50,20 @@ export class TeamsMongoProvider extends MongoProvider<Team> {
                 },
             )
         }
+    }
 
-        // This is made automatically, so don't need to add it explicitly
-        // await this.saveModelVersion(2)      
+    async migrate_from_2_to_3() {
+        const cursor = await this.getCollection().find({})
+        const allTeams: Team[] = await cursor.toArray()
+        for (let team of allTeams) {
+            await this.update(
+                { _id: this.toObjectId(team.id) },
+                {
+                    $set: {
+                        slackChannel: null,
+                    },
+                },
+            )
+        }
     }
 }

@@ -96,7 +96,7 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
         return new NormalizedResponseDTO(activityFeed)
     }
 
-    @Get('oragnization/:organizationName/team/:teamName')
+    @Get('organization/:organizationName/team/:teamName')
     @ApiOperation({
         summary: `Search and fetch activity feed for a team`,
     })

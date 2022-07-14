@@ -124,14 +124,27 @@ export class CommentsService extends AutowiredService {
 
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const user: User = await this.usersService.getUserById(token.id)
-        this.client.emit<KysoCommentsCreateEvent>(KysoEvent.COMMENTS_CREATE, {
-            user,
-            organization,
-            team,
-            comment: commentDto,
-            discussion,
-            report,
-        })
+        if (newComment?.comment_id) {
+            this.client.emit<KysoCommentsCreateEvent>(KysoEvent.COMMENTS_REPLY, {
+                user,
+                organization,
+                team,
+                comment: commentDto,
+                discussion,
+                report,
+                frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+            })
+        } else {
+            this.client.emit<KysoCommentsCreateEvent>(KysoEvent.COMMENTS_CREATE, {
+                user,
+                organization,
+                team,
+                comment: commentDto,
+                discussion,
+                report,
+                frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+            })
+        }
 
         if (discussion) {
             await this.checkMentionsInDiscussionComment(newComment, commentDto.user_ids)
@@ -242,6 +255,7 @@ export class CommentsService extends AutowiredService {
             comment,
             discussion,
             report,
+            frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
         })
 
         if (updatedComment?.discussion_id) {
@@ -319,6 +333,7 @@ export class CommentsService extends AutowiredService {
             comment,
             discussion,
             report,
+            frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
         })
 
         if (discussion) {
