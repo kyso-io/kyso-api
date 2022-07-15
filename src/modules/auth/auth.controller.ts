@@ -27,11 +27,12 @@ import {
     Param,
     Post,
     PreconditionFailedException,
+    Query,
     Req,
     Res,
     UnauthorizedException,
 } from '@nestjs/common'
-import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import * as moment from 'moment'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -390,7 +391,20 @@ export class AuthController extends GenericController<string> {
         description: 'Original SCS url',
         required: true,
     })
-    async checkPermissions(@Headers('x-original-uri') originalUri, @Res() response: any, @Cookies() cookies: any) {
+    @ApiQuery({
+        name: "token",
+        type: String,
+        description: "JWT Token to check. Optional",
+        required: false
+    })
+    async checkPermissions(
+        @Headers('x-original-uri') originalUri, 
+        @Res() response: any, 
+        @Cookies() cookies: any,
+        @Query('token') queryToken?: string
+    ) {
+        Logger.log(`Checking permissions for ${originalUri}`);
+        
         if (process.env.NODE_ENV === 'development') {
             response.status(HttpStatus.OK).send()
             return
@@ -430,17 +444,14 @@ export class AuthController extends GenericController<string> {
         // Read token from cookie or querystring
         let token: Token
         if (!cookies || !cookies['kyso-jwt-token'] || cookies['kyso-jwt-token'].length === 0) {
-            // check if we have a query string
-            const qi: number = originalUri.indexOf('?')
-            // no token in cookies or querystring, forbidden
-            if (qi == -1) {
-                response.status(HttpStatus.FORBIDDEN).send()
-                return
-            }
-            // try to find the token on the query string
-            const qs = querystring.parse(originalUri.substring(qi + 1))
-            token = this.authService.evaluateAndDecodeToken(qs.get('token'))
+            Logger.log(`No cookies set. Looking for query string token`);
+            Logger.log(`Received token: ${queryToken}`);
+            
+            token = this.authService.evaluateAndDecodeToken(queryToken)
         } else {
+            Logger.log(`There are cookies`);
+            Logger.log(`Received token: ${cookies['kyso-jwt-token']}`);
+            
             token = this.authService.evaluateAndDecodeToken(cookies['kyso-jwt-token'])
         }
 
