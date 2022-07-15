@@ -452,7 +452,9 @@ export class AuthController extends GenericController<string> {
                 token = this.authService.evaluateAndDecodeToken(queryToken)
             } else {
                 Logger.log(`Query Token not received. Trying to extract it from the original-uri`)
-                const extractedToken = querystring.parse(originalUri).token;
+                const parsedQueryString = querystring.parse(originalUri);
+                console.log(parsedQueryString)
+                const extractedToken = parsedQueryString.token;
                 Logger.log(`Extracted token ${extractedToken}`);
 
                 token = this.authService.evaluateAndDecodeToken(extractedToken);
