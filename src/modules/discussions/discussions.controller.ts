@@ -216,6 +216,8 @@ export class DiscussionsController extends GenericController<Discussion> {
     @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
     public async updateDiscussion(
         @CurrentToken() token: Token,
+        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @Param('discussionId') discussionId: string,
         @Body() data: UpdateDiscussionRequestDTO,
     ): Promise<NormalizedResponseDTO<Discussion>> {

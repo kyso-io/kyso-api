@@ -67,8 +67,8 @@ export class PermissionsGuard implements CanActivate {
             // Set token in request to get access in controller
             request.token = tokenPayload
 
-            const team = request.headers[HEADER_X_KYSO_TEAM]
-            const organization = request.headers[HEADER_X_KYSO_ORGANIZATION]
+            const team: string = request.headers[HEADER_X_KYSO_TEAM] as string
+            const organization: string = request.headers[HEADER_X_KYSO_ORGANIZATION] as string
 
             const permissionToActivateEndpoint = this.reflector.getAllAndOverride<any>(PERMISSION_KEY, [context.getHandler(), context.getClass()])
 

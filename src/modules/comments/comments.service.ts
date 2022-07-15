@@ -18,7 +18,7 @@ import {
     Token,
     User,
 } from '@kyso-io/kyso-model'
-import { Inject, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ForbiddenException, Inject, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'

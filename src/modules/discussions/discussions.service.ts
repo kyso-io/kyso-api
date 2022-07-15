@@ -15,8 +15,9 @@ import {
     Token,
     UpdateDiscussionRequestDTO,
     User,
+    DiscussionPermissionsEnum,
 } from '@kyso-io/kyso-model'
-import { Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -226,6 +227,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
             Logger.error(`Organization: ${organization.id}`)
             throw new PreconditionFailedException('Discussion, team or organization not found')
         }
+        /* ¿¿Why is this here??
         if (discussion.user_id !== token.id) {
             const hasPermissions: boolean = AuthService.hasPermissions(
                 token,
@@ -236,7 +238,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to update this discussion')
             }
-        }
+        }*/
         
         // SEND NOTIFICATIONS
         try {
