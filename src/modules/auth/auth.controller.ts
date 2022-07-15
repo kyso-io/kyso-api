@@ -49,6 +49,8 @@ import { PlatformRoleService } from './platform-role.service'
 import { UserRoleService } from './user-role.service'
 import { v4 as uuidv4 } from 'uuid'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
+const querystring = require('querystring');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const Saml2js = require('saml2js')
 
 @ApiTags('auth')
@@ -443,9 +445,20 @@ export class AuthController extends GenericController<string> {
         let token: Token
         if (!cookies || !cookies['kyso-jwt-token'] || cookies['kyso-jwt-token'].length === 0) {
             Logger.log(`No cookies set. Looking for query string token`);
+            
+            
+            if(queryToken) {
+                Logger.log(`Received query token: ${queryToken}`);
+                token = this.authService.evaluateAndDecodeToken(queryToken)
+            } else {
+                Logger.log(`Query Token not received. Trying to extract it from the original-uri`)
+                const extractedToken = querystring.parse(originalUri).token;
+                Logger.log(`Extracted token ${extractedToken}`);
+
+                token = this.authService.evaluateAndDecodeToken(extractedToken);
+            }
             Logger.log(`Received token: ${queryToken}`);
             
-            token = this.authService.evaluateAndDecodeToken(queryToken)
         } else {
             Logger.log(`There are cookies`);
             Logger.log(`Received token: ${cookies['kyso-jwt-token']}`);
@@ -454,6 +467,7 @@ export class AuthController extends GenericController<string> {
         }
 
         if (!token) {
+            Logger.log("Didn't received any token. Forbidden");
             response.status(HttpStatus.FORBIDDEN).send()
             return
         }
