@@ -499,6 +499,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const user: User = await this.usersService.getUserById(token.id)
+        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { pin: !report.pin } })
         if (report.pin) {
             this.client.emit<KysoReportsPinEvent>(KysoEvent.REPORTS_PIN_GLOBAL, {
@@ -506,6 +507,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 organization,
                 team,
                 report,
+                frontendUrl,
             })
         } else {
             this.client.emit<KysoReportsPinEvent>(KysoEvent.REPORTS_UNPIN_GLOBAL, {
@@ -513,6 +515,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 organization,
                 team,
                 report,
+                frontendUrl,
             })
         }
         return report
@@ -532,6 +535,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const user: User = await this.usersService.getUserById(token.id)
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
         if (pinnedReports.length === 0) {
             await this.pinnedReportsMongoProvider.create({
                 user_id: token.id,
@@ -542,6 +546,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 organization,
                 team,
                 report,
+                frontendUrl,
             })
         } else {
             const pinnedReport: PinnedReport = pinnedReports[0]
@@ -551,6 +556,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 organization,
                 team,
                 report,
+                frontendUrl,
             })
         }
         return this.getReportById(report.id)
@@ -570,6 +576,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const user: User = await this.usersService.getUserById(token.id)
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
         if (starredReports.length === 0) {
             await this.starredReportsMongoProvider.create({
                 user_id: token.id,
@@ -580,6 +587,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 organization,
                 team,
                 report,
+                frontendUrl,
             })
         } else {
             const pinnedReport: StarredReport = starredReports[0]
@@ -589,6 +597,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 organization,
                 team,
                 report,
+                frontendUrl,
             })
         }
         return this.getReportById(report.id)
