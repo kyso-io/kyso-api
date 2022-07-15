@@ -49,8 +49,6 @@ import { PlatformRoleService } from './platform-role.service'
 import { UserRoleService } from './user-role.service'
 import { v4 as uuidv4 } from 'uuid'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const querystring = require('querystring');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const Saml2js = require('saml2js')
 
 @ApiTags('auth')
