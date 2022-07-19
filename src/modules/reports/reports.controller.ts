@@ -722,7 +722,7 @@ export class ReportsController extends GenericController<Report> {
         @Param('teamName') teamNameParam: string,
         @Query('version') versionStr: string,
         @Res() response: any,
-    ): Promise<any> {
+    ) {
         Logger.log('Pulling report')
         const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
         if (!organization) {

@@ -193,7 +193,7 @@ export class UsersController extends GenericController<User> {
     async deleteUserAccessToken(
         @CurrentToken() token: Token,
         @Param('accessTokenId') accessTokenId: string,
-    ): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+    ): Promise<NormalizedResponseDTO<KysoUserAccessToken>> {
         if (!Validators.isValidObjectId(accessTokenId)) {
             throw new BadRequestException(`Invalid access token id ${accessTokenId}`)
         }
