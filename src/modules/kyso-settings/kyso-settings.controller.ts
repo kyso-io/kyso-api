@@ -48,6 +48,7 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
         type: KysoSetting,
         isArray: true,
     })
+    @Public()
     public async getOnlyPublicSettings(): Promise<NormalizedResponseDTO<KysoSetting[]>> {
         const allSettings: KysoSetting[] = await this.kysoSettingsService.getAll()
 

@@ -283,6 +283,9 @@ export class AuthController extends GenericController<string> {
     })
     @ApiNormalizedResponse({ status: 200, description: `Sent email`, type: Boolean })
     public async sendVerifyEmail(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<boolean>> {
+        if (!token) {
+            throw new UnauthorizedException('No token provided')
+        }
         const user: User = await this.usersService.getUserById(token.id)
         const result: boolean = await this.usersService.sendVerificationEmail(user)
         return new NormalizedResponseDTO(result)
