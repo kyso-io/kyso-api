@@ -9,6 +9,7 @@ import {
     Relations,
     Report,
     Team,
+    TeamVisibilityEnum,
     Token,
     UpdateInlineCommentDto,
 } from '@kyso-io/kyso-model'
@@ -78,10 +79,19 @@ export class InlineCommentController extends GenericController<InlineComment> {
         if (!report) {
             throw new NotFoundException('Report not found')
         }
-        const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
-        const index: number = teams.findIndex((team: Team) => team.id === report.team_id)
-        if (index === -1) {
-            throw new ForbiddenException('You are not allowed to see comments of this report')
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (!team) {
+            throw new NotFoundException('Team not found')
+        }
+        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            if (!token) {
+                throw new ForbiddenException('You are not authorized to access this resource')
+            }
+            const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+            const index: number = teams.findIndex((t: Team) => t.id === team.id)
+            if (index === -1) {
+                throw new ForbiddenException('You are not allowed to see comments of this report')
+            }
         }
         const inlineComments: InlineComment[] = await this.inlineCommentsService.getGivenReportId(reportId)
         const relations: Relations = await this.relationsService.getRelations(inlineComments, 'InlineComment')
@@ -101,7 +111,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
         description: 'Inline comment created',
         type: InlineCommentDto,
     })
-    // @Permission([InlineCommentPermissionsEnum.CREATE])
+    @Permission([InlineCommentPermissionsEnum.CREATE])
     async createInlineComment(
         @CurrentToken() token: Token,
         @Body() createInlineCommentDto: CreateInlineCommentDto,
