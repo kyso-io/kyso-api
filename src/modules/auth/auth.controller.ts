@@ -461,7 +461,7 @@ export class AuthController extends GenericController<string> {
                 }
                 // try to find the token on the query string
                 const qs = querystring.parse(originalUri.substring(qi + 1))
-                console.log(qs)
+                
                 Logger.log(`Extracted token ${qs.token}`);
                 token = this.authService.evaluateAndDecodeToken(qs.token)
             }
