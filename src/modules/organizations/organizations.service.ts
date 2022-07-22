@@ -17,7 +17,9 @@ import {
     OrganizationMemberJoin,
     OrganizationOptions,
     OrganizationStorageDto,
+    PaginatedResponseDto,
     Report,
+    ReportDTO,
     ResourcePermissions,
     StorageDto,
     Team,
@@ -777,5 +779,64 @@ export class OrganizationsService extends AutowiredService {
         organizationStorageDto.consumedSpaceGb = organizationStorageDto.teams.reduce((acc: number, cur: StorageDto) => acc + cur.consumedSpaceGb, 0)
 
         return organizationStorageDto
+    }
+
+    public async getOrganizationReports(
+        token: Token,
+        organizationSlug: string,
+        page: number,
+        limit: number,
+        sort: string,
+    ): Promise<PaginatedResponseDto<ReportDTO>> {
+        const organization: Organization = await this.getOrganization({ filter: { sluglified_name: organizationSlug } })
+        if (!organization) {
+            Logger.log(`Organization ${organizationSlug} not found`)
+            throw new NotFoundException(`Organization ${organizationSlug} not found`)
+        }
+        let teams: Team[] = []
+        if (token) {
+            teams = await this.teamsService.getTeamsVisibleForUser(token.id)
+            if (teams.length > 0) {
+                teams = teams.filter((x: Team) => x.organization_id === organization.id)
+            } else {
+                teams = await this.teamsService.getTeams({ filter: { organization_id: organization.id, visibility: TeamVisibilityEnum.PUBLIC } })
+            }
+        } else {
+            teams = await this.teamsService.getTeams({ filter: { organization_id: organization.id, visibility: TeamVisibilityEnum.PUBLIC } })
+        }
+        const query: any = {
+            filter: {
+                team_id: { $in: teams.map((x: Team) => x.id) },
+            },
+        }
+        const totalItems: number = await this.reportsService.countReports(query)
+
+        query.limit = limit
+        query.skip = (page - 1) * limit
+        query.sort = {
+            pin: -1,
+            created_at: -1,
+        }
+        if (sort) {
+            let key: string = sort
+            let value: number = 1
+            if (sort.indexOf('-') === 0) {
+                key = sort.substring(1)
+                value = -1
+            }
+            query.sort[key] = value
+        }
+
+        const totalPages: number = Math.ceil(totalItems / limit)
+        const reports: Report[] = await this.reportsService.getReports(query)
+        const results: ReportDTO[] = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token?.id)))
+        return {
+            currentPage: page,
+            itemCount: results.length,
+            itemsPerPage: Math.min(query.limit, results.length),
+            results,
+            totalItems,
+            totalPages,
+        }
     }
 }
