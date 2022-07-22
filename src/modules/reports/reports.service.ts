@@ -2862,4 +2862,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         return files[0].version
     }
+
+    public async countReports(query: any): Promise<number> {
+        return await this.provider.count(query)
+    }
+
 }

@@ -8,6 +8,9 @@ import {
     OrganizationOptions,
     OrganizationPermissionsEnum,
     OrganizationStorageDto,
+    PaginatedResponseDto,
+    Relations,
+    ReportDTO,
     StoragePermissionsEnum,
     TeamPermissionsEnum,
     Token,
@@ -427,5 +430,33 @@ export class OrganizationsController extends GenericController<Organization> {
     public async deleteBackgroundImage(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
         const organization: Organization = await this.organizationService.deleteProfilePicture(organizationId)
         return new NormalizedResponseDTO(organization)
+    }
+
+    @Public()
+    @Get('/:organizationSlug/reports')
+    @ApiParam({
+        name: 'organizationSlug',
+        required: true,
+        description: `Slug of the organization to fetch reports`,
+        schema: { type: 'string' },
+    })
+    public async getOrganizationReports(
+        @CurrentToken() token: Token,
+        @Param('organizationSlug') organizationSlug: string,
+        @Query('page') pageStr: string,
+        @Query('limit') limitStr: string,
+        @Query('sort') sort: string,
+    ): Promise<NormalizedResponseDTO<PaginatedResponseDto<ReportDTO>>> {
+        let page: number = 1
+        if (pageStr && !isNaN(pageStr as any)) {
+            page = parseInt(pageStr, 10)
+        }
+        let limit: number = 30
+        if (limitStr && !isNaN(limitStr as any)) {
+            limit = parseInt(limitStr, 10)
+        }
+        const paginatedResponseDto: PaginatedResponseDto<ReportDTO> = await this.organizationService.getOrganizationReports(token, organizationSlug, page, limit, sort)
+        const relations: Relations = await this.relationsService.getRelations(paginatedResponseDto.results, 'report', { Author: 'User' })
+        return new NormalizedResponseDTO(paginatedResponseDto, relations)
     }
 }
