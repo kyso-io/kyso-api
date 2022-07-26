@@ -12,6 +12,7 @@ import {
     KysoConfigFile,
     KysoEvent,
     KysoIndex,
+    KysoReportsAuthorEvent,
     KysoReportsCreateEvent,
     KysoReportsDeleteEvent,
     KysoReportsNewVersionEvent,
@@ -19,6 +20,7 @@ import {
     KysoReportsStarEvent,
     KysoReportsUpdateEvent,
     KysoSettingsEnum,
+    KysoTagsEvent,
     LoginProviderEnum,
     Organization,
     PinnedReport,
@@ -336,18 +338,30 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
 
         if (updateReportRequestDTO?.tags) {
-            await this.checkReportTags(report.id, updateReportRequestDTO.tags || [])
+            await this.checkReportTags(token.id, report.id, updateReportRequestDTO.tags || [])
             delete updateReportRequestDTO.tags
         }
+
+        const user: User = await this.usersService.getUserById(token.id)
+        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+
         const dataToUpdate: any = {}
         if (updateReportRequestDTO.author_emails && Array.isArray(updateReportRequestDTO.author_emails)) {
             dataToUpdate.author_ids = [report.user_id]
             for (const email of updateReportRequestDTO.author_emails) {
-                const user = await this.usersService.getUser({ filter: { email } })
-                if (user) {
-                    const index = dataToUpdate.author_ids.indexOf(user.id)
+                const author: User = await this.usersService.getUser({ filter: { email } })
+                if (author) {
+                    const index = dataToUpdate.author_ids.indexOf(author.id)
                     if (index === -1) {
-                        dataToUpdate.author_ids.push(user.id)
+                        dataToUpdate.author_ids.push(author.id)
+                        this.client.emit<KysoReportsAuthorEvent>(KysoEvent.REPORTS_ADD_AUTHOR, {
+                            user,
+                            author,
+                            organization,
+                            team,
+                            report,
+                            frontendUrl,
+                        })
                     }
                 }
             }
@@ -370,11 +384,11 @@ export class ReportsService extends AutowiredService implements GenericService<R
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: dataToUpdate })
 
         this.client.emit<KysoReportsUpdateEvent>(KysoEvent.REPORTS_UPDATE, {
-            user: await this.usersService.getUserById(token.id),
+            user,
             organization,
             team,
             report,
-            frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+            frontendUrl,
         })
 
         const kysoIndex: KysoIndex = new KysoIndex()
@@ -910,7 +924,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
                 }
             }
-            await this.checkReportTags(report.id, kysoConfigFile.tags)
+            await this.checkReportTags(userId, report.id, kysoConfigFile.tags)
         }
 
         new Promise<void>(async () => {
@@ -1151,7 +1165,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
                     }
                 }
-                await this.checkReportTags(report.id, kysoConfigFile.tags)
+                await this.checkReportTags(user.id, report.id, kysoConfigFile.tags)
             }
 
             newReports.push(report)
@@ -1354,7 +1368,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             }
         }
 
-        await this.checkReportTags(report.id, kysoConfigFile.tags)
+        await this.checkReportTags(userId, report.id, kysoConfigFile.tags)
 
         new Promise<void>(async () => {
             Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
@@ -1635,7 +1649,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 return
             }
 
-            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, isNew)
+            await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew)
 
             const team: Team = await this.teamsService.getTeamById(report.team_id)
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
@@ -1699,7 +1713,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name)
 
-        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, false)
+        await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false)
     }
 
     public async createReportFromBitbucketRepository(token: Token, repositoryName: string, branch: string): Promise<Report | Report[]> {
@@ -1823,7 +1837,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 return
             }
 
-            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, isNew)
+            await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew)
 
             const team: Team = await this.teamsService.getTeamById(report.team_id)
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
@@ -1971,7 +1985,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 return
             }
 
-            await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, isNew)
+            await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew)
 
             const team: Team = await this.teamsService.getTeamById(report.team_id)
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
@@ -2044,7 +2058,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
 
-        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, false)
+        await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false)
     }
 
     public async downloadGitlabRepo(token: Token, report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
@@ -2093,7 +2107,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name)
 
-        await this.uploadRepositoryFilesToSCS(report, extractedDir, kysoConfigFile, files, false)
+        await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false)
     }
 
     private async normalizeFilePaths(
@@ -2140,6 +2154,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     }
 
     private async uploadRepositoryFilesToSCS(
+        userId: string,
         report: Report,
         tmpDir: string,
         kysoConfigFile: KysoConfigFile,
@@ -2200,7 +2215,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         moveSync(tmpDir, extractedDir, { overwrite: true })
 
         if (isNew) {
-            await this.checkReportTags(report.id, kysoConfigFile.tags)
+            await this.checkReportTags(userId, report.id, kysoConfigFile.tags)
         }
 
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
@@ -2286,7 +2301,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         })
     }
 
-    private async checkReportTags(reportId: string, tags: string[]): Promise<Tag[]> {
+    private async checkReportTags(userId: string, reportId: string, tags: string[]): Promise<Tag[]> {
         const reportTags: Tag[] = []
         await this.tagsService.removeTagRelationsOfEntity(reportId)
         if (!tags || tags.length === 0) {
@@ -2297,6 +2312,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
         if (!Array.isArray(tags)) {
             checkedTags = [tags]
         }
+        const user: User = await this.usersService.getUserById(userId)
+        const report: Report = await this.getReportById(reportId)
+        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
         const normalizedTags: string[] = checkedTags.map((tag: string) => tag.trim().toLocaleLowerCase())
         const tagsDb: Tag[] = await this.tagsService.getTags({ filter: { name: { $in: normalizedTags } } })
         for (const tagName of normalizedTags) {
@@ -2305,6 +2323,12 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 // Create tag
                 tag = new Tag(tagName)
                 tag = await this.tagsService.createTag(tag)
+                this.client.emit<KysoTagsEvent>(KysoEvent.TAGS_CREATE, {
+                    user,
+                    tag,
+                    report,
+                    frontendUrl,
+                })
             }
             await this.tagsService.assignTagToEntity(tag.id, reportId, EntityEnum.REPORT)
             reportTags.push(tag)
@@ -2866,5 +2890,4 @@ export class ReportsService extends AutowiredService implements GenericService<R
     public async countReports(query: any): Promise<number> {
         return await this.provider.count(query)
     }
-
 }

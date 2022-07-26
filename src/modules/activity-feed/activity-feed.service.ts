@@ -48,7 +48,7 @@ export class ActivityFeedService extends AutowiredService {
         }
         const promises: Promise<ActivityFeed[]>[] = []
         for (const table of tables) {
-            promises.push((db.collection(table).find(query.filter) as any).toArray())
+            promises.push((db.collection(table).find(query.filter).sort(query.sort) as any).toArray())
         }
         const activityFeed: ActivityFeed[] = (await Promise.all(promises)).flat()
         return activityFeed
