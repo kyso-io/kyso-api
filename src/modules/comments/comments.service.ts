@@ -264,7 +264,9 @@ export class CommentsService extends AutowiredService {
 
         Logger.log(`Updating comment '${updatedComment.id}' of user '${updatedComment.user_id}' in Elasticsearch...`, CommentsService.name)
         const kysoIndex: KysoIndex = await this.commentToKysoIndex(updatedComment)
-        this.fullTextSearchService.updateDocument(kysoIndex)
+        if (kysoIndex) {
+            this.fullTextSearchService.updateDocument(kysoIndex)
+        }
 
         return updatedComment
     }
@@ -392,12 +394,20 @@ export class CommentsService extends AutowiredService {
         let team: Team = null
         if (comment.report_id) {
             const report: Report = await this.reportsService.getReportById(comment.report_id)
+            if (!report) {
+                Logger.error(`Report ${comment.report_id} could not be found`, CommentsService.name)
+                return null
+            }
             team = await this.teamsService.getTeamById(report.team_id)
             organization = await this.organizationsService.getOrganizationById(team.organization_id)
             kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC
             kysoIndex.link = `/${organization.sluglified_name}/${team.sluglified_name}/${report.sluglified_name}`
         } else if (comment.discussion_id) {
             const discussion: Discussion = await this.discussionsService.getDiscussionById(comment.discussion_id)
+            if (!discussion) {
+                Logger.error(`Discussion ${comment.discussion_id} could not be found`, CommentsService.name)
+                return null
+            }
             team = await this.teamsService.getTeamById(discussion.team_id)
             organization = await this.organizationsService.getOrganizationById(team.organization_id)
             kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC
@@ -438,6 +448,10 @@ export class CommentsService extends AutowiredService {
     private async indexComment(comment: Comment): Promise<any> {
         Logger.log(`Indexing comment '${comment.id}' of user '${comment.user_id}'`, CommentsService.name)
         const kysoIndex: KysoIndex = await this.commentToKysoIndex(comment)
-        return this.fullTextSearchService.indexDocument(kysoIndex)
+        if (kysoIndex) {
+            return this.fullTextSearchService.indexDocument(kysoIndex)
+        } else {
+            return null
+        }
     }
 }
