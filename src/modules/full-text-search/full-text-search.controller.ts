@@ -1,5 +1,5 @@
 import { ElasticSearchIndex, FullTextSearchDTO, GlobalPermissionsEnum, KysoSettingsEnum, NormalizedResponseDTO, Tag, Token } from '@kyso-io/kyso-model'
-import { Controller, Get, Logger, Query, UseGuards } from '@nestjs/common'
+import { BadRequestException, Controller, Get, Logger, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import axios, { AxiosResponse } from 'axios'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -77,6 +77,9 @@ export class FullTextSearchController {
     @ApiNormalizedResponse({ status: 200, description: `Search results`, type: Tag, isArray: true })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
     public async reindex(@Query('pathToIndex') pathToIndex: string) {
+        if (!pathToIndex) {
+            throw new BadRequestException('pathToIndex is required')
+        }
         try {
             const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
             const axiosResponse: AxiosResponse<any> = await axios.get(`${kysoIndexerApi}/api/reindex?pathToIndex=${pathToIndex}`)
