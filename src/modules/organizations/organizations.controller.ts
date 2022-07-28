@@ -134,6 +134,41 @@ export class OrganizationsController extends GenericController<Organization> {
         return new NormalizedResponseDTO(result)
     }
 
+    @Get('/slug/:organizationSlug')
+    @Public()
+    @ApiOperation({
+        summary: `Get an organization given slug`,
+        description: `Allows fetching content of a specific organization passing its slug`,
+    })
+    @ApiParam({
+        name: 'organizationSlug',
+        required: true,
+        description: `Slug of the organization to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Organization matching id`, type: Organization })
+    async getOrganizationBySlug(
+        @CurrentToken() token: Token,
+        @Param('organizationSlug') organizationSlug: string,
+    ): Promise<NormalizedResponseDTO<Organization>> {
+        const organization: Organization = await this.organizationService.getOrganization({
+            filter: {
+                sluglified_name: organizationSlug,
+            },
+        })
+        if (!organization) {
+            throw new PreconditionFailedException('Organization not found')
+        }
+        if (!token) {
+            delete organization.billingEmail
+            delete organization.stripe_subscription_id
+            delete organization.tax_identifier
+            delete organization.tax_identifier
+            delete organization.options
+        }
+        return new NormalizedResponseDTO(organization)
+    }
+
     @Get('/:organizationId')
     @ApiOperation({
         summary: `Get an organization`,
@@ -146,7 +181,7 @@ export class OrganizationsController extends GenericController<Organization> {
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Organization matching id`, type: Organization })
-    async getOrganization(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
+    async getOrganizationById(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
         const organization: Organization = await this.organizationService.getOrganizationById(organizationId)
         if (!organization) {
             throw new PreconditionFailedException('Organization not found')
@@ -455,7 +490,13 @@ export class OrganizationsController extends GenericController<Organization> {
         if (limitStr && !isNaN(limitStr as any)) {
             limit = parseInt(limitStr, 10)
         }
-        const paginatedResponseDto: PaginatedResponseDto<ReportDTO> = await this.organizationService.getOrganizationReports(token, organizationSlug, page, limit, sort)
+        const paginatedResponseDto: PaginatedResponseDto<ReportDTO> = await this.organizationService.getOrganizationReports(
+            token,
+            organizationSlug,
+            page,
+            limit,
+            sort,
+        )
         const relations: Relations = await this.relationsService.getRelations(paginatedResponseDto.results, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(paginatedResponseDto, relations)
     }
