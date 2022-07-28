@@ -33,7 +33,7 @@ export class OrganizationsModule {
                                 name: 'NATS_SERVICE',
                                 transport: Transport.NATS,
                                 options: {
-                                    servers: [server[0].value],
+                                    servers: server[0] ? [server[0].value] : [],
                                 },
                             }
                         },
