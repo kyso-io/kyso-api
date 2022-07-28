@@ -106,6 +106,7 @@ export class OrganizationsController extends GenericController<Organization> {
     }
 
     @Get('/info')
+    @Public()
     @ApiOperation({
         summary: `Get the number of members, reports, discussions and comments by organization`,
         description: `Allows fetching the number of members, reports, discussions and comments by organization`,
