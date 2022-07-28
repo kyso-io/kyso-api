@@ -587,7 +587,7 @@ export class OrganizationsService extends AutowiredService {
         return this.provider.update({ _id: this.provider.toObjectId(organization.id) }, { $set: { avatar_url: null } })
     }
 
-    public async getNumMembersAndReportsByOrganization(token: Token, organizationId: string): Promise<OrganizationInfoDto[]> {
+    public async getNumMembersAndReportsByOrganization(token: Token | null, organizationId: string): Promise<OrganizationInfoDto[]> {
         const map: Map<string, { members: number; reports: number; discussions: number; comments: number; lastChange: Date; avatar_url: string }> = new Map<
             string,
             { members: number; reports: number; discussions: number; comments: number; lastChange: Date; avatar_url: string }
@@ -595,7 +595,7 @@ export class OrganizationsService extends AutowiredService {
         const query: any = {
             filter: {},
         }
-        if (!token.isGlobalAdmin()) {
+        if (token && !token.isGlobalAdmin()) {
             query.filter.member_id = token.id
         }
         if (organizationId && organizationId.length > 0) {
@@ -625,24 +625,50 @@ export class OrganizationsService extends AutowiredService {
             filter: {},
         }
         const discussionsQuery: any = {
-            filter: {},
+            filter: {
+                mark_delete_at: null,
+            },
         }
         if (organizationId && organizationId.length > 0) {
             teamsQuery.filter.organization_id = organizationId
         }
-        if (token.isGlobalAdmin()) {
+        if (!token) {
+            if (organizationId) {
+                teamsQuery.filter.organization_id = organizationId
+            }
+            teamsQuery.filter.visibility = TeamVisibilityEnum.PUBLIC
+            teams = await this.teamsService.getTeams(teamsQuery)
+            if (teams.length > 0) {
+                reportsQuery.filter = {
+                    team_id: {
+                        $in: teams.map((x: Team) => x.id),
+                    },
+                }
+                discussionsQuery.filter = {
+                    team_id: {
+                        $in: teams.map((x: Team) => x.id),
+                    },
+                }
+            } else {
+                reportsQuery.filter = null
+            }
+        } else if (token.isGlobalAdmin()) {
             teams = await this.teamsService.getTeams(teamsQuery)
         } else {
             teams = await this.teamsService.getTeamsForController(token.id, teamsQuery)
-            reportsQuery.filter = {
-                team_id: {
-                    $in: teams.map((x: Team) => x.id),
-                },
-            }
-            discussionsQuery.filter = {
-                team_id: {
-                    $in: teams.map((x: Team) => x.id),
-                },
+            if (teams.length > 0) {
+                reportsQuery.filter = {
+                    team_id: {
+                        $in: teams.map((x: Team) => x.id),
+                    },
+                }
+                discussionsQuery.filter = {
+                    team_id: {
+                        $in: teams.map((x: Team) => x.id),
+                    },
+                }
+            } else {
+                reportsQuery.filter = null
             }
         }
         teams.forEach((team: Team) => {
@@ -651,7 +677,7 @@ export class OrganizationsService extends AutowiredService {
                 map.get(team.organization_id).lastChange = moment.max(moment(team.updated_at), moment(map.get(team.organization_id).lastChange)).toDate()
             }
         })
-        const reports: Report[] = await this.reportsService.getReports(reportsQuery)
+        const reports: Report[] = reportsQuery.filter ? await this.reportsService.getReports(reportsQuery) : []
         const mapReportOrg: Map<string, string> = new Map<string, string>()
         reports.forEach((report: Report) => {
             const organizationId: string | undefined = teamOrgMap.get(report.team_id)
@@ -665,12 +691,14 @@ export class OrganizationsService extends AutowiredService {
             map.get(organizationId).reports++
             map.get(organizationId).lastChange = moment.max(moment(report.updated_at), moment(map.get(organizationId).lastChange)).toDate()
         })
-        const discussions: Discussion[] = await this.discussionsService.getDiscussions(discussionsQuery)
+        const discussions: Discussion[] = discussionsQuery.filter ? await this.discussionsService.getDiscussions(discussionsQuery) : []
+        const mapDiscussionOrg: Map<string, string> = new Map<string, string>()
         discussions.forEach((discussion: Discussion) => {
             const organizationId: string | undefined = teamOrgMap.get(discussion.team_id)
             if (!organizationId) {
                 return
             }
+            mapDiscussionOrg.set(discussion.id, organizationId)
             if (!map.has(organizationId)) {
                 map.set(organizationId, {
                     members: 0,
@@ -687,19 +715,32 @@ export class OrganizationsService extends AutowiredService {
         const commentsQuery: any = {
             filter: {},
         }
-        if (!token.isGlobalAdmin()) {
+        if (!token || !token.isGlobalAdmin()) {
             commentsQuery.filter = {
-                $or: [
-                    {
-                        report_id: { $in: reports.map((report: Report) => report.id) },
-                        discussion_id: { $in: discussions.map((discussion: Discussion) => discussion.id) },
-                    },
-                ],
+                $or: [],
+            }
+            if (reports.length > 0) {
+                commentsQuery.filter.$or.push({
+                    report_id: { $in: reports.map((report: Report) => report.id) },
+                })
+            }
+            if (discussions.length > 0) {
+                commentsQuery.filter.$or.push({
+                    discussion_id: { $in: discussions.map((discussion: Discussion) => discussion.id) },
+                })
+            }
+            if (reports.length === 0 && discussions.length === 0) {
+                commentsQuery.filter = null
             }
         }
-        const comments: Comment[] = await this.commentsService.getComments(commentsQuery)
+        const comments: Comment[] = commentsQuery.filter ? await this.commentsService.getComments(commentsQuery) : []
         comments.forEach((comment: Comment) => {
-            const organizationId: string | undefined = mapReportOrg.get(comment.report_id)
+            let organizationId: string | null
+            if (comment.report_id) {
+                organizationId = mapReportOrg.get(comment.report_id)
+            } else if (comment.discussion_id) {
+                organizationId = mapReportOrg.get(comment.discussion_id)
+            }
             if (!organizationId) {
                 return
             }
