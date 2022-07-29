@@ -52,6 +52,7 @@ import * as glob from 'glob'
 import * as jsYaml from 'js-yaml'
 import { extname, join } from 'path'
 import * as sha256File from 'sha256-file'
+import { NATSHelper } from 'src/helpers/natsHelper'
 import { PlatformRole } from 'src/security/platform-roles'
 import * as Client from 'ssh2-sftp-client'
 import { replaceStringInFilesSync } from 'tiny-replace-files'
@@ -301,13 +302,19 @@ export class ReportsService extends AutowiredService implements GenericService<R
         Logger.log('Creating report')
         report = await this.provider.create(report)
 
-        this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
-            user,
-            organization,
-            team,
-            report,
-            frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-        })
+        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+        // the NATS fails...
+        try {
+            this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
+                user,
+                organization,
+                team,
+                report,
+                frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+            })
+        } catch(ex) {
+            Logger.warn(`Event ${KysoEvent.REPORTS_CREATE} not sent to NATS`);
+        }
 
         return report
     }
@@ -354,14 +361,21 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     const index = dataToUpdate.author_ids.indexOf(author.id)
                     if (index === -1) {
                         dataToUpdate.author_ids.push(author.id)
-                        this.client.emit<KysoReportsAuthorEvent>(KysoEvent.REPORTS_ADD_AUTHOR, {
-                            user,
-                            author,
-                            organization,
-                            team,
-                            report,
-                            frontendUrl,
-                        })
+
+                        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+                        // the NATS fails...
+                        try {
+                            this.client.emit<KysoReportsAuthorEvent>(KysoEvent.REPORTS_ADD_AUTHOR, {
+                                user,
+                                author,
+                                organization,
+                                team,
+                                report,
+                                frontendUrl,
+                            })
+                        } catch(ex) {
+                            Logger.warn(`Event ${KysoEvent.REPORTS_ADD_AUTHOR} not sent to NATS`);
+                        }
                     }
                 }
             }
@@ -383,13 +397,19 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: dataToUpdate })
 
-        this.client.emit<KysoReportsUpdateEvent>(KysoEvent.REPORTS_UPDATE, {
-            user,
-            organization,
-            team,
-            report,
-            frontendUrl,
-        })
+        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+        // the NATS fails...
+        try {
+            this.client.emit<KysoReportsUpdateEvent>(KysoEvent.REPORTS_UPDATE, {
+                user,
+                organization,
+                team,
+                report,
+                frontendUrl,
+            })
+        } catch(ex) {
+            Logger.warn(`Event ${KysoEvent.REPORTS_UPDATE} not sent to NATS`);
+        }
 
         const kysoIndex: KysoIndex = new KysoIndex()
         kysoIndex.entityId = report.id
@@ -451,13 +471,19 @@ export class ReportsService extends AutowiredService implements GenericService<R
         await this.provider.deleteOne({ _id: this.provider.toObjectId(reportId) })
 
         if (notify) {
-            this.client.emit<KysoReportsDeleteEvent>(KysoEvent.REPORTS_DELETE, {
-                user: await this.usersService.getUserById(token.id),
-                organization,
-                team,
-                report,
-                frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-            })
+            // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+            // the NATS fails...
+            try {
+                this.client.emit<KysoReportsDeleteEvent>(KysoEvent.REPORTS_DELETE, {
+                    user: await this.usersService.getUserById(token.id),
+                    organization,
+                    team,
+                    report,
+                    frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+                })
+            } catch(ex) {
+                Logger.warn(`Event ${KysoEvent.REPORTS_DELETE} not sent to NATS`);
+            }
         }
 
         return report
@@ -515,23 +541,31 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const user: User = await this.usersService.getUserById(token.id)
         const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { pin: !report.pin } })
-        if (report.pin) {
-            this.client.emit<KysoReportsPinEvent>(KysoEvent.REPORTS_PIN_GLOBAL, {
-                user,
-                organization,
-                team,
-                report,
-                frontendUrl,
-            })
-        } else {
-            this.client.emit<KysoReportsPinEvent>(KysoEvent.REPORTS_UNPIN_GLOBAL, {
-                user,
-                organization,
-                team,
-                report,
-                frontendUrl,
-            })
+        
+        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+        // the NATS fails...
+        try {
+            if (report.pin) {
+                this.client.emit<KysoReportsPinEvent>(KysoEvent.REPORTS_PIN_GLOBAL, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                })
+            } else {
+                this.client.emit<KysoReportsPinEvent>(KysoEvent.REPORTS_UNPIN_GLOBAL, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                })
+            }
+        } catch(ex) {
+            Logger.warn(`Event ${KysoEvent.REPORTS_PIN_GLOBAL} or ${KysoEvent.REPORTS_UNPIN_GLOBAL} not sent to NATS`);
         }
+        
         return report
     }
 
@@ -550,29 +584,38 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-        if (pinnedReports.length === 0) {
-            await this.pinnedReportsMongoProvider.create({
-                user_id: token.id,
-                report_id: report.id,
-            })
-            this.client.emit<KysoReportsPinEvent>(KysoEvent.REPORTS_PIN, {
-                user,
-                organization,
-                team,
-                report,
-                frontendUrl,
-            })
-        } else {
-            const pinnedReport: PinnedReport = pinnedReports[0]
-            await this.pinnedReportsMongoProvider.deleteOne({ _id: this.provider.toObjectId(pinnedReport.id) })
-            this.client.emit<KysoReportsPinEvent>(KysoEvent.REPORTS_UNPIN, {
-                user,
-                organization,
-                team,
-                report,
-                frontendUrl,
-            })
+        
+        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+        // the NATS fails...
+        try {
+            if (pinnedReports.length === 0) {
+                await this.pinnedReportsMongoProvider.create({
+                    user_id: token.id,
+                    report_id: report.id,
+                })
+                this.client.emit<KysoReportsPinEvent>(KysoEvent.REPORTS_PIN, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                })
+            } else {
+                const pinnedReport: PinnedReport = pinnedReports[0]
+                await this.pinnedReportsMongoProvider.deleteOne({ _id: this.provider.toObjectId(pinnedReport.id) })
+                this.client.emit<KysoReportsPinEvent>(KysoEvent.REPORTS_UNPIN, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                })
+            }
+        } catch(ex) {
+            Logger.warn(`Event ${KysoEvent.REPORTS_PIN} or ${KysoEvent.REPORTS_UNPIN} not sent to NATS`);
         }
+        
+        
         return this.getReportById(report.id)
     }
 
@@ -591,29 +634,37 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-        if (starredReports.length === 0) {
-            await this.starredReportsMongoProvider.create({
-                user_id: token.id,
-                report_id: report.id,
-            })
-            this.client.emit<KysoReportsStarEvent>(KysoEvent.REPORTS_STAR, {
-                user,
-                organization,
-                team,
-                report,
-                frontendUrl,
-            })
-        } else {
-            const pinnedReport: StarredReport = starredReports[0]
-            await this.starredReportsMongoProvider.deleteOne({ _id: this.provider.toObjectId(pinnedReport.id) })
-            this.client.emit<KysoReportsStarEvent>(KysoEvent.REPORTS_UNSTAR, {
-                user,
-                organization,
-                team,
-                report,
-                frontendUrl,
-            })
+        
+        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+        // the NATS fails...
+        try {
+            if (starredReports.length === 0) {
+                await this.starredReportsMongoProvider.create({
+                    user_id: token.id,
+                    report_id: report.id,
+                })
+                this.client.emit<KysoReportsStarEvent>(KysoEvent.REPORTS_STAR, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                })
+            } else {
+                const pinnedReport: StarredReport = starredReports[0]
+                await this.starredReportsMongoProvider.deleteOne({ _id: this.provider.toObjectId(pinnedReport.id) })
+                this.client.emit<KysoReportsStarEvent>(KysoEvent.REPORTS_UNSTAR, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl,
+                })
+            }
+        } catch(ex) {
+            Logger.warn(`Event ${KysoEvent.REPORTS_STAR} or ${KysoEvent.REPORTS_UNSTAR} not sent to NATS`);
         }
+        
         return this.getReportById(report.id)
     }
 
@@ -948,23 +999,31 @@ export class ReportsService extends AutowiredService implements GenericService<R
             )
 
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-            if (isNew) {
-                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
-                    user,
-                    organization,
-                    team,
-                    report,
-                    frontendUrl,
-                })
-            } else {
-                this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
-                    user,
-                    organization,
-                    team,
-                    report,
-                    frontendUrl,
-                })
+            
+            // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+            // the NATS fails...
+            try {
+                if (isNew) {
+                    this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
+                        user,
+                        organization,
+                        team,
+                        report,
+                        frontendUrl,
+                    })
+                } else {
+                    this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
+                        user,
+                        organization,
+                        team,
+                        report,
+                        frontendUrl,
+                    })
+                }
+            } catch(ex) {
+                Logger.warn(`Event ${KysoEvent.REPORTS_CREATE} or ${KysoEvent.REPORTS_NEW_VERSION} not sent to NATS`);
             }
+            
         })
 
         return report
@@ -1191,22 +1250,29 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 )
 
                 const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-                if (isNew) {
-                    this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
-                        user,
-                        organization,
-                        team,
-                        report,
-                        frontendUrl,
-                    })
-                } else {
-                    this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
-                        user,
-                        organization,
-                        team,
-                        report,
-                        frontendUrl,
-                    })
+                
+                // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+                // the NATS fails...
+                try {
+                    if (isNew) {
+                        this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
+                            user,
+                            organization,
+                            team,
+                            report,
+                            frontendUrl,
+                        })
+                    } else {
+                        this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
+                            user,
+                            organization,
+                            team,
+                            report,
+                            frontendUrl,
+                        })
+                    }
+                } catch(ex) {
+                    Logger.warn(`Event ${KysoEvent.REPORTS_CREATE} or ${KysoEvent.REPORTS_NEW_VERSION} not sent to NATS`);
                 }
             })
         }
@@ -1390,13 +1456,20 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 },
             )
 
-            this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
-                user,
-                organization,
-                team,
-                report,
-                frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-            })
+            // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+            // the NATS fails...
+            try {
+                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
+                    user,
+                    organization,
+                    team,
+                    report,
+                    frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+                })
+            } catch(ex) {
+                Logger.warn(`Event ${KysoEvent.REPORTS_CREATE} not sent to NATS`);
+            }
+            
         })
 
         return report
@@ -1495,14 +1568,21 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
         const user: User = await this.usersService.getUserById(userId)
         const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-        this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
-            user,
-            organization,
-            team,
-            report,
-            frontendUrl,
-        })
 
+        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+        // the NATS fails...
+        try {
+            this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
+                user,
+                organization,
+                team,
+                report,
+                frontendUrl,
+            })
+        } catch(ex) {
+            Logger.warn(`Event ${KysoEvent.REPORTS_NEW_VERSION} not sent to NATS`);
+        }
+        
         return report
     }
 
@@ -1642,10 +1722,18 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     ReportsService.name,
                 )
                 await this.deleteReport(token, report.id)
-                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
-                    user,
-                    kysoConfigFile,
-                })
+                
+                // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+                // the NATS fails...
+                try {
+                    this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
+                        user,
+                        kysoConfigFile,
+                    })
+                } catch(ex) {
+                    Logger.warn(`Event ${KysoEvent.REPORTS_CREATE_NO_PERMISSIONS} not sent to NATS`);
+                }
+                
                 return
             }
 
@@ -1654,22 +1742,29 @@ export class ReportsService extends AutowiredService implements GenericService<R
             const team: Team = await this.teamsService.getTeamById(report.team_id)
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-            if (isNew) {
-                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
-                    user,
-                    organization,
-                    team,
-                    report,
-                    frontendUrl,
-                })
-            } else {
-                this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
-                    user,
-                    organization,
-                    team,
-                    report,
-                    frontendUrl,
-                })
+            
+            // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+            // the NATS fails...
+            try {
+                if (isNew) {
+                    this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
+                        user,
+                        organization,
+                        team,
+                        report,
+                        frontendUrl,
+                    })
+                } else {
+                    this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
+                        user,
+                        organization,
+                        team,
+                        report,
+                        frontendUrl,
+                    })
+                }
+            } catch(ex) {
+                Logger.warn(`Event ${KysoEvent.REPORTS_CREATE} OR ${KysoEvent.REPORTS_NEW_VERSION} not sent to NATS`);
             }
         })
 
@@ -1830,10 +1925,18 @@ export class ReportsService extends AutowiredService implements GenericService<R
             if (!userHasPermission) {
                 Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
                 await this.deleteReport(token, report.id)
-                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
-                    user,
-                    kysoConfigFile,
-                })
+
+                // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+                // the NATS fails...
+                try {
+                    this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
+                        user,
+                        kysoConfigFile,
+                    })
+                } catch(ex) {
+                    Logger.warn(`Event ${KysoEvent.REPORTS_CREATE} OR ${KysoEvent.REPORTS_CREATE_NO_PERMISSIONS} not sent to NATS`);
+                }
+                
                 return
             }
 
@@ -1842,23 +1945,32 @@ export class ReportsService extends AutowiredService implements GenericService<R
             const team: Team = await this.teamsService.getTeamById(report.team_id)
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-            if (isNew) {
-                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
-                    user,
-                    organization,
-                    team,
-                    report,
-                    frontendUrl,
-                })
-            } else {
-                this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
-                    user,
-                    organization,
-                    team,
-                    report,
-                    frontendUrl,
-                })
+            
+            // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+            // the NATS fails...
+            try {
+                if (isNew) {   
+                    this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
+                        user,
+                        organization,
+                        team,
+                        report,
+                        frontendUrl,
+                    })
+                } else {
+                    this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
+                        user,
+                        organization,
+                        team,
+                        report,
+                        frontendUrl,
+                    })
+                }
+            } catch(ex) {
+                Logger.warn(`Event ${KysoEvent.REPORTS_CREATE} OR ${KysoEvent.REPORTS_CREATE_NO_PERMISSIONS} not sent to NATS`);
             }
+
+            
         })
 
         return report
@@ -1978,10 +2090,12 @@ export class ReportsService extends AutowiredService implements GenericService<R
             if (!userHasPermission) {
                 Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
                 await this.deleteReport(token, report.id)
-                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
+                
+                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
                     user,
                     kysoConfigFile,
                 })
+                
                 return
             }
 
@@ -1991,7 +2105,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
             if (isNew) {
-                this.client.emit<KysoReportsCreateEvent>(KysoEvent.REPORTS_CREATE, {
+                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEvent.REPORTS_CREATE, {
                     user,
                     organization,
                     team,
@@ -1999,7 +2113,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     frontendUrl,
                 })
             } else {
-                this.client.emit<KysoReportsNewVersionEvent>(KysoEvent.REPORTS_NEW_VERSION, {
+                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEvent.REPORTS_NEW_VERSION, {
                     user,
                     organization,
                     team,
@@ -2323,7 +2437,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 // Create tag
                 tag = new Tag(tagName)
                 tag = await this.tagsService.createTag(tag)
-                this.client.emit<KysoTagsEvent>(KysoEvent.TAGS_CREATE, {
+                NATSHelper.safelyEmit<KysoTagsEvent>(this.client, KysoEvent.TAGS_CREATE, {
                     user,
                     tag,
                     report,

@@ -8,6 +8,7 @@ import {
     EntityEnum,
     GlobalPermissionsEnum,
     KysoRole,
+    Login,
     LoginProviderEnum,
     Organization,
     Report,
@@ -18,6 +19,7 @@ import {
     Team,
     TeamPermissionsEnum,
     TeamVisibilityEnum,
+    Token,
     User,
     UserAccount,
 } from '@kyso-io/kyso-model'
@@ -26,6 +28,7 @@ import * as moment from 'moment'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { PlatformRole } from '../../security/platform-roles'
+import { AuthService } from '../auth/auth.service'
 import { CommentsService } from '../comments/comments.service'
 import { DiscussionsService } from '../discussions/discussions.service'
 import { OrganizationsService } from '../organizations/organizations.service'
@@ -45,6 +48,10 @@ export class TestingDataPopulatorService {
     private Gideon_OrganizationAdminUser: User
     private Palpatine_PlatformAdminUser: User
     private BabyYoda_OrganizationAdminUser: User
+
+    private BabyYoda_Token: Token;
+    private Gideon_Token: Token;
+    private Palpatine_Token: Token;
 
     private DarksideOrganization: Organization
     private LightsideOrganization: Organization
@@ -96,6 +103,9 @@ export class TestingDataPopulatorService {
 
     @Autowired({ typeName: 'TagsService' })
     private tagsService: TagsService
+
+    @Autowired({ typeName: 'AuthService' })
+    private authService: AuthService
 
     public async populateTestData() {
         if (process.env.POPULATE_TEST_DATA && process.env.POPULATE_TEST_DATA === 'true') {
@@ -312,6 +322,34 @@ export class TestingDataPopulatorService {
                     },
                 },
             )
+
+            // Get the login Tokens for BabyYoda and Gideon
+            const babyYodaToken: string =  await this.authService.login(new Login(
+                "n0tiene",
+                LoginProviderEnum.KYSO,
+                `${mailPrefix}+baby_yoda@dev.kyso.io`,
+                null
+            ));
+
+            this.BabyYoda_Token = await this.authService.evaluateAndDecodeToken(babyYodaToken);
+
+            const gideonToken: string =  await this.authService.login(new Login(
+                "n0tiene",
+                LoginProviderEnum.KYSO,
+                `${mailPrefix}+gideon@dev.kyso.io`,
+                null
+            ));
+
+            this.Gideon_Token = await this.authService.evaluateAndDecodeToken(gideonToken);
+
+            const palpatineToken: string =  await this.authService.login(new Login(
+                "n0tiene",
+                LoginProviderEnum.KYSO,
+                `${mailPrefix}+palpatine@dev.kyso.io`,
+                null
+            ));
+
+            this.Palpatine_Token = await this.authService.evaluateAndDecodeToken(palpatineToken);
         } catch (ex) {
             Logger.error("Error at createTestingUsers", ex);
         }
@@ -673,7 +711,7 @@ export class TestingDataPopulatorService {
     private async _createOrganization(organization: Organization) {
         try {
             Logger.log(`Creating ${organization.sluglified_name} organization...`)
-            return await this.organizationsService.createOrganization(null, organization)
+            return await this.organizationsService.createOrganization(this.Palpatine_Token, organization)
         } catch (ex) {
             Logger.log(` ${organization.sluglified_name} organization already exists`)
         }
@@ -727,7 +765,7 @@ export class TestingDataPopulatorService {
     private async _createTeam(team: Team) {
         try {
             Logger.log(`Creating ${team.sluglified_name} team...`)
-            return await this.teamsService.createTeam(null, team)
+            return await this.teamsService.createTeam(this.Palpatine_Token, team)
         } catch (ex) {
             Logger.log(`${team.sluglified_name} team already exists`)
         }

@@ -131,11 +131,6 @@ export class OrganizationsService extends AutowiredService {
 
         const newOrganization: Organization = await this.provider.create(organization)
 
-        this.client.emit<KysoOrganizationsCreateEvent>(KysoEvent.ORGANIZATIONS_CREATE, {
-            user: await this.usersService.getUserById(token.id),
-            organization: newOrganization,
-        })
-
         // Now, create the default teams for that organization
         const generalTeam = new Team(
             'General',
@@ -148,6 +143,15 @@ export class OrganizationsService extends AutowiredService {
             TeamVisibilityEnum.PROTECTED,
         )
         await this.teamsService.createTeam(token, generalTeam)
+
+        try {
+            this.client.emit<KysoOrganizationsCreateEvent>(KysoEvent.ORGANIZATIONS_CREATE, {
+                user: await this.usersService.getUserById(token.id),
+                organization: newOrganization,
+            })
+        } catch(ex) {
+            Logger.warn(`Event ${KysoEvent.ORGANIZATIONS_CREATE} not sent to NATS`);
+        }
 
         return newOrganization
     }
@@ -167,11 +171,17 @@ export class OrganizationsService extends AutowiredService {
         // Delete the organization
         await this.provider.deleteOne({ _id: this.provider.toObjectId(organization.id) })
 
-        this.client.emit<KysoOrganizationsDeleteEvent>(KysoEvent.ORGANIZATIONS_DELETE, {
-            user: await this.usersService.getUserById(token.id),
-            organization,
-        })
-
+        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+        // the NATS fails...
+        try {
+            this.client.emit<KysoOrganizationsDeleteEvent>(KysoEvent.ORGANIZATIONS_DELETE, {
+                user: await this.usersService.getUserById(token.id),
+                organization,
+            })
+        } catch(ex) {
+            Logger.warn(`Event ${KysoEvent.ORGANIZATIONS_DELETE} not sent to NATS`);
+        }
+        
         return organization
     }
 
@@ -239,18 +249,22 @@ export class OrganizationsService extends AutowiredService {
                 filterArray.push({ _id: this.provider.toObjectId(id) })
             })
 
-            const filter = { filter: { $or: filterArray } }
+            if(filterArray.length > 0) {
+                const filter = { filter: { $or: filterArray } }
 
-            const users = await this.usersService.getUsers(filter)
+                const users = await this.usersService.getUsers(filter)
 
-            const usersAndRoles = users.map((u: User) => {
-                // Find role for this user in members
-                const thisMember: OrganizationMemberJoin = members.find((tm: OrganizationMemberJoin) => u.id.toString() === tm.member_id)
+                const usersAndRoles = users.map((u: User) => {
+                    // Find role for this user in members
+                    const thisMember: OrganizationMemberJoin = members.find((tm: OrganizationMemberJoin) => u.id.toString() === tm.member_id)
 
-                return { ...u, roles: thisMember.role_names }
-            })
+                    return { ...u, roles: thisMember.role_names }
+                })
 
-            return usersAndRoles.map((x) => new OrganizationMember(x.id.toString(), x.display_name, x.name, x.roles, x.bio, x.avatar_url, x.email))
+                return usersAndRoles.map((x) => new OrganizationMember(x.id.toString(), x.display_name, x.name, x.roles, x.bio, x.avatar_url, x.email))
+            } else {
+                return [];
+            }
         } else {
             return []
         }
@@ -293,10 +307,18 @@ export class OrganizationsService extends AutowiredService {
                 $set: data,
             },
         )
-        this.client.emit<KysoOrganizationsUpdateEvent>(KysoEvent.ORGANIZATIONS_UPDATE, {
-            user: await this.usersService.getUserById(token.id),
-            organization: organizationDb,
-        })
+
+        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+        // the NATS fails...
+        try {
+            this.client.emit<KysoOrganizationsUpdateEvent>(KysoEvent.ORGANIZATIONS_UPDATE, {
+                user: await this.usersService.getUserById(token.id),
+                organization: organizationDb,
+            })
+        } catch(ex) {
+            Logger.warn(`Event ${KysoEvent.ORGANIZATIONS_UPDATE} not sent to NATS`);
+        }
+        
         return organizationDb
     }
 
@@ -344,7 +366,11 @@ export class OrganizationsService extends AutowiredService {
             if (isCentralized) {
                 emailsCentralized = organization.options.notifications.emails
             }
-            this.client
+            
+            // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+            // the NATS fails...
+            try {
+                this.client
                 .send<KysoOrganizationsAddMemberEvent>(KysoEvent.ORGANIZATIONS_ADD_MEMBER, {
                     user,
                     organization,
@@ -353,6 +379,10 @@ export class OrganizationsService extends AutowiredService {
                     frontendUrl,
                 })
                 .subscribe((result) => console.log(result))
+            } catch(ex) {
+                Logger.warn(`Event ${KysoEvent.ORGANIZATIONS_ADD_MEMBER} not sent to NATS`);
+            }
+            
         } catch (ex) {
             Logger.error('Error sending notifications of new member in an organization', ex)
         }
@@ -391,7 +421,11 @@ export class OrganizationsService extends AutowiredService {
         if (isCentralized) {
             emailsCentralized = organization.options.notifications.emails
         }
-        this.client
+
+        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+        // the NATS fails...
+        try {
+            this.client
             .send<KysoOrganizationsAddMemberEvent>(KysoEvent.ORGANIZATIONS_ADD_MEMBER, {
                 user,
                 organization,
@@ -400,6 +434,10 @@ export class OrganizationsService extends AutowiredService {
                 frontendUrl,
             })
             .subscribe((result) => console.log(result))
+        } catch(ex) {
+            Logger.warn(`Event ${KysoEvent.ORGANIZATIONS_ADD_MEMBER} not sent to NATS`);
+        }
+        
         return true
     }
 
@@ -435,8 +473,11 @@ export class OrganizationsService extends AutowiredService {
         if (isCentralized) {
             emailsCentralized = organization.options.notifications.emails
         }
-
-        this.client
+        
+        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+        // the NATS fails...
+        try {
+            this.client
             .send<KysoOrganizationsRemoveMemberEvent>(KysoEvent.ORGANIZATIONS_REMOVE_MEMBER, {
                 user,
                 organization,
@@ -444,6 +485,10 @@ export class OrganizationsService extends AutowiredService {
                 frontendUrl,
             })
             .subscribe((result) => console.log(result))
+        } catch(ex) {
+            Logger.warn(`Event ${KysoEvent.ORGANIZATIONS_REMOVE_MEMBER} not sent to NATS`);
+        }
+        
         return this.getOrganizationMembers(organization.id)
     }
 
@@ -479,7 +524,10 @@ export class OrganizationsService extends AutowiredService {
                 throw new PreconditionFailedException(`Role ${element.role} is not valid`)
             }
             if (!member.role_names.includes(element.role)) {
-                this.client
+                // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+                // the NATS fails...
+                try {
+                    this.client
                     .send<KysoOrganizationsAddMemberEvent>(KysoEvent.ORGANIZATIONS_UPDATE_MEMBER_ROLE, {
                         user,
                         organization,
@@ -489,6 +537,9 @@ export class OrganizationsService extends AutowiredService {
                         frontendUrl,
                     })
                     .subscribe((result) => console.log(result))
+                } catch(ex) {
+                    Logger.warn(`Event ${KysoEvent.ORGANIZATIONS_UPDATE_MEMBER_ROLE} not sent to NATS`);
+                }
             }
             await this.organizationMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
         }

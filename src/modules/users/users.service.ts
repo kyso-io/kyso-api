@@ -34,6 +34,7 @@ import axios from 'axios'
 import * as moment from 'moment'
 import { ObjectId } from 'mongodb'
 import { extname } from 'path'
+import { NATSHelper } from 'src/helpers/natsHelper'
 import { URLSearchParams } from 'url'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
@@ -191,8 +192,10 @@ export class UsersService extends AutowiredService {
 
         Logger.log(`Sending email to ${user.email}`)
 
-        this.client.emit<KysoUsersCreateEvent>(KysoEvent.USERS_CREATE, { user })
-
+        NATSHelper.safelyEmit<KysoUsersCreateEvent>(this.client, KysoEvent.USERS_CREATE, {
+            user
+        })
+        
         await this.sendVerificationEmail(user)
 
         this.indexUser(user)
@@ -211,11 +214,12 @@ export class UsersService extends AutowiredService {
         let userVerification: UserVerification = new UserVerification(user.email, uuidv4(), user.id, moment().add(hours, 'hours').toDate())
         userVerification = await this.userVerificationMongoProvider.create(userVerification)
 
-        this.client.emit<KysoUsersVerificationEmailEvent>(KysoEvent.USERS_VERIFICATION_EMAIL, {
+        NATSHelper.safelyEmit<KysoUsersVerificationEmailEvent>(this.client, KysoEvent.USERS_VERIFICATION_EMAIL, {
             user,
             userVerification,
             frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
         })
+
         return true
     }
 
@@ -249,7 +253,10 @@ export class UsersService extends AutowiredService {
         Logger.log(`Deleting user '${user.id} ${user.display_name}' in ElasticSearch...`, UsersService.name)
         this.fullTextSearchService.deleteDocument(ElasticSearchIndex.User, user.id)
 
-        this.client.emit<KysoUsersDeleteEvent>(KysoEvent.USERS_DELETE, { user, owner: await this.getUserById(token.id) })
+        NATSHelper.safelyEmit<KysoUsersDeleteEvent>(this.client, KysoEvent.USERS_DELETE, {
+            user, 
+            owner: await this.getUserById(token.id)
+        })
 
         return true
     }
@@ -318,7 +325,10 @@ export class UsersService extends AutowiredService {
         const kysoIndex: KysoIndex = this.userToKysoIndex(user)
         this.fullTextSearchService.updateDocument(kysoIndex)
 
-        this.client.emit<KysoUsersUpdateEvent>(KysoEvent.USERS_UPDATE, { user, owner: await this.getUserById(token.id) })
+        NATSHelper.safelyEmit<KysoUsersUpdateEvent>(this.client, KysoEvent.USERS_UPDATE, {
+            user, 
+            owner: await this.getUserById(token.id)
+        })
 
         return user
     }
@@ -553,7 +563,7 @@ export class UsersService extends AutowiredService {
         let userForgotPassword: UserForgotPassword = new UserForgotPassword(encodeURI(user.email), uuidv4(), user.id, moment().add(minutes, 'minutes').toDate())
         userForgotPassword = await this.userChangePasswordMongoProvider.create(userForgotPassword)
 
-        this.client.send<KysoUsersRecoveryPasswordEvent>(KysoEvent.USERS_RECOVERY_PASSWORD, {
+        NATSHelper.safelyEmit<KysoUsersRecoveryPasswordEvent>(this.client, KysoEvent.USERS_RECOVERY_PASSWORD, {
             user,
             userForgotPassword,
             frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),

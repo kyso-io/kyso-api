@@ -154,13 +154,19 @@ export class DiscussionsService extends AutowiredService implements GenericServi
         )
         discussion = await this.provider.create(discussion)
 
-        this.client.emit<KysoDiscussionsCreateEvent>(KysoEvent.DISCUSSIONS_CREATE, {
-            user: author,
-            organization,
-            team,
-            discussion,
-            frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-        })
+        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+        // the NATS fails...
+        try {
+            this.client.emit<KysoDiscussionsCreateEvent>(KysoEvent.DISCUSSIONS_CREATE, {
+                user: author,
+                organization,
+                team,
+                discussion,
+                frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+            })
+        } catch(ex) {
+            Logger.warn(`Event ${KysoEvent.DISCUSSIONS_CREATE} not sent to NATS`);
+        }
 
         this.indexDiscussion(discussion)
 
@@ -259,27 +265,33 @@ export class DiscussionsService extends AutowiredService implements GenericServi
                     // It's a new assignee. Notify to creator and added assignee
                     const assigneeUser: User = await this.usersService.getUserById(dbAssignee)
 
-                    // To the assignee
-                    this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_NEW_ASSIGNEE, {
-                        user,
-                        to: assigneeUser.email,
-                        assigneeUser,
-                        organization,
-                        team,
-                        discussion,
-                        frontendUrl,
-                    })
-                    
-                    // To the author
-                    this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_USER_ASSIGNED, {
-                        user,
-                        to: isCentralized ? emailsCentralized : authorUser.email,
-                        assigneeUser,
-                        organization,
-                        team,
-                        discussion,
-                        frontendUrl,
-                    })
+                    // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+                    // the NATS fails...
+                    try {
+                        // To the assignee
+                        this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_NEW_ASSIGNEE, {
+                            user,
+                            to: assigneeUser.email,
+                            assigneeUser,
+                            organization,
+                            team,
+                            discussion,
+                            frontendUrl,
+                        })
+                        
+                        // To the author
+                        this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_USER_ASSIGNED, {
+                            user,
+                            to: isCentralized ? emailsCentralized : authorUser.email,
+                            assigneeUser,
+                            organization,
+                            team,
+                            discussion,
+                            frontendUrl,
+                        })
+                    } catch(ex) {
+                        Logger.warn(`Event ${KysoEvent.DISCUSSIONS_NEW_ASSIGNEE} and ${KysoEvent.DISCUSSIONS_USER_ASSIGNED} not sent to NATS`);
+                    }
                 } // else { // Was already in the assignee list, nothing to do }
 
                 processedAssignees.push(dbAssignee)
@@ -293,27 +305,33 @@ export class DiscussionsService extends AutowiredService implements GenericServi
                 for (const removed of removedAssignees) {
                     const removedUser: User = await this.usersService.getUserById(removed)
 
-                    // To the assignee
-                    this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_REMOVE_ASSIGNEE, {
-                        user,
-                        to: removedUser.email,
-                        assigneeUser: removedUser,
-                        organization,
-                        team,
-                        discussion,
-                        frontendUrl,
-                    })
+                    // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+                    // the NATS fails...
+                    try {
+                        // To the assignee
+                        this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_REMOVE_ASSIGNEE, {
+                            user,
+                            to: removedUser.email,
+                            assigneeUser: removedUser,
+                            organization,
+                            team,
+                            discussion,
+                            frontendUrl,
+                        })
 
-                    // To the author
-                    this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_USER_UNASSIGNED, {
-                        user,
-                        to: isCentralized ? emailsCentralized : authorUser.email,
-                        assigneeUser: removedUser,
-                        organization,
-                        team,
-                        discussion,
-                        frontendUrl,
-                    })
+                        // To the author
+                        this.client.emit<KysoDiscussionsAssigneeEvent>(KysoEvent.DISCUSSIONS_USER_UNASSIGNED, {
+                            user,
+                            to: isCentralized ? emailsCentralized : authorUser.email,
+                            assigneeUser: removedUser,
+                            organization,
+                            team,
+                            discussion,
+                            frontendUrl,
+                        })
+                    } catch(ex) {
+                        Logger.warn(`Event ${KysoEvent.DISCUSSIONS_REMOVE_ASSIGNEE} and ${KysoEvent.DISCUSSIONS_USER_UNASSIGNED} not sent to NATS`);
+                    }
                 }
             }
         } catch (ex) {
@@ -339,13 +357,19 @@ export class DiscussionsService extends AutowiredService implements GenericServi
             },
         )
 
-        this.client.emit<KysoDiscussionsUpdateEvent>(KysoEvent.DISCUSSIONS_UPDATE, {
-            user: await this.usersService.getUserById(token.id),
-            organization,
-            team,
-            discussion,
-            frontendUrl,
-        })
+        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+        // the NATS fails...
+        try {
+            this.client.emit<KysoDiscussionsUpdateEvent>(KysoEvent.DISCUSSIONS_UPDATE, {
+                user: await this.usersService.getUserById(token.id),
+                organization,
+                team,
+                discussion,
+                frontendUrl,
+            })
+        } catch(ex) {
+            Logger.warn(`Event ${KysoEvent.DISCUSSIONS_UPDATE} not sent to NATS`);
+        }
 
         const kysoIndex: KysoIndex = await this.discussionToKysoIndex(discussion)
         this.fullTextSearchService.updateDocument(kysoIndex)
@@ -371,13 +395,21 @@ export class DiscussionsService extends AutowiredService implements GenericServi
         const user: User = await this.usersService.getUserById(discussion.user_id)
         const team: Team = await this.teamsService.getTeamById(discussion.team_id)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-        this.client.emit<KysoCommentsDeleteEvent>(KysoEvent.DISCUSSIONS_DELETE, {
-            user,
-            organization,
-            team,
-            discussion,
-            frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-        })
+        
+        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
+        // the NATS fails...
+        try {
+            this.client.emit<KysoCommentsDeleteEvent>(KysoEvent.DISCUSSIONS_DELETE, {
+                user,
+                organization,
+                team,
+                discussion,
+                frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+            })
+        } catch(ex) {
+            Logger.warn(`Event ${KysoEvent.DISCUSSIONS_DELETE} not sent to NATS`);
+        }
+        
 
         Logger.log(`Deleting discussion '${discussion.id} ${discussion.title}' in ElasticSearch...`, UsersService.name)
         this.fullTextSearchService.deleteDocument(ElasticSearchIndex.Discussion, discussion.id)
