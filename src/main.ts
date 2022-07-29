@@ -181,6 +181,8 @@ async function bootstrap() {
 async function connectToDatabase() {
     if (!client) {
         try {
+            Logger.log(`Connecting to ${process.env.DATABASE_URI}`);
+            
             client = await MongoClient.connect(process.env.DATABASE_URI, {
                 // useUnifiedTopology: true,
                 maxPoolSize: 10,
