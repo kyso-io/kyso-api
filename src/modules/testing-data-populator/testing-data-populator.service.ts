@@ -471,20 +471,20 @@ export class TestingDataPopulatorService {
             `,
             )
 
-            exec('kyso-cli', (err, stdout, stderr) => {
+            exec('kyso', (err, stdout, stderr) => {
                 if (!err) {
                     Logger.log('Kyso CLI is available in this machine... logging as user palpatine')
 
                     // LOGIN vs this server
                     exec(
-                        `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli login --username palpatine@kyso.io --password n0tiene --provider kyso`,
+                        `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso login --username palpatine@kyso.io --password n0tiene --provider kyso`,
                         (err, stdout, stderr) => {
                             Logger.log(stdout)
 
                             if (!err) {
                                 // Create new Kronig-Penney report
                                 exec(
-                                    `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/kronig-penney-exploration`,
+                                    `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso push -p ./test-reports/kronig-penney-exploration`,
                                     (err, stdout, stderr) => {
                                         Logger.log('Creating Kronig-Penney report')
                                         Logger.log(stdout)
@@ -499,7 +499,7 @@ export class TestingDataPopulatorService {
 
                                 // Create new MultiQ report
                                 exec(
-                                    `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/multiq-report`,
+                                    `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso push -p ./test-reports/multiq-report`,
                                     (err, stdout, stderr) => {
                                         Logger.log('Creating MultiQ report')
                                         Logger.log(stdout)
@@ -509,7 +509,7 @@ export class TestingDataPopulatorService {
 
                                             // Create a new version of MultiQ report
                                             exec(
-                                                `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/multiq-report`,
+                                                `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso push -p ./test-reports/multiq-report`,
                                                 (err, stdout, stderr) => {
                                                     Logger.log('Creating a new version of MultiQ report')
                                                     Logger.log(stdout)
@@ -529,7 +529,7 @@ export class TestingDataPopulatorService {
 
                                 // Create new Markdown report
                                 exec(
-                                    `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli push -p ./test-reports/markdown-report`,
+                                    `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso push -p ./test-reports/markdown-report`,
                                     (err, stdout, stderr) => {
                                         Logger.log('Creating Markdown report')
                                         Logger.log(stdout)
@@ -544,7 +544,7 @@ export class TestingDataPopulatorService {
 
                                 // Import a report from Github using kyso-cli
                                 exec(
-                                    `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name jupyter-samples`,
+                                    `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso import-github-repository --name jupyter-samples`,
                                     (err, stdout, stderr) => {
                                         Logger.log('Importing jupyter-samples report from Github using kyso-cli')
                                         Logger.log(stdout)
@@ -559,7 +559,7 @@ export class TestingDataPopulatorService {
 
                                 // Import a report from Github using kyso-cli
                                 exec(
-                                    `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name Kalman-and-Bayesian-Filters-in-Python`,
+                                    `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso import-github-repository --name Kalman-and-Bayesian-Filters-in-Python`,
                                     (err, stdout, stderr) => {
                                         Logger.log('Importing Kalman-and-Bayesian-Filters-in-Python report from Github using kyso-cli')
                                         Logger.log(stdout)
@@ -574,7 +574,7 @@ export class TestingDataPopulatorService {
 
                                 // Import a report from Github using kyso-cli
                                 exec(
-                                    `NEXT_PUBLIC_API_URL=http://localhost:${process.env.PORT}/v1 kyso-cli import-github-repository --name notebook-examples`,
+                                    `KYSO_API=http://localhost:${process.env.PORT}/v1 kyso import-github-repository --name notebook-examples`,
                                     (err, stdout, stderr) => {
                                         Logger.log('Importing notebook-examples report from Github using kyso-cli')
                                         Logger.log(stdout)
@@ -595,7 +595,7 @@ export class TestingDataPopulatorService {
                     Logger.error('Kyso CLI is not installed in this machine. Testing reports based on CLI will not be created')
                     Logger.log(
                         `Installation instructions:
-                        sudo npm install -g @kyso-io/kyso-cli
+                        sudo npm install -g kyso
                     
                     To populate these reports without deleting the entire database, please execute populate-reports-by-kyso-cli.sh script
                     `,
