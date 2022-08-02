@@ -358,7 +358,8 @@ export class TestingDataPopulatorService {
     private async createAccessTokens(): Promise<void> {
         try {
             const accessTokenUuid: string = 'abcdef123456'
-            await this.usersService.createKysoAccessToken(this.Rey_TeamAdminUser.id, 'test-access-token', [], moment().add(100, 'years').toDate(), accessTokenUuid)
+            await this.usersService.createKysoAccessToken(
+                this.Rey_TeamAdminUser.id, 'test-access-token', [], moment().add(100, 'years').toDate(), accessTokenUuid)
         } catch(ex) {
             Logger.error("Error at createAccessTokens", ex);
         }

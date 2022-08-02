@@ -461,7 +461,7 @@ export class AuthService extends AutowiredService {
      */
     evaluateAndDecodeToken(token: string): Token {
         try {
-            this.jwtService.verify(token)
+            this.verifyToken(token)
             const decodedToken = this.jwtService.decode(token)
 
             return (decodedToken as any).payload as Token
@@ -469,6 +469,17 @@ export class AuthService extends AutowiredService {
             // TOKEN IS NOT VALID
             return undefined
         }
+    }
+
+    verifyToken(token: string) {
+        try {
+            this.jwtService.verify(token)
+        } catch(ex) {
+            console.log(ex.name)
+            console.log(ex.message)
+            throw new Error(ex)
+        }
+
     }
 
     public async refreshToken(token: Token): Promise<string> {
