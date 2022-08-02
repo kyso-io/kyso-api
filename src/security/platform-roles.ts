@@ -229,11 +229,18 @@ export class PlatformRole {
         new mongo.ObjectId('61a8ae8f9c2bc3c5a2144073').toString(),
     )
 
-    public static ALL_PLATFORM_ROLES = [
+    public static EXTERNAL_ROLE = new KysoRole(
+        'external',
+        [ ],
+        new mongo.ObjectId('62e963cf8b50cbfe2301c7da').toString(),
+    )
+
+    public static ALL_PLATFORM_ROLES: KysoRole[] = [
         this.PLATFORM_ADMIN_ROLE,
         this.ORGANIZATION_ADMIN_ROLE,
         this.TEAM_ADMIN_ROLE,
         this.TEAM_CONTRIBUTOR_ROLE,
         this.TEAM_READER_ROLE,
+        this.EXTERNAL_ROLE
     ]
 }
