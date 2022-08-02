@@ -96,7 +96,7 @@ export class DiscussionsController extends GenericController<Discussion> {
                 { main: { $regex: `${query.filter.$text.$search}`, $options: 'i' } },
                 { description: { $regex: `${query.filter.$text.$search}`, $options: 'i' } },
             ]
-            delete query.$text
+            delete query.filter.$text
         }
         const discussions: Discussion[] = await this.discussionsService.getDiscussions(query)
         const relations = await this.relationsService.getRelations(discussions, 'discussion', { participants: 'User', assignees: 'User' })

@@ -22,6 +22,7 @@ import { ForbiddenException, Inject, Injectable, Logger, PreconditionFailedExcep
 import { ClientProxy } from '@nestjs/microservices'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
+import { NATSHelper } from '../../helpers/natsHelper'
 import { AuthService } from '../auth/auth.service'
 import { DiscussionsService } from '../discussions/discussions.service'
 import { FullTextSearchService } from '../full-text-search/full-text-search.service'
@@ -124,33 +125,27 @@ export class CommentsService extends AutowiredService {
 
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const user: User = await this.usersService.getUserById(token.id)
-        
-        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
-        // the NATS fails...
-        try {
-            if (newComment?.comment_id) {
-                this.client.emit<KysoCommentsCreateEvent>(KysoEvent.COMMENTS_REPLY, {
-                    user,
-                    organization,
-                    team,
-                    comment: newComment,
-                    discussion,
-                    report,
-                    frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-                })
-            } else {
-                this.client.emit<KysoCommentsCreateEvent>(KysoEvent.COMMENTS_CREATE, {
-                    user,
-                    organization,
-                    team,
-                    comment: newComment,
-                    discussion,
-                    report,
-                    frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-                })
-            }
-        } catch(ex) {
-            Logger.warn(`Event ${KysoEvent.COMMENTS_CREATE} not sent to NATS`);
+
+        if (newComment?.comment_id) {
+            NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEvent.COMMENTS_REPLY, {
+                user,
+                organization,
+                team,
+                comment: newComment,
+                discussion,
+                report,
+                frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+            })
+        } else {
+            NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEvent.COMMENTS_CREATE, {
+                user,
+                organization,
+                team,
+                comment: newComment,
+                discussion,
+                report,
+                frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+            })
         }
 
         if (discussion) {
@@ -189,41 +184,28 @@ export class CommentsService extends AutowiredService {
                 if (centralizedMails) {
                     continue
                 }
-                // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
-                // the NATS fails...
-                try {
-                    this.client.emit<KysoDiscussionsNewMentionEvent>(KysoEvent.DISCUSSIONS_NEW_MENTION, {
-                        user,
-                        creator,
-                        organization,
-                        team,
-                        discussion,
-                        frontendUrl,
-                    })
-                } catch (ex) {
-                    Logger.warn(`Event ${KysoEvent.DISCUSSIONS_NEW_MENTION} not sent to NATS`);
-                }
-            }
-        }
-        if (centralizedMails && organization.options.notifications.emails.length > 0 && mentionedUsers.length > 0) {
-            const emails: string[] = organization.options.notifications.emails
-            
-            // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
-            // the NATS fails...
-            try {
-                this.client.emit<KysoDiscussionsNewMentionEvent>(KysoEvent.DISCUSSIONS_MENTIONS, {
-                    to: emails,
+                NATSHelper.safelyEmit<KysoDiscussionsNewMentionEvent>(this.client, KysoEvent.DISCUSSIONS_NEW_MENTION, {
+                    user,
                     creator,
-                    users: mentionedUsers,
                     organization,
                     team,
                     discussion,
                     frontendUrl,
                 })
             }
-            catch(ex) {
-                Logger.warn(`Event ${KysoEvent.DISCUSSIONS_MENTIONS} not sent to NATS`);
-            }
+        }
+        if (centralizedMails && organization.options.notifications.emails.length > 0 && mentionedUsers.length > 0) {
+            const emails: string[] = organization.options.notifications.emails
+
+            NATSHelper.safelyEmit<KysoDiscussionsNewMentionEvent>(this.client, KysoEvent.DISCUSSIONS_MENTIONS, {
+                to: emails,
+                creator,
+                users: mentionedUsers,
+                organization,
+                team,
+                discussion,
+                frontendUrl,
+            })
         }
         if (checkParticipantsInDiscussion) {
             await this.discussionsService.checkParticipantsInDiscussion(comment.discussion_id)
@@ -270,20 +252,15 @@ export class CommentsService extends AutowiredService {
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const user: User = await this.usersService.getUserById(token.id)
 
-        try {
-            this.client.emit<KysoCommentsUpdateEvent>(KysoEvent.COMMENTS_UPDATE, {
-                user,
-                organization,
-                team,
-                comment,
-                discussion,
-                report,
-                frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-            })        
-        }
-        catch(ex) {
-            Logger.warn(`Event ${KysoEvent.COMMENTS_UPDATE} not sent to NATS`);
-        }
+        NATSHelper.safelyEmit<KysoCommentsUpdateEvent>(this.client, KysoEvent.COMMENTS_UPDATE, {
+            user,
+            organization,
+            team,
+            comment,
+            discussion,
+            report,
+            frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+        })
 
         if (updatedComment?.discussion_id) {
             await this.discussionsService.checkParticipantsInDiscussion(updatedComment.discussion_id)
@@ -355,21 +332,16 @@ export class CommentsService extends AutowiredService {
         }
         comment = await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } })
 
-        try {
-            this.client.emit<KysoCommentsDeleteEvent>(KysoEvent.COMMENTS_DELETE, {
-                user: await this.usersService.getUserById(token.id),
-                organization: await this.organizationsService.getOrganizationById(team.organization_id),
-                team,
-                comment,
-                discussion,
-                report,
-                frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-            })        
-        }
-        catch(ex) {
-            Logger.warn(`Event ${KysoEvent.COMMENTS_DELETE} not sent to NATS`);
-        }
-        
+        NATSHelper.safelyEmit<KysoCommentsDeleteEvent>(this.client, KysoEvent.COMMENTS_DELETE, {
+            user: await this.usersService.getUserById(token.id),
+            organization: await this.organizationsService.getOrganizationById(team.organization_id),
+            team,
+            comment,
+            discussion,
+            report,
+            frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+        })
+
         if (discussion) {
             await this.discussionsService.checkParticipantsInDiscussion(discussion.id)
         }

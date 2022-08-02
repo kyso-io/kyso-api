@@ -11,10 +11,11 @@ import {
     TeamMember,
     User,
 } from '@kyso-io/kyso-model'
-import { Inject, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { Inject, Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
+import { NATSHelper } from '../../helpers/natsHelper'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
@@ -91,19 +92,15 @@ export class InvitationsService extends AutowiredService {
                 const team: Team = await this.teamsService.getTeamById(invitation.entity_id)
                 const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
 
-                try {
-                    this.client.emit<KysoInvitationsTeamCreateEvent>(KysoEvent.INVITATIONS_TEAM_CREATE, {
-                        user,
-                        roles: invitation.payload.roles.map((role: string) => role.replace('-', ' ')),
-                        frontendUrl,
-                        organization,
-                        team,
-                        invitation,
-                    })
-                } catch(ex) {
-                    Logger.warn(`Event ${KysoEvent.INVITATIONS_TEAM_CREATE} not sent to NATS`);
-                }
-                
+                NATSHelper.safelyEmit<KysoInvitationsTeamCreateEvent>(this.client, KysoEvent.INVITATIONS_TEAM_CREATE, {
+                    user,
+                    roles: invitation.payload.roles.map((role: string) => role.replace('-', ' ')),
+                    frontendUrl,
+                    organization,
+                    team,
+                    invitation,
+                })
+
                 break
             case InvitationType.Organization:
                 break
