@@ -632,10 +632,18 @@ export class TeamsService extends AutowiredService {
             }
             const member: TeamMemberJoin = members.find((x: TeamMemberJoin) => x.member_id === user.id)
             if (!member) {
-                await this.addMembersById(teamId, [user.id], [element.role])
+                const member: TeamMemberJoin = new TeamMemberJoin(teamId, user.id, [element.role], true)
+                await this.teamMemberProvider.create(member)
+                NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEvent.TEAMS_ADD_MEMBER, {
+                    user,
+                    organization,
+                    team,
+                    emailsCentralized,
+                    frontendUrl,
+                    roles: [element.role],
+                })
             } else {
                 await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
-
                 NATSHelper.safelyEmit<KysoTeamsUpdateMemberRolesEvent>(this.client, KysoEvent.TEAMS_UPDATE_MEMBER_ROLES, {
                     user,
                     organization,
