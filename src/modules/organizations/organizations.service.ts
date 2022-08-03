@@ -3,6 +3,7 @@ import {
     AddUserOrganizationDto,
     Comment,
     Discussion,
+    InviteUserDto,
     KysoEvent,
     KysoOrganizationsAddMemberEvent,
     KysoOrganizationsCreateEvent,
@@ -16,13 +17,16 @@ import {
     OrganizationMember,
     OrganizationMemberJoin,
     OrganizationOptions,
+    OrganizationPermissionsEnum,
     OrganizationStorageDto,
     PaginatedResponseDto,
     Report,
     ReportDTO,
     ResourcePermissions,
+    SignUpDto,
     StorageDto,
     Team,
+    TeamMember,
     TeamVisibilityEnum,
     Token,
     UpdateOrganizationDTO,
@@ -31,6 +35,7 @@ import {
 } from '@kyso-io/kyso-model'
 import {
     BadRequestException,
+    ForbiddenException,
     Inject,
     Injectable,
     InternalServerErrorException,
@@ -46,6 +51,7 @@ import { extname } from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
+import { NATSHelper } from '../../helpers/natsHelper'
 import { PlatformRole } from '../../security/platform-roles'
 import { CommentsService } from '../comments/comments.service'
 import { DiscussionsService } from '../discussions/discussions.service'
@@ -144,14 +150,10 @@ export class OrganizationsService extends AutowiredService {
         )
         await this.teamsService.createTeam(token, generalTeam)
 
-        try {
-            this.client.emit<KysoOrganizationsCreateEvent>(KysoEvent.ORGANIZATIONS_CREATE, {
-                user: await this.usersService.getUserById(token.id),
-                organization: newOrganization,
-            })
-        } catch(ex) {
-            Logger.warn(`Event ${KysoEvent.ORGANIZATIONS_CREATE} not sent to NATS`);
-        }
+        NATSHelper.safelyEmit<KysoOrganizationsCreateEvent>(this.client, KysoEvent.ORGANIZATIONS_CREATE, {
+            user: await this.usersService.getUserById(token.id),
+            organization: newOrganization,
+        })
 
         return newOrganization
     }
@@ -171,17 +173,11 @@ export class OrganizationsService extends AutowiredService {
         // Delete the organization
         await this.provider.deleteOne({ _id: this.provider.toObjectId(organization.id) })
 
-        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
-        // the NATS fails...
-        try {
-            this.client.emit<KysoOrganizationsDeleteEvent>(KysoEvent.ORGANIZATIONS_DELETE, {
-                user: await this.usersService.getUserById(token.id),
-                organization,
-            })
-        } catch(ex) {
-            Logger.warn(`Event ${KysoEvent.ORGANIZATIONS_DELETE} not sent to NATS`);
-        }
-        
+        NATSHelper.safelyEmit<KysoOrganizationsDeleteEvent>(this.client, KysoEvent.ORGANIZATIONS_DELETE, {
+            user: await this.usersService.getUserById(token.id),
+            organization,
+        })
+
         return organization
     }
 
@@ -249,7 +245,7 @@ export class OrganizationsService extends AutowiredService {
                 filterArray.push({ _id: this.provider.toObjectId(id) })
             })
 
-            if(filterArray.length > 0) {
+            if (filterArray.length > 0) {
                 const filter = { filter: { $or: filterArray } }
 
                 const users = await this.usersService.getUsers(filter)
@@ -263,7 +259,7 @@ export class OrganizationsService extends AutowiredService {
 
                 return usersAndRoles.map((x) => new OrganizationMember(x.id.toString(), x.display_name, x.name, x.roles, x.bio, x.avatar_url, x.email))
             } else {
-                return [];
+                return []
             }
         } else {
             return []
@@ -308,17 +304,11 @@ export class OrganizationsService extends AutowiredService {
             },
         )
 
-        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
-        // the NATS fails...
-        try {
-            this.client.emit<KysoOrganizationsUpdateEvent>(KysoEvent.ORGANIZATIONS_UPDATE, {
-                user: await this.usersService.getUserById(token.id),
-                organization: organizationDb,
-            })
-        } catch(ex) {
-            Logger.warn(`Event ${KysoEvent.ORGANIZATIONS_UPDATE} not sent to NATS`);
-        }
-        
+        NATSHelper.safelyEmit<KysoOrganizationsUpdateEvent>(this.client, KysoEvent.ORGANIZATIONS_UPDATE, {
+            user: await this.usersService.getUserById(token.id),
+            organization: organizationDb,
+        })
+
         return organizationDb
     }
 
@@ -366,23 +356,13 @@ export class OrganizationsService extends AutowiredService {
             if (isCentralized) {
                 emailsCentralized = organization.options.notifications.emails
             }
-            
-            // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
-            // the NATS fails...
-            try {
-                this.client
-                .send<KysoOrganizationsAddMemberEvent>(KysoEvent.ORGANIZATIONS_ADD_MEMBER, {
-                    user,
-                    organization,
-                    emailsCentralized,
-                    role: addUserOrganizationDto.role,
-                    frontendUrl,
-                })
-                .subscribe((result) => console.log(result))
-            } catch(ex) {
-                Logger.warn(`Event ${KysoEvent.ORGANIZATIONS_ADD_MEMBER} not sent to NATS`);
-            }
-            
+            NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEvent.ORGANIZATIONS_ADD_MEMBER, {
+                user,
+                organization,
+                emailsCentralized,
+                role: addUserOrganizationDto.role,
+                frontendUrl,
+            })
         } catch (ex) {
             Logger.error('Error sending notifications of new member in an organization', ex)
         }
@@ -421,23 +401,14 @@ export class OrganizationsService extends AutowiredService {
         if (isCentralized) {
             emailsCentralized = organization.options.notifications.emails
         }
+        NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEvent.ORGANIZATIONS_ADD_MEMBER, {
+            user,
+            organization,
+            emailsCentralized,
+            role,
+            frontendUrl,
+        })
 
-        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
-        // the NATS fails...
-        try {
-            this.client
-            .send<KysoOrganizationsAddMemberEvent>(KysoEvent.ORGANIZATIONS_ADD_MEMBER, {
-                user,
-                organization,
-                emailsCentralized,
-                role,
-                frontendUrl,
-            })
-            .subscribe((result) => console.log(result))
-        } catch(ex) {
-            Logger.warn(`Event ${KysoEvent.ORGANIZATIONS_ADD_MEMBER} not sent to NATS`);
-        }
-        
         return true
     }
 
@@ -473,22 +444,13 @@ export class OrganizationsService extends AutowiredService {
         if (isCentralized) {
             emailsCentralized = organization.options.notifications.emails
         }
-        
-        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
-        // the NATS fails...
-        try {
-            this.client
-            .send<KysoOrganizationsRemoveMemberEvent>(KysoEvent.ORGANIZATIONS_REMOVE_MEMBER, {
-                user,
-                organization,
-                emailsCentralized,
-                frontendUrl,
-            })
-            .subscribe((result) => console.log(result))
-        } catch(ex) {
-            Logger.warn(`Event ${KysoEvent.ORGANIZATIONS_REMOVE_MEMBER} not sent to NATS`);
-        }
-        
+        NATSHelper.safelyEmit<KysoOrganizationsRemoveMemberEvent>(this.client, KysoEvent.ORGANIZATIONS_REMOVE_MEMBER, {
+            user,
+            organization,
+            emailsCentralized,
+            frontendUrl,
+        })
+
         return this.getOrganizationMembers(organization.id)
     }
 
@@ -524,22 +486,14 @@ export class OrganizationsService extends AutowiredService {
                 throw new PreconditionFailedException(`Role ${element.role} is not valid`)
             }
             if (!member.role_names.includes(element.role)) {
-                // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
-                // the NATS fails...
-                try {
-                    this.client
-                    .send<KysoOrganizationsAddMemberEvent>(KysoEvent.ORGANIZATIONS_UPDATE_MEMBER_ROLE, {
-                        user,
-                        organization,
-                        emailsCentralized,
-                        previousRole: member.role_names[0],
-                        currentRole: element.role,
-                        frontendUrl,
-                    })
-                    .subscribe((result) => console.log(result))
-                } catch(ex) {
-                    Logger.warn(`Event ${KysoEvent.ORGANIZATIONS_UPDATE_MEMBER_ROLE} not sent to NATS`);
-                }
+                NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEvent.ORGANIZATIONS_UPDATE_MEMBER_ROLE, {
+                    user,
+                    organization,
+                    emailsCentralized,
+                    previousRole: member.role_names[0],
+                    currentRole: element.role,
+                    frontendUrl,
+                })
             }
             await this.organizationMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
         }
@@ -930,5 +884,57 @@ export class OrganizationsService extends AutowiredService {
             totalItems,
             totalPages,
         }
+    }
+
+    public async inviteNewUser(token: Token, inviteUserDto: InviteUserDto): Promise<{ organizationMembers: OrganizationMember[]; teamMembers: TeamMember[] }> {
+        const organization: Organization = await this.getOrganization({ filter: { sluglified_name: inviteUserDto.organizationSlug } })
+        if (!organization) {
+            Logger.log(`Organization ${inviteUserDto.organizationSlug} not found`)
+            throw new NotFoundException(`Organization ${inviteUserDto.organizationSlug} not found`)
+        }
+        const permissionOrg: ResourcePermissions | undefined = token.permissions.organizations.find((x: ResourcePermissions) => x.id === organization.id)
+        if (!permissionOrg) {
+            Logger.log(`User ${token.id} is not authorized to invite users to organization ${inviteUserDto.organizationSlug}`)
+            throw new ForbiddenException(`User ${token.id} is not authorized to invite users to organization ${inviteUserDto.organizationSlug}`)
+        }
+
+        if (!inviteUserDto.teamSlug) {
+            const isOrgAdmin: boolean = permissionOrg.permissions.includes(OrganizationPermissionsEnum.ADMIN)
+            if (!token.isGlobalAdmin() && !isOrgAdmin) {
+                Logger.log(`User ${token.id} is not authorized to invite users to organization ${inviteUserDto.organizationSlug}`)
+                throw new ForbiddenException(`User ${token.id} is not authorized to invite users to organization ${inviteUserDto.organizationSlug}`)
+            }
+        }
+
+        let user: User = await this.usersService.getUser({ filter: { email: inviteUserDto.email } })
+        if (user) {
+            Logger.log(`User ${inviteUserDto.email} already exists`)
+            throw new BadRequestException(`User ${inviteUserDto.email} already exists`)
+        }
+        const signUpDto: SignUpDto = new SignUpDto()
+        signUpDto.email = inviteUserDto.email
+        signUpDto.username = inviteUserDto.email
+        signUpDto.display_name = inviteUserDto.email
+        signUpDto.password = uuidv4()
+        user = await this.usersService.createUser(signUpDto)
+
+        await this.addMembersById(organization.id, [user.id], [inviteUserDto.organizationRole])
+
+        const result: { organizationMembers: OrganizationMember[]; teamMembers: TeamMember[] } = {
+            organizationMembers: await this.getOrganizationMembers(organization.id),
+            teamMembers: [],
+        }
+
+        if (inviteUserDto?.teamSlug) {
+            const team: Team = await this.teamsService.getTeam({ filter: { organization_id: organization.id, sluglified_name: inviteUserDto.teamSlug } })
+            if (!team) {
+                Logger.log(`Team ${inviteUserDto.teamSlug} not found`)
+                throw new NotFoundException(`Team ${inviteUserDto.teamSlug} not found`)
+            }
+            await this.teamsService.addMembersById(team.id, [user.id], [inviteUserDto.teamRole])
+            result.teamMembers = await this.teamsService.getMembers(team.id)
+        }
+
+        return result
     }
 }

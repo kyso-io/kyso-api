@@ -29,7 +29,16 @@ export class UsersMongoProvider extends MongoProvider<User> {
     version = 3
 
     constructor() {
-        super('User', db)
+        super('User', db, [
+            {
+                keys: {
+                    email: 'text',
+                    username: 'text',
+                    name: 'text',
+                    display_name: 'text',
+                },
+            },
+        ])
     }
 
     async populateMinimalData() {

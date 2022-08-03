@@ -1,6 +1,7 @@
 import {
     AddUserOrganizationDto,
     GlobalPermissionsEnum,
+    InviteUserDto,
     NormalizedResponseDTO,
     Organization,
     OrganizationInfoDto,
@@ -12,6 +13,7 @@ import {
     Relations,
     ReportDTO,
     StoragePermissionsEnum,
+    TeamMember,
     TeamPermissionsEnum,
     Token,
     UpdateOrganizationDTO,
@@ -228,6 +230,24 @@ export class OrganizationsController extends GenericController<Organization> {
     async getOrganizationMembers(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
         const data: OrganizationMember[] = await this.organizationService.getOrganizationMembers(organizationId)
         return new NormalizedResponseDTO(data)
+    }
+
+    @Post('invitation')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @ApiOperation({
+        summary: `Create an invitation`,
+        description: `Create an invitation`,
+    })
+    @Permission([OrganizationPermissionsEnum.ADMIN, TeamPermissionsEnum.ADMIN])
+    public async inviteNewUser(
+        @CurrentToken() token: Token,
+        @Body() inviteUserDto: InviteUserDto,
+    ): Promise<NormalizedResponseDTO<{ organizationMembers: OrganizationMember[]; teamMembers: TeamMember[] }>> {
+        const result: { organizationMembers: OrganizationMember[]; teamMembers: TeamMember[] } = await this.organizationService.inviteNewUser(
+            token,
+            inviteUserDto,
+        )
+        return new NormalizedResponseDTO(result)
     }
 
     @Post()

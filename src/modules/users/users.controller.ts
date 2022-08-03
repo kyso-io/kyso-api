@@ -124,6 +124,17 @@ export class UsersController extends GenericController<User> {
             })
             query.filter = { $or: mapped }
         }
+
+        if (query?.filter?.$text) {
+            if (!query.filter.hasOwnProperty('$or')) {
+                query.filter.$or = []
+            }
+            query.filter.$or.push({ email: { $regex: query.filter.$text.$search, $options: 'i' } })
+            query.filter.$or.push({ username: { $regex: query.filter.$text.$search, $options: 'i' } })
+            query.filter.$or.push({ display_name: { $regex: query.filter.$text.$search, $options: 'i' } })
+            delete query.filter.$text
+        }
+
         const result: User[] = await this.usersService.getUsers(query)
         return new NormalizedResponseDTO(UserDTO.fromUserArray(result))
     }
