@@ -13,6 +13,7 @@ import {
     KysoUsersRecoveryPasswordEvent,
     KysoUsersUpdateEvent,
     KysoUsersVerificationEmailEvent,
+    Login,
     LoginProviderEnum,
     Organization,
     SignUpDto,
@@ -85,6 +86,9 @@ export class UsersService extends AutowiredService {
 
     @Autowired({ typeName: 'FullTextSearchService' })
     private fullTextSearchService: FullTextSearchService
+
+    @Autowired({ typeName: 'AuthService' })
+    private authService: AuthService
 
     constructor(
         private readonly kysoAccessTokenProvider: KysoUserAccessTokensMongoProvider,
@@ -169,12 +173,14 @@ export class UsersService extends AutowiredService {
         )
         Logger.log(`Creating new user ${signUpDto.display_name} with email ${signUpDto.email}...`)
         const user: User = await this.provider.create(newUser)
+        const tokenStr: string = await this.authService.login(new Login(signUpDto.password, LoginProviderEnum.KYSO, signUpDto.email, null))
+        const token: Token = await this.authService.evaluateAndDecodeToken(tokenStr)
 
         // Create user organization
         const organizationName: string = user.display_name.charAt(0).toUpperCase() + user.display_name.slice(1)
         const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], user.email, '', '', true, '', '', '', '', uuidv4())
         Logger.log(`Creating new organization ${newOrganization.sluglified_name}`)
-        const organizationDb: Organization = await this.organizationsService.createOrganization(null, newOrganization)
+        const organizationDb: Organization = await this.organizationsService.createOrganization(token, newOrganization)
 
         // Add user to organization as admin
         Logger.log(`Adding ${user.display_name} to organization ${organizationDb.sluglified_name} with role ${PlatformRole.ORGANIZATION_ADMIN_ROLE.name}...`)
@@ -184,7 +190,7 @@ export class UsersService extends AutowiredService {
         const teamName = 'My Private Team'
         const newUserTeam: Team = new Team(teamName, '', '', '', '', [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
         Logger.log(`Creating new team ${newUserTeam.sluglified_name}...`)
-        const userTeamDb: Team = await this.teamsService.createTeam(null, newUserTeam)
+        const userTeamDb: Team = await this.teamsService.createTeam(token, newUserTeam)
 
         // Add user to team as admin
         Logger.log(`Adding ${user.display_name} to team ${userTeamDb.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}...`)
@@ -193,9 +199,9 @@ export class UsersService extends AutowiredService {
         Logger.log(`Sending email to ${user.email}`)
 
         NATSHelper.safelyEmit<KysoUsersCreateEvent>(this.client, KysoEvent.USERS_CREATE, {
-            user
+            user,
         })
-        
+
         await this.sendVerificationEmail(user)
 
         this.indexUser(user)
@@ -254,8 +260,8 @@ export class UsersService extends AutowiredService {
         this.fullTextSearchService.deleteDocument(ElasticSearchIndex.User, user.id)
 
         NATSHelper.safelyEmit<KysoUsersDeleteEvent>(this.client, KysoEvent.USERS_DELETE, {
-            user, 
-            owner: await this.getUserById(token.id)
+            user,
+            owner: await this.getUserById(token.id),
         })
 
         return true
@@ -326,8 +332,8 @@ export class UsersService extends AutowiredService {
         this.fullTextSearchService.updateDocument(kysoIndex)
 
         NATSHelper.safelyEmit<KysoUsersUpdateEvent>(this.client, KysoEvent.USERS_UPDATE, {
-            user, 
-            owner: await this.getUserById(token.id)
+            user,
+            owner: await this.getUserById(token.id),
         })
 
         return user
