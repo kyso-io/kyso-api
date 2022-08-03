@@ -12,6 +12,7 @@ import {
     Team,
     TeamVisibilityEnum,
     Token,
+    TokenStatusEnum,
     User,
     VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model'
@@ -312,13 +313,28 @@ export class AuthController extends GenericController<string> {
         }
         try {
             const splittedToken = jwtToken.split('Bearer ')
-            const decodedToken = this.authService.evaluateAndDecodeToken(splittedToken[1])
 
-            if (decodedToken) {
-                const jwt: string = await this.authService.refreshToken(decodedToken)
-                return new NormalizedResponseDTO(jwt)
-            } else {
-                throw new ForbiddenException()
+            const tokenStatus: TokenStatusEnum = this.authService.verifyToken(splittedToken[1]);
+
+            switch(tokenStatus) {
+                case TokenStatusEnum.VALID:
+                case TokenStatusEnum.EXPIRED:
+                    // Expired, but issued by us
+                    const decodedToken: Token = this.authService.decodeToken(splittedToken[1]);
+                    if (decodedToken) {
+                        const jwt: string = await this.authService.refreshToken(decodedToken)
+                        return new NormalizedResponseDTO(jwt)
+                    } else {
+                        throw new ForbiddenException()
+                    }
+                    
+                case TokenStatusEnum.INVALID_SIGNATURE:
+                    // Raise security alert
+                    console.error("SECURITY WARNING: INVALID SIGNATURE DETECTED");
+                    throw new ForbiddenException()
+                    
+                default:
+                    throw new ForbiddenException()
             }
         } catch (ex) {
             throw new ForbiddenException()

@@ -14,6 +14,7 @@ import {
     TeamVisibilityEnum,
     Token,
     TokenPermissions,
+    TokenStatusEnum,
     User,
     UserAccount,
 } from '@kyso-io/kyso-model'
@@ -461,14 +462,37 @@ export class AuthService extends AutowiredService {
      */
     evaluateAndDecodeToken(token: string): Token {
         try {
-            this.jwtService.verify(token)
-            const decodedToken = this.jwtService.decode(token)
+            const tokenStatus: TokenStatusEnum = this.verifyToken(token);
 
-            return (decodedToken as any).payload as Token
+            switch(tokenStatus) {
+                case TokenStatusEnum.VALID: 
+                    return this.decodeToken(token);
+                default:
+                    return undefined;
+            }
         } catch (ex) {
             // TOKEN IS NOT VALID
             return undefined
         }
+    }
+
+    decodeToken(token: string): Token {
+        try {
+            const decodedToken = this.jwtService.decode(token);
+            return (decodedToken as any).payload as Token;
+        } catch(ex) {
+            return undefined;
+        }
+    }
+    
+    verifyToken(token: string): TokenStatusEnum {
+        try {
+            this.jwtService.verify(token);
+            return TokenStatusEnum.VALID;
+        } catch(ex) {
+            return ex.message as TokenStatusEnum
+        }
+
     }
 
     public async refreshToken(token: Token): Promise<string> {
