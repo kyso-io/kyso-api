@@ -430,12 +430,7 @@ export class OrganizationsService extends AutowiredService {
         }
 
         await this.organizationMemberProvider.deleteOne({ organization_id: organization.id, member_id: user.id })
-        members.splice(index, 1)
-
-        if (members.length === 0) {
-            // Organization without members, delete it
-            await this.provider.deleteOne({ _id: this.provider.toObjectId(organization.id) })
-        }
+        await this.teamsService.deleteMemberInTeamsOfOrganization(organization.id, user.id)
 
         // SEND NOTIFICATIONS
         const isCentralized: boolean = organization?.options?.notifications?.centralized || false
