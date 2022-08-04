@@ -25,7 +25,7 @@
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.48.0",
-        "@kyso-io/kyso-model": "1.0.92",
+        "@kyso-io/kyso-model": "1.0.94",
         "@nestjs/common": "^8.0.0",
         "@nestjs/core": "^8.0.0",
         "@nestjs/jwt": "^8.0.0",
