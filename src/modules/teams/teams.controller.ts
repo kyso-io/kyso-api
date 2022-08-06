@@ -564,7 +564,11 @@ export class TeamsController extends GenericController<Team> {
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Upload markdown image`, type: String })
-    @UseInterceptors(FileInterceptor('file'))
+    @UseInterceptors(FileInterceptor('file', {
+        limits: {
+            fileSize: 52428800 
+        }
+    }))
     public async uploadMarkdownImage(
         @CurrentToken() token: Token,
         @Param('teamId') teamId: string,

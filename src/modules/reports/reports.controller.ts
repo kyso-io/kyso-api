@@ -36,7 +36,7 @@ import {
     UseGuards,
     UseInterceptors,
 } from '@nestjs/common'
-import { FileInterceptor } from '@nestjs/platform-express'
+import { AnyFilesInterceptor, FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
