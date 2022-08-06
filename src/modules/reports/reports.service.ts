@@ -745,7 +745,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             const localFilePath = join(tmpDir, entry.entryName)
             if (originalName === 'kyso.json') {
                 try {
-                    kysoConfigFile = JSON.parse(readFileSync(localFilePath).toString())
+                    kysoConfigFile = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString());
                     break
                 } catch (e: any) {
                     Logger.error(`An error occurred parsing kyso.json`, e, ReportsService.name)
@@ -753,7 +753,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 }
             } else if (originalName === 'kyso.yml' || originalName === 'kyso.yaml') {
                 try {
-                    kysoConfigFile = jsYaml.load(readFileSync(localFilePath).toString()) as KysoConfigFile
+                    kysoConfigFile = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString());
                     break
                 } catch (e: any) {
                     Logger.error(`An error occurred parsing kyso.{yml,yaml}`, e, ReportsService.name)
@@ -1005,7 +1005,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     const localFilePath = join(baseTmpDir, basePath && basePath.length > 0 ? entry.entryName.replace(basePath, '') : entry.entryName)
                     if (originalName.endsWith('kyso.json')) {
                         try {
-                            kysoConfigFile = JSON.parse(readFileSync(localFilePath).toString())
+                            kysoConfigFile = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString());
                             break
                         } catch (e: any) {
                             Logger.error(`An error occurred parsing kyso.json`, e, ReportsService.name)
@@ -1013,7 +1013,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                         }
                     } else if (originalName.endsWith('kyso.yml') || originalName.endsWith('kyso.yaml')) {
                         try {
-                            kysoConfigFile = jsYaml.load(readFileSync(localFilePath).toString()) as KysoConfigFile
+                            kysoConfigFile = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString());
                             break
                         } catch (e: any) {
                             Logger.error(`An error occurred parsing kyso.{yml,yaml}`, e, ReportsService.name)
@@ -1250,7 +1250,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
             if (originalName.endsWith('kyso.json')) {
                 try {
-                    kysoConfigFile = JSON.parse(readFileSync(localFilePath).toString())
+                    kysoConfigFile = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString());
                     break
                 } catch (e: any) {
                     Logger.error(`An error occurred parsing kyso.json`, e, ReportsService.name)
@@ -1258,7 +1258,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 }
             } else if (originalName.endsWith('kyso.yml') || originalName.endsWith('kyso.yaml')) {
                 try {
-                    kysoConfigFile = jsYaml.load(readFileSync(localFilePath).toString()) as KysoConfigFile
+                    kysoConfigFile = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString())
                     break
                 } catch (e: any) {
                     Logger.error(`An error occurred parsing kyso.{yml,yaml}`, e, ReportsService.name)
@@ -2147,7 +2147,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             const fileName: string = filePath.replace(`${relativePath}/`, '')
             if (fileName === 'kyso.json') {
                 try {
-                    kysoConfigFile = JSON.parse(readFileSync(filePath, 'utf8')) as KysoConfigFile
+                    kysoConfigFile = KysoConfigFile.fromJSON(readFileSync(filePath, 'utf8'));
                 } catch (e) {
                     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                     Logger.error(`Report ${report.id} ${report.sluglified_name}: Could not parse kyso.json file`, ReportsService.name)
@@ -2155,7 +2155,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 }
             } else if (fileName === 'kyso.yml' || fileName === 'kyso.yaml') {
                 try {
-                    kysoConfigFile = jsYaml.load(readFileSync(filePath, 'utf8')) as KysoConfigFile
+                    kysoConfigFile = KysoConfigFile.fromYaml(readFileSync(filePath, 'utf8'));
                 } catch (e) {
                     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
                     Logger.error(`Report ${report.id} ${report.sluglified_name}: Could not parse ${fileName} file`, ReportsService.name)
