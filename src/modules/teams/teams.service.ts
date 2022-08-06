@@ -961,4 +961,21 @@ export class TeamsService extends AutowiredService {
         )
         return result
     }
+
+    public async deleteMemberInTeamsOfOrganization(organizationId: string, userId: string): Promise<void> {
+        const teams: Team[] = await this.getTeams({
+            filter: {
+                organization_id: organizationId,
+            },
+        })
+        if (teams.length === 0) {
+            return
+        }
+        await this.teamMemberProvider.deleteMany({
+            team_id: {
+                $in: teams.map((x: Team) => x.id),
+            },
+            member_id: userId
+        })
+    }
 }

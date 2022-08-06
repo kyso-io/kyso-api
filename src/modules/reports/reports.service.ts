@@ -663,6 +663,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
             mainFile = result.length > 0 ? result[0] : null
         }
 
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+
         return new ReportDTO(
             report.id,
             report.created_at,
@@ -694,6 +697,8 @@ export class ReportsService extends AutowiredService implements GenericService<R
             mainFile ? mainFile.path_scs : null,
             mainFile ? mainFile.version : null,
             lastVersion,
+            organization.sluglified_name,
+            team.sluglified_name,
         )
     }
 
