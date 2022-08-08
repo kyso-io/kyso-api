@@ -53,7 +53,16 @@ export class InlineCommentsService extends AutowiredService {
         if (!team) {
             throw new ForbiddenException(`User with id ${userId} is not allowed to create inline comments for report ${report.sluglified_name}`)
         }
-        const inlineComment: InlineComment = new InlineComment(report.id, createInlineCommentDto.cell_id, userId, createInlineCommentDto.text)
+        const inlineComment: InlineComment = new InlineComment(
+            report.id, 
+            createInlineCommentDto.cell_id, 
+            userId, 
+            createInlineCommentDto.text,
+            false, 
+            false,
+            createInlineCommentDto.mentions
+        )
+        
         return this.provider.create(inlineComment)
     }
 
@@ -91,8 +100,10 @@ export class InlineCommentsService extends AutowiredService {
             inlineComment.user_id,
             inlineComment.text,
             inlineComment.edited,
+            inlineComment.markedAsDeleted,
             user.name,
             user.avatar_url,
+            inlineComment.mentions
         )
     }
 }
