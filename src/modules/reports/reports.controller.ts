@@ -1,5 +1,6 @@
 import {
     Comment,
+    EntityEnum,
     File,
     GithubBranch,
     GithubFileHash,
@@ -8,9 +9,12 @@ import {
     HEADER_X_KYSO_TEAM,
     NormalizedResponseDTO,
     Organization,
+    PaginatedResponseDto,
     Report,
     ReportDTO,
     ReportPermissionsEnum,
+    Tag,
+    TagAssign,
     Team,
     TeamVisibilityEnum,
     Token,
@@ -36,7 +40,7 @@ import {
     UseGuards,
     UseInterceptors,
 } from '@nestjs/common'
-import { AnyFilesInterceptor, FileInterceptor } from '@nestjs/platform-express'
+import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -54,8 +58,10 @@ import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { CommentsService } from '../comments/comments.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { RelationsService } from '../relations/relations.service'
+import { TagsService } from '../tags/tags.service'
 import { TeamsService } from '../teams/teams.service'
 import { ReportsService } from './reports.service'
+const aqp = require('api-query-params')
 
 @ApiExtraModels(Report, NormalizedResponseDTO)
 @ApiTags('reports')
@@ -86,6 +92,9 @@ export class ReportsController extends GenericController<Report> {
 
     @Autowired({ typeName: 'OrganizationsService' })
     private organizationsService: OrganizationsService
+
+    @Autowired({ typeName: 'TagsService' })
+    private tagsService: TagsService
 
     constructor() {
         super()
@@ -171,6 +180,125 @@ export class ReportsController extends GenericController<Report> {
         }
         const relations = await this.relationsService.getRelations(reports, 'report', { Author: 'User' })
         return new NormalizedResponseDTO(reportsDtos, relations)
+    }
+
+    @Get('paginated')
+    @Public()
+    @ApiOperation({
+        summary: `Search and fetch reports`,
+        description: `By passing the appropiate parameters you can fetch and filter the reports available to the authenticated user.<br />
+         **This endpoint supports filtering**. Refer to the Report schema to see available options.`,
+    })
+    async getPaginatedReports(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<PaginatedResponseDto<ReportDTO>>> {
+        const data = aqp(req._parsedUrl.query)
+        if (!data.limit) {
+            data.limit = 10
+        }
+        if (!data.sort) {
+            data.sort = { created_at: -1 }
+        }
+        if (!data.hasOwnProperty('skip')) {
+            data.skip = 0
+        }
+        if (!data.filter.hasOwnProperty('organization_id') && !data.filter.hasOwnProperty('team_id')) {
+            throw new BadRequestException('You must specify an organization_id or team_id')
+        }
+        const paginatedResponseDto: PaginatedResponseDto<ReportDTO> = {
+            currentPage: 0,
+            itemCount: 0,
+            itemsPerPage: 0,
+            results: [],
+            totalItems: 0,
+            totalPages: 0,
+        }
+        if (!token) {
+            if (data.filter.organization_id) {
+                const organization: Organization = await this.organizationsService.getOrganizationById(data.filter.organization_id)
+                if (!organization) {
+                    throw new BadRequestException('Organization not found')
+                }
+                const teams: Team[] = await this.teamsService.getTeams({
+                    filter: { organization_id: data.filter.organization_id, visibility: TeamVisibilityEnum.PUBLIC },
+                })
+                if (teams.length === 0) {
+                    return new NormalizedResponseDTO(paginatedResponseDto)
+                }
+                delete data.filter.organization_id
+                data.filter.team_id = {
+                    $in: teams.map((team: Team) => team.id),
+                }
+            } else {
+                const team: Team = await this.teamsService.getTeamById(data.filter.team_id)
+                if (!team) {
+                    throw new BadRequestException('Team not found')
+                }
+                if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                    throw new ForbiddenException('Team not public')
+                }
+            }
+        } else {
+            let teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+            if (data.filter.organization_id) {
+                teams = teams.filter((team: Team) => team.organization_id === data.filter.organization_id)
+                if (teams.length === 0) {
+                    return new NormalizedResponseDTO(paginatedResponseDto)
+                }
+                data.filter.team_id = {
+                    $in: teams.map((team: Team) => team.id),
+                }
+                delete data.filter.organization_id
+            } else {
+                const team: Team = await this.teamsService.getTeamById(data.filter.team_id)
+                if (!team) {
+                    throw new BadRequestException('Team not found')
+                }
+                if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                    const indexTeam: number = teams.findIndex((team: Team) => team.id === team.id)
+                    if (indexTeam === -1) {
+                        throw new ForbiddenException('Team not public')
+                    }
+                }
+            }
+        }
+        if (data.filter.tag) {
+            const tags: Tag[] = await this.tagsService.getTags({
+                filter: {
+                    name: { $regex: data.filter.tag, $options: 'i' },
+                },
+                projection: {
+                    _id: 1,
+                },
+            })
+            if (tags.length === 0) {
+                return new NormalizedResponseDTO(paginatedResponseDto)
+            }
+            const tagAssigns: TagAssign[] = await this.tagsService.getTagAssigns({
+                filter: {
+                    tag_id: { $in: tags.map((tag: Tag) => tag.id) },
+                    type: EntityEnum.REPORT,
+                },
+                projection: {
+                    _id: 1,
+                    entity_id: 1,
+                },
+            })
+            if (tagAssigns.length === 0) {
+                return new NormalizedResponseDTO(paginatedResponseDto)
+            }
+            data.filter.id = {
+                $in: tagAssigns.map((tagAssign: TagAssign) => tagAssign.entity_id),
+            }
+            delete data.filter.tag
+        }
+        paginatedResponseDto.totalItems = await this.reportsService.countReports({ filter: data.filter })
+        paginatedResponseDto.totalPages = Math.ceil(paginatedResponseDto.totalItems / data.limit)
+        paginatedResponseDto.currentPage = data.skip ? Math.floor(data.skip / data.limit) + 1 : 1
+        const reports: Report[] = await this.reportsService.getReports(data)
+        paginatedResponseDto.results = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token?.id)))
+        paginatedResponseDto.itemCount = paginatedResponseDto.results.length
+        paginatedResponseDto.itemsPerPage = data.limit
+        const relations = await this.relationsService.getRelations(reports, 'report', { Author: 'User' })
+        return new NormalizedResponseDTO(paginatedResponseDto, relations)
     }
 
     @Get('/pinned')
