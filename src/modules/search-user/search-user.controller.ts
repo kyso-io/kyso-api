@@ -20,22 +20,22 @@ export class SearchUserController extends GenericController<SearchUser> {
     @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: SearchUser })
     @ApiResponse({
         status: 400,
-        description: `organizationId is required`,
+        description: `organization_id is required`,
     })
     public async getUserSearch(
         @CurrentToken() token: Token,
-        @Query('organizationId') organizationId: string,
-        @Query('teamId') teamId: string,
+        @Query('organization_id') organization_id: string,
+        @Query('team_id') team_id: string,
     ): Promise<NormalizedResponseDTO<SearchUser>> {
-        if (!organizationId) {
-            throw new BadRequestException('organizationId is required')
+        if (!organization_id) {
+            throw new BadRequestException('organization_id is required')
         }
         const filter: any = {
             user_id: token.id,
-            organization_id: organizationId,
+            organization_id: organization_id,
         }
-        if (teamId) {
-            filter.team_id = teamId
+        if (team_id) {
+            filter.team_id = team_id
         }
         let searchUser: SearchUser = null
         const result: SearchUser[] = await this.searchUserMongoProvider.read({ filter })
@@ -51,7 +51,8 @@ export class SearchUserController extends GenericController<SearchUser> {
         description: `Creat/update user search`,
         type: SearchUser,
     })
-    public async createUserSearch(@CurrentToken() token: Token, @Body() searchUserDto: SearchUserDto): Promise<NormalizedResponseDTO<SearchUser>> {
+    public async createUserSearch(@CurrentToken() token: Token, @Body() body): Promise<NormalizedResponseDTO<SearchUser>> {
+        const searchUserDto: SearchUserDto = body;
         const filter: any = {
             user_id: token.id,
             organization_id: searchUserDto.organization_id,
@@ -73,6 +74,7 @@ export class SearchUserController extends GenericController<SearchUser> {
             searchUser.team_id = searchUserDto.team_id
             searchUser.team_id = searchUserDto.team_id
             searchUser.query = searchUserDto.query
+            searchUser.payload = searchUserDto.payload
             searchUser = await this.searchUserMongoProvider.create(searchUser)
         }
         return new NormalizedResponseDTO(searchUser)
@@ -82,12 +84,12 @@ export class SearchUserController extends GenericController<SearchUser> {
     @ApiNormalizedResponse({ status: 200, description: `Delete user search`, type: Boolean })
     @ApiResponse({
         status: 403,
-        description: `organizationId is required`,
+        description: `organization_id is required`,
     })
     public async deleteUserSearch(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<boolean>> {
         const result: SearchUser[] = await this.searchUserMongoProvider.read({
             filter: {
-                id: this.searchUserMongoProvider.toObjectId(id),
+                _id: this.searchUserMongoProvider.toObjectId(id),
             },
         })
         let deleted = false

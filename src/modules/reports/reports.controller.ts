@@ -10,6 +10,7 @@ import {
     NormalizedResponseDTO,
     Organization,
     PaginatedResponseDto,
+    PinnedReport,
     Report,
     ReportDTO,
     ReportPermissionsEnum,
@@ -18,7 +19,7 @@ import {
     Team,
     TeamVisibilityEnum,
     Token,
-    UpdateReportRequestDTO,
+    UpdateReportRequestDTO
 } from '@kyso-io/kyso-model'
 import {
     BadRequestException,
@@ -38,7 +39,7 @@ import {
     Res,
     UploadedFile,
     UseGuards,
-    UseInterceptors,
+    UseInterceptors
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
@@ -60,6 +61,7 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { RelationsService } from '../relations/relations.service'
 import { TagsService } from '../tags/tags.service'
 import { TeamsService } from '../teams/teams.service'
+import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider'
 import { ReportsService } from './reports.service'
 const aqp = require('api-query-params')
 
@@ -96,7 +98,7 @@ export class ReportsController extends GenericController<Report> {
     @Autowired({ typeName: 'TagsService' })
     private tagsService: TagsService
 
-    constructor() {
+    constructor(private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider) {
         super()
     }
 
@@ -285,15 +287,62 @@ export class ReportsController extends GenericController<Report> {
             if (tagAssigns.length === 0) {
                 return new NormalizedResponseDTO(paginatedResponseDto)
             }
-            data.filter.id = {
-                $in: tagAssigns.map((tagAssign: TagAssign) => tagAssign.entity_id),
+            let ids: ObjectId[] = tagAssigns.map((tagAssign: TagAssign) => new ObjectId(tagAssign.entity_id))
+            ids = ids.filter((id: ObjectId, index: number) => ids.indexOf(id) === index);
+            data.filter._id = {
+                $in: ids,
             }
             delete data.filter.tag
+        }
+        if (data.filter['user-pinned']) {
+            const pinnedReports: PinnedReport[] = await this.pinnedReportsMongoProvider.read({
+                filter: {
+                    user_id: token.id,
+                },
+                projection: {
+                    _id: 1,
+                    report_id: 1,
+                },
+            })
+            if (pinnedReports.length === 0) {
+                return new NormalizedResponseDTO(paginatedResponseDto)
+            }
+            const prs: Report[] = await this.reportsService.getReports({
+                filter: {
+                    _id: { $in: pinnedReports.map((pinnedReport: PinnedReport) => new ObjectId(pinnedReport.report_id)) },
+                },
+                projection: {
+                    _id: 1,
+                    team_id: 1,
+                },
+            })
+            if (prs.length === 0) {
+                return new NormalizedResponseDTO(paginatedResponseDto)
+            }
+            if (data.filter.hasOwnProperty('_id')) {
+                // Delete reports with tags that did not pin by user
+                const ids = [...data.filter._id.$in]
+                for (const id of ids) {
+                    const index = prs.findIndex((pr: Report) => pr.id === id.toString())
+                    if (index !== -1) {
+                        prs.splice(index, 1)
+                    }
+                }
+                data.filter._id = {
+                    $in: ids,
+                }
+            } else {
+                data.filter._id = {
+                    $in: prs.map((report: Report) => new ObjectId(report.id)),
+                }
+            }
+            delete data.filter['user-pinned']
         }
         paginatedResponseDto.totalItems = await this.reportsService.countReports({ filter: data.filter })
         paginatedResponseDto.totalPages = Math.ceil(paginatedResponseDto.totalItems / data.limit)
         paginatedResponseDto.currentPage = data.skip ? Math.floor(data.skip / data.limit) + 1 : 1
         const reports: Report[] = await this.reportsService.getReports(data)
+        console.log(reports.map((r) => r.id))
         paginatedResponseDto.results = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token?.id)))
         paginatedResponseDto.itemCount = paginatedResponseDto.results.length
         paginatedResponseDto.itemsPerPage = data.limit
