@@ -19,7 +19,7 @@ import {
     Team,
     TeamVisibilityEnum,
     Token,
-    UpdateReportRequestDTO
+    UpdateReportRequestDTO,
 } from '@kyso-io/kyso-model'
 import {
     BadRequestException,
@@ -39,7 +39,7 @@ import {
     Res,
     UploadedFile,
     UseGuards,
-    UseInterceptors
+    UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
@@ -263,10 +263,14 @@ export class ReportsController extends GenericController<Report> {
             }
         }
         if (data.filter.tag) {
+            const filterTags: any = {}
+            if (data.filter.tag?.$in) {
+                filterTags.$or = data.filter.tag.$in.map((tag: string) => ({ name: { $regex: `${tag}`, $options: 'i' } }))
+            } else {
+                filterTags.name = { $regex: `${data.filter.tag}`, $options: 'i' }
+            }
             const tags: Tag[] = await this.tagsService.getTags({
-                filter: {
-                    name: { $regex: data.filter.tag, $options: 'i' },
-                },
+                filter: filterTags,
                 projection: {
                     _id: 1,
                 },
@@ -288,7 +292,7 @@ export class ReportsController extends GenericController<Report> {
                 return new NormalizedResponseDTO(paginatedResponseDto)
             }
             let ids: ObjectId[] = tagAssigns.map((tagAssign: TagAssign) => new ObjectId(tagAssign.entity_id))
-            ids = ids.filter((id: ObjectId, index: number) => ids.indexOf(id) === index);
+            ids = ids.filter((id: ObjectId, index: number) => ids.indexOf(id) === index)
             data.filter._id = {
                 $in: ids,
             }
@@ -338,11 +342,18 @@ export class ReportsController extends GenericController<Report> {
             }
             delete data.filter['user-pinned']
         }
+        if (data.filter.text) {
+            const text: string = data.filter.text
+            delete data.filter.text
+            data.filter.$or = [
+                { title: { $regex: `${text}`, $options: 'i' } },
+                { description: { $regex: `${text}`, $options: 'i' } },
+            ]
+        }
         paginatedResponseDto.totalItems = await this.reportsService.countReports({ filter: data.filter })
         paginatedResponseDto.totalPages = Math.ceil(paginatedResponseDto.totalItems / data.limit)
         paginatedResponseDto.currentPage = data.skip ? Math.floor(data.skip / data.limit) + 1 : 1
         const reports: Report[] = await this.reportsService.getReports(data)
-        console.log(reports.map((r) => r.id))
         paginatedResponseDto.results = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token?.id)))
         paginatedResponseDto.itemCount = paginatedResponseDto.results.length
         paginatedResponseDto.itemsPerPage = data.limit
