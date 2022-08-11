@@ -8,7 +8,7 @@ import {
     KysoCommentsDeleteEvent,
     KysoCommentsUpdateEvent,
     KysoDiscussionsNewMentionEvent,
-    KysoEvent,
+    KysoEventEnum,
     KysoIndex,
     KysoSettingsEnum,
     Organization,
@@ -127,7 +127,7 @@ export class CommentsService extends AutowiredService {
         const user: User = await this.usersService.getUserById(token.id)
 
         if (newComment?.comment_id) {
-            NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEvent.COMMENTS_REPLY, {
+            NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_REPLY, {
                 user,
                 organization,
                 team,
@@ -137,7 +137,7 @@ export class CommentsService extends AutowiredService {
                 frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
             })
         } else {
-            NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEvent.COMMENTS_CREATE, {
+            NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_CREATE, {
                 user,
                 organization,
                 team,
@@ -184,7 +184,7 @@ export class CommentsService extends AutowiredService {
                 if (centralizedMails) {
                     continue
                 }
-                NATSHelper.safelyEmit<KysoDiscussionsNewMentionEvent>(this.client, KysoEvent.DISCUSSIONS_NEW_MENTION, {
+                NATSHelper.safelyEmit<KysoDiscussionsNewMentionEvent>(this.client, KysoEventEnum.DISCUSSIONS_NEW_MENTION, {
                     user,
                     creator,
                     organization,
@@ -197,7 +197,7 @@ export class CommentsService extends AutowiredService {
         if (centralizedMails && organization.options.notifications.emails.length > 0 && mentionedUsers.length > 0) {
             const emails: string[] = organization.options.notifications.emails
 
-            NATSHelper.safelyEmit<KysoDiscussionsNewMentionEvent>(this.client, KysoEvent.DISCUSSIONS_MENTIONS, {
+            NATSHelper.safelyEmit<KysoDiscussionsNewMentionEvent>(this.client, KysoEventEnum.DISCUSSIONS_MENTIONS, {
                 to: emails,
                 creator,
                 users: mentionedUsers,
@@ -252,7 +252,7 @@ export class CommentsService extends AutowiredService {
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
         const user: User = await this.usersService.getUserById(token.id)
 
-        NATSHelper.safelyEmit<KysoCommentsUpdateEvent>(this.client, KysoEvent.COMMENTS_UPDATE, {
+        NATSHelper.safelyEmit<KysoCommentsUpdateEvent>(this.client, KysoEventEnum.COMMENTS_UPDATE, {
             user,
             organization,
             team,
@@ -332,7 +332,7 @@ export class CommentsService extends AutowiredService {
         }
         comment = await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } })
 
-        NATSHelper.safelyEmit<KysoCommentsDeleteEvent>(this.client, KysoEvent.COMMENTS_DELETE, {
+        NATSHelper.safelyEmit<KysoCommentsDeleteEvent>(this.client, KysoEventEnum.COMMENTS_DELETE, {
             user: await this.usersService.getUserById(token.id),
             organization: await this.organizationsService.getOrganizationById(team.organization_id),
             team,

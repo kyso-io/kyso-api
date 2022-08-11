@@ -3,7 +3,7 @@ import {
     Invitation,
     InvitationStatus,
     InvitationType,
-    KysoEvent,
+    KysoEventEnum,
     KysoInvitationsTeamCreateEvent,
     KysoSettingsEnum,
     Organization,
@@ -92,7 +92,7 @@ export class InvitationsService extends AutowiredService {
                 const team: Team = await this.teamsService.getTeamById(invitation.entity_id)
                 const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
 
-                NATSHelper.safelyEmit<KysoInvitationsTeamCreateEvent>(this.client, KysoEvent.INVITATIONS_TEAM_CREATE, {
+                NATSHelper.safelyEmit<KysoInvitationsTeamCreateEvent>(this.client, KysoEventEnum.INVITATIONS_TEAM_CREATE, {
                     user,
                     roles: invitation.payload.roles.map((role: string) => role.replace('-', ' ')),
                     frontendUrl,

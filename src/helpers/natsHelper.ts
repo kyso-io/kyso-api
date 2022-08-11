@@ -1,15 +1,14 @@
-import { KysoEvent } from "@kyso-io/kyso-model";
-import { Logger } from "@nestjs/common";
-import { ClientProxy } from "@nestjs/microservices";
+import { KysoEventEnum } from '@kyso-io/kyso-model'
+import { Logger } from '@nestjs/common'
+import { ClientProxy } from '@nestjs/microservices'
+import { v4 as uuidv4 } from 'uuid'
 
 export class NATSHelper {
-    static safelyEmit<T>(client: ClientProxy, event: KysoEvent, payload: any) {
-        // ATTENTION: ALWAYS SURROUND A NATS CALL IN A TRY CATCH. Nobody wants to broke an APP because 
-        // the NATS fails...
+    static safelyEmit<T>(client: ClientProxy, event: KysoEventEnum, payload: any) {
         try {
-            client.emit<T>(event, payload);
-        } catch(ex) {
-            Logger.warn(`Event ${event} not sent to NATS`);
+            client.emit<T>(event, { uuid: uuidv4(), date: new Date(), ...payload })
+        } catch (ex) {
+            Logger.warn(`Event ${event} not sent to NATS`)
         }
     }
 }

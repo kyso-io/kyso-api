@@ -8,7 +8,7 @@ import {
     KysoDiscussionsAssigneeEvent,
     KysoDiscussionsCreateEvent,
     KysoDiscussionsUpdateEvent,
-    KysoEvent,
+    KysoEventEnum,
     KysoIndex,
     KysoSettingsEnum,
     Organization,
@@ -155,7 +155,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
         )
         discussion = await this.provider.create(discussion)
 
-        NATSHelper.safelyEmit<KysoDiscussionsCreateEvent>(this.client, KysoEvent.DISCUSSIONS_CREATE, {
+        NATSHelper.safelyEmit<KysoDiscussionsCreateEvent>(this.client, KysoEventEnum.DISCUSSIONS_CREATE, {
             user: author,
             organization,
             team,
@@ -261,7 +261,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
                     const assigneeUser: User = await this.usersService.getUserById(dbAssignee)
 
                     // To the assignee
-                    NATSHelper.safelyEmit<KysoDiscussionsAssigneeEvent>(this.client, KysoEvent.DISCUSSIONS_NEW_ASSIGNEE, {
+                    NATSHelper.safelyEmit<KysoDiscussionsAssigneeEvent>(this.client, KysoEventEnum.DISCUSSIONS_NEW_ASSIGNEE, {
                         user,
                         to: assigneeUser.email,
                         assigneeUser,
@@ -272,7 +272,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
                     })
 
                     // To the author
-                    NATSHelper.safelyEmit<KysoDiscussionsAssigneeEvent>(this.client, KysoEvent.DISCUSSIONS_USER_ASSIGNED, {
+                    NATSHelper.safelyEmit<KysoDiscussionsAssigneeEvent>(this.client, KysoEventEnum.DISCUSSIONS_USER_ASSIGNED, {
                         user,
                         to: isCentralized ? emailsCentralized : authorUser.email,
                         assigneeUser,
@@ -295,7 +295,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
                     const removedUser: User = await this.usersService.getUserById(removed)
 
                     // To the assignee
-                    NATSHelper.safelyEmit<KysoDiscussionsAssigneeEvent>(this.client, KysoEvent.DISCUSSIONS_REMOVE_ASSIGNEE, {
+                    NATSHelper.safelyEmit<KysoDiscussionsAssigneeEvent>(this.client, KysoEventEnum.DISCUSSIONS_REMOVE_ASSIGNEE, {
                         user,
                         to: removedUser.email,
                         assigneeUser: removedUser,
@@ -306,7 +306,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
                     })
 
                     // To the author
-                    NATSHelper.safelyEmit<KysoDiscussionsAssigneeEvent>(this.client, KysoEvent.DISCUSSIONS_USER_UNASSIGNED, {
+                    NATSHelper.safelyEmit<KysoDiscussionsAssigneeEvent>(this.client, KysoEventEnum.DISCUSSIONS_USER_UNASSIGNED, {
                         user,
                         to: isCentralized ? emailsCentralized : authorUser.email,
                         assigneeUser: removedUser,
@@ -340,7 +340,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
             },
         )
 
-        NATSHelper.safelyEmit<KysoDiscussionsUpdateEvent>(this.client, KysoEvent.DISCUSSIONS_UPDATE, {
+        NATSHelper.safelyEmit<KysoDiscussionsUpdateEvent>(this.client, KysoEventEnum.DISCUSSIONS_UPDATE, {
             user: await this.usersService.getUserById(token.id),
             organization,
             team,
@@ -373,7 +373,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
         const team: Team = await this.teamsService.getTeamById(discussion.team_id)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
 
-        NATSHelper.safelyEmit<KysoCommentsDeleteEvent>(this.client, KysoEvent.DISCUSSIONS_DELETE, {
+        NATSHelper.safelyEmit<KysoCommentsDeleteEvent>(this.client, KysoEventEnum.DISCUSSIONS_DELETE, {
             user,
             organization,
             team,

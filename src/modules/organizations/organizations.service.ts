@@ -4,7 +4,7 @@ import {
     Comment,
     Discussion,
     InviteUserDto,
-    KysoEvent,
+    KysoEventEnum,
     KysoOrganizationsAddMemberEvent,
     KysoOrganizationsCreateEvent,
     KysoOrganizationsDeleteEvent,
@@ -150,7 +150,7 @@ export class OrganizationsService extends AutowiredService {
         )
         await this.teamsService.createTeam(token, generalTeam)
 
-        NATSHelper.safelyEmit<KysoOrganizationsCreateEvent>(this.client, KysoEvent.ORGANIZATIONS_CREATE, {
+        NATSHelper.safelyEmit<KysoOrganizationsCreateEvent>(this.client, KysoEventEnum.ORGANIZATIONS_CREATE, {
             user: await this.usersService.getUserById(token.id),
             organization: newOrganization,
         })
@@ -173,7 +173,7 @@ export class OrganizationsService extends AutowiredService {
         // Delete the organization
         await this.provider.deleteOne({ _id: this.provider.toObjectId(organization.id) })
 
-        NATSHelper.safelyEmit<KysoOrganizationsDeleteEvent>(this.client, KysoEvent.ORGANIZATIONS_DELETE, {
+        NATSHelper.safelyEmit<KysoOrganizationsDeleteEvent>(this.client, KysoEventEnum.ORGANIZATIONS_DELETE, {
             user: await this.usersService.getUserById(token.id),
             organization,
         })
@@ -304,7 +304,7 @@ export class OrganizationsService extends AutowiredService {
             },
         )
 
-        NATSHelper.safelyEmit<KysoOrganizationsUpdateEvent>(this.client, KysoEvent.ORGANIZATIONS_UPDATE, {
+        NATSHelper.safelyEmit<KysoOrganizationsUpdateEvent>(this.client, KysoEventEnum.ORGANIZATIONS_UPDATE, {
             user: await this.usersService.getUserById(token.id),
             organization: organizationDb,
         })
@@ -356,7 +356,7 @@ export class OrganizationsService extends AutowiredService {
             if (isCentralized) {
                 emailsCentralized = organization.options.notifications.emails
             }
-            NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEvent.ORGANIZATIONS_ADD_MEMBER, {
+            NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_ADD_MEMBER, {
                 user,
                 organization,
                 emailsCentralized,
@@ -401,7 +401,7 @@ export class OrganizationsService extends AutowiredService {
         if (isCentralized) {
             emailsCentralized = organization.options.notifications.emails
         }
-        NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEvent.ORGANIZATIONS_ADD_MEMBER, {
+        NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_ADD_MEMBER, {
             user,
             organization,
             emailsCentralized,
@@ -439,7 +439,7 @@ export class OrganizationsService extends AutowiredService {
         if (isCentralized) {
             emailsCentralized = organization.options.notifications.emails
         }
-        NATSHelper.safelyEmit<KysoOrganizationsRemoveMemberEvent>(this.client, KysoEvent.ORGANIZATIONS_REMOVE_MEMBER, {
+        NATSHelper.safelyEmit<KysoOrganizationsRemoveMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_REMOVE_MEMBER, {
             user,
             organization,
             emailsCentralized,
@@ -481,7 +481,7 @@ export class OrganizationsService extends AutowiredService {
                 throw new PreconditionFailedException(`Role ${element.role} is not valid`)
             }
             if (!member.role_names.includes(element.role)) {
-                NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEvent.ORGANIZATIONS_UPDATE_MEMBER_ROLE, {
+                NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_UPDATE_MEMBER_ROLE, {
                     user,
                     organization,
                     emailsCentralized,

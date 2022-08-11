@@ -2,7 +2,7 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client
 import {
     ElasticSearchIndex,
     EmailUserChangePasswordDTO,
-    KysoEvent,
+    KysoEventEnum,
     KysoIndex,
     KysoPermissions,
     KysoSettingsEnum,
@@ -198,7 +198,7 @@ export class UsersService extends AutowiredService {
 
         Logger.log(`Sending email to ${user.email}`)
 
-        NATSHelper.safelyEmit<KysoUsersCreateEvent>(this.client, KysoEvent.USERS_CREATE, {
+        NATSHelper.safelyEmit<KysoUsersCreateEvent>(this.client, KysoEventEnum.USERS_CREATE, {
             user,
         })
 
@@ -220,7 +220,7 @@ export class UsersService extends AutowiredService {
         let userVerification: UserVerification = new UserVerification(user.email, uuidv4(), user.id, moment().add(hours, 'hours').toDate())
         userVerification = await this.userVerificationMongoProvider.create(userVerification)
 
-        NATSHelper.safelyEmit<KysoUsersVerificationEmailEvent>(this.client, KysoEvent.USERS_VERIFICATION_EMAIL, {
+        NATSHelper.safelyEmit<KysoUsersVerificationEmailEvent>(this.client, KysoEventEnum.USERS_VERIFICATION_EMAIL, {
             user,
             userVerification,
             frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
@@ -259,7 +259,7 @@ export class UsersService extends AutowiredService {
         Logger.log(`Deleting user '${user.id} ${user.display_name}' in ElasticSearch...`, UsersService.name)
         this.fullTextSearchService.deleteDocument(ElasticSearchIndex.User, user.id)
 
-        NATSHelper.safelyEmit<KysoUsersDeleteEvent>(this.client, KysoEvent.USERS_DELETE, {
+        NATSHelper.safelyEmit<KysoUsersDeleteEvent>(this.client, KysoEventEnum.USERS_DELETE, {
             user,
             owner: await this.getUserById(token.id),
         })
@@ -331,7 +331,7 @@ export class UsersService extends AutowiredService {
         const kysoIndex: KysoIndex = this.userToKysoIndex(user)
         this.fullTextSearchService.updateDocument(kysoIndex)
 
-        NATSHelper.safelyEmit<KysoUsersUpdateEvent>(this.client, KysoEvent.USERS_UPDATE, {
+        NATSHelper.safelyEmit<KysoUsersUpdateEvent>(this.client, KysoEventEnum.USERS_UPDATE, {
             user,
             owner: await this.getUserById(token.id),
         })
@@ -569,7 +569,7 @@ export class UsersService extends AutowiredService {
         let userForgotPassword: UserForgotPassword = new UserForgotPassword(encodeURI(user.email), uuidv4(), user.id, moment().add(minutes, 'minutes').toDate())
         userForgotPassword = await this.userChangePasswordMongoProvider.create(userForgotPassword)
 
-        NATSHelper.safelyEmit<KysoUsersRecoveryPasswordEvent>(this.client, KysoEvent.USERS_RECOVERY_PASSWORD, {
+        NATSHelper.safelyEmit<KysoUsersRecoveryPasswordEvent>(this.client, KysoEventEnum.USERS_RECOVERY_PASSWORD, {
             user,
             userForgotPassword,
             frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),

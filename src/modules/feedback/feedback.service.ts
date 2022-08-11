@@ -1,4 +1,4 @@
-import { FeedbackDto, KysoEvent, KysoFeedbackCreateEvent, KysoSettingsEnum, Token } from '@kyso-io/kyso-model'
+import { FeedbackDto, KysoEventEnum, KysoFeedbackCreateEvent, KysoSettingsEnum, Token } from '@kyso-io/kyso-model'
 import { Inject, Injectable } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import { Autowired } from '../../decorators/autowired'
@@ -17,7 +17,7 @@ export class FeedbackService {
     constructor(@Inject('NATS_SERVICE') private client: ClientProxy) {}
 
     public async sendMessageToServiceDesk(token: Token, feedbackDto: FeedbackDto): Promise<boolean> {
-        NATSHelper.safelyEmit<KysoFeedbackCreateEvent>(this.client, KysoEvent.FEEDBACK_CREATE, {
+        NATSHelper.safelyEmit<KysoFeedbackCreateEvent>(this.client, KysoEventEnum.FEEDBACK_CREATE, {
             user: await this.usersService.getUserById(token.id),
             feedbackDto,
             serviceDeskEmail: await this.kysoSettingsService.getValue(KysoSettingsEnum.SERVICE_DESK_EMAIL),
