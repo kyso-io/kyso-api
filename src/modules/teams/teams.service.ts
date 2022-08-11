@@ -3,7 +3,7 @@ import {
     Comment,
     Discussion,
     GlobalPermissionsEnum,
-    KysoEvent,
+    KysoEventEnum,
     KysoRole,
     KysoSettingsEnum,
     KysoTeamsAddMemberEvent,
@@ -235,7 +235,7 @@ export class TeamsService extends AutowiredService {
             const member: TeamMemberJoin = new TeamMemberJoin(teamId, userId, rolesToApply, true)
             await this.teamMemberProvider.create(member)
             const user: User = await this.usersService.getUserById(userId)
-            NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEvent.TEAMS_ADD_MEMBER, {
+            NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
                 user,
                 organization,
                 team,
@@ -407,7 +407,7 @@ export class TeamsService extends AutowiredService {
         if (team) {
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
 
-            NATSHelper.safelyEmit<KysoTeamsUpdateEvent>(this.client, KysoEvent.TEAMS_UPDATE, {
+            NATSHelper.safelyEmit<KysoTeamsUpdateEvent>(this.client, KysoEventEnum.TEAMS_UPDATE, {
                 user: await this.usersService.getUserById(token.id),
                 organization,
                 team,
@@ -450,7 +450,7 @@ export class TeamsService extends AutowiredService {
             if (token) {
                 await this.addMembersById(newTeam.id, [token.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
 
-                NATSHelper.safelyEmit<KysoTeamsCreateEvent>(this.client, KysoEvent.TEAMS_CREATE, {
+                NATSHelper.safelyEmit<KysoTeamsCreateEvent>(this.client, KysoEventEnum.TEAMS_CREATE, {
                     user: await this.usersService.getUserById(token.id),
                     organization,
                     team: newTeam,
@@ -512,7 +512,7 @@ export class TeamsService extends AutowiredService {
             // Delete team
             await this.provider.deleteOne({ filter: { _id: this.provider.toObjectId(team.id) } })
 
-            NATSHelper.safelyEmit<KysoTeamsDeleteEvent>(this.client, KysoEvent.TEAMS_DELETE, {
+            NATSHelper.safelyEmit<KysoTeamsDeleteEvent>(this.client, KysoEventEnum.TEAMS_DELETE, {
                 organization,
                 team,
             })
@@ -600,7 +600,7 @@ export class TeamsService extends AutowiredService {
         if (isCentralized) {
             emailsCentralized = organization.options.notifications.emails
         }
-        NATSHelper.safelyEmit<KysoTeamsRemoveMemberEvent>(this.client, KysoEvent.TEAMS_REMOVE_MEMBER, {
+        NATSHelper.safelyEmit<KysoTeamsRemoveMemberEvent>(this.client, KysoEventEnum.TEAMS_REMOVE_MEMBER, {
             user,
             organization,
             team,
@@ -634,7 +634,7 @@ export class TeamsService extends AutowiredService {
             if (!member) {
                 const member: TeamMemberJoin = new TeamMemberJoin(teamId, user.id, [element.role], true)
                 await this.teamMemberProvider.create(member)
-                NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEvent.TEAMS_ADD_MEMBER, {
+                NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
                     user,
                     organization,
                     team,
@@ -644,7 +644,7 @@ export class TeamsService extends AutowiredService {
                 })
             } else {
                 await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } })
-                NATSHelper.safelyEmit<KysoTeamsUpdateMemberRolesEvent>(this.client, KysoEvent.TEAMS_UPDATE_MEMBER_ROLES, {
+                NATSHelper.safelyEmit<KysoTeamsUpdateMemberRolesEvent>(this.client, KysoEventEnum.TEAMS_UPDATE_MEMBER_ROLES, {
                     user,
                     organization,
                     team,
@@ -724,7 +724,7 @@ export class TeamsService extends AutowiredService {
         if (team) {
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
 
-            NATSHelper.safelyEmit<KysoTeamsUpdateEvent>(this.client, KysoEvent.TEAMS_UPDATE, {
+            NATSHelper.safelyEmit<KysoTeamsUpdateEvent>(this.client, KysoEventEnum.TEAMS_UPDATE, {
                 user: await this.usersService.getUserById(token.id),
                 organization,
                 team,
@@ -753,7 +753,7 @@ export class TeamsService extends AutowiredService {
         if (team) {
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
 
-            NATSHelper.safelyEmit<KysoTeamsUpdateEvent>(this.client, KysoEvent.TEAMS_UPDATE, {
+            NATSHelper.safelyEmit<KysoTeamsUpdateEvent>(this.client, KysoEventEnum.TEAMS_UPDATE, {
                 user: await this.usersService.getUserById(token.id),
                 organization,
                 team,
@@ -782,7 +782,7 @@ export class TeamsService extends AutowiredService {
         await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
 
-        NATSHelper.safelyEmit<KysoTeamsDeleteEvent>(this.client, KysoEvent.TEAMS_DELETE, {
+        NATSHelper.safelyEmit<KysoTeamsDeleteEvent>(this.client, KysoEventEnum.TEAMS_DELETE, {
             organization,
             team,
         })
@@ -975,7 +975,7 @@ export class TeamsService extends AutowiredService {
             team_id: {
                 $in: teams.map((x: Team) => x.id),
             },
-            member_id: userId
+            member_id: userId,
         })
     }
 }

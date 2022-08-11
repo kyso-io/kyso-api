@@ -10,7 +10,7 @@ import {
     GithubRepository,
     GlobalPermissionsEnum,
     KysoConfigFile,
-    KysoEvent,
+    KysoEventEnum,
     KysoIndex,
     KysoReportsAuthorEvent,
     KysoReportsCreateEvent,
@@ -301,7 +301,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         Logger.log('Creating report')
         report = await this.provider.create(report)
 
-        NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEvent.REPORTS_CREATE, {
+        NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE, {
             user,
             organization,
             team,
@@ -355,7 +355,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     if (index === -1) {
                         dataToUpdate.author_ids.push(author.id)
 
-                        NATSHelper.safelyEmit<KysoReportsAuthorEvent>(this.client, KysoEvent.REPORTS_ADD_AUTHOR, {
+                        NATSHelper.safelyEmit<KysoReportsAuthorEvent>(this.client, KysoEventEnum.REPORTS_ADD_AUTHOR, {
                             user,
                             author,
                             organization,
@@ -384,7 +384,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: dataToUpdate })
 
-        NATSHelper.safelyEmit<KysoReportsUpdateEvent>(this.client, KysoEvent.REPORTS_UPDATE, {
+        NATSHelper.safelyEmit<KysoReportsUpdateEvent>(this.client, KysoEventEnum.REPORTS_UPDATE, {
             user,
             organization,
             team,
@@ -452,7 +452,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         await this.provider.deleteOne({ _id: this.provider.toObjectId(reportId) })
 
         if (notify) {
-            NATSHelper.safelyEmit<KysoReportsDeleteEvent>(this.client, KysoEvent.REPORTS_DELETE, {
+            NATSHelper.safelyEmit<KysoReportsDeleteEvent>(this.client, KysoEventEnum.REPORTS_DELETE, {
                 user: await this.usersService.getUserById(token.id),
                 organization,
                 team,
@@ -518,7 +518,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { pin: !report.pin } })
 
         if (report.pin) {
-            NATSHelper.safelyEmit<KysoReportsPinEvent>(this.client, KysoEvent.REPORTS_PIN_GLOBAL, {
+            NATSHelper.safelyEmit<KysoReportsPinEvent>(this.client, KysoEventEnum.REPORTS_PIN_GLOBAL, {
                 user,
                 organization,
                 team,
@@ -526,7 +526,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 frontendUrl,
             })
         } else {
-            NATSHelper.safelyEmit<KysoReportsPinEvent>(this.client, KysoEvent.REPORTS_UNPIN_GLOBAL, {
+            NATSHelper.safelyEmit<KysoReportsPinEvent>(this.client, KysoEventEnum.REPORTS_UNPIN_GLOBAL, {
                 user,
                 organization,
                 team,
@@ -559,7 +559,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 user_id: token.id,
                 report_id: report.id,
             })
-            NATSHelper.safelyEmit<KysoReportsPinEvent>(this.client, KysoEvent.REPORTS_PIN, {
+            NATSHelper.safelyEmit<KysoReportsPinEvent>(this.client, KysoEventEnum.REPORTS_PIN, {
                 user,
                 organization,
                 team,
@@ -569,7 +569,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         } else {
             const pinnedReport: PinnedReport = pinnedReports[0]
             await this.pinnedReportsMongoProvider.deleteOne({ _id: this.provider.toObjectId(pinnedReport.id) })
-            NATSHelper.safelyEmit<KysoReportsPinEvent>(this.client, KysoEvent.REPORTS_UNPIN, {
+            NATSHelper.safelyEmit<KysoReportsPinEvent>(this.client, KysoEventEnum.REPORTS_UNPIN, {
                 user,
                 organization,
                 team,
@@ -602,7 +602,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 user_id: token.id,
                 report_id: report.id,
             })
-            NATSHelper.safelyEmit<KysoReportsStarEvent>(this.client, KysoEvent.REPORTS_STAR, {
+            NATSHelper.safelyEmit<KysoReportsStarEvent>(this.client, KysoEventEnum.REPORTS_STAR, {
                 user,
                 organization,
                 team,
@@ -612,7 +612,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         } else {
             const pinnedReport: StarredReport = starredReports[0]
             await this.starredReportsMongoProvider.deleteOne({ _id: this.provider.toObjectId(pinnedReport.id) })
-            NATSHelper.safelyEmit<KysoReportsStarEvent>(this.client, KysoEvent.REPORTS_UNSTAR, {
+            NATSHelper.safelyEmit<KysoReportsStarEvent>(this.client, KysoEventEnum.REPORTS_UNSTAR, {
                 user,
                 organization,
                 team,
@@ -962,7 +962,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
 
             if (isNew) {
-                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEvent.REPORTS_CREATE, {
+                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE, {
                     user,
                     organization,
                     team,
@@ -970,7 +970,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     frontendUrl,
                 })
             } else {
-                NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEvent.REPORTS_NEW_VERSION, {
+                NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEventEnum.REPORTS_NEW_VERSION, {
                     user,
                     organization,
                     team,
@@ -1206,7 +1206,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
 
                 if (isNew) {
-                    NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEvent.REPORTS_CREATE, {
+                    NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE, {
                         user,
                         organization,
                         team,
@@ -1214,7 +1214,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                         frontendUrl,
                     })
                 } else {
-                    NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEvent.REPORTS_NEW_VERSION, {
+                    NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEventEnum.REPORTS_NEW_VERSION, {
                         user,
                         organization,
                         team,
@@ -1404,7 +1404,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 },
             )
 
-            NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEvent.REPORTS_CREATE, {
+            NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE, {
                 user,
                 organization,
                 team,
@@ -1510,7 +1510,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const user: User = await this.usersService.getUserById(userId)
         const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
 
-        NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEvent.REPORTS_NEW_VERSION, {
+        NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEventEnum.REPORTS_NEW_VERSION, {
             user,
             organization,
             team,
@@ -1658,7 +1658,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 )
                 await this.deleteReport(token, report.id)
 
-                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
+                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE_NO_PERMISSIONS, {
                     user,
                     kysoConfigFile,
                 })
@@ -1673,7 +1673,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
 
             if (isNew) {
-                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEvent.REPORTS_CREATE, {
+                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE, {
                     user,
                     organization,
                     team,
@@ -1681,7 +1681,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     frontendUrl,
                 })
             } else {
-                NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEvent.REPORTS_NEW_VERSION, {
+                NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEventEnum.REPORTS_NEW_VERSION, {
                     user,
                     organization,
                     team,
@@ -1849,7 +1849,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
                 await this.deleteReport(token, report.id)
 
-                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
+                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE_NO_PERMISSIONS, {
                     user,
                     kysoConfigFile,
                 })
@@ -1864,7 +1864,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
 
             if (isNew) {
-                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEvent.REPORTS_CREATE, {
+                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE, {
                     user,
                     organization,
                     team,
@@ -1872,7 +1872,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     frontendUrl,
                 })
             } else {
-                NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEvent.REPORTS_NEW_VERSION, {
+                NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEventEnum.REPORTS_NEW_VERSION, {
                     user,
                     organization,
                     team,
@@ -2000,7 +2000,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
                 await this.deleteReport(token, report.id)
 
-                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEvent.REPORTS_CREATE_NO_PERMISSIONS, {
+                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE_NO_PERMISSIONS, {
                     user,
                     kysoConfigFile,
                 })
@@ -2014,7 +2014,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
             const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
             if (isNew) {
-                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEvent.REPORTS_CREATE, {
+                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE, {
                     user,
                     organization,
                     team,
@@ -2022,7 +2022,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     frontendUrl,
                 })
             } else {
-                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEvent.REPORTS_NEW_VERSION, {
+                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_NEW_VERSION, {
                     user,
                     organization,
                     team,
@@ -2346,7 +2346,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 // Create tag
                 tag = new Tag(tagName)
                 tag = await this.tagsService.createTag(tag)
-                NATSHelper.safelyEmit<KysoTagsEvent>(this.client, KysoEvent.TAGS_CREATE, {
+                NATSHelper.safelyEmit<KysoTagsEvent>(this.client, KysoEventEnum.TAGS_CREATE, {
                     user,
                     tag,
                     report,
