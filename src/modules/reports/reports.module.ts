@@ -3,6 +3,7 @@ import { DynamicModule } from '@nestjs/common'
 import { ClientsModule, Transport } from '@nestjs/microservices'
 import { db } from '../../main'
 import { createLocalReportsProvider, LocalReportsService } from './local-reports.service'
+import { DraftReportsMongoProvider } from './providers/mongo-draft-reports.provider'
 import { FilesMongoProvider } from './providers/mongo-files.provider'
 import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider'
 import { ReportsMongoProvider } from './providers/mongo-reports.provider'
@@ -33,6 +34,7 @@ export class ReportsModule {
                 sftpDynamicProvider,
                 SftpService,
                 StarredReportsMongoProvider,
+                DraftReportsMongoProvider,
                 VersionsMongoProvider,
             ],
             imports: [

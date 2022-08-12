@@ -2,6 +2,7 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client
 import {
     Comment,
     CreateReportDTO,
+    DraftReport,
     ElasticSearchIndex,
     EntityEnum,
     File,
@@ -76,6 +77,7 @@ import { TagsService } from '../tags/tags.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { LocalReportsService } from './local-reports.service'
+import { DraftReportsMongoProvider } from './providers/mongo-draft-reports.provider'
 import { FilesMongoProvider } from './providers/mongo-files.provider'
 import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider'
 import { ReportsMongoProvider } from './providers/mongo-reports.provider'
@@ -142,6 +144,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         private readonly provider: ReportsMongoProvider,
         private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider,
         private readonly starredReportsMongoProvider: StarredReportsMongoProvider,
+        private readonly draftReportMongoProvider: DraftReportsMongoProvider,
         private readonly filesMongoProvider: FilesMongoProvider,
         @Inject('NATS_SERVICE') private client: ClientProxy,
     ) {
@@ -2913,4 +2916,77 @@ export class ReportsService extends AutowiredService implements GenericService<R
     public async countReports(query: any): Promise<number> {
         return await this.provider.count(query)
     }
+
+    // Draft Reports
+    public async createDraftReport(draft: DraftReport): Promise<any> {
+        // The name of this organization exists?
+        const existsDraft: boolean = await this.existsDraft(draft.organization_id, draft.team_id, draft.creator_user_id)
+        
+        if(existsDraft) {
+            throw new PreconditionFailedException("There is already a draft version saved for this organization, channel and user");
+        }
+
+        const createdItem = await this.draftReportMongoProvider.create(draft);
+
+        return createdItem;
+    }
+
+    public async updateDraftReport(draft: DraftReport): Promise<any> {
+        // The name of this organization exists?
+        const existsDraft: boolean = await this.existsDraft(draft.organization_id, draft.team_id, draft.creator_user_id)
+        
+        if(!existsDraft) {
+            throw new PreconditionFailedException("Can't unpdate an unexistent draft");
+        }
+        
+        const createdItem = await this.draftReportMongoProvider.update(
+            { 
+                organization_id: draft.organization_id,
+                team_id: draft.team_id,
+                creator_user_id: draft.creator_user_id
+            },
+            {
+                $set: draft
+            }
+        );
+
+        return createdItem;
+    }
+
+    public async deleteDraftReport(draft: DraftReport): Promise<any> {
+        // The name of this organization exists?
+        const existsDraft: boolean = await this.existsDraft(draft.organization_id, draft.team_id, draft.creator_user_id)
+        
+        if(existsDraft) {
+            throw new PreconditionFailedException("There is already a draft version saved for this organization, channel and user");
+        }
+
+        await this.draftReportMongoProvider.deleteOne({ filter: { 
+                organization_id: draft.organization_id,
+                team_id: draft.team_id,
+                creator_user_id: draft.creator_user_id
+            }
+        });
+    }
+
+    public async existsDraft(organization_id: string, team_id: string, creator_user_id: string): Promise<boolean> {
+        return await this.getDraft(organization_id, team_id, creator_user_id) === null ? false : true
+    }
+
+    public async getDraft(organization_id: string, team_id: string, creator_user_id: string): Promise<DraftReport> {
+        // The name of this organization exists?
+        const existsDraft: DraftReport[] = await this.draftReportMongoProvider.read({ filter: { 
+            organization_id: organization_id,
+            team_id: team_id,
+            creator_user_id: creator_user_id
+        }});
+
+        if (existsDraft && existsDraft.length === 1) {
+            return existsDraft[1];
+        } else {
+            return null;
+        }
+    }
+
+
 }

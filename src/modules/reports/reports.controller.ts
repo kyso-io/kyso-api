@@ -1,5 +1,6 @@
 import {
     Comment,
+    DraftReport,
     EntityEnum,
     File,
     GithubBranch,
@@ -1321,5 +1322,61 @@ export class ReportsController extends GenericController<Report> {
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id)
         return new NormalizedResponseDTO(reportDto, relations)
+    }
+
+    // Draft reports
+    @Get('/ui/draft')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+    @ApiOperation({
+        summary: `Get a report draft of the invoker user`,
+        description: `By passing the appropiate parameters you can retrieve a new report draft`,
+    })
+    @ApiResponse({
+        status: 201,
+        description: `Created report`,
+        type: DraftReport,
+    })
+    @Permission([ReportPermissionsEnum.READ])
+    async getDraftReport(
+        @CurrentToken() token: Token, 
+        @Query('org_id') organizationId: string,
+        @Query('team_id') teamId: string): Promise<NormalizedResponseDTO<DraftReport>> {
+   
+        const draft: DraftReport = await this.reportsService.getDraft(organizationId, teamId, token.id);
+        const relations = await this.relationsService.getRelations(draft, 'report', { Author: 'User', Team: 'Team', Organization: 'Organization' });
+
+        return new NormalizedResponseDTO(draft, relations);
+    }
+
+    @Post('/ui/draft')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+    @ApiOperation({
+        summary: `Create a new report draft`,
+        description: `By passing the appropiate parameters you can create a new report draft`,
+    })
+    @ApiResponse({
+        status: 201,
+        description: `Created report`,
+        type: DraftReport,
+    })
+    @ApiBody({
+        description: 'Examples',
+        required: true,
+        type: DraftReport,
+        examples: DraftReport.swaggerExamples()
+    })
+    @Permission([ReportPermissionsEnum.CREATE])
+    async createUIDraftReport(@CurrentToken() token: Token, @Body() draftReport: DraftReport): Promise<NormalizedResponseDTO<DraftReport>> {
+        Logger.log(`Creating draft report`)
+        
+        if (token.id !== draftReport.creator_user_id) {
+            throw new ForbiddenException("Requester does not march with creator_user_id");
+            // SEC-AUDIT
+        }
+        
+        const draft: DraftReport = await this.reportsService.createDraftReport(draftReport);
+        const relations = await this.relationsService.getRelations(draft, 'report', { Author: 'User', Team: 'Team', Organization: 'Organization' });
+
+        return new NormalizedResponseDTO(draft, relations);
     }
 }

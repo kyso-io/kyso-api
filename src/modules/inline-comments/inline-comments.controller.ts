@@ -158,7 +158,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
         schema: { type: 'string' },
     })
     @Permission([InlineCommentPermissionsEnum.DELETE])
-    async deleteReport(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<Report>> {
+    async delete(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<boolean>> {
         const deleted: boolean = await this.inlineCommentsService.deleteInlineComment(token.id, id)
         return new NormalizedResponseDTO(deleted)
     }

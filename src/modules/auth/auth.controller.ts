@@ -113,12 +113,12 @@ export class AuthController extends GenericController<string> {
         required: true,
         type: Login,
         examples: {
-            'Login as palpatine': {
-                summary: 'Palpatine is a global administrator',
+            'Login as rey': {
                 value: {
-                    username: 'palpatine@kyso.io',
-                    password: 'n0tiene',
-                    provider: 'kyso',
+                    "email": "lo+rey@dev.kyso.io",
+                    "password": "n0tiene",
+                    "provider": "kyso",
+                    "kysoInstallUrl": "http://localhost:4000"
                 },
             },
         },
