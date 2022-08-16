@@ -51,6 +51,7 @@ import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
 import slugify from '../../helpers/slugify'
+import { Validators } from '../../helpers/validators'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { AuthService } from '../auth/auth.service'
@@ -346,10 +347,104 @@ export class ReportsController extends GenericController<Report> {
         if (data.filter.text) {
             const text: string = data.filter.text
             delete data.filter.text
-            data.filter.$or = [
-                { title: { $regex: `${text}`, $options: 'i' } },
-                { description: { $regex: `${text}`, $options: 'i' } },
-            ]
+            data.filter.$or = [{ title: { $regex: `${text}`, $options: 'i' } }, { description: { $regex: `${text}`, $options: 'i' } }]
+        }
+        paginatedResponseDto.totalItems = await this.reportsService.countReports({ filter: data.filter })
+        paginatedResponseDto.totalPages = Math.ceil(paginatedResponseDto.totalItems / data.limit)
+        paginatedResponseDto.currentPage = data.skip ? Math.floor(data.skip / data.limit) + 1 : 1
+        const reports: Report[] = await this.reportsService.getReports(data)
+        paginatedResponseDto.results = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token?.id)))
+        paginatedResponseDto.itemCount = paginatedResponseDto.results.length
+        paginatedResponseDto.itemsPerPage = data.limit
+        const relations = await this.relationsService.getRelations(reports, 'report', { Author: 'User' })
+        return new NormalizedResponseDTO(paginatedResponseDto, relations)
+    }
+
+    @Get('user/:user_id')
+    @Public()
+    @ApiOperation({
+        summary: `Search and fetch reports`,
+        description: `By passing the appropiate parameters you can fetch and filter the reports available for a user.<br />
+         **This endpoint supports filtering**. Refer to the Report schema to see available options.`,
+    })
+    async getPaginatedUserReports(
+        @CurrentToken() token: Token,
+        @Req() req,
+        @Param('user_id') user_id: string,
+    ): Promise<NormalizedResponseDTO<PaginatedResponseDto<ReportDTO>>> {
+        if (!user_id || !Validators.isValidObjectId(user_id)) {
+            throw new BadRequestException('You must specify an valid user_id')
+        }
+        const data = aqp(req._parsedUrl.query)
+        delete data.filter
+        if (!data.limit) {
+            data.limit = 10
+        }
+        if (!data.sort) {
+            data.sort = { created_at: -1 }
+        }
+        if (!data.hasOwnProperty('skip')) {
+            data.skip = 0
+        }
+        data.filter = {
+            $or: [
+                {
+                    user_id,
+                    author_ids: {
+                        $in: [user_id],
+                    },
+                },
+            ],
+        }
+        const paginatedResponseDto: PaginatedResponseDto<ReportDTO> = {
+            currentPage: 0,
+            itemCount: 0,
+            itemsPerPage: 0,
+            results: [],
+            totalItems: 0,
+            totalPages: 0,
+        }
+        if (token) {
+            const userTokenTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(user_id)
+            if (token.id === user_id) {
+                if (userTokenTeams.length === 0) {
+                    return new NormalizedResponseDTO(paginatedResponseDto)
+                }
+                data.filter.team_id = {
+                    $in: userTokenTeams.map((team: Team) => team.id),
+                }
+            } else {
+                const desiredUserTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+                if (desiredUserTeams.length === 0) {
+                    return new NormalizedResponseDTO(paginatedResponseDto)
+                }
+                const teamIds: string[] = []
+                for (const team of desiredUserTeams) {
+                    if (team.visibility === TeamVisibilityEnum.PUBLIC) {
+                        teamIds.push(team.id)
+                    } else {
+                        const userTeam: Team = userTokenTeams.find((t: Team) => t.id === team.id)
+                        if (userTeam) {
+                            teamIds.push(team.id)
+                        }
+                    }
+                }
+                if (teamIds.length === 0) {
+                    return new NormalizedResponseDTO(paginatedResponseDto)
+                }
+                data.filter.team_id = {
+                    $in: teamIds,
+                }
+            }
+        } else {
+            let userTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(user_id)
+            userTeams = userTeams.filter((t: Team) => t.visibility === TeamVisibilityEnum.PUBLIC)
+            if (userTeams.length === 0) {
+                return new NormalizedResponseDTO(paginatedResponseDto)
+            }
+            data.filter.team_id = {
+                $in: userTeams.map((team: Team) => team.id),
+            }
         }
         paginatedResponseDto.totalItems = await this.reportsService.countReports({ filter: data.filter })
         paginatedResponseDto.totalPages = Math.ceil(paginatedResponseDto.totalItems / data.limit)
