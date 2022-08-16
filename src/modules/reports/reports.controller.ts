@@ -390,6 +390,8 @@ export class ReportsController extends GenericController<Report> {
             $or: [
                 {
                     user_id,
+                },
+                {
                     author_ids: {
                         $in: [user_id],
                     },
@@ -1433,14 +1435,14 @@ export class ReportsController extends GenericController<Report> {
     })
     @Permission([ReportPermissionsEnum.READ])
     async getDraftReport(
-        @CurrentToken() token: Token, 
+        @CurrentToken() token: Token,
         @Query('org_id') organizationId: string,
-        @Query('team_id') teamId: string): Promise<NormalizedResponseDTO<DraftReport>> {
-   
-        const draft: DraftReport = await this.reportsService.getDraft(organizationId, teamId, token.id);
-        const relations = await this.relationsService.getRelations(draft, 'report', { Author: 'User', Team: 'Team', Organization: 'Organization' });
+        @Query('team_id') teamId: string,
+    ): Promise<NormalizedResponseDTO<DraftReport>> {
+        const draft: DraftReport = await this.reportsService.getDraft(organizationId, teamId, token.id)
+        const relations = await this.relationsService.getRelations(draft, 'report', { Author: 'User', Team: 'Team', Organization: 'Organization' })
 
-        return new NormalizedResponseDTO(draft, relations);
+        return new NormalizedResponseDTO(draft, relations)
     }
 
     @Post('/ui/draft')
@@ -1458,20 +1460,20 @@ export class ReportsController extends GenericController<Report> {
         description: 'Examples',
         required: true,
         type: DraftReport,
-        examples: DraftReport.swaggerExamples()
+        examples: DraftReport.swaggerExamples(),
     })
     @Permission([ReportPermissionsEnum.CREATE])
     async createUIDraftReport(@CurrentToken() token: Token, @Body() draftReport: DraftReport): Promise<NormalizedResponseDTO<DraftReport>> {
         Logger.log(`Creating draft report`)
-        
+
         if (token.id !== draftReport.creator_user_id) {
-            throw new ForbiddenException("Requester does not march with creator_user_id");
+            throw new ForbiddenException('Requester does not march with creator_user_id')
             // SEC-AUDIT
         }
-        
-        const draft: DraftReport = await this.reportsService.createDraftReport(draftReport);
-        const relations = await this.relationsService.getRelations(draft, 'report', { Author: 'User', Team: 'Team', Organization: 'Organization' });
 
-        return new NormalizedResponseDTO(draft, relations);
+        const draft: DraftReport = await this.reportsService.createDraftReport(draftReport)
+        const relations = await this.relationsService.getRelations(draft, 'report', { Author: 'User', Team: 'Team', Organization: 'Organization' })
+
+        return new NormalizedResponseDTO(draft, relations)
     }
 }
