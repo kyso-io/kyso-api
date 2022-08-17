@@ -340,10 +340,26 @@ export class FullTextSearchService extends AutowiredService {
                     }
                 }
             }
+        } else {
+            if (token) {
+                const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+                for (const team of teams) {
+                    filterTeams.push(team.sluglified_name)
+                }
+            } else {
+                const teams: Team[] = await this.teamsService.getTeams({ filter: { visibility: TeamVisibilityEnum.PUBLIC } })
+                for (const team of teams) {
+                    filterTeams.push(team.sluglified_name)
+                }
+            }
         }
 
         if (token && teamSlugs.slugs.length > 0 && filterTeams.length === 0) {
             // the logged user has filtered by team but that team is not in the permissions
+            return fullTextSearchDTO
+        }
+
+        if (filterTeams.length === 0) {
             return fullTextSearchDTO
         }
 
