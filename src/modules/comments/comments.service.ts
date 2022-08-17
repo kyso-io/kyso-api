@@ -10,6 +10,8 @@ import {
     KysoDiscussionsNewMentionEvent,
     KysoEventEnum,
     KysoIndex,
+    KysoReportsMentionsEvent,
+    KysoReportsNewMentionEvent,
     KysoSettingsEnum,
     Organization,
     Report,
@@ -150,6 +152,8 @@ export class CommentsService extends AutowiredService {
 
         if (discussion) {
             await this.checkMentionsInDiscussionComment(newComment, commentDto.user_ids)
+        } else if (report) {
+            await this.checkMentionsInReportComment(newComment, commentDto.user_ids)
         }
 
         this.indexComment(newComment)
@@ -209,6 +213,52 @@ export class CommentsService extends AutowiredService {
         }
         if (checkParticipantsInDiscussion) {
             await this.discussionsService.checkParticipantsInDiscussion(comment.discussion_id)
+        }
+    }
+
+    private async checkMentionsInReportComment(comment: Comment, userIds: string[]): Promise<void> {
+        const report: Report = await this.reportsService.getReportById(comment.report_id)
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+        const creator: User = await this.usersService.getUserById(comment.user_id)
+        const mentionedUsers: User[] = []
+        const centralizedMails: boolean = organization?.options?.notifications?.centralized || false
+        // Remove the creator of the message from the users to notify
+        const indexCreator: number = userIds.findIndex((userId: string) => userId === creator.id)
+        if (indexCreator !== -1) {
+            userIds.splice(indexCreator, 1)
+        }
+        for (const userId of userIds) {
+            const user: User = await this.usersService.getUserById(userId)
+            if (!user) {
+                Logger.error(`Could not find user with id ${userId}`, CommentsService.name)
+                continue
+            }
+            mentionedUsers.push(user)
+            if (centralizedMails) {
+                continue
+            }
+            NATSHelper.safelyEmit<KysoReportsNewMentionEvent>(this.client, KysoEventEnum.REPORTS_NEW_MENTION, {
+                user,
+                creator,
+                organization,
+                team,
+                report,
+                frontendUrl,
+            })
+        }
+        if (centralizedMails && organization.options.notifications.emails.length > 0 && mentionedUsers.length > 0) {
+            const emails: string[] = organization.options.notifications.emails
+            NATSHelper.safelyEmit<KysoReportsMentionsEvent>(this.client, KysoEventEnum.REPORTS_MENTIONS, {
+                to: emails,
+                creator,
+                users: mentionedUsers,
+                organization,
+                team,
+                report,
+                frontendUrl,
+            })
         }
     }
 
