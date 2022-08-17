@@ -840,8 +840,23 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 let reportFile = new File(report.id, originalName, path_scs, size, sha, version)
                 reportFile = await this.filesMongoProvider.create(reportFile)
                 reportFiles.push(reportFile)
+                if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
+                    const s3Client: S3Client = await this.getS3Client()
+                    const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+                    const key = `${uuidv4()}${extname(originalName)}`
+                    await s3Client.send(
+                        new PutObjectCommand({
+                            Bucket: s3Bucket,
+                            Key: key,
+                            Body: readFileSync(localFilePath),
+                        }),
+                    )
+                    const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
+                    report.preview_picture = preview_picture
+                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+                }
             }
-            const authors: string[] = [...report.author_ids]
+            const authors: string[] = [user.id]
             if (kysoConfigFile.authors && Array.isArray(kysoConfigFile.authors)) {
                 for (const email of kysoConfigFile.authors) {
                     const author: User = await this.usersService.getUser({
@@ -850,10 +865,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
                         },
                     })
                     if (author) {
-                        const indexAuthor: number = authors.indexOf(author.id)
                         const teams: Team[] = await this.teamsService.getTeamsForController(author.id, { filter: {} })
                         const indexTeam: number = teams.findIndex((t: Team) => t.id === team.id)
-                        if (indexAuthor === -1 && (indexTeam > -1 || team.visibility === TeamVisibilityEnum.PUBLIC)) {
+                        if (indexTeam > -1 || team.visibility === TeamVisibilityEnum.PUBLIC) {
                             authors.push(author.id)
                         }
                     }
@@ -861,7 +875,14 @@ export class ReportsService extends AutowiredService implements GenericService<R
             }
             report = await this.provider.update(
                 { _id: this.provider.toObjectId(report.id) },
-                { $set: { main_file: kysoConfigFile?.main, author_ids: authors } },
+                {
+                    $set: {
+                        main_file: kysoConfigFile?.main || null,
+                        description: kysoConfigFile?.description || null,
+                        type: kysoConfigFile?.type || null,
+                        author_ids: authors,
+                    },
+                },
             )
         } else {
             Logger.log(`Creating new report '${name}'`, ReportsService.name)
@@ -2921,72 +2942,73 @@ export class ReportsService extends AutowiredService implements GenericService<R
     public async createDraftReport(draft: DraftReport): Promise<any> {
         // The name of this organization exists?
         const existsDraft: boolean = await this.existsDraft(draft.organization_id, draft.team_id, draft.creator_user_id)
-        
-        if(existsDraft) {
-            throw new PreconditionFailedException("There is already a draft version saved for this organization, channel and user");
+
+        if (existsDraft) {
+            throw new PreconditionFailedException('There is already a draft version saved for this organization, channel and user')
         }
 
-        const createdItem = await this.draftReportMongoProvider.create(draft);
+        const createdItem = await this.draftReportMongoProvider.create(draft)
 
-        return createdItem;
+        return createdItem
     }
 
     public async updateDraftReport(draft: DraftReport): Promise<any> {
         // The name of this organization exists?
         const existsDraft: boolean = await this.existsDraft(draft.organization_id, draft.team_id, draft.creator_user_id)
-        
-        if(!existsDraft) {
-            throw new PreconditionFailedException("Can't unpdate an unexistent draft");
+
+        if (!existsDraft) {
+            throw new PreconditionFailedException("Can't unpdate an unexistent draft")
         }
-        
+
         const createdItem = await this.draftReportMongoProvider.update(
-            { 
+            {
                 organization_id: draft.organization_id,
                 team_id: draft.team_id,
-                creator_user_id: draft.creator_user_id
+                creator_user_id: draft.creator_user_id,
             },
             {
-                $set: draft
-            }
-        );
+                $set: draft,
+            },
+        )
 
-        return createdItem;
+        return createdItem
     }
 
     public async deleteDraftReport(draft: DraftReport): Promise<any> {
         // The name of this organization exists?
         const existsDraft: boolean = await this.existsDraft(draft.organization_id, draft.team_id, draft.creator_user_id)
-        
-        if(existsDraft) {
-            throw new PreconditionFailedException("There is already a draft version saved for this organization, channel and user");
+
+        if (existsDraft) {
+            throw new PreconditionFailedException('There is already a draft version saved for this organization, channel and user')
         }
 
-        await this.draftReportMongoProvider.deleteOne({ filter: { 
+        await this.draftReportMongoProvider.deleteOne({
+            filter: {
                 organization_id: draft.organization_id,
                 team_id: draft.team_id,
-                creator_user_id: draft.creator_user_id
-            }
-        });
+                creator_user_id: draft.creator_user_id,
+            },
+        })
     }
 
     public async existsDraft(organization_id: string, team_id: string, creator_user_id: string): Promise<boolean> {
-        return await this.getDraft(organization_id, team_id, creator_user_id) === null ? false : true
+        return (await this.getDraft(organization_id, team_id, creator_user_id)) === null ? false : true
     }
 
     public async getDraft(organization_id: string, team_id: string, creator_user_id: string): Promise<DraftReport> {
         // The name of this organization exists?
-        const existsDraft: DraftReport[] = await this.draftReportMongoProvider.read({ filter: { 
-            organization_id: organization_id,
-            team_id: team_id,
-            creator_user_id: creator_user_id
-        }});
+        const existsDraft: DraftReport[] = await this.draftReportMongoProvider.read({
+            filter: {
+                organization_id: organization_id,
+                team_id: team_id,
+                creator_user_id: creator_user_id,
+            },
+        })
 
         if (existsDraft && existsDraft.length === 1) {
-            return existsDraft[1];
+            return existsDraft[1]
         } else {
-            return null;
+            return null
         }
     }
-
-
 }
