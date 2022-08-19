@@ -1,5 +1,6 @@
 import {
     AuthProviderSpec,
+    KysoPermissions,
     KysoSettingsEnum,
     Login,
     LoginProviderEnum,
@@ -8,10 +9,12 @@ import {
     OrganizationAuthOptions,
     PingIdSAMLSpec,
     ReportPermissionsEnum,
+    ResourcePermissions,
     SignUpDto,
     Team,
     TeamVisibilityEnum,
     Token,
+    TokenPermissions,
     TokenStatusEnum,
     User,
     VerifyEmailRequestDTO,
@@ -35,11 +38,15 @@ import {
 } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import * as moment from 'moment'
+import { ObjectId } from 'mongodb'
+import { v4 as uuidv4 } from 'uuid'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { Cookies } from '../../decorators/cookies'
+import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { db } from '../../main'
+import { PlatformRole } from '../../security/platform-roles'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
@@ -48,9 +55,8 @@ import { CurrentToken } from './annotations/current-token.decorator'
 import { AuthService, TOKEN_EXPIRATION_HOURS } from './auth.service'
 import { PlatformRoleService } from './platform-role.service'
 import { UserRoleService } from './user-role.service'
-import { v4 as uuidv4 } from 'uuid'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const querystring = require('querystring');
+const querystring = require('querystring')
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Saml2js = require('saml2js')
 
@@ -115,10 +121,10 @@ export class AuthController extends GenericController<string> {
         examples: {
             'Login as rey': {
                 value: {
-                    "email": "lo+rey@dev.kyso.io",
-                    "password": "n0tiene",
-                    "provider": "kyso",
-                    "kysoInstallUrl": "http://localhost:4000"
+                    email: 'lo+rey@dev.kyso.io',
+                    password: 'n0tiene',
+                    provider: 'kyso',
+                    kysoInstallUrl: 'http://localhost:4000',
                 },
             },
         },
@@ -211,8 +217,7 @@ export class AuthController extends GenericController<string> {
             } else {
                 return 'Your organization has not configured PingSAML as auth provider'
             }
-        }
-        catch(ex) {    
+        } catch (ex) {
             Logger.error('Error using ping saml auth sso', ex)
             return 'Your organization has not properly configured PingSAML as auth provider'
         }
@@ -221,7 +226,7 @@ export class AuthController extends GenericController<string> {
     @Post('/login/sso/ping-saml/callback')
     @ApiOperation({
         summary: `Callback URL for pingID`,
-        description: `Callback URL. Expects an object with the properties: mail, givenName (name) and sn (surname)`
+        description: `Callback URL. Expects an object with the properties: mail, givenName (name) and sn (surname)`,
     })
     async loginSSOCallback(@Req() request, @Res() response) {
         const xmlResponse = request.body.SAMLResponse
@@ -235,9 +240,10 @@ export class AuthController extends GenericController<string> {
             // Build JWT token and redirect to frontend
             const login: Login = new Login(
                 uuidv4(), // set a random password
-                LoginProviderEnum.PING_ID_SAML, 
-                data.mail, 
-                data)
+                LoginProviderEnum.PING_ID_SAML,
+                data.mail,
+                data,
+            )
 
             const jwt = await this.authService.login(login)
             const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
@@ -314,25 +320,25 @@ export class AuthController extends GenericController<string> {
         try {
             const splittedToken = jwtToken.split('Bearer ')
 
-            const tokenStatus: TokenStatusEnum = this.authService.verifyToken(splittedToken[1]);
+            const tokenStatus: TokenStatusEnum = this.authService.verifyToken(splittedToken[1])
 
-            switch(tokenStatus) {
+            switch (tokenStatus) {
                 case TokenStatusEnum.VALID:
                 case TokenStatusEnum.EXPIRED:
                     // Expired, but issued by us
-                    const decodedToken: Token = this.authService.decodeToken(splittedToken[1]);
+                    const decodedToken: Token = this.authService.decodeToken(splittedToken[1])
                     if (decodedToken) {
                         const jwt: string = await this.authService.refreshToken(decodedToken)
                         return new NormalizedResponseDTO(jwt)
                     } else {
                         throw new ForbiddenException()
                     }
-                    
+
                 case TokenStatusEnum.INVALID_SIGNATURE:
                     // Raise security alert
-                    console.error("SECURITY WARNING: INVALID SIGNATURE DETECTED");
+                    console.error('SECURITY WARNING: INVALID SIGNATURE DETECTED')
                     throw new ForbiddenException()
-                    
+
                 default:
                     throw new ForbiddenException()
             }
@@ -404,6 +410,53 @@ export class AuthController extends GenericController<string> {
         }
     }
 
+    @Get('/public-permissions')
+    @Public()
+    async getPublicPermissions(): Promise<NormalizedResponseDTO<TokenPermissions>> {
+        const globalKysoPermissions: KysoPermissions[] = []
+        const organizationsResourcePermissions: ResourcePermissions[] = []
+        const teamsResourcePermissions: ResourcePermissions[] = []
+        const publicTeams: Team[] = await this.teamsService.getTeams({
+            filter: {
+                visibility: TeamVisibilityEnum.PUBLIC,
+            },
+        })
+        if (publicTeams.length > 0) {
+            const uniqueOrganizationIds: string[] = []
+            publicTeams.forEach((team: Team) => {
+                teamsResourcePermissions.push({
+                    name: team.sluglified_name,
+                    display_name: team.display_name,
+                    id: team.id,
+                    permissions: PlatformRole.EXTERNAL_ROLE.permissions,
+                    organization_id: team.organization_id,
+                    role_names: ['external'],
+                })
+            })
+            publicTeams.forEach((team) => {
+                if (!uniqueOrganizationIds.includes(team.organization_id)) {
+                    uniqueOrganizationIds.push(team.organization_id)
+                }
+            })
+            const publicOrganizations: Organization[] = await this.organizationsService.getOrganizations({
+                filter: {
+                    _id: { $in: uniqueOrganizationIds.map((id) => new ObjectId(id)) },
+                },
+            })
+            publicOrganizations.forEach((organization: Organization) => {
+                organizationsResourcePermissions.push({
+                    id: organization.id,
+                    name: organization.sluglified_name,
+                    display_name: organization.display_name,
+                    permissions: [],
+                    role_names: [],
+                })
+            })
+        }
+        const tokenPermissions: TokenPermissions = new TokenPermissions(globalKysoPermissions, teamsResourcePermissions, organizationsResourcePermissions)
+        return new NormalizedResponseDTO(tokenPermissions)
+    }
+
     @Get('/check-permissions')
     @ApiHeader({
         name: 'x-original-uri',
@@ -411,19 +464,14 @@ export class AuthController extends GenericController<string> {
         required: true,
     })
     @ApiQuery({
-        name: "token",
+        name: 'token',
         type: String,
-        description: "JWT Token to check. Optional",
-        required: false
+        description: 'JWT Token to check. Optional',
+        required: false,
     })
-    async checkPermissions(
-        @Headers('x-original-uri') originalUri, 
-        @Res() response: any, 
-        @Cookies() cookies: any,
-        @Query('token') queryToken?: string
-    ) {
-        Logger.log(`Checking permissions for ${originalUri}`);
-        
+    async checkPermissions(@Headers('x-original-uri') originalUri, @Res() response: any, @Cookies() cookies: any, @Query('token') queryToken?: string) {
+        Logger.log(`Checking permissions for ${originalUri}`)
+
         if (process.env.NODE_ENV === 'development') {
             response.status(HttpStatus.OK).send()
             return
@@ -463,11 +511,10 @@ export class AuthController extends GenericController<string> {
         // Read token from cookie or querystring
         let token: Token
         if (!cookies || !cookies['kyso-jwt-token'] || cookies['kyso-jwt-token'].length === 0) {
-            Logger.log(`No cookies set. Looking for query string token`);
-            
-            
-            if(queryToken) {
-                Logger.log(`Received query token: ${queryToken}`);
+            Logger.log(`No cookies set. Looking for query string token`)
+
+            if (queryToken) {
+                Logger.log(`Received query token: ${queryToken}`)
                 token = this.authService.evaluateAndDecodeToken(queryToken)
             } else {
                 Logger.log(`Query Token not received. Trying to extract it from the original-uri`)
@@ -480,21 +527,20 @@ export class AuthController extends GenericController<string> {
                 }
                 // try to find the token on the query string
                 const qs = querystring.parse(originalUri.substring(qi + 1))
-                
-                Logger.log(`Extracted token ${qs.token}`);
+
+                Logger.log(`Extracted token ${qs.token}`)
                 token = this.authService.evaluateAndDecodeToken(qs.token)
             }
-            Logger.log(`Received token: ${queryToken}`);
-            
+            Logger.log(`Received token: ${queryToken}`)
         } else {
-            Logger.log(`There are cookies`);
-            Logger.log(`Received token: ${cookies['kyso-jwt-token']}`);
-            
+            Logger.log(`There are cookies`)
+            Logger.log(`Received token: ${cookies['kyso-jwt-token']}`)
+
             token = this.authService.evaluateAndDecodeToken(cookies['kyso-jwt-token'])
         }
 
         if (!token) {
-            Logger.log("Didn't received any token. Forbidden");
+            Logger.log("Didn't received any token. Forbidden")
             response.status(HttpStatus.FORBIDDEN).send()
             return
         }

@@ -226,7 +226,7 @@ export class OrganizationsController extends GenericController<Organization> {
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Organization members`, type: OrganizationMember, isArray: true })
-    @Permission([OrganizationPermissionsEnum.READ])
+    @Public()
     async getOrganizationMembers(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
         const data: OrganizationMember[] = await this.organizationService.getOrganizationMembers(organizationId)
         return new NormalizedResponseDTO(data)

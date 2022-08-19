@@ -17,6 +17,7 @@ import { Body, Controller, Delete, ForbiddenException, Get, NotFoundException, P
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
+import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
@@ -73,7 +74,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
         description: 'Id of the report to fetch inline comments',
         schema: { type: 'string' },
     })
-    // @Permission([InlineCommentPermissionsEnum.READ])
+    @Public()
     async getAll(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<InlineCommentDto>> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {

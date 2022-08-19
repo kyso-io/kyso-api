@@ -15,6 +15,7 @@ import {
     Report,
     ReportDTO,
     ReportPermissionsEnum,
+    ResourcePermissions,
     Tag,
     TagAssign,
     Team,
@@ -31,6 +32,7 @@ import {
     Get,
     Headers,
     Logger,
+    NotFoundException,
     Param,
     Patch,
     Post,
@@ -500,7 +502,7 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    async getReport(
+    async getReportById(
         @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
         @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
@@ -1141,21 +1143,29 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
+    @Public()
     async getReportVersions(
-        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
-        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
         @Param('reportId') reportId: string,
         @Req() req,
     ): Promise<NormalizedResponseDTO<{ version: number; created_at: Date; num_files: number }>> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
-            throw new PreconditionFailedException('Report not found')
+            throw new NotFoundException('Report not found')
         }
         const team: Team = await this.teamsService.getTeamById(report.team_id)
-        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
-            if (!hasPermissions) {
+        if (!team) {
+            throw new NotFoundException(`Team with id ${report.team_id} not found`)
+        }
+        if (token) {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                const index: number = token.permissions.teams.findIndex((t: ResourcePermissions) => t.id === team.id)
+                if (index === -1) {
+                    throw new ForbiddenException('You do not have permissions to access this report')
+                }
+            }
+        } else {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
         }
@@ -1252,6 +1262,65 @@ export class ReportsController extends GenericController<Report> {
         }
         const hash: GithubFileHash | GithubFileHash[] = await this.reportsService.getReportTree(reportId, path, version)
         return new NormalizedResponseDTO(hash)
+    }
+
+    @Get('/:teamId/:reportSlug')
+    @ApiOperation({
+        summary: `Get a report given team id and report slug`,
+        description: `Allows fetching content of a specific report passing team id and its slug`,
+    })
+    @ApiNormalizedResponse({
+        status: 200,
+        description: `Report`,
+        type: ReportDTO,
+    })
+    @ApiParam({
+        name: 'teamId',
+        required: true,
+        description: 'Id of the team to which the report belongs',
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'reportSlug',
+        required: true,
+        description: 'Slug the report to fetch',
+        schema: { type: 'string' },
+    })
+    @Public()
+    async getReport(
+        @CurrentToken() token: Token,
+        @Param('teamId') teamId: string,
+        @Param('reportSlug') reportSlug: string,
+    ): Promise<NormalizedResponseDTO<ReportDTO>> {
+        const team: Team = await this.teamsService.getTeamById(teamId)
+        if (!team) {
+            throw new NotFoundException(`Team with id ${teamId} not found`)
+        }
+        if (token) {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                const index: number = token.permissions.teams.findIndex((t: ResourcePermissions) => t.id === teamId)
+                if (index === -1) {
+                    throw new ForbiddenException('You do not have permissions to access this report')
+                }
+            }
+        } else {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
+        const report: Report = await this.reportsService.getReport({
+            filter: {
+                team_id: teamId,
+                sluglified_name: reportSlug,
+            },
+        })
+        if (!report) {
+            throw new NotFoundException('Report not found')
+        }
+        await this.reportsService.increaseViews({ _id: new ObjectId(report.id) })
+        const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token?.id)
+        return new NormalizedResponseDTO(reportDto, relations)
     }
 
     @Get('/file/:id')

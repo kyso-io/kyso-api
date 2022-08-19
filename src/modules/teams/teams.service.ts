@@ -290,7 +290,7 @@ export class TeamsService extends AutowiredService {
                 }
             })
 
-            return usersAndRoles.map((x) => new TeamMember(x.id.toString(), x.display_name, x.name, x.roles, x.bio, x.avatar_url, x.email, x.membership_origin))
+            return usersAndRoles.map((x) => new TeamMember(x.id.toString(), x.display_name, x.username, x.roles, x.bio, x.avatar_url, x.email, x.membership_origin))
         } else {
             return []
         }

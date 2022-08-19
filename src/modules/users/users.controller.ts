@@ -114,7 +114,7 @@ export class UsersController extends GenericController<User> {
         isArray: false,
         description: 'Sort by creation_date. Values allowed: asc or desc. Default. <b>desc</b>',
     })
-    @Permission([UserPermissionsEnum.READ])
+    @Public()
     async getUsers(@Query('user_id') userId: string[], @Req() req): Promise<NormalizedResponseDTO<UserDTO[]>> {
         const query = QueryParser.toQueryObject(req.url)
         if (userId && userId.length > 0) {

@@ -3,6 +3,7 @@ import {
     HEADER_X_KYSO_TEAM,
     NormalizedResponseDTO,
     Report,
+    ResourcePermissions,
     Team,
     TeamInfoDto,
     TeamMember,
@@ -17,8 +18,10 @@ import {
     Body,
     Controller,
     Delete,
+    ForbiddenException,
     Get,
     Logger,
+    NotFoundException,
     Param,
     Patch,
     Post,
@@ -35,6 +38,7 @@ import { ObjectId } from 'mongodb'
 import { PlatformRole } from 'src/security/platform-roles'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
+import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
 import slugify from '../../helpers/slugify'
@@ -129,13 +133,26 @@ export class TeamsController extends GenericController<Team> {
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Team matching id`, type: Team })
-    @Permission([TeamPermissionsEnum.READ])
-    async getTeamById(@Param('id') id: string): Promise<NormalizedResponseDTO<Team>> {
+    @Public()
+    async getTeamById(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<Team>> {
         const team: Team = await this.teamsService.getTeamById(id)
         if (!team) {
             throw new PreconditionFailedException('Team not found')
         }
-        this.assignReferences(team)
+        if (token) {
+            const index: number = token.permissions.teams.findIndex((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === id)
+            if (index === -1) {
+                if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                    throw new ForbiddenException('You are not allowed to access this team')
+                }
+            }
+        } else {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                throw new ForbiddenException('You are not allowed to access this team')
+            }
+        }
+        delete team.roles
+        delete team.slackChannel
         return new NormalizedResponseDTO(team)
     }
 
@@ -189,8 +206,17 @@ export class TeamsController extends GenericController<Team> {
         description: 'Name of the team',
         required: true,
     })
-    @Permission([TeamPermissionsEnum.READ])
-    async getTeamMembers(@Param('id') id: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
+    @Public()
+    async getTeamMembers(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
+        const team: Team = await this.teamsService.getTeamById(id)
+        if (!team) {
+            throw new NotFoundException('Team not found')
+        }
+        if (!token) {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                throw new ForbiddenException('You are not allowed to access this team')
+            }
+        }
         const data: TeamMember[] = await this.teamsService.getMembers(id)
         return new NormalizedResponseDTO(data)
     }
@@ -212,8 +238,17 @@ export class TeamsController extends GenericController<Team> {
         description: 'Name of the team',
         required: true,
     })
-    @Permission([TeamPermissionsEnum.READ])
-    async getAssignees(@Param('teamId') teamId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
+    @Public()
+    async getAssignees(@CurrentToken() token: Token, @Param('teamId') teamId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
+        const team: Team = await this.teamsService.getTeamById(teamId)
+        if (!team) {
+            throw new NotFoundException('Team not found')
+        }
+        if (!token) {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                throw new ForbiddenException('You are not allowed to access this team')
+            }
+        }
         const data: TeamMember[] = await this.teamsService.getAssignees(teamId)
         return new NormalizedResponseDTO(data)
     }
@@ -529,9 +564,7 @@ export class TeamsController extends GenericController<Team> {
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Team })
-    public async deleteBackgroundImage(
-        @CurrentToken() token: Token,
-        @Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Team>> {
+    public async deleteBackgroundImage(@CurrentToken() token: Token, @Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Team>> {
         const team: Team = await this.teamsService.deleteProfilePicture(token, teamId)
         return new NormalizedResponseDTO(team)
     }
@@ -564,11 +597,13 @@ export class TeamsController extends GenericController<Team> {
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Upload markdown image`, type: String })
-    @UseInterceptors(FileInterceptor('file', {
-        limits: {
-            fileSize: 52428800 
-        }
-    }))
+    @UseInterceptors(
+        FileInterceptor('file', {
+            limits: {
+                fileSize: 52428800,
+            },
+        }),
+    )
     public async uploadMarkdownImage(
         @CurrentToken() token: Token,
         @Param('teamId') teamId: string,

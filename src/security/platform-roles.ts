@@ -231,7 +231,17 @@ export class PlatformRole {
 
     public static EXTERNAL_ROLE = new KysoRole(
         'external',
-        [ ],
+        [
+            CommentPermissionsEnum.READ,
+            InlineCommentPermissionsEnum.READ,
+            GithubRepoPermissionsEnum.READ,
+            BitbucketRepoPermissionsEnum.READ,
+            OrganizationPermissionsEnum.READ,
+            ReportPermissionsEnum.READ,
+            TeamPermissionsEnum.READ,
+            UserPermissionsEnum.READ,
+            DiscussionPermissionsEnum.READ,
+        ],
         new mongo.ObjectId('62e963cf8b50cbfe2301c7da').toString(),
     )
 
@@ -241,6 +251,6 @@ export class PlatformRole {
         this.TEAM_ADMIN_ROLE,
         this.TEAM_CONTRIBUTOR_ROLE,
         this.TEAM_READER_ROLE,
-        this.EXTERNAL_ROLE
+        this.EXTERNAL_ROLE,
     ]
 }
