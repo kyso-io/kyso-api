@@ -158,7 +158,14 @@ export class PlatformRole {
     public static TEAM_READER_ROLE = new KysoRole(
         'team-reader',
         [
+            CommentPermissionsEnum.CREATE,
+            CommentPermissionsEnum.DELETE,
+            CommentPermissionsEnum.EDIT,
             CommentPermissionsEnum.READ,
+            CommentPermissionsEnum.DELETE_ONLY_MINE,
+            InlineCommentPermissionsEnum.CREATE,
+            InlineCommentPermissionsEnum.DELETE,
+            InlineCommentPermissionsEnum.EDIT,
             InlineCommentPermissionsEnum.READ,
             GithubRepoPermissionsEnum.READ,
             BitbucketRepoPermissionsEnum.READ,
