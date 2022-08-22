@@ -542,22 +542,23 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    async getComments(
-        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
-        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
-        @CurrentToken() token: Token,
-        @Param('reportId') reportId: string,
-        @Req() req,
-    ): Promise<NormalizedResponseDTO<Comment[]>> {
+    @Public()
+    async getComments(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Req() req): Promise<NormalizedResponseDTO<Comment[]>> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
-            throw new PreconditionFailedException('Report not found')
+            throw new NotFoundException('Report not found')
         }
         const team: Team = await this.teamsService.getTeamById(report.team_id)
-        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
-            if (!hasPermissions) {
-                throw new ForbiddenException('You do not have permissions to access this report')
+        if (token) {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                const index: number = token.permissions.teams.findIndex((t: ResourcePermissions) => t.id === team.id)
+                if (index === -1) {
+                    throw new ForbiddenException('You do not have permissions to access the comments of this report')
+                }
+            }
+        } else {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                throw new ForbiddenException('You do not have permissions to access the comments of this report')
             }
         }
         const query = QueryParser.toQueryObject(req.url)
@@ -1264,6 +1265,42 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponseDTO(hash)
     }
 
+    @Get('/file/:id')
+    @Public()
+    @ApiOperation({
+        summary: `Get content of a file`,
+        description: `By passing the id a file, get its raw content directly from the source.`,
+    })
+    @ApiParam({
+        name: 'id',
+        required: true,
+        description: 'Id of the report to fetch',
+        schema: { type: 'string' },
+    })
+    async getReportFileContent(@CurrentToken() token: Token, @Param('id') id: string): Promise<Buffer> {
+        const file: File = await this.reportsService.getFileById(id)
+        if (!file) {
+            throw new PreconditionFailedException('File not found')
+        }
+        const report: Report = await this.reportsService.getReportById(file.report_id)
+        if (!report) {
+            throw new PreconditionFailedException('Report not found')
+        }
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (!token) {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                throw new PreconditionFailedException(`Report is not public`)
+            }
+        } else {
+            const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+            const index: number = teams.findIndex((t: Team) => t.id === team.id)
+            if (index === -1) {
+                throw new ForbiddenException('You do not have permissions to access this report')
+            }
+        }
+        return this.reportsService.getReportFileContent(file)
+    }
+
     @Get('/:teamId/:reportSlug')
     @ApiOperation({
         summary: `Get a report given team id and report slug`,
@@ -1321,51 +1358,6 @@ export class ReportsController extends GenericController<Report> {
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token?.id)
         return new NormalizedResponseDTO(reportDto, relations)
-    }
-
-    @Get('/file/:id')
-    @Public()
-    @ApiOperation({
-        summary: `Get content of a file`,
-        description: `By passing the id a file, get its raw content directly from the source.`,
-    })
-    @ApiParam({
-        name: 'id',
-        required: true,
-        description: 'Id of the report to fetch',
-        schema: { type: 'string' },
-    })
-    async getReportFileContent(
-        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
-        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
-        @CurrentToken() token: Token,
-        @Param('id') id: string,
-    ): Promise<Buffer> {
-        const file: File = await this.reportsService.getFileById(id)
-        if (!file) {
-            throw new PreconditionFailedException('File not found')
-        }
-        const report: Report = await this.reportsService.getReportById(file.report_id)
-        if (!report) {
-            throw new PreconditionFailedException('Report not found')
-        }
-        const team: Team = await this.teamsService.getTeamById(report.team_id)
-        if (!token) {
-            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-                throw new PreconditionFailedException(`Report is not public`)
-            }
-        } else {
-            const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
-            const index: number = teams.findIndex((t: Team) => t.id === team.id)
-            if (index === -1) {
-                throw new ForbiddenException('You do not have permissions to access this report')
-            }
-            // const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
-            // if (!hasPermissions) {
-            //     throw new ForbiddenException('You do not have permissions to access this report')
-            // }
-        }
-        return this.reportsService.getReportFileContent(file)
     }
 
     @UseInterceptors(FileInterceptor('file'))

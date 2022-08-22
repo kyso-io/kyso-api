@@ -25,6 +25,7 @@ import {
     Controller,
     Delete,
     Get,
+    NotFoundException,
     Param,
     Patch,
     Post,
@@ -160,7 +161,7 @@ export class OrganizationsController extends GenericController<Organization> {
             },
         })
         if (!organization) {
-            throw new PreconditionFailedException('Organization not found')
+            throw new NotFoundException('Organization not found')
         }
         if (!token) {
             delete organization.billingEmail
