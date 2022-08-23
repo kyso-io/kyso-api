@@ -7,18 +7,18 @@ import {
     Organization,
     Relations,
     Report,
-    ResourcePermissions,
     Tag,
     Team,
     TeamVisibilityEnum,
     Token,
     User,
 } from '@kyso-io/kyso-model'
-import { Controller, ForbiddenException, Get, NotFoundException, Param, Req, UseGuards } from '@nestjs/common'
+import { Controller, Get, NotFoundException, Param, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
+import { Public } from '../../decorators/is-public'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
@@ -62,7 +62,7 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
     @Autowired({ typeName: 'CommentsService' })
     private commentsService: CommentsService
 
-    @Get('user')
+    @Get('user/:username')
     @ApiOperation({
         summary: `Search and fetch activity feed`,
     })
@@ -72,7 +72,8 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
         type: ActivityFeed,
         isArray: true,
     })
-    async getUserActivityFeed(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<ActivityFeed[]>> {
+    @Public()
+    async getUserActivityFeed(@CurrentToken() token: Token, @Param('username') username: string, @Req() req): Promise<NormalizedResponseDTO<ActivityFeed[]>> {
         const query: any = QueryParser.toQueryObject(req.url)
         if (!query.filter) {
             query.filter = {}
@@ -82,10 +83,66 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
                 created_at: -1,
             }
         }
-        if (!query.filter.user_id) {
-            query.filter.user_id = token.id
-        } else if (query.filter.user_id !== token.id) {
-            throw new ForbiddenException('You can only fetch activity feed for your own user')
+        const user: User = await this.usersService.getUser({
+            filter: { username },
+        })
+        if (!user) {
+            throw new NotFoundException('User not found')
+        }
+        if (token) {
+            if (token.id === user.id) {
+                query.filter.user_id = token.id
+            } else {
+                const desiredUserTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(user.id)
+                const userTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+                const teamSlugs: string[] = []
+                for (const team of desiredUserTeams) {
+                    if (team.visibility === TeamVisibilityEnum.PUBLIC) {
+                        teamSlugs.push(team.sluglified_name)
+                    } else {
+                        const index: number = userTeams.findIndex((t: Team) => t.id === team.id)
+                        if (index !== -1) {
+                            teamSlugs.push(team.sluglified_name)
+                        }
+                    }
+                }
+                if (query.filter.team) {
+                    if (query.filter.team.$in) {
+                        query.filter.team.$in = query.filter.team.$in.filter((slug: string) => teamSlugs.indexOf(slug) !== -1)
+                    } else {
+                        const index: number = query.filter.team.filter((slug: string) => teamSlugs.indexOf(slug) !== -1)
+                        if (index === -1) {
+                            const activityFeed: ActivityFeed[] = []
+                            return new NormalizedResponseDTO(activityFeed)
+                        }
+                    }
+                } else {
+                    query.filter.team.$in = teamSlugs
+                }
+            }
+        } else {
+            const desiredUserTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(user.id)
+            const teamSlugs: string[] = []
+            for (const team of desiredUserTeams) {
+                if (team.visibility === TeamVisibilityEnum.PUBLIC) {
+                    teamSlugs.push(team.sluglified_name)
+                }
+            }
+            if (query.filter.team) {
+                if (query.filter.team.$in) {
+                    query.filter.team.$in = query.filter.team.$in.filter((slug: string) => teamSlugs.indexOf(slug) !== -1)
+                } else {
+                    const index: number = query.filter.team.filter((slug: string) => teamSlugs.indexOf(slug) !== -1)
+                    if (index === -1) {
+                        const activityFeed: ActivityFeed[] = []
+                        return new NormalizedResponseDTO(activityFeed)
+                    }
+                }
+            } else {
+                query.filter.team = {
+                    $in: teamSlugs,
+                }
+            }
         }
         const activityFeed: ActivityFeed[] = await this.activityFeedService.getActivityFeed(query)
         const relations: Relations = await this.getRelations(activityFeed)
@@ -102,19 +159,12 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
         type: ActivityFeed,
         isArray: true,
     })
+    @Public()
     async getOrganizationActivityFeed(
         @CurrentToken() token: Token,
         @Param('organizationName') organizationName: string,
         @Req() req,
     ): Promise<NormalizedResponseDTO<ActivityFeed[]>> {
-        if (!token.isGlobalAdmin()) {
-            const organizationResourcePermissions: ResourcePermissions = token.permissions.organizations.find(
-                (resourcePermission: ResourcePermissions) => resourcePermission.name === organizationName,
-            )
-            if (!organizationResourcePermissions) {
-                throw new ForbiddenException('You do not have permission to access this organization')
-            }
-        }
         const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
         if (!organization) {
             throw new NotFoundException('Organization does not exist')
@@ -127,6 +177,38 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
         if (!query.sort) {
             query.sort = {
                 created_at: -1,
+            }
+        }
+        let teamSlugs: string[] = []
+        if (token) {
+            const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+            teamSlugs = teams.filter((team: Team) => team.organization_id === organization.id).map((team: Team) => team.sluglified_name)
+        } else {
+            const teams: Team[] = await this.teamsService.getTeams({
+                filter: {
+                    organization_id: organization.id,
+                    visibility: TeamVisibilityEnum.PUBLIC,
+                },
+            })
+            teamSlugs = teams.map((team: Team) => team.sluglified_name)
+        }
+        if (teamSlugs.length === 0) {
+            const activityFeed: ActivityFeed[] = []
+            return new NormalizedResponseDTO(activityFeed)
+        }
+        if (query.filter.team) {
+            if (query.filter.team.$in) {
+                query.filter.team.$in = query.filter.team.$in.filter((slug: string) => teamSlugs.indexOf(slug) !== -1)
+            } else {
+                const index: number = query.filter.team.filter((slug: string) => teamSlugs.indexOf(slug) !== -1)
+                if (index === -1) {
+                    const activityFeed: ActivityFeed[] = []
+                    return new NormalizedResponseDTO(activityFeed)
+                }
+            }
+        } else {
+            query.filter.team = {
+                $in: teamSlugs,
             }
         }
         const activityFeed: ActivityFeed[] = await this.activityFeedService.getActivityFeed(query)
@@ -144,6 +226,7 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
         type: ActivityFeed,
         isArray: true,
     })
+    @Public()
     async getTeamActivityFeed(
         @CurrentToken() token: Token,
         @Param('organizationName') organizationName: string,
@@ -158,27 +241,32 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
         if (!team) {
             throw new NotFoundException('Team does not exist')
         }
-        if (!token.isGlobalAdmin()) {
-            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-                const teamResourcePermissions: ResourcePermissions = token.permissions.teams.find(
-                    (resourcePermission: ResourcePermissions) => resourcePermission.name === teamName,
-                )
-                if (!teamResourcePermissions) {
-                    throw new ForbiddenException('You do not have permission to access this team')
-                }
-            }
-        }
         const query: any = QueryParser.toQueryObject(req.url)
         if (!query.filter) {
             query.filter = {}
         }
-        query.filter.organization = organization.sluglified_name
-        query.filter.team = team.sluglified_name
         if (!query.sort) {
             query.sort = {
                 created_at: -1,
             }
         }
+        query.filter.organization = organization.sluglified_name
+        if (token) {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+                const index: number = teams.findIndex((t: Team) => t.id === team.id)
+                if (index === -1) {
+                    const activityFeed: ActivityFeed[] = []
+                    return new NormalizedResponseDTO(activityFeed)
+                }
+            }
+        } else {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                const activityFeed: ActivityFeed[] = []
+                return new NormalizedResponseDTO(activityFeed)
+            }
+        }
+        query.filter.team = team.sluglified_name
         const activityFeed: ActivityFeed[] = await this.activityFeedService.getActivityFeed(query)
         const relations: Relations = await this.getRelations(activityFeed)
         return new NormalizedResponseDTO(activityFeed, relations)

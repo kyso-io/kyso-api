@@ -70,10 +70,6 @@ export class UsersController extends GenericController<User> {
         super()
     }
 
-    assignReferences(user: User) {
-        // user.self_url = HateoasLinker.createRef(`/users/${user.display_name}`)
-    }
-
     @Get()
     @ApiOperation({
         summary: `Search and fetch users`,
@@ -145,7 +141,6 @@ export class UsersController extends GenericController<User> {
         description: `Allows fetching access tokens of an user`,
     })
     @ApiResponse({ status: 200, description: `Access tokens`, type: KysoUserAccessToken, isArray: true })
-    // @Permission([UserPermissionsEnum.READ])
     async getAccessTokens(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
         const tokens: KysoUserAccessToken[] = await this.usersService.getAccessTokens(token.id)
         return new NormalizedResponseDTO(tokens)
@@ -158,7 +153,6 @@ export class UsersController extends GenericController<User> {
         description: `Creates an access token for the specified user`,
     })
     @ApiResponse({ status: 200, description: `Access Token created successfully`, type: KysoUserAccessToken })
-    // @Permission([UserPermissionsEnum.EDIT])
     async createUserAccessToken(
         @CurrentToken() token: Token,
         @Body() accessTokenConfiguration: CreateKysoAccessTokenDto,
@@ -181,7 +175,6 @@ export class UsersController extends GenericController<User> {
         description: `Revoke all user access tokens`,
     })
     @ApiResponse({ status: 200, description: `Access Tokens deleted successfully`, type: KysoUserAccessToken, isArray: true })
-    // @Permission([UserPermissionsEnum.EDIT])
     async revokeAllUserAccessToken(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
         const result: KysoUserAccessToken[] = await this.usersService.revokeAllUserAccessToken(token.id)
         return new NormalizedResponseDTO(result)
@@ -200,7 +193,6 @@ export class UsersController extends GenericController<User> {
         schema: { type: 'string' },
     })
     @ApiResponse({ status: 200, description: `Access Token deleted successfully`, type: KysoUserAccessToken })
-    // @Permission([UserPermissionsEnum.EDIT])
     async deleteUserAccessToken(
         @CurrentToken() token: Token,
         @Param('accessTokenId') accessTokenId: string,
@@ -255,6 +247,9 @@ export class UsersController extends GenericController<User> {
             throw new NotFoundException(`User with username ${username} not found`)
         }
         const userDto: UserDTO = UserDTO.fromUser(user)
+        delete user.accounts
+        delete user.email_verified
+        delete user.show_captcha
         return new NormalizedResponseDTO(userDto)
     }
 
@@ -303,7 +298,6 @@ export class UsersController extends GenericController<User> {
         if (!user) {
             throw new NotFoundException(`User with id ${userId} not found`)
         }
-        user.accounts = []
         delete user.accounts
         delete user.email_verified
         delete user.show_captcha
