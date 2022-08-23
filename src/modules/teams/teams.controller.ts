@@ -112,6 +112,7 @@ export class TeamsController extends GenericController<Team> {
         description: `Allows fetching the number of members, reports, discussions and comments by team`,
     })
     @ApiNormalizedResponse({ status: 200, description: `Number of members and reports by team`, type: TeamInfoDto })
+    @Public()
     public async getNumMembersAndReportsByOrganization(
         @CurrentToken() token: Token,
         @Query('teamId') teamId: string,
