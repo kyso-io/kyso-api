@@ -2,6 +2,7 @@ import {
     HEADER_X_KYSO_ORGANIZATION,
     HEADER_X_KYSO_TEAM,
     NormalizedResponseDTO,
+    Organization,
     Report,
     ResourcePermissions,
     Team,
@@ -47,6 +48,7 @@ import { Permission } from '../auth/annotations/permission.decorator'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
+import { OrganizationsService } from '../organizations/organizations.service'
 import { RelationsService } from '../relations/relations.service'
 import { TeamsService } from './teams.service'
 
@@ -68,6 +70,9 @@ import { TeamsService } from './teams.service'
 export class TeamsController extends GenericController<Team> {
     @Autowired({ typeName: 'RelationsService' })
     private relationsService: RelationsService
+
+    @Autowired({ typeName: 'OrganizationsService' })
+    private organizationsService: OrganizationsService
 
     constructor(private readonly teamsService: TeamsService) {
         super()
@@ -121,6 +126,60 @@ export class TeamsController extends GenericController<Team> {
         return new NormalizedResponseDTO(organizationInfoDto, relations)
     }
 
+    @Get('/:organizationId/:teamSlug')
+    @ApiOperation({
+        summary: `Get a team`,
+        description: `Allows fetching content of a specific team passing its id`,
+    })
+    @ApiParam({
+        name: 'organizationId',
+        required: true,
+        description: `Id of the organization of the team to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'teamSlug',
+        required: true,
+        description: `Slug the team to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Team`, type: Team })
+    @Public()
+    async getTeamBySlug(
+        @CurrentToken() token: Token,
+        @Param('organizationId') organizationId: string,
+        @Param('teamSlug') teamSlug: string,
+    ): Promise<NormalizedResponseDTO<Team>> {
+        const organization: Organization = await this.organizationsService.getOrganizationById(organizationId)
+        if (!organization) {
+            throw new NotFoundException(`Organization not found`)
+        }
+        const team: Team = await this.teamsService.getTeam({
+            filter: {
+                organization_id: organizationId,
+                sluglified_name: teamSlug,
+            },
+        })
+        if (!team) {
+            throw new NotFoundException('Team not found')
+        }
+        if (token) {
+            const index: number = token.permissions.teams.findIndex((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === team.id)
+            if (index === -1) {
+                if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                    throw new ForbiddenException('You are not allowed to access this team')
+                }
+            }
+        } else {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                throw new ForbiddenException('You are not allowed to access this team')
+            }
+        }
+        delete team.roles
+        delete team.slackChannel
+        return new NormalizedResponseDTO(team)
+    }
+
     @Get('/:id')
     @ApiOperation({
         summary: `Get a team`,
@@ -137,7 +196,7 @@ export class TeamsController extends GenericController<Team> {
     async getTeamById(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<Team>> {
         const team: Team = await this.teamsService.getTeamById(id)
         if (!team) {
-            throw new PreconditionFailedException('Team not found')
+            throw new NotFoundException('Team not found')
         }
         if (token) {
             const index: number = token.permissions.teams.findIndex((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === id)
