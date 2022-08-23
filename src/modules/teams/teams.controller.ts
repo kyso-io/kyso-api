@@ -78,10 +78,6 @@ export class TeamsController extends GenericController<Team> {
         super()
     }
 
-    assignReferences(team: Team) {
-        // team.self_url = HateoasLinker.createRef(`/teams/${team.name}`)
-    }
-
     @Get()
     @ApiOperation({
         summary: `Get all team's in which user has visibility`,
@@ -93,7 +89,6 @@ export class TeamsController extends GenericController<Team> {
         description: 'Organization',
         required: true,
     })
-    // @Permission([TeamPermissionsEnum.READ])
     async getVisibilityTeams(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<Team[]>> {
         const query = QueryParser.toQueryObject(req.url)
         if (!query.sort) {
@@ -124,60 +119,6 @@ export class TeamsController extends GenericController<Team> {
         const organizationInfoDto: TeamInfoDto[] = await this.teamsService.getTeamsInfo(token, teamId)
         const relations = await this.relationsService.getRelations(organizationInfoDto)
         return new NormalizedResponseDTO(organizationInfoDto, relations)
-    }
-
-    @Get('/:organizationId/:teamSlug')
-    @ApiOperation({
-        summary: `Get a team`,
-        description: `Allows fetching content of a specific team passing its id`,
-    })
-    @ApiParam({
-        name: 'organizationId',
-        required: true,
-        description: `Id of the organization of the team to fetch`,
-        schema: { type: 'string' },
-    })
-    @ApiParam({
-        name: 'teamSlug',
-        required: true,
-        description: `Slug the team to fetch`,
-        schema: { type: 'string' },
-    })
-    @ApiNormalizedResponse({ status: 200, description: `Team`, type: Team })
-    @Public()
-    async getTeamBySlug(
-        @CurrentToken() token: Token,
-        @Param('organizationId') organizationId: string,
-        @Param('teamSlug') teamSlug: string,
-    ): Promise<NormalizedResponseDTO<Team>> {
-        const organization: Organization = await this.organizationsService.getOrganizationById(organizationId)
-        if (!organization) {
-            throw new NotFoundException(`Organization not found`)
-        }
-        const team: Team = await this.teamsService.getTeam({
-            filter: {
-                organization_id: organizationId,
-                sluglified_name: teamSlug,
-            },
-        })
-        if (!team) {
-            throw new NotFoundException('Team not found')
-        }
-        if (token) {
-            const index: number = token.permissions.teams.findIndex((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === team.id)
-            if (index === -1) {
-                if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-                    throw new ForbiddenException('You are not allowed to access this team')
-                }
-            }
-        } else {
-            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-                throw new ForbiddenException('You are not allowed to access this team')
-            }
-        }
-        delete team.roles
-        delete team.slackChannel
-        return new NormalizedResponseDTO(team)
     }
 
     @Get('/:id')
@@ -303,7 +244,14 @@ export class TeamsController extends GenericController<Team> {
         if (!team) {
             throw new NotFoundException('Team not found')
         }
-        if (!token) {
+        if (token) {
+            const index: number = token.permissions.teams.findIndex((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === team.id)
+            if (index === -1) {
+                if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                    throw new ForbiddenException('You are not allowed to access this team')
+                }
+            }
+        } else {
             if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
                 throw new ForbiddenException('You are not allowed to access this team')
             }
@@ -367,6 +315,60 @@ export class TeamsController extends GenericController<Team> {
         const teamMember: TeamMember[] = await this.teamsService.getMembers(team.id)
         const belongs: boolean = teamMember.findIndex((member: TeamMember) => member.id === userId) !== -1
         return new NormalizedResponseDTO(belongs)
+    }
+
+    @Get('/:organizationId/:teamSlug')
+    @ApiOperation({
+        summary: `Get a team`,
+        description: `Allows fetching content of a specific team passing its id`,
+    })
+    @ApiParam({
+        name: 'organizationId',
+        required: true,
+        description: `Id of the organization of the team to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiParam({
+        name: 'teamSlug',
+        required: true,
+        description: `Slug the team to fetch`,
+        schema: { type: 'string' },
+    })
+    @ApiNormalizedResponse({ status: 200, description: `Team`, type: Team })
+    @Public()
+    async getTeamBySlug(
+        @CurrentToken() token: Token,
+        @Param('organizationId') organizationId: string,
+        @Param('teamSlug') teamSlug: string,
+    ): Promise<NormalizedResponseDTO<Team>> {
+        const organization: Organization = await this.organizationsService.getOrganizationById(organizationId)
+        if (!organization) {
+            throw new NotFoundException(`Organization not found`)
+        }
+        const team: Team = await this.teamsService.getTeam({
+            filter: {
+                organization_id: organizationId,
+                sluglified_name: teamSlug,
+            },
+        })
+        if (!team) {
+            throw new NotFoundException('Team not found')
+        }
+        if (token) {
+            const index: number = token.permissions.teams.findIndex((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === team.id)
+            if (index === -1) {
+                if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                    throw new ForbiddenException('You are not allowed to access this team')
+                }
+            }
+        } else {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                throw new ForbiddenException('You are not allowed to access this team')
+            }
+        }
+        delete team.roles
+        delete team.slackChannel
+        return new NormalizedResponseDTO(team)
     }
 
     @Patch('/:teamId/members/:userId')
