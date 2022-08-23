@@ -290,7 +290,9 @@ export class TeamsService extends AutowiredService {
                 }
             })
 
-            return usersAndRoles.map((x) => new TeamMember(x.id.toString(), x.display_name, x.username, x.roles, x.bio, x.avatar_url, x.email, x.membership_origin))
+            return usersAndRoles.map(
+                (x) => new TeamMember(x.id.toString(), x.display_name, x.username, x.roles, x.bio, x.avatar_url, x.email, x.membership_origin),
+            )
         } else {
             return []
         }
@@ -831,24 +833,51 @@ export class TeamsService extends AutowiredService {
             string,
             { members: number; reports: number; discussions: number; comments: number; lastChange: Date }
         >()
-        for (const teamResourcePermission of token.permissions.teams) {
-            if (teamId && teamId.length > 0 && teamId !== teamResourcePermission.id) {
-                continue
+        if (token) {
+            for (const teamResourcePermission of token.permissions.teams) {
+                if (teamId && teamId.length > 0 && teamId !== teamResourcePermission.id) {
+                    continue
+                }
+                if (!map.has(teamResourcePermission.id)) {
+                    const team: Team = await this.getTeamById(teamResourcePermission.id)
+                    const teamMembers: TeamMemberJoin[] = await this.teamMemberProvider.read({
+                        filter: {
+                            team_id: team.id,
+                        },
+                    })
+                    map.set(team.id, {
+                        members: teamMembers.length,
+                        reports: 0,
+                        discussions: 0,
+                        comments: 0,
+                        lastChange: team.updated_at,
+                    })
+                }
             }
-            if (!map.has(teamResourcePermission.id)) {
-                const team: Team = await this.getTeamById(teamResourcePermission.id)
-                const teamMembers: TeamMemberJoin[] = await this.teamMemberProvider.read({
-                    filter: {
-                        team_id: team.id,
-                    },
-                })
-                map.set(team.id, {
-                    members: teamMembers.length,
-                    reports: 0,
-                    discussions: 0,
-                    comments: 0,
-                    lastChange: team.updated_at,
-                })
+        } else {
+            const teams: Team[] = await this.getTeams({
+                filter: {
+                    visibility: TeamVisibilityEnum.PUBLIC,
+                },
+            })
+            for (const team of teams) {
+                if (teamId && teamId.length > 0 && teamId !== team.id) {
+                    continue
+                }
+                if (!map.has(team.id)) {
+                    const teamMembers: TeamMemberJoin[] = await this.teamMemberProvider.read({
+                        filter: {
+                            team_id: team.id,
+                        },
+                    })
+                    map.set(team.id, {
+                        members: teamMembers.length,
+                        reports: 0,
+                        discussions: 0,
+                        comments: 0,
+                        lastChange: team.updated_at,
+                    })
+                }
             }
         }
         let teams: Team[] = []
@@ -861,13 +890,38 @@ export class TeamsService extends AutowiredService {
         const discussionsQuery: any = {
             filter: {},
         }
-        if (teamId && teamId.length > 0) {
-            teamsQuery.filter.id = teamId
-        }
-        if (token.isGlobalAdmin()) {
-            teams = await this.getTeams(teamsQuery)
+        if (token) {
+            if (teamId && teamId.length > 0) {
+                teamsQuery.filter.id = teamId
+            }
+            if (token.isGlobalAdmin()) {
+                teams = await this.getTeams(teamsQuery)
+            } else {
+                teams = await this.getTeamsForController(token.id, teamsQuery)
+                reportsQuery.filter = {
+                    team_id: {
+                        $in: teams.map((x: Team) => x.id),
+                    },
+                }
+                discussionsQuery.filter = {
+                    team_id: {
+                        $in: teams.map((x: Team) => x.id),
+                    },
+                }
+            }
         } else {
-            teams = await this.getTeamsForController(token.id, teamsQuery)
+            if (teamId && teamId.length > 0) {
+                if (!map.has(teamId)) {
+                    return []
+                } else {
+                    teamsQuery.filter.id = teamId
+                    teamsQuery.filter.visibility = TeamVisibilityEnum.PUBLIC
+                }
+            }
+            teams = await this.getTeams(teamsQuery)
+            if (teams.length === 0) {
+                return []
+            }
             reportsQuery.filter = {
                 team_id: {
                     $in: teams.map((x: Team) => x.id),
@@ -913,7 +967,7 @@ export class TeamsService extends AutowiredService {
         const commentsQuery: any = {
             filter: {},
         }
-        if (!token.isGlobalAdmin()) {
+        if (!token || (token && !token.isGlobalAdmin())) {
             commentsQuery.filter = {
                 $or: [
                     {
