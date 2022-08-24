@@ -1,5 +1,5 @@
 import { EntityEnum, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, NormalizedResponseDTO, Tag, TagAssign, TagRequestDTO } from '@kyso-io/kyso-model'
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, PreconditionFailedException, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, PreconditionFailedException, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
@@ -44,33 +44,29 @@ export class TagsController extends GenericController<Tag> {
         if (!query.filter) {
             query.filter = {}
         }
-        if (!query.filter.hasOwnProperty('entityId')) {
-            throw new BadRequestException('entityId is required')
-        }
-        if (!query.filter.hasOwnProperty('type')) {
-            throw new BadRequestException('type is required')
-        }
-        const tagAssigns: TagAssign[] = await this.tagsService.getTagAssigns({
-            filter: {
-                entityId: query.filter.entityId,
-                type: query.filter.type,
-            },
-        })
-        delete query.filter.entityId
-        delete query.filter.type
-        if (tagAssigns.length > 0) {
-            query.filter._id = {
-                $in: tagAssigns.map((tagAssign: TagAssign) => new ObjectId(tagAssign.tag_id)),
+        if (query.filter.hasOwnProperty('entityId') || query.filter.hasOwnProperty('type')) {
+            const filter: any = {}
+            if (query.filter.hasOwnProperty('entityId')) {
+                filter.entityId = query.filter.entityId
+            }
+            if (query.filter.hasOwnProperty('type')) {
+                filter.type = query.filter.type
+            }
+            const tagAssigns: TagAssign[] = await this.tagsService.getTagAssigns({ filter })
+            delete query.filter.entityId
+            delete query.filter.type
+            if (tagAssigns.length > 0) {
+                query.filter._id = {
+                    $in: tagAssigns.map((tagAssign: TagAssign) => new ObjectId(tagAssign.tag_id)),
+                }
             }
         }
-
         if (query?.filter?.$text) {
             const newFilter = { ...query.filter }
             newFilter.name = { $regex: `${query.filter.$text.$search}`, $options: 'i' }
             delete newFilter.$text
             query.filter = newFilter
         }
-
         const tags: Tag[] = await this.tagsService.getTags(query)
         return new NormalizedResponseDTO(tags)
     }
