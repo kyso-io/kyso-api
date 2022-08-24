@@ -45,6 +45,7 @@ export class GitlabLoginProvider extends BaseLoginProvider {
                     '',
                     'free',
                     gitlabUser.avatar_url,
+                    null,
                     false,
                     [],
                     uuidv4(),

@@ -1,4 +1,4 @@
-import { CreateUserRequestDTO, KysoSettingsEnum, Login, LoginProviderEnum, Token, UserAccount } from '@kyso-io/kyso-model'
+import { CreateUserRequestDTO, KysoSettingsEnum, Login, LoginProviderEnum, UserAccount } from '@kyso-io/kyso-model'
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
@@ -53,6 +53,7 @@ export class GoogleLoginProvider extends BaseLoginProvider {
                     '',
                     'free',
                     googleUser.picture,
+                    null,
                     false,
                     [],
                     uuidv4(),
@@ -76,15 +77,14 @@ export class GoogleLoginProvider extends BaseLoginProvider {
                 user.accounts[index].payload = tokens
                 Logger.log(`User ${googleUser.email} is updating Google account`, GoogleLoginProvider.name)
             }
-            
+
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
-            
 
-            await this.addUserToOrganizationsAutomatically(user);
+            await this.addUserToOrganizationsAutomatically(user)
 
-            return await this.createToken(user);
+            return await this.createToken(user)
         } catch (e) {
-            Logger.error("Error login with google provider", e)
+            Logger.error('Error login with google provider', e)
             throw new UnauthorizedException('Invalid credentials')
         }
     }

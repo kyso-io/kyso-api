@@ -17,6 +17,7 @@ const DEFAULT_GLOBAL_ADMIN_USER = new User(
     '',
     'free',
     'https://bit.ly/32hyGaj',
+    null,
     false,
     [GlobalPermissionsEnum.GLOBAL_ADMIN],
     '',
@@ -26,7 +27,7 @@ const DEFAULT_GLOBAL_ADMIN_USER = new User(
 @Injectable()
 export class UsersMongoProvider extends MongoProvider<User> {
     provider: any
-    version = 3
+    version = 4
 
     constructor() {
         super('User', db, [
@@ -104,6 +105,22 @@ export class UsersMongoProvider extends MongoProvider<User> {
         for (let user of allUsers) {
             const data: any = {
                 show_captcha: true,
+            }
+            await this.update(
+                { _id: this.toObjectId(user.id) },
+                {
+                    $set: data,
+                },
+            )
+        }
+    }
+
+    async migrate_from_3_to_4() {
+        const cursor = await this.getCollection().find({})
+        const allUsers: any[] = await cursor.toArray()
+        for (let user of allUsers) {
+            const data: any = {
+                background_image_url: null,
             }
             await this.update(
                 { _id: this.toObjectId(user.id) },

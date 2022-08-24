@@ -166,6 +166,7 @@ export class UsersService extends AutowiredService {
             null,
             'free',
             null,
+            null,
             false,
             [],
             AuthService.hashPassword(signUpDto.password),
@@ -353,10 +354,8 @@ export class UsersService extends AutowiredService {
         })
     }
 
-    // Commented type throwing an Namespace 'global.Express' has no exported member 'Multer' error
     public async setProfilePicture(token: Token, file: any): Promise<User> {
         const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-
         const user: User = await this.getUserById(token.id)
         if (!user) {
             throw new PreconditionFailedException('User not found')
@@ -381,7 +380,38 @@ export class UsersService extends AutowiredService {
         )
         Logger.log(`Uploaded image for user ${user.name}`, OrganizationsService.name)
         const avatar_url = `https://${s3Bucket}.s3.amazonaws.com/${Key}`
-        return this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { avatar_url } })
+        await this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { avatar_url } })
+        return this.getUserById(token.id)
+    }
+
+    public async setBackgroundImage(token: Token, file: any): Promise<User> {
+        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+        let user: User = await this.getUserById(token.id)
+        if (!user) {
+            throw new PreconditionFailedException('User not found')
+        }
+        const s3Client: S3Client = await this.getS3Client()
+        if (user?.background_image_url && user.background_image_url.length > 0) {
+            Logger.log(`Removing previous image of user ${user.name}`, OrganizationsService.name)
+            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
+                Bucket: s3Bucket,
+                Key: user.background_image_url.split('/').slice(-1)[0],
+            })
+            await s3Client.send(deleteObjectCommand)
+        }
+        Logger.log(`Uploading image for user ${user.name}`, OrganizationsService.name)
+        const Key = `${uuidv4()}${extname(file.originalname)}`
+        await s3Client.send(
+            new PutObjectCommand({
+                Bucket: s3Bucket,
+                Key,
+                Body: file.buffer,
+            }),
+        )
+        Logger.log(`Uploaded background image for user ${user.name}`, OrganizationsService.name)
+        const background_image_url = `https://${s3Bucket}.s3.amazonaws.com/${Key}`
+        await this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { background_image_url } })
+        return this.getUserById(token.id)
     }
 
     public async deleteProfilePicture(token: Token): Promise<User> {

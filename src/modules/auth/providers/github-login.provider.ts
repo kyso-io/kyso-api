@@ -1,4 +1,4 @@
-import { AddUserAccountDTO, AddUserOrganizationDto, CreateUserRequestDTO, GithubEmail, KysoRole, KysoSettingsEnum, Login, LoginProviderEnum, Organization, Token, User, UserAccount } from '@kyso-io/kyso-model'
+import { AddUserAccountDTO, CreateUserRequestDTO, GithubEmail, KysoSettingsEnum, Login, LoginProviderEnum, Token, User, UserAccount } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
@@ -14,7 +14,7 @@ import { BaseLoginProvider } from './base-login.provider'
 export class GithubLoginProvider extends BaseLoginProvider {
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
-    
+
     @Autowired({ typeName: 'GithubReposService' })
     private githubReposService: GithubReposService
 
@@ -78,6 +78,7 @@ export class GithubLoginProvider extends BaseLoginProvider {
                     '',
                     'free',
                     githubUser.avatar_url,
+                    null,
                     false,
                     [],
                     uuidv4(),
@@ -105,8 +106,7 @@ export class GithubLoginProvider extends BaseLoginProvider {
             }
             await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } })
 
-
-            return await this.createToken(user);
+            return await this.createToken(user)
         } catch (e) {
             console.log(e)
             return null
