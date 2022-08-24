@@ -1,4 +1,3 @@
-import { GetBucketLoggingRequest } from '@aws-sdk/client-s3'
 import {
     Comment,
     CreateDiscussionRequestDTO,
@@ -50,9 +49,9 @@ export class TestingDataPopulatorService {
     private BabyYoda_OrganizationAdminUser: User
     private Ahsoka_ExternalUser: User
 
-    private BabyYoda_Token: Token;
-    private Gideon_Token: Token;
-    private Palpatine_Token: Token;
+    private BabyYoda_Token: Token
+    private Gideon_Token: Token
+    private Palpatine_Token: Token
 
     private DarksideOrganization: Organization
     private LightsideOrganization: Organization
@@ -165,6 +164,7 @@ export class TestingDataPopulatorService {
                 '',
                 'free',
                 'https://bit.ly/3okf2mg',
+                null,
                 true,
                 [],
                 'n0tiene',
@@ -181,6 +181,7 @@ export class TestingDataPopulatorService {
                 '',
                 'free',
                 'https://bit.ly/3qfdNVo',
+                null,
                 true,
                 [],
                 'n0tiene',
@@ -197,6 +198,7 @@ export class TestingDataPopulatorService {
                 '',
                 'free',
                 'https://bit.ly/3slTUyI',
+                null,
                 true,
                 [],
                 'n0tiene',
@@ -213,6 +215,7 @@ export class TestingDataPopulatorService {
                 '',
                 'free',
                 'https://bit.ly/3EWyNG6',
+                null,
                 true,
                 [],
                 'n0tiene',
@@ -229,6 +232,7 @@ export class TestingDataPopulatorService {
                 '',
                 'free',
                 'https://bit.ly/3IXAFki',
+                null,
                 true,
                 [GlobalPermissionsEnum.GLOBAL_ADMIN],
                 'n0tiene',
@@ -245,6 +249,7 @@ export class TestingDataPopulatorService {
                 '',
                 'free',
                 'https://bit.ly/34q5SxQ',
+                null,
                 true,
                 [],
                 'n0tiene',
@@ -261,6 +266,7 @@ export class TestingDataPopulatorService {
                 '',
                 'free',
                 'https://bit.ly/3JrkM6Z',
+                null,
                 true,
                 [],
                 'n0tiene',
@@ -272,7 +278,7 @@ export class TestingDataPopulatorService {
             this.Gideon_OrganizationAdminUser = await this._createUser(gideon_TestOrganizationAdminUser)
             this.BabyYoda_OrganizationAdminUser = await this._createUser(babyYoda_TestOrganizationAdminUser)
             this.Palpatine_PlatformAdminUser = await this._createUser(palpatine_TestPlatformAdminUser)
-            this.Ahsoka_ExternalUser = await this._createUser(ahsoka_ExternalUser);
+            this.Ahsoka_ExternalUser = await this._createUser(ahsoka_ExternalUser)
 
             await this.usersService.updateUser(
                 { id: this.Rey_TeamAdminUser.id },
@@ -354,34 +360,23 @@ export class TestingDataPopulatorService {
             )
 
             // Get the login Tokens for BabyYoda and Gideon
-            const babyYodaToken: string =  await this.authService.login(new Login(
-                "n0tiene",
-                LoginProviderEnum.KYSO,
-                `${mailPrefix}+baby_yoda@dev.kyso.io`,
-                null
-            ));
+            const babyYodaToken: string = await this.authService.login(
+                new Login('n0tiene', LoginProviderEnum.KYSO, `${mailPrefix}+baby_yoda@dev.kyso.io`, null),
+            )
 
-            this.BabyYoda_Token = await this.authService.evaluateAndDecodeToken(babyYodaToken);
+            this.BabyYoda_Token = await this.authService.evaluateAndDecodeToken(babyYodaToken)
 
-            const gideonToken: string =  await this.authService.login(new Login(
-                "n0tiene",
-                LoginProviderEnum.KYSO,
-                `${mailPrefix}+gideon@dev.kyso.io`,
-                null
-            ));
+            const gideonToken: string = await this.authService.login(new Login('n0tiene', LoginProviderEnum.KYSO, `${mailPrefix}+gideon@dev.kyso.io`, null))
 
-            this.Gideon_Token = await this.authService.evaluateAndDecodeToken(gideonToken);
+            this.Gideon_Token = await this.authService.evaluateAndDecodeToken(gideonToken)
 
-            const palpatineToken: string =  await this.authService.login(new Login(
-                "n0tiene",
-                LoginProviderEnum.KYSO,
-                `${mailPrefix}+palpatine@dev.kyso.io`,
-                null
-            ));
+            const palpatineToken: string = await this.authService.login(
+                new Login('n0tiene', LoginProviderEnum.KYSO, `${mailPrefix}+palpatine@dev.kyso.io`, null),
+            )
 
-            this.Palpatine_Token = await this.authService.evaluateAndDecodeToken(palpatineToken);
+            this.Palpatine_Token = await this.authService.evaluateAndDecodeToken(palpatineToken)
         } catch (ex) {
-            Logger.error("Error at createTestingUsers", ex);
+            Logger.error('Error at createTestingUsers', ex)
         }
     }
 
@@ -389,9 +384,14 @@ export class TestingDataPopulatorService {
         try {
             const accessTokenUuid: string = 'abcdef123456'
             await this.usersService.createKysoAccessToken(
-                this.Rey_TeamAdminUser.id, 'test-access-token', [], moment().add(100, 'years').toDate(), accessTokenUuid)
-        } catch(ex) {
-            Logger.error("Error at createAccessTokens", ex);
+                this.Rey_TeamAdminUser.id,
+                'test-access-token',
+                [],
+                moment().add(100, 'years').toDate(),
+                accessTokenUuid,
+            )
+        } catch (ex) {
+            Logger.error('Error at createAccessTokens', ex)
         }
     }
 
@@ -410,8 +410,8 @@ export class TestingDataPopulatorService {
             await this.usersService.addAccount(this.Gideon_OrganizationAdminUser.id, githubUserAccount)
             await this.usersService.addAccount(this.BabyYoda_OrganizationAdminUser.id, githubUserAccount)
             await this.usersService.addAccount(this.Palpatine_PlatformAdminUser.id, githubUserAccount)
-        } catch(ex) {
-            Logger.error("Error at _updateUserAccounts", ex);
+        } catch (ex) {
+            Logger.error('Error at _updateUserAccounts', ex)
         }
     }
 
@@ -505,7 +505,6 @@ export class TestingDataPopulatorService {
             exec('kyso', (err, stdout, stderr) => {
                 if (!err) {
                     Logger.log('Kyso CLI is available in this machine... logging as user palpatine')
-                    
 
                     // LOGIN vs this server
                     exec(
@@ -515,109 +514,88 @@ export class TestingDataPopulatorService {
 
                             if (!err) {
                                 // Create new Kronig-Penney report
-                                exec(
-                                    `kyso push -p ./test-reports/kronig-penney-exploration`,
-                                    (err, stdout, stderr) => {
-                                        Logger.log('Creating Kronig-Penney report')
-                                        Logger.log(stdout)
+                                exec(`kyso push -p ./test-reports/kronig-penney-exploration`, (err, stdout, stderr) => {
+                                    Logger.log('Creating Kronig-Penney report')
+                                    Logger.log(stdout)
 
-                                        if (!err) {
-                                            Logger.log('Uploaded kronig-penney-exploration')
-                                        } else {
-                                            Logger.error('Push of Kronig-Penney report failed')
-                                        }
-                                    },
-                                )
+                                    if (!err) {
+                                        Logger.log('Uploaded kronig-penney-exploration')
+                                    } else {
+                                        Logger.error('Push of Kronig-Penney report failed')
+                                    }
+                                })
 
                                 // Create new MultiQ report
-                                exec(
-                                    `kyso push -p ./test-reports/multiq-report`,
-                                    (err, stdout, stderr) => {
-                                        Logger.log('Creating MultiQ report')
-                                        Logger.log(stdout)
+                                exec(`kyso push -p ./test-reports/multiq-report`, (err, stdout, stderr) => {
+                                    Logger.log('Creating MultiQ report')
+                                    Logger.log(stdout)
 
-                                        if (!err) {
-                                            Logger.log('Uploaded MultiQ')
+                                    if (!err) {
+                                        Logger.log('Uploaded MultiQ')
 
-                                            // Create a new version of MultiQ report
-                                            exec(
-                                                `kyso push -p ./test-reports/multiq-report`,
-                                                (err, stdout, stderr) => {
-                                                    Logger.log('Creating a new version of MultiQ report')
-                                                    Logger.log(stdout)
+                                        // Create a new version of MultiQ report
+                                        exec(`kyso push -p ./test-reports/multiq-report`, (err, stdout, stderr) => {
+                                            Logger.log('Creating a new version of MultiQ report')
+                                            Logger.log(stdout)
 
-                                                    if (!err) {
-                                                        Logger.log('Uploaded new version of MultiQ report')
-                                                    } else {
-                                                        Logger.error('Push of new version of MultiQ report failed')
-                                                    }
-                                                },
-                                            )
-                                        } else {
-                                            Logger.error('Push of MultiQ report failed')
-                                        }
-                                    },
-                                )
+                                            if (!err) {
+                                                Logger.log('Uploaded new version of MultiQ report')
+                                            } else {
+                                                Logger.error('Push of new version of MultiQ report failed')
+                                            }
+                                        })
+                                    } else {
+                                        Logger.error('Push of MultiQ report failed')
+                                    }
+                                })
 
                                 // Create new Markdown report
-                                exec(
-                                    `kyso push -p ./test-reports/markdown-report`,
-                                    (err, stdout, stderr) => {
-                                        Logger.log('Creating Markdown report')
-                                        Logger.log(stdout)
+                                exec(`kyso push -p ./test-reports/markdown-report`, (err, stdout, stderr) => {
+                                    Logger.log('Creating Markdown report')
+                                    Logger.log(stdout)
 
-                                        if (!err) {
-                                            Logger.log('Uploaded Markdown')
-                                        } else {
-                                            Logger.error('Push of Markdown report failed')
-                                        }
-                                    },
-                                )
+                                    if (!err) {
+                                        Logger.log('Uploaded Markdown')
+                                    } else {
+                                        Logger.error('Push of Markdown report failed')
+                                    }
+                                })
 
                                 // Import a report from Github using kyso-cli
-                                exec(
-                                    `kyso import-github-repository --name jupyter-samples`,
-                                    (err, stdout, stderr) => {
-                                        Logger.log('Importing jupyter-samples report from Github using kyso-cli')
-                                        Logger.log(stdout)
+                                exec(`kyso import-github-repository --name jupyter-samples`, (err, stdout, stderr) => {
+                                    Logger.log('Importing jupyter-samples report from Github using kyso-cli')
+                                    Logger.log(stdout)
 
-                                        if (!err) {
-                                            Logger.log('Uploaded jupyter-samples')
-                                        } else {
-                                            Logger.error('Push of jupyter-samples report failed')
-                                        }
-                                    },
-                                )
+                                    if (!err) {
+                                        Logger.log('Uploaded jupyter-samples')
+                                    } else {
+                                        Logger.error('Push of jupyter-samples report failed')
+                                    }
+                                })
 
                                 // Import a report from Github using kyso-cli
-                                exec(
-                                    `kyso import-github-repository --name Kalman-and-Bayesian-Filters-in-Python`,
-                                    (err, stdout, stderr) => {
-                                        Logger.log('Importing Kalman-and-Bayesian-Filters-in-Python report from Github using kyso-cli')
-                                        Logger.log(stdout)
+                                exec(`kyso import-github-repository --name Kalman-and-Bayesian-Filters-in-Python`, (err, stdout, stderr) => {
+                                    Logger.log('Importing Kalman-and-Bayesian-Filters-in-Python report from Github using kyso-cli')
+                                    Logger.log(stdout)
 
-                                        if (!err) {
-                                            Logger.log('Uploaded Kalman-and-Bayesian-Filters-in-Python')
-                                        } else {
-                                            Logger.error('Push of Kalman-and-Bayesian-Filters-in-Python report failed')
-                                        }
-                                    },
-                                )
+                                    if (!err) {
+                                        Logger.log('Uploaded Kalman-and-Bayesian-Filters-in-Python')
+                                    } else {
+                                        Logger.error('Push of Kalman-and-Bayesian-Filters-in-Python report failed')
+                                    }
+                                })
 
                                 // Import a report from Github using kyso-cli
-                                exec(
-                                    `kyso import-github-repository --name notebook-examples`,
-                                    (err, stdout, stderr) => {
-                                        Logger.log('Importing notebook-examples report from Github using kyso-cli')
-                                        Logger.log(stdout)
+                                exec(`kyso import-github-repository --name notebook-examples`, (err, stdout, stderr) => {
+                                    Logger.log('Importing notebook-examples report from Github using kyso-cli')
+                                    Logger.log(stdout)
 
-                                        if (!err) {
-                                            Logger.log('Uploaded notebook-examples')
-                                        } else {
-                                            Logger.error('Push of notebook-examples report failed')
-                                        }
-                                    },
-                                )
+                                    if (!err) {
+                                        Logger.log('Uploaded notebook-examples')
+                                    } else {
+                                        Logger.error('Push of notebook-examples report failed')
+                                    }
+                                })
                             } else {
                                 Logger.error("Can't login as Palpatine. Testing reports based on CLI will not be created.")
                             }
@@ -634,8 +612,8 @@ export class TestingDataPopulatorService {
                     )
                 }
             })
-        } catch(ex) {
-            Logger.error("Error at createTestingReports", ex);
+        } catch (ex) {
+            Logger.error('Error at createTestingReports', ex)
         }
     }
 
@@ -682,8 +660,8 @@ export class TestingDataPopulatorService {
                     [],
                 ),
             )
-        } catch(ex) {
-            Logger.error("Error at createTestingComments", ex);
+        } catch (ex) {
+            Logger.error('Error at createTestingComments', ex)
         }
     }
 
@@ -735,8 +713,8 @@ export class TestingDataPopulatorService {
             )
 
             this.LightsideOrganization = await this._createOrganization(lightsideOrganization)
-        } catch(ex) {
-            Logger.error("Error at createOrganizations", ex);
+        } catch (ex) {
+            Logger.error('Error at createOrganizations', ex)
         }
     }
 
@@ -790,7 +768,7 @@ export class TestingDataPopulatorService {
             this.ProtectedTeamWithCustomRole = await this._createTeam(protectedTeam)
             this.PrivateTeam = await this._createTeam(privateTeam)
         } catch (ex) {
-            Logger.error("Error at createTeams", ex);
+            Logger.error('Error at createTeams', ex)
         }
     }
 
@@ -827,11 +805,7 @@ export class TestingDataPopulatorService {
                 [PlatformRole.ORGANIZATION_ADMIN_ROLE.name],
             )
 
-            await this.organizationsService.addMembersById(
-                this.LightsideOrganization.id, 
-                [this.Rey_TeamAdminUser.id], 
-                [PlatformRole.TEAM_ADMIN_ROLE.name]
-            )
+            await this.organizationsService.addMembersById(this.LightsideOrganization.id, [this.Rey_TeamAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
 
             await this.organizationsService.addMembersById(
                 this.LightsideOrganization.id,
@@ -851,7 +825,7 @@ export class TestingDataPopulatorService {
                 [PlatformRole.EXTERNAL_ROLE.name],
             )
         } catch (ex) {
-            Logger.error("Error at assignUsersToOrganizations", ex)
+            Logger.error('Error at assignUsersToOrganizations', ex)
         }
     }
 
@@ -860,34 +834,24 @@ export class TestingDataPopulatorService {
             Logger.log(
                 `Adding ${this.Gideon_OrganizationAdminUser.display_name} to team ${this.PrivateTeam.sluglified_name} with role ${this.CustomTeamRole.name}`,
             )
-            await this.teamsService.addMembersById(
-                this.PrivateTeam.id, 
-                [this.Gideon_OrganizationAdminUser.id], 
-                [this.CustomTeamRole.name]
-            )
+            await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Gideon_OrganizationAdminUser.id], [this.CustomTeamRole.name])
 
             Logger.log(
                 `Adding ${this.Rey_TeamAdminUser.display_name} to team ${this.PrivateTeam.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}`,
             )
-            await this.teamsService.addMembersById(
-                this.PrivateTeam.id, 
-                [this.Rey_TeamAdminUser.id], 
-                [PlatformRole.TEAM_ADMIN_ROLE.name]
-            )
+            await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Rey_TeamAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name])
 
             Logger.log(
                 `Adding ${this.Ahsoka_ExternalUser.display_name} to team ${this.ProtectedTeamWithCustomRole.sluglified_name} with role ${PlatformRole.TEAM_CONTRIBUTOR_ROLE.name}`,
             )
 
             await this.teamsService.addMembersById(
-                this.ProtectedTeamWithCustomRole.id, 
-                [this.Ahsoka_ExternalUser.id], 
-                [PlatformRole.TEAM_CONTRIBUTOR_ROLE.name]
+                this.ProtectedTeamWithCustomRole.id,
+                [this.Ahsoka_ExternalUser.id],
+                [PlatformRole.TEAM_CONTRIBUTOR_ROLE.name],
             )
-
-
         } catch (ex) {
-            Logger.error("Error at assignUsersToTeams", ex);
+            Logger.error('Error at assignUsersToTeams', ex)
         }
     }
 
@@ -1039,8 +1003,8 @@ export class TestingDataPopulatorService {
 
             d3_c1.discussion_id = entityD3.id
             await this.commentsService.createComment(d3_c1)
-        } catch(ex) {
-            Logger.error("Error at createDiscussions", ex);
+        } catch (ex) {
+            Logger.error('Error at createDiscussions', ex)
         }
     }
 
@@ -1057,8 +1021,8 @@ export class TestingDataPopulatorService {
             this.DeathStarTag = await this.tagsService.createTag(new TagRequestDTO('death star'))
             this.FreedomTag = await this.tagsService.createTag(new TagRequestDTO('freedom'))
             this.JediTag = await this.tagsService.createTag(new TagRequestDTO('jedi'))
-        } catch(ex) {
-            Logger.error("Error at createTags", ex);
+        } catch (ex) {
+            Logger.error('Error at createTags', ex)
         }
     }
 
@@ -1082,8 +1046,8 @@ export class TestingDataPopulatorService {
             await this.tagsService.assignTagToEntity(this.JediTag.id, this.RebelScumCounterAttackReport.id, EntityEnum.REPORT)
             await this.tagsService.assignTagToEntity(this.DeathStarTag.id, this.RebelScumCounterAttackReport.id, EntityEnum.REPORT)
             await this.tagsService.assignTagToEntity(this.ImperiumTag.id, this.RebelScumCounterAttackReport.id, EntityEnum.REPORT)
-        } catch(ex) {
-            Logger.error("Error at assignTagsToReports", ex);
+        } catch (ex) {
+            Logger.error('Error at assignTagsToReports', ex)
         }
     }
 }

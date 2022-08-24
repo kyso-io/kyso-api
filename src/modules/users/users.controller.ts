@@ -438,6 +438,25 @@ export class UsersController extends GenericController<User> {
         return new NormalizedResponseDTO(UserDTO.fromUser(user))
     }
 
+    @UseInterceptors(FileInterceptor('file'))
+    @Post('/background-image')
+    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    @ApiOperation({
+        summary: `Upload a profile picture for a team`,
+        description: `Allows uploading a profile picture for a user the image`,
+    })
+    @ApiNormalizedResponse({ status: 201, description: `Updated user`, type: UserDTO })
+    public async setBackgroundImage(@CurrentToken() token: Token, @UploadedFile() file: any): Promise<NormalizedResponseDTO<UserDTO>> {
+        if (!file) {
+            throw new BadRequestException(`Missing file`)
+        }
+        if (file.mimetype.split('/')[0] !== 'image') {
+            throw new BadRequestException(`Only image files are allowed`)
+        }
+        const user: User = await this.usersService.setBackgroundImage(token, file)
+        return new NormalizedResponseDTO(UserDTO.fromUser(user))
+    }
+
     @Post('verify-captcha')
     @ApiOperation({
         summary: `Verify captcha`,

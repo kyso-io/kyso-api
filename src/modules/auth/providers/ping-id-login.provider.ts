@@ -1,4 +1,4 @@
-import { CreateUserRequestDTO, Login, LoginProviderEnum, Token, UserAccount } from '@kyso-io/kyso-model'
+import { CreateUserRequestDTO, Login, LoginProviderEnum } from '@kyso-io/kyso-model'
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { Autowired } from '../../../decorators/autowired'
@@ -25,7 +25,7 @@ export class PingIdLoginProvider extends BaseLoginProvider {
             if (!user) {
                 // New User
                 const name = `${login.payload.givenName} ${login.payload.sn}`
-                const portrait = login.payload.profilePicture ? login.payload.profilePicture : ""
+                const portrait = login.payload.profilePicture ? login.payload.profilePicture : ''
                 Logger.log(`User ${login.email} is a new user`)
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
                     login.email,
@@ -38,6 +38,7 @@ export class PingIdLoginProvider extends BaseLoginProvider {
                     '',
                     'free',
                     portrait,
+                    null,
                     false,
                     [],
                     login.password,
@@ -45,7 +46,7 @@ export class PingIdLoginProvider extends BaseLoginProvider {
                 user = await this.usersService.createUser(createUserRequestDto)
             }
 
-            return await this.createToken(user);
+            return await this.createToken(user)
         } catch (e) {
             console.log(e)
             throw new UnauthorizedException('Invalid credentials')

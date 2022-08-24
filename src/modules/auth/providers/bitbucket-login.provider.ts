@@ -53,6 +53,7 @@ export class BitbucketLoginProvider extends BaseLoginProvider {
                     '',
                     'free',
                     bitbucketUser.links?.avatar?.href,
+                    null,
                     false,
                     [],
                     uuidv4(),
