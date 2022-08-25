@@ -4,14 +4,14 @@
 
 > Scroll down for code samples, example requests and responses. Select a language for code samples from the tabs above or the mobile navigation menu.
 
-Spec for Kyso's API
+Spec for Kyso's API    
 
 Base URLs:
 
 License: <a href="http://www.apache.org/licenses/LICENSE-2.0.html">Apache 2.0</a>
 
 # Authentication
-
+   
 - HTTP Authentication, scheme: bearer 
 
 <h1 id="kyso-s-api-user">user</h1>

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
-import { KysoSettingsEnum } from '@kyso-io/kyso-model'
+import { KysoSetting, KysoSettingsEnum } from '@kyso-io/kyso-model'
 import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common'
 import { NestFactory, Reflector } from '@nestjs/core'
 import { NestExpressApplication } from '@nestjs/platform-express'
@@ -52,6 +52,7 @@ async function bootstrap() {
 
     await connectToDatabase()
 
+    let maxFileSize: string = '';
     try {
         const kysoSettingCollection = db.collection('KysoSettings')
         const mailTransportValue = await kysoSettingCollection.find({ key: KysoSettingsEnum.MAIL_TRANSPORT }).toArray()
@@ -70,6 +71,12 @@ async function bootstrap() {
         } else {
             mailFrom = mailFromValue[0].value
         }
+        const maxFileSizeKysoSetting: KysoSetting = await kysoSettingCollection.findOne({ key: KysoSettingsEnum.MAX_FILE_SIZE })
+        if (!maxFileSizeKysoSetting) {
+            maxFileSize = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAX_FILE_SIZE)
+        } else {
+            maxFileSize = maxFileSizeKysoSetting.value
+        }
     } catch (ex) {
         mailTransport = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT)
         mailFrom = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM)
@@ -80,8 +87,8 @@ async function bootstrap() {
     // Serve files in ./public on the root of the application
     app.useStaticAssets('./public', { prefix: app_mount_dir + '/' })
     app.use(cookieParser())
-    app.use(bodyParser.json({ limit: '500mb' }))
-    app.use(bodyParser.urlencoded({ limit: '500mb', extended: true }))
+    app.use(bodyParser.json({ limit: maxFileSize }))
+    app.use(bodyParser.urlencoded({ limit: maxFileSize, extended: true }))
 
     const globalPrefix = app_mount_dir + '/v1'
     // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately
