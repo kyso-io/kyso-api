@@ -188,7 +188,7 @@ export class UsersService extends AutowiredService {
         await this.organizationsService.addMembersById(organizationDb.id, [user.id], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name])
 
         // Create user team
-        const teamName = 'My Private Team'
+        const teamName = 'Private'
         const newUserTeam: Team = new Team(teamName, '', '', '', '', [], organizationDb.id, TeamVisibilityEnum.PRIVATE)
         Logger.log(`Creating new team ${newUserTeam.sluglified_name}...`)
         const userTeamDb: Team = await this.teamsService.createTeam(token, newUserTeam)
