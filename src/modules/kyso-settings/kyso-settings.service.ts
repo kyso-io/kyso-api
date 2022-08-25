@@ -103,6 +103,8 @@ export class KysoSettingsService extends AutowiredService {
                 return 'nats://localhost:4222'
             case KysoSettingsEnum.ADD_NEW_USERS_AUTOMATICALLY_TO_ORG:
                 return ''
+            case KysoSettingsEnum.MAX_FILE_SIZE:
+                return '500mb'
             default:
                 return ''
         }
