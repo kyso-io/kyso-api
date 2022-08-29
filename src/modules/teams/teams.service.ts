@@ -27,7 +27,7 @@ import {
     UpdateTeamMembersDTO,
     User,
 } from '@kyso-io/kyso-model'
-import { Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import * as moment from 'moment'
 import { extname, join } from 'path'
@@ -420,6 +420,12 @@ export class TeamsService extends AutowiredService {
 
     async createTeam(token: Token, team: Team) {
         try {
+            const numTeamsCreatedByUser: number = await this.provider.count({ filter: { user_id: token.id } })
+            const value: number = parseInt(await this.kysoSettingsService.getValue(KysoSettingsEnum.MAX_TEAMS_PER_USER), 10)
+            if (numTeamsCreatedByUser >= value) {
+                throw new ForbiddenException('You have reached the maximum number of teams')
+            }
+
             team.sluglified_name = slugify(team.display_name)
 
             // The name of this team exists in the organization?
@@ -428,9 +434,10 @@ export class TeamsService extends AutowiredService {
             if (teams.length > 0) {
                 let i = teams.length + 1
                 do {
-                    team.sluglified_name = `${team.sluglified_name}-${i}`
-                    const index: number = teams.findIndex((t: Team) => t.sluglified_name === team.sluglified_name)
+                    const candidate_sluglified_name = `${team.sluglified_name}-${i}`
+                    const index: number = teams.findIndex((t: Team) => t.sluglified_name === candidate_sluglified_name)
                     if (index === -1) {
+                        team.sluglified_name = candidate_sluglified_name
                         break
                     }
                     i++
@@ -447,6 +454,7 @@ export class TeamsService extends AutowiredService {
                 throw new PreconditionFailedException('There is already a user with this sluglified_name')
             }
 
+            team.user_id = token.id
             const newTeam: Team = await this.provider.create(team)
 
             if (token) {
