@@ -105,6 +105,10 @@ export class KysoSettingsService extends AutowiredService {
                 return ''
             case KysoSettingsEnum.MAX_FILE_SIZE:
                 return '500mb'
+            case KysoSettingsEnum.MAX_ORGANIZATIONS_PER_USER:
+                return '5'
+            case KysoSettingsEnum.MAX_TEAMS_PER_USER:
+                return '20'
             default:
                 return ''
         }
@@ -226,6 +230,12 @@ export class KysoSettingsService extends AutowiredService {
                 return 'Specific css styles to apply only in the login button'
             case KysoSettingsEnum.ADD_NEW_USERS_AUTOMATICALLY_TO_ORG:
                 return 'If empty, has no effect. If has a value, adds any new user in the platform to the organizations set in this property (comma separated) with TEAM_READER role'
+            case KysoSettingsEnum.MAX_FILE_SIZE:
+                return 'Maximum upload file size'
+            case KysoSettingsEnum.MAX_ORGANIZATIONS_PER_USER:
+                return 'Maximum number of organizations a user can create'
+            case KysoSettingsEnum.MAX_TEAMS_PER_USER:
+                return 'Maximum number of teams in an organization that a user can create'
             default:
                 return 'No description provided'
         }

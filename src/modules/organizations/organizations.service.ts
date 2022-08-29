@@ -2,6 +2,7 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client
 import {
     AddUserOrganizationDto,
     Comment,
+    CreateOrganizationDto,
     Discussion,
     InviteUserDto,
     KysoEventEnum,
@@ -119,23 +120,51 @@ export class OrganizationsService extends AutowiredService {
         return this.getOrganization({ filter: { _id: this.provider.toObjectId(id) } })
     }
 
-    public async createOrganization(token: Token, organization: Organization): Promise<Organization> {
+    public async createOrganization(token: Token, createOrganizationDto: CreateOrganizationDto): Promise<Organization> {
+        const numOrganizationsCreatedByUser: number = await this.provider.count({ filter: { user_id: token.id } })
+        const value: number = parseInt(await this.kysoSettingsService.getValue(KysoSettingsEnum.MAX_ORGANIZATIONS_PER_USER), 10)
+        if (numOrganizationsCreatedByUser >= value) {
+            throw new ForbiddenException('You have reached the maximum number of organizations')
+        }
+
+        const organization: Organization = new Organization(
+            createOrganizationDto.display_name,
+            createOrganizationDto.display_name,
+            [],
+            [],
+            token.email,
+            '',
+            '',
+            false,
+            createOrganizationDto.bio,
+            '',
+            '',
+            '',
+            uuidv4(),
+            null,
+        )
+
         // The name of this organization exists?
         const organizations: Organization[] = await this.provider.read({ filter: { sluglified_name: organization.sluglified_name } })
 
         if (organizations.length > 0) {
             let i = organizations.length + 1
             do {
-                organization.sluglified_name = `${organization.sluglified_name}-${i}`
-                const index: number = organizations.findIndex((org: Organization) => org.sluglified_name === organization.sluglified_name)
+                const candidate_sluglified_name = `${organization.sluglified_name}-${i}`
+                const index: number = organizations.findIndex((org: Organization) => org.sluglified_name === candidate_sluglified_name)
                 if (index === -1) {
+                    organization.sluglified_name = candidate_sluglified_name
                     break
                 }
                 i++
             } while (true)
         }
 
+        organization.user_id = token.id
         const newOrganization: Organization = await this.provider.create(organization)
+
+        // Add user to his organization
+        await this.addMembersById(newOrganization.id, [token.id], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name])
 
         // Now, create the default teams for that organization
         const generalTeam = new Team(
@@ -147,6 +176,7 @@ export class OrganizationsService extends AutowiredService {
             [],
             newOrganization.id,
             TeamVisibilityEnum.PROTECTED,
+            token.id,
         )
         await this.teamsService.createTeam(token, generalTeam)
 

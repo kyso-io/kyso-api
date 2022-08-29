@@ -1,5 +1,6 @@
 import {
     AddUserOrganizationDto,
+    CreateOrganizationDto,
     GlobalPermissionsEnum,
     InviteUserDto,
     NormalizedResponseDTO,
@@ -258,11 +259,9 @@ export class OrganizationsController extends GenericController<Organization> {
         description: `By passing the appropiate parameters you can create a new organization`,
     })
     @ApiNormalizedResponse({ status: 201, description: `Created organization`, type: Organization })
-    @Permission([OrganizationPermissionsEnum.CREATE])
-    async createOrganization(@CurrentToken() token: Token, @Body() organization: Organization): Promise<NormalizedResponseDTO<Organization>> {
-        const newOrganization: Organization = await this.organizationService.createOrganization(token, organization)
-
-        return new NormalizedResponseDTO(newOrganization)
+    async createOrganization(@CurrentToken() token: Token, @Body() createOrganizationDto: CreateOrganizationDto): Promise<NormalizedResponseDTO<Organization>> {
+        const organization: Organization = await this.organizationService.createOrganization(token, createOrganizationDto)
+        return new NormalizedResponseDTO(organization)
     }
 
     @Patch('/:organizationId')

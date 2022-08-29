@@ -6,7 +6,7 @@ import { MongoProvider } from '../../../providers/mongo.provider'
 
 @Injectable()
 export class TeamsMongoProvider extends MongoProvider<Team> {
-    version = 3
+    version = 4
 
     constructor() {
         super('Team', db)
@@ -61,6 +61,21 @@ export class TeamsMongoProvider extends MongoProvider<Team> {
                 {
                     $set: {
                         slackChannel: null,
+                    },
+                },
+            )
+        }
+    }
+
+    async migrate_from_3_to_4() {
+        const cursor = await this.getCollection().find({})
+        const allTeams: Team[] = await cursor.toArray()
+        for (let team of allTeams) {
+            await this.update(
+                { _id: this.toObjectId(team.id) },
+                {
+                    $set: {
+                        user_id: null,
                     },
                 },
             )
