@@ -680,7 +680,6 @@ export class ReportsController extends GenericController<Report> {
     })
     @UseInterceptors(FileInterceptor('file'))
     @Permission([ReportPermissionsEnum.CREATE])
-    @Public()
     async createKysoReport(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Report | Report[]>> {
         Logger.log(`Called createKysoReport`)
         if (!file) {
