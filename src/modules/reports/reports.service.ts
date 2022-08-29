@@ -2398,7 +2398,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
         const index: number = teams.findIndex((t: Team) => t.id === team.id)
         if (!isGlobalAdmin && index === -1) {
-            response.status(401).send(`User does not have permission to pull report ${reportName}`)
+            response.status(403).send(`User does not have permission to pull report ${reportName}`)
             return
         }
 
