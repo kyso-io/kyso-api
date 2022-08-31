@@ -1015,19 +1015,19 @@ export class ReportsController extends GenericController<Report> {
         const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
         if (!organization) {
             Logger.error(`Organization ${organizationName} not found`)
-            throw new PreconditionFailedException('Organization not found')
+            throw new NotFoundException('Organization not found')
         }
         const team: Team = await this.teamsService.getUniqueTeam(organization.id, teamName)
         if (!team) {
             Logger.error(`Team ${teamName} not found`)
-            throw new PreconditionFailedException('Team not found')
+            throw new NotFoundException('Team not found')
         }
 
         const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: reportName, team_id: team.id } })
 
         if (!report) {
             Logger.error(`Report ${reportName} not found`)
-            throw new PreconditionFailedException('Report not found')
+            throw new NotFoundException('Report not found')
         }
 
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
@@ -1220,7 +1220,6 @@ export class ReportsController extends GenericController<Report> {
         return new NormalizedResponseDTO(branches)
     }
 
-    // todo: this function name is confusing?
     @Get('/:reportId/tree')
     @ApiOperation({
         summary: `Explore a report tree`,

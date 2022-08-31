@@ -344,7 +344,7 @@ export class AuthService extends AutowiredService {
                 allUserPermissions = [...userPermissionsInThatTeam.permissions]
                 //}
             } else {
-                if (userPermissionsInThatTeam && userPermissionsInThatTeam.organization_inherited) {
+                if (userPermissionsInThatTeam && userPermissionsInThatTeam.organization_inherited && userPermissionsInThatTeam?.permissions) {
                     // TODO: get organization role of that user and retrieve their permissions
                     allUserPermissions = [...userPermissionsInThatOrganization.permissions]
                 }

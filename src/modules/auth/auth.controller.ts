@@ -1,5 +1,6 @@
 import {
     AuthProviderSpec,
+    CheckPermissionDto,
     KysoPermissions,
     KysoSettingsEnum,
     Login,
@@ -560,5 +561,19 @@ export class AuthController extends GenericController<string> {
         } else {
             response.status(HttpStatus.FORBIDDEN).send()
         }
+    }
+
+    @Post('/check-permission')
+    async checkPermission(@CurrentToken() token: Token, @Body() checkPermissionDto: CheckPermissionDto): Promise<NormalizedResponseDTO<boolean>> {
+        if (!token) {
+            throw new UnauthorizedException('No bearer token provided')
+        }
+        const userHasPermission: boolean = AuthService.hasPermissions(
+            token,
+            [checkPermissionDto.permission as KysoPermissions],
+            checkPermissionDto.team,
+            checkPermissionDto.organization,
+        )
+        return new NormalizedResponseDTO(userHasPermission)
     }
 }
