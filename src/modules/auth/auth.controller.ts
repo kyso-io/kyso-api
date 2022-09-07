@@ -364,7 +364,7 @@ export class AuthController extends GenericController<string> {
             },
         })
         if (!organization) {
-            throw new NotFoundException(`Organization with slug ${organizationSlug} not found`)
+            throw new PreconditionFailedException(`Organization with slug ${organizationSlug} not found`)
         }
         return new NormalizedResponseDTO(organization.options?.auth ? organization.options.auth : null)
     }
@@ -496,12 +496,12 @@ export class AuthController extends GenericController<string> {
         const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
         if (!organization) {
             Logger.error(`Organization ${organizationName} not found`)
-            throw new NotFoundException('Organization not found')
+            throw new PreconditionFailedException('Organization not found')
         }
 
         const team: Team = await this.teamsService.getUniqueTeam(organization.id, teamName)
         if (!team) {
-            throw new NotFoundException('Team not found')
+            throw new PreconditionFailedException('Team not found')
         }
         if (team.visibility === TeamVisibilityEnum.PUBLIC) {
             response.status(HttpStatus.OK).send()
