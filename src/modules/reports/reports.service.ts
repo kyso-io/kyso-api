@@ -746,21 +746,29 @@ export class ReportsService extends AutowiredService implements GenericService<R
             const originalName: string = entry.entryName
             const localFilePath = join(tmpDir, entry.entryName)
             if (originalName === 'kyso.json') {
-                try {
-                    kysoConfigFile = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString())
-                    break
-                } catch (e: any) {
-                    Logger.error(`An error occurred parsing kyso.json`, e, ReportsService.name)
-                    throw new PreconditionFailedException(`An error occurred parsing kyso.json`)
+                const data: {
+                    valid: boolean
+                    message: string | null
+                    kysoConfigFile: KysoConfigFile | null
+                } = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString())
+                if (!data.valid) {
+                    Logger.error(`An error occurred parsing kyso.json`, data.message, ReportsService.name)
+                    throw new PreconditionFailedException(`An error occurred parsing kyso.json: ${data.message}`)
                 }
+                kysoConfigFile = data.kysoConfigFile
+                break
             } else if (originalName === 'kyso.yml' || originalName === 'kyso.yaml') {
-                try {
-                    kysoConfigFile = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString())
-                    break
-                } catch (e: any) {
-                    Logger.error(`An error occurred parsing kyso.{yml,yaml}`, e, ReportsService.name)
-                    throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}`)
+                const data: {
+                    valid: boolean
+                    message: string | null
+                    kysoConfigFile: KysoConfigFile | null
+                } = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString())
+                if (!data.valid) {
+                    Logger.error(`An error occurred parsing kyso.{yml,yaml}`, data.message, ReportsService.name)
+                    throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}: ${data.message}`)
                 }
+                kysoConfigFile = data.kysoConfigFile
+                break
             }
         }
         if (!kysoConfigFile) {
@@ -1027,21 +1035,29 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     const originalName: string = entry.entryName
                     const localFilePath = join(baseTmpDir, basePath && basePath.length > 0 ? entry.entryName.replace(basePath, '') : entry.entryName)
                     if (originalName.endsWith('kyso.json')) {
-                        try {
-                            kysoConfigFile = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString())
-                            break
-                        } catch (e: any) {
-                            Logger.error(`An error occurred parsing kyso.json`, e, ReportsService.name)
-                            throw new PreconditionFailedException(`An error occurred parsing kyso.json`)
+                        const data: {
+                            valid: boolean
+                            message: string | null
+                            kysoConfigFile: KysoConfigFile | null
+                        } = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString())
+                        if (!data.valid) {
+                            Logger.error(`An error occurred parsing kyso.json`, data.message, ReportsService.name)
+                            throw new PreconditionFailedException(`An error occurred parsing kyso.json: ${data.message}`)
                         }
+                        kysoConfigFile = data.kysoConfigFile
+                        break
                     } else if (originalName.endsWith('kyso.yml') || originalName.endsWith('kyso.yaml')) {
-                        try {
-                            kysoConfigFile = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString())
-                            break
-                        } catch (e: any) {
-                            Logger.error(`An error occurred parsing kyso.{yml,yaml}`, e, ReportsService.name)
-                            throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}`)
+                        const data: {
+                            valid: boolean
+                            message: string | null
+                            kysoConfigFile: KysoConfigFile | null
+                        } = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString())
+                        if (!data.valid) {
+                            Logger.error(`An error occurred parsing kyso.{yml,yaml}`, data.message, ReportsService.name)
+                            throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}: ${data.message}`)
                         }
+                        kysoConfigFile = data.kysoConfigFile
+                        break
                     }
                 }
             }
@@ -1272,21 +1288,29 @@ export class ReportsService extends AutowiredService implements GenericService<R
             const localFilePath = join(tmpDir, entry.entryName)
 
             if (originalName.endsWith('kyso.json')) {
-                try {
-                    kysoConfigFile = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString())
-                    break
-                } catch (e: any) {
-                    Logger.error(`An error occurred parsing kyso.json`, e, ReportsService.name)
-                    throw new PreconditionFailedException(`An error occurred parsing kyso.json`)
+                const data: {
+                    valid: boolean
+                    message: string | null
+                    kysoConfigFile: KysoConfigFile | null
+                } = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString())
+                if (!data.valid) {
+                    Logger.error(`An error occurred parsing kyso.json`, data.message, ReportsService.name)
+                    throw new PreconditionFailedException(`An error occurred parsing kyso.json: ${data.message}`)
                 }
+                kysoConfigFile = data.kysoConfigFile
+                break
             } else if (originalName.endsWith('kyso.yml') || originalName.endsWith('kyso.yaml')) {
-                try {
-                    kysoConfigFile = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString())
-                    break
-                } catch (e: any) {
-                    Logger.error(`An error occurred parsing kyso.{yml,yaml}`, e, ReportsService.name)
-                    throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}`)
+                const data: {
+                    valid: boolean
+                    message: string | null
+                    kysoConfigFile: KysoConfigFile | null
+                } = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString())
+                if (!data.valid) {
+                    Logger.error(`An error occurred parsing kyso.{yml,yaml}`, data.message, ReportsService.name)
+                    throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}: ${data.message}`)
                 }
+                kysoConfigFile = data.kysoConfigFile
+                break
             }
         }
 
@@ -2169,21 +2193,27 @@ export class ReportsService extends AutowiredService implements GenericService<R
             const filePath: string = filePaths[i]
             const fileName: string = filePath.replace(`${relativePath}/`, '')
             if (fileName === 'kyso.json') {
-                try {
-                    kysoConfigFile = KysoConfigFile.fromJSON(readFileSync(filePath, 'utf8'))
-                } catch (e) {
-                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                    Logger.error(`Report ${report.id} ${report.sluglified_name}: Could not parse kyso.json file`, ReportsService.name)
-                    throw new PreconditionFailedException(`Could not parse kyso.json file`, ReportsService.name)
+                const data: {
+                    valid: boolean
+                    message: string | null
+                    kysoConfigFile: KysoConfigFile | null
+                } = KysoConfigFile.fromJSON(readFileSync(filePath, 'utf8').toString())
+                if (!data.valid) {
+                    Logger.error(`An error occurred parsing kyso.json`, data.message, ReportsService.name)
+                    throw new PreconditionFailedException(`An error occurred parsing kyso.json: ${data.message}`)
                 }
+                kysoConfigFile = data.kysoConfigFile
             } else if (fileName === 'kyso.yml' || fileName === 'kyso.yaml') {
-                try {
-                    kysoConfigFile = KysoConfigFile.fromYaml(readFileSync(filePath, 'utf8'))
-                } catch (e) {
-                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } })
-                    Logger.error(`Report ${report.id} ${report.sluglified_name}: Could not parse ${fileName} file`, ReportsService.name)
-                    throw new PreconditionFailedException(`Could not parse ${fileName} file`)
+                const data: {
+                    valid: boolean
+                    message: string | null
+                    kysoConfigFile: KysoConfigFile | null
+                } = KysoConfigFile.fromYaml(readFileSync(filePath, 'utf8').toString())
+                if (!data.valid) {
+                    Logger.error(`An error occurred parsing kyso.{yml,yaml}`, data.message, ReportsService.name)
+                    throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}: ${data.message}`)
                 }
+                kysoConfigFile = data.kysoConfigFile
             }
             files.push({ name: fileName, filePath })
         }

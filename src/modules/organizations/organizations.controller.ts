@@ -65,10 +65,6 @@ export class OrganizationsController extends GenericController<Organization> {
         super()
     }
 
-    assignReferences(organization: Organization) {
-        // TODO
-    }
-
     @Get()
     @ApiOperation({
         summary: `Get organizations`,

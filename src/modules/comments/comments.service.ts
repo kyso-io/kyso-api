@@ -20,7 +20,7 @@ import {
     Token,
     User,
 } from '@kyso-io/kyso-model'
-import { ForbiddenException, Inject, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common'
+import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -78,7 +78,7 @@ export class CommentsService extends AutowiredService {
         if (commentDto?.comment_id) {
             const relatedComments: Comment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(commentDto.comment_id) } })
             if (relatedComments.length === 0) {
-                throw new PreconditionFailedException('The specified related comment could not be found')
+                throw new NotFoundException('The specified related comment could not be found')
             }
         }
 
@@ -88,15 +88,15 @@ export class CommentsService extends AutowiredService {
         })
 
         if (!report && !discussion) {
-            throw new PreconditionFailedException('The specified report or discussion could not be found')
+            throw new NotFoundException('The specified report or discussion could not be found')
         }
 
         if (!discussion && (!report.team_id || report.team_id == null || report.team_id === '')) {
-            throw new PreconditionFailedException('The specified report does not have a team associated')
+            throw new NotFoundException('The specified report does not have a team associated')
         }
 
         if (!report && (!discussion.team_id || discussion.team_id == null || discussion.team_id === '')) {
-            throw new PreconditionFailedException('The specified discussion does not have a team associated')
+            throw new NotFoundException('The specified discussion does not have a team associated')
         }
 
         const team: Team = await this.teamsService.getTeam({
@@ -106,7 +106,7 @@ export class CommentsService extends AutowiredService {
         })
 
         if (!team) {
-            throw new PreconditionFailedException('The specified team could not be found')
+            throw new NotFoundException('The specified team could not be found')
         }
 
         const index: number = commentDto.user_ids.indexOf(token.id)
