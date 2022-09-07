@@ -8,6 +8,8 @@ import {
     GlobalPermissionsEnum,
     HEADER_X_KYSO_ORGANIZATION,
     HEADER_X_KYSO_TEAM,
+    KysoSetting,
+    KysoSettingsEnum,
     NormalizedResponseDTO,
     Organization,
     PaginatedResponseDto,
@@ -46,6 +48,7 @@ import {
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ObjectId } from 'mongodb'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -61,6 +64,7 @@ import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
 import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard'
 import { CommentsService } from '../comments/comments.service'
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { RelationsService } from '../relations/relations.service'
 import { TagsService } from '../tags/tags.service'
@@ -101,6 +105,9 @@ export class ReportsController extends GenericController<Report> {
 
     @Autowired({ typeName: 'TagsService' })
     private tagsService: TagsService
+
+    @Autowired({ typeName: 'KysoSettingsService' })
+    private kysoSettingsService: KysoSettingsService
 
     constructor(private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider) {
         super()
@@ -1534,5 +1541,36 @@ export class ReportsController extends GenericController<Report> {
         const relations = await this.relationsService.getRelations(draft, 'report', { Author: 'User', Team: 'Team', Organization: 'Organization' })
 
         return new NormalizedResponseDTO(draft, relations)
+    }
+
+    @Post('/import/office/s3')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+    @ApiOperation({
+        summary: `Imports from S3 bucket Office documents based on its metadata`,
+        description: `By passing the appropiate parameters you can import a bunch of reports`,
+    })
+    @Permission([ReportPermissionsEnum.CREATE])
+    async importOfficeFromS3(@Body() data: any): Promise<NormalizedResponseDTO<any>> {
+        const allSettings: KysoSetting[] = await this.kysoSettingsService.getAll();
+        
+        const webhookUrl = allSettings.find((x: KysoSetting) => x.key === KysoSettingsEnum.KYSO_WEBHOOK_URL);
+
+        if(webhookUrl) {
+            const httpClient = axios.create({
+                baseURL: webhookUrl.value,
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                maxBodyLength: Infinity,
+                maxContentLength: Infinity,
+            });
+          
+            const url = `/hooks/s3import`;
+            const axiosResponse: AxiosResponse<any> = await httpClient.post(url, data);
+      
+            return axiosResponse.data;
+        } else {
+            throw new PreconditionFailedException("Webhook URL not found. Review Kyso Settings");
+        }
     }
 }
