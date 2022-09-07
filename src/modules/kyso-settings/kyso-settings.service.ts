@@ -109,6 +109,8 @@ export class KysoSettingsService extends AutowiredService {
                 return '5'
             case KysoSettingsEnum.MAX_TEAMS_PER_USER:
                 return '20'
+            case KysoSettingsEnum.KYSO_IMPORT_S3_WEBHOOK:
+                return ''
             default:
                 return ''
         }
@@ -236,6 +238,8 @@ export class KysoSettingsService extends AutowiredService {
                 return 'Maximum number of organizations a user can create'
             case KysoSettingsEnum.MAX_TEAMS_PER_USER:
                 return 'Maximum number of teams in an organization that a user can create'
+            case KysoSettingsEnum.KYSO_IMPORT_S3_WEBHOOK:
+                    return 'URL for the S3 importer webhook'
             default:
                 return 'No description provided'
         }
