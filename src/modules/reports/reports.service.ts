@@ -2822,6 +2822,10 @@ export class ReportsService extends AutowiredService implements GenericService<R
                   <link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Roboto+Mono:400,500&amp;amp;display=swap' />
         
                   <style>
+                    .mqc_table .wrapper {
+                        z-index: 0 !important;
+                    }
+                    
                     body {
                       font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
                       font-size: 12px;
