@@ -11,7 +11,6 @@ import { UsersService } from './users.service'
 
 @ApiTags('user')
 @ApiExtraModels(User)
-@UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('user')
 export class UserController extends GenericController<User> {

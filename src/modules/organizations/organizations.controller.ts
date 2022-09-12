@@ -181,6 +181,7 @@ export class OrganizationsController extends GenericController<Organization> {
         description: `Id of the organization to fetch`,
         schema: { type: 'string' },
     })
+    @Permission([OrganizationPermissionsEnum.READ])
     @ApiNormalizedResponse({ status: 200, description: `Organization matching id`, type: Organization })
     async getOrganizationById(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
         const organization: Organization = await this.organizationService.getOrganizationById(organizationId)
