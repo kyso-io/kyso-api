@@ -120,6 +120,14 @@ export class OrganizationsService extends AutowiredService {
         return this.getOrganization({ filter: { _id: this.provider.toObjectId(id) } })
     }
 
+    public async getOrganizationBySlugName(organizationSlug: string): Promise<Organization> {
+        return this.getOrganization({
+            filter: {
+                sluglified_name: organizationSlug,
+            }
+        });
+    }
+
     public async createOrganization(token: Token, createOrganizationDto: CreateOrganizationDto): Promise<Organization> {
         const numOrganizationsCreatedByUser: number = await this.provider.count({ filter: { user_id: token.id } })
         const value: number = parseInt(await this.kysoSettingsService.getValue(KysoSettingsEnum.MAX_ORGANIZATIONS_PER_USER), 10)

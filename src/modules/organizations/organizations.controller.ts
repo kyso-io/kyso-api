@@ -40,6 +40,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { Public } from 'src/decorators/is-public'
+import slug from 'src/helpers/slugify'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
@@ -255,10 +256,18 @@ export class OrganizationsController extends GenericController<Organization> {
         summary: `Create a new organization`,
         description: `By passing the appropiate parameters you can create a new organization`,
     })
+    @Public()
     @ApiNormalizedResponse({ status: 201, description: `Created organization`, type: Organization })
     async createOrganization(@CurrentToken() token: Token, @Body() createOrganizationDto: CreateOrganizationDto): Promise<NormalizedResponseDTO<Organization>> {
-        const organization: Organization = await this.organizationService.createOrganization(token, createOrganizationDto)
-        return new NormalizedResponseDTO(organization)
+        const slugName = slug(createOrganizationDto.display_name);
+        const existsOrganization = this.organizationService.getOrganizationBySlugName(slugName);
+
+        if(!existsOrganization) {
+            const organization: Organization = await this.organizationService.createOrganization(token, createOrganizationDto)
+            return new NormalizedResponseDTO(organization);
+        } else {
+            throw new PreconditionFailedException("This organization already exists at Kyso");
+        }
     }
 
     @Patch('/:organizationId')
