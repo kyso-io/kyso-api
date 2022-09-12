@@ -267,6 +267,7 @@ export class FullTextSearchService extends AutowiredService {
             membersFullTextSearchResultType,
         )
 
+        // START: Filter by the organizations and teams that the user has access at this moment
         const filterTeams: string[] = []
         const filterOrganizations: string[] = []
         const filterPeople: string[] = emailSlugs.slugs
@@ -359,6 +360,7 @@ export class FullTextSearchService extends AutowiredService {
             return fullTextSearchDTO
         }
 
+        // END: Filter by the organizations and teams that the user has access at this moment
         if (filterTeams.length === 0) {
             return fullTextSearchDTO
         }
@@ -650,7 +652,7 @@ export class FullTextSearchService extends AutowiredService {
                     default_field: 'content',
                     query: terms
                         .split(' ')
-                        .map((term: string) => `*${term}*`)
+                        .map((term: string) => `${term}`)
                         .join(' '),
                 },
             })
