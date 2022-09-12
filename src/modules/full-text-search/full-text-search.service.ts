@@ -651,9 +651,6 @@ export class FullTextSearchService extends AutowiredService {
                 query_string: {
                     default_field: 'content',
                     query: terms
-                        .split(' ')
-                        .map((term: string) => `${term}`)
-                        .join(' '),
                 },
             })
         }
