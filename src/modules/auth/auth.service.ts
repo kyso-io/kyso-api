@@ -70,9 +70,27 @@ export class AuthService extends AutowiredService {
         private readonly kysoLoginProvider: KysoLoginProvider,
         private readonly pingIdLoginProvider: PingIdLoginProvider,
         private readonly platformRoleProvider: PlatformRoleMongoProvider,
+        private readonly organizationsService: OrganizationsService,
+        private readonly teamsService: TeamsService,
     ) {
         super()
     }
+
+    async retrieveOrgAndTeamFromSlug(organizationSlug: string, teamSlug: string) {
+        const organizationObject: Organization = await this.organizationsService.getOrganization({
+            filter: {
+                sluglified_name: organizationSlug,
+            },
+        })
+    
+        const teamObject: Team = await this.teamsService.getUniqueTeam(organizationObject.id, teamSlug);
+
+        return {
+            organization: organizationObject,
+            team: teamObject
+        }
+    }
+    
 
     static hashPassword(plainPassword: string): string {
         return bcrypt.hashSync(plainPassword)
@@ -300,11 +318,11 @@ export class AuthService extends AutowiredService {
      * 
      * @param tokenPayload 
      * @param permissionToActivateEndpoint 
-     * @param team teamSlugName ie: protected-team
-     * @param organization organizationSlugName ie: lightside
+     * @param teamId teamSlugName ie: protected-team
+     * @param organizationId organizationSlugName ie: lightside
      * @returns 
      */
-    static hasPermissions(tokenPayload: Token, permissionToActivateEndpoint: KysoPermissions[], team: string, organization: string): boolean {
+    static hasPermissions(tokenPayload: Token, permissionToActivateEndpoint: KysoPermissions[], teamId: string, organizationId: string): boolean {
         if (!tokenPayload) {
             Logger.log('Received null token')
             return false
@@ -323,14 +341,14 @@ export class AuthService extends AutowiredService {
         } else {
             // Check if user has the required permissions in the team
             let userPermissionsInThatTeam: ResourcePermissions
-            if (team) {
-                userPermissionsInThatTeam = tokenPayload.permissions.teams.find((x) => x.name.toLowerCase() === team.toLowerCase())
+            if (teamId) {
+                userPermissionsInThatTeam = tokenPayload.permissions.teams.find((x) => x.id.toLowerCase() === teamId.toLowerCase())
             }
 
             // Check if user has the required permissions in the organization
             let userPermissionsInThatOrganization: ResourcePermissions
-            if (organization) {
-                userPermissionsInThatOrganization = tokenPayload.permissions.organizations.find((x) => x.name.toLowerCase() === organization.toLowerCase())
+            if (organizationId) {
+                userPermissionsInThatOrganization = tokenPayload.permissions.organizations.find((x) => x.id.toLowerCase() === organizationId.toLowerCase())
             }
 
             // Finally, check the global permissions

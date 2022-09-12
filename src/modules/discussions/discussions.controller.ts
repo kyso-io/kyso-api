@@ -7,6 +7,7 @@ import {
     HEADER_X_KYSO_ORGANIZATION,
     HEADER_X_KYSO_TEAM,
     NormalizedResponseDTO,
+    Organization,
     Team,
     TeamVisibilityEnum,
     Token,
@@ -57,6 +58,9 @@ export class DiscussionsController extends GenericController<Discussion> {
 
     @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
+
+    @Autowired({ typeName: 'AuthService' })
+    private authService: AuthService
 
     constructor(private readonly discussionsService: DiscussionsService) {
         super()
@@ -128,9 +132,17 @@ export class DiscussionsController extends GenericController<Discussion> {
         if (!discussion) {
             throw new PreconditionFailedException('Discussion not found')
         }
-        const team: Team = await this.teamsService.getTeamById(discussion.team_id)
-        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = AuthService.hasPermissions(token, [DiscussionPermissionsEnum.READ], teamName, organizationName)
+
+        const objects = await this.authService.retrieveOrgAndTeamFromSlug(teamName, organizationName);
+
+        if (objects.team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = AuthService.hasPermissions(
+                token, 
+                [DiscussionPermissionsEnum.READ], 
+                objects.team.id, 
+                objects.organization.id
+            );
+
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -163,12 +175,17 @@ export class DiscussionsController extends GenericController<Discussion> {
         if (!discussion) {
             throw new InvalidInputError('Discussion not found')
         }
-        const team: Team = await this.teamsService.getTeamById(discussion.team_id)
-        if (!team) {
-            throw new NotFoundException(`Team ${discussion.team_id} not found`)
+        
+        const objects = await this.authService.retrieveOrgAndTeamFromSlug(organizationName, teamName);
+        if (!objects.team) {
+            throw new PreconditionFailedException(`Team ${discussion.team_id} not found`)
         }
-        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = AuthService.hasPermissions(token, [DiscussionPermissionsEnum.READ], teamName, organizationName)
+        
+        if (objects.team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            const hasPermissions: boolean = AuthService.hasPermissions(
+                token, [DiscussionPermissionsEnum.READ], 
+                objects.team.id, objects.organization.id
+            )
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }

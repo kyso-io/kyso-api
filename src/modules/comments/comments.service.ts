@@ -69,7 +69,6 @@ export class CommentsService extends AutowiredService {
 
     @Autowired({ typeName: 'FullTextSearchService' })
     private fullTextSearchService: FullTextSearchService
-
     constructor(private readonly provider: CommentsMongoProvider, @Inject('NATS_SERVICE') private client: ClientProxy) {
         super()
     }
@@ -373,8 +372,8 @@ export class CommentsService extends AutowiredService {
             const hasPermissions: boolean = AuthService.hasPermissions(
                 token,
                 [CommentPermissionsEnum.DELETE],
-                team.sluglified_name,
-                organization.sluglified_name,
+                team.id,
+                organization.id,
             )
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to delete this comment')

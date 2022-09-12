@@ -230,8 +230,8 @@ export class DiscussionsService extends AutowiredService implements GenericServi
             const hasPermissions: boolean = AuthService.hasPermissions(
                 token,
                 [DiscussionPermissionsEnum.EDIT],
-                team.sluglified_name,
-                organization.sluglified_name,
+                team.id,
+                organization.id,
             )
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to update this discussion')

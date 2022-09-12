@@ -109,6 +109,9 @@ export class ReportsController extends GenericController<Report> {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
 
+    @Autowired({ typeName: 'AuthService' })
+    private authService: AuthService
+
     constructor(private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider) {
         super()
     }
@@ -520,9 +523,16 @@ export class ReportsController extends GenericController<Report> {
         if (!report) {
             throw new PreconditionFailedException('Report not found')
         }
-        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        
+        const {team, organization} = await this.authService.retrieveOrgAndTeamFromSlug(organizationName, teamName);
+
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(
+                token, 
+                [ReportPermissionsEnum.READ], 
+                team.id, 
+                organization.id
+            )
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -1022,23 +1032,28 @@ export class ReportsController extends GenericController<Report> {
         const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } })
         if (!organization) {
             Logger.error(`Organization ${organizationName} not found`)
-            throw new NotFoundException('Organization not found')
+            throw new PreconditionFailedException('Organization not found')
         }
         const team: Team = await this.teamsService.getUniqueTeam(organization.id, teamName)
         if (!team) {
             Logger.error(`Team ${teamName} not found`)
-            throw new NotFoundException('Team not found')
+            throw new PreconditionFailedException('Team not found')
         }
 
         const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: reportName, team_id: team.id } })
 
         if (!report) {
             Logger.error(`Report ${reportName} not found`)
-            throw new NotFoundException('Report not found')
+            throw new PreconditionFailedException('Report not found')
         }
 
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(
+                token, 
+                [ReportPermissionsEnum.READ], 
+                team.id, 
+                organization.id
+            );
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -1083,9 +1098,15 @@ export class ReportsController extends GenericController<Report> {
         if (!report) {
             throw new PreconditionFailedException('Report not found')
         }
-        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        const {team, organization} = await this.authService.retrieveOrgAndTeamFromSlug(organizationName, teamName);
+        
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(
+                token, 
+                [ReportPermissionsEnum.READ], 
+                team.id, 
+                organization.id
+            )
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -1128,9 +1149,10 @@ export class ReportsController extends GenericController<Report> {
         if (!report) {
             throw new PreconditionFailedException('Report not found')
         }
-        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        const {team, organization} = await this.authService.retrieveOrgAndTeamFromSlug(organizationName, teamName);
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, 
+                [ReportPermissionsEnum.READ], team.id, organization.id)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -1216,9 +1238,12 @@ export class ReportsController extends GenericController<Report> {
         if (!report) {
             throw new PreconditionFailedException('Report not found')
         }
-        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        const {team, organization} = await this.authService.retrieveOrgAndTeamFromSlug(organizationName, teamName);
+
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(
+                token, [ReportPermissionsEnum.READ], 
+                team.id, organization.id)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -1255,9 +1280,13 @@ export class ReportsController extends GenericController<Report> {
         if (!report) {
             throw new PreconditionFailedException('Report not found')
         }
-        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        const {team, organization} = await this.authService.retrieveOrgAndTeamFromSlug(organizationName, teamName);
+
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, 
+                [ReportPermissionsEnum.READ], 
+                team.id, organization.id
+            )
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
@@ -1477,7 +1506,7 @@ export class ReportsController extends GenericController<Report> {
         const report: Report = await this.reportsService.getReportByName(reportName, teamNameParam, organization.id)
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team.id, organization.id)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }

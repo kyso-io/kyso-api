@@ -320,7 +320,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
         let report: Report = await this.getReportById(reportId)
         if (!report) {
-            throw new NotFoundError({ message: 'The specified report could not be found' })
+            throw new PreconditionFailedException({ message: 'The specified report could not be found' })
         }
         const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } })
         if (!team) {
@@ -334,7 +334,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const reportCreator: boolean = report.user_id === token.id
         const reportAuthor: boolean = report.author_ids.includes(token.id)
         if (!reportCreator && !reportAuthor) {
-            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.EDIT], team.sluglified_name, organization.sluglified_name)
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.EDIT], team.id, organization.id)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to update this report')
             }
@@ -2793,31 +2793,6 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 <head>
                 <!-- KYSO PREPROCESS START -->
                 <meta charset="utf-8" />
-                <script src="/static/iframeResizer.contentWindow.js"></script>
-                <script>
-                    window.addEventListener('message', function(event) {
-                      var output = document.getElementsByClassName('output_raw')[0]
-                      try {
-                        var jsonMessage = JSON.parse(event.data)
-                        if (jsonMessage.__fs) {
-                          // Discard message which contain __fs
-                          return
-                        }
-                      } catch (e) {
-                        // The incoming data does not have to be in form of a JSON, we can ignore this error
-                      }
-                      if (event.data.startsWith('[scrollDown]')) {
-                        setTimeout(function(){
-                          const element = document.getElementsByClassName('output')[0];
-                          element.scrollTop = element.scrollHeight;
-                          }, 100);
-                        return;
-                      }
-                      if (!event.data.startsWith('[iFrameSizer]')) {
-                        output.innerHTML = event.data
-                      }
-                    });
-                  </script>
                   
                   <link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Roboto+Mono:400,500&amp;amp;display=swap' />
         
@@ -2825,7 +2800,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     .mqc_table .wrapper {
                         z-index: 0 !important;
                     }
-                    
+
                     body {
                       font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
                       font-size: 12px;

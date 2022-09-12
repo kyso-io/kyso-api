@@ -553,13 +553,19 @@ export class AuthController extends GenericController<string> {
             this.organizationsService,
             this.platformRoleService,
             this.userRoleService,
-        )
+        );
 
-        const userHasPermission: boolean = await AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], teamName, organizationName)
+        const userHasPermission: boolean = await AuthService.hasPermissions(
+            token, 
+            [ReportPermissionsEnum.READ], 
+            team.id, 
+            organization.id
+        );
+
         if (userHasPermission) {
-            response.status(HttpStatus.OK).send()
+            response.status(HttpStatus.OK).send();
         } else {
-            response.status(HttpStatus.FORBIDDEN).send()
+            response.status(HttpStatus.FORBIDDEN).send();
         }
     }
 
@@ -568,11 +574,15 @@ export class AuthController extends GenericController<string> {
         if (!token) {
             throw new UnauthorizedException('No bearer token provided')
         }
+
+        const objects = await this.authService.retrieveOrgAndTeamFromSlug(checkPermissionDto.organization, checkPermissionDto.team);
+        
         const userHasPermission: boolean = AuthService.hasPermissions(
             token,
             [checkPermissionDto.permission as KysoPermissions],
-            checkPermissionDto.team,
-            checkPermissionDto.organization,
+            objects.team.id,
+            objects.organization.id
+
         )
         return new NormalizedResponseDTO(userHasPermission)
     }
