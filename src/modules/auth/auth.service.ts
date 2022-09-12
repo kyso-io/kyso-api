@@ -61,6 +61,12 @@ export class AuthService extends AutowiredService {
     @Autowired({ typeName: 'KysoSettingsService' })
     private kysoSettingsService: KysoSettingsService
 
+    @Autowired({ typeName: 'OrganizationsService' })
+    private organizationsService: OrganizationsService
+
+    @Autowired({ typeName: 'TeamsService' })
+    private teamsService: TeamsService
+
     constructor(
         private readonly bitbucketLoginProvider: BitbucketLoginProvider,
         private readonly githubLoginProvider: GithubLoginProvider,
@@ -69,9 +75,7 @@ export class AuthService extends AutowiredService {
         private readonly jwtService: JwtService,
         private readonly kysoLoginProvider: KysoLoginProvider,
         private readonly pingIdLoginProvider: PingIdLoginProvider,
-        private readonly platformRoleProvider: PlatformRoleMongoProvider,
-        private readonly organizationsService: OrganizationsService,
-        private readonly teamsService: TeamsService,
+        private readonly platformRoleProvider: PlatformRoleMongoProvider
     ) {
         super()
     }
