@@ -659,6 +659,7 @@ export class FullTextSearchService extends AutowiredService {
                         { match: { content: { query: terms, operator: "AND" } } },    
                     ],
                     filter: [
+                        { terms: { "type": [entity] } },
                         { terms: { "organizationSlug.keyword": filterOrgs  } },
                         { terms: { "teamSlug.keyword": filterTeams  } }
                     ],
