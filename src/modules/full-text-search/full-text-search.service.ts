@@ -714,7 +714,7 @@ export class FullTextSearchService extends AutowiredService {
             })
         }
 
-        console.log(body);
+        console.log(JSON.stringify(body));
 
         try {
             const response = await axios.post(url, body)
