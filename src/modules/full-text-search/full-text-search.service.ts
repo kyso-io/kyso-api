@@ -622,12 +622,18 @@ export class FullTextSearchService extends AutowiredService {
     ): Promise<SearchData> {
         const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
         const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_search`
+        
         const body: any = {
             from: (page - 1) * perPage,
             size: perPage,
             query: {
                 bool: {
-                    must: [],
+                    must: [{
+                        content: {
+                            query: terms,
+                            operator: "AND"
+                        }
+                    }],
                     filter: {
                         bool: {
                             must: [],
@@ -646,6 +652,7 @@ export class FullTextSearchService extends AutowiredService {
             })
         }
 
+        /*
         if (terms) {
             body.query.bool.must.push({
                 query_string: {
@@ -653,7 +660,8 @@ export class FullTextSearchService extends AutowiredService {
                     query: terms
                 },
             })
-        }
+        }*/
+
         if (entity) {
             body.query.bool.must.push({
                 term: {
@@ -705,6 +713,8 @@ export class FullTextSearchService extends AutowiredService {
                 })
             })
         }
+
+        console.log(body);
 
         try {
             const response = await axios.post(url, body)
