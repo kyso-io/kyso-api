@@ -57,7 +57,7 @@ export class FullTextSearchController {
         @Query('page') page: number,
         @Query('perPage') perPage: number,
         @Query('type') type: string,
-    ): Promise<NormalizedResponseDTO<FullTextSearchDTO>> {
+    ): Promise<NormalizedResponseDTO<FullTextSearchDTO>> {        
         const fullTextSearchDTO: FullTextSearchDTO = await this.fullTextSearchService.fullTextSearch(
             token,
             searchTerms,

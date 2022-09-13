@@ -13,6 +13,7 @@ import {
 } from '@kyso-io/kyso-model'
 import { Injectable, Logger, Provider } from '@nestjs/common'
 import axios, { AxiosResponse } from 'axios'
+import { unique } from 'typedoc/dist/lib/utils'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
@@ -268,8 +269,8 @@ export class FullTextSearchService extends AutowiredService {
         )
 
         // START: Filter by the organizations and teams that the user has access at this moment
-        const filterTeams: string[] = []
-        const filterOrganizations: string[] = []
+        let filterTeams: string[] = []
+        let filterOrganizations: string[] = []
         const filterPeople: string[] = emailSlugs.slugs
         const filterTags: string[] = tagSlugs.slugs
 
@@ -344,16 +345,42 @@ export class FullTextSearchService extends AutowiredService {
         } else {
             if (token) {
                 const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
+                
+                // All the teams of an user
                 for (const team of teams) {
                     filterTeams.push(team.sluglified_name)
+                }
+
+                // All the organizations related to that teams
+                const organizationIds: string[] = teams.map(x => x.organization_id);
+                
+                for(const orgId of organizationIds) {
+                    const org: Organization = await this.organizationsService.getOrganizationById(orgId);
+                    filterOrganizations.push(org.sluglified_name);
                 }
             } else {
                 const teams: Team[] = await this.teamsService.getTeams({ filter: { visibility: TeamVisibilityEnum.PUBLIC } })
                 for (const team of teams) {
                     filterTeams.push(team.sluglified_name)
                 }
+
+                // All the organizations related to that teams
+                const organizationIds: string[] = teams.map(x => x.organization_id);
+
+                for(const orgId of organizationIds) {
+                    const org: Organization = await this.organizationsService.getOrganizationById(orgId);
+                    filterOrganizations.push(org.sluglified_name);
+                }
             }
         }
+
+        // Discard non-unique
+        const uniqueTeams = new Set(filterTeams);
+        filterTeams = Array.from(uniqueTeams);
+
+        // Discard non-unique
+        const uniqueOrganizations = new Set(filterOrganizations);
+        filterOrganizations = Array.from(uniqueOrganizations);
 
         if (token && teamSlugs.slugs.length > 0 && filterTeams.length === 0) {
             // the logged user has filtered by team but that team is not in the permissions
