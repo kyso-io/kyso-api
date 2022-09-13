@@ -628,18 +628,14 @@ export class FullTextSearchService extends AutowiredService {
             size: perPage,
             query: {
                 bool: {
-                    must: [{
-                        content: {
-                            query: terms,
-                            operator: "AND"
-                        }
-                    }],
-                    filter: {
-                        bool: {
-                            must: [],
-                            should: [],
-                        },
-                    },
+                    must: [
+                        { match: { content: { query: terms, operator: "AND" } } },    
+                    ],
+                    filter: [
+                        { terms: { "organizationSlug.keyword": filterOrgs  } },
+                        { terms: { "teamSlug.keyword": filterTeams  } },
+                        { terms: { "isPublic": true } }
+                    ],
                 },
             },
         }
@@ -669,6 +665,7 @@ export class FullTextSearchService extends AutowiredService {
                 },
             })
         }
+        /*
         if (filterOrgs && filterOrgs.length > 0) {
             filterOrgs.forEach((organizationSlug: string) => {
                 body.query.bool.filter.bool.should.push({
@@ -712,7 +709,7 @@ export class FullTextSearchService extends AutowiredService {
                     },
                 })
             })
-        }
+        }*/
 
         console.log(JSON.stringify(body));
 
