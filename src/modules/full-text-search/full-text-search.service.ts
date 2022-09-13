@@ -660,8 +660,7 @@ export class FullTextSearchService extends AutowiredService {
                     ],
                     filter: [
                         { terms: { "organizationSlug.keyword": filterOrgs  } },
-                        { terms: { "teamSlug.keyword": filterTeams  } },
-                        { terms: { "type.keyword": entity  } }
+                        { terms: { "teamSlug.keyword": filterTeams  } }
                     ],
                 },
             },
