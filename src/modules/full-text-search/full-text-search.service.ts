@@ -634,82 +634,11 @@ export class FullTextSearchService extends AutowiredService {
                     filter: [
                         { terms: { "organizationSlug.keyword": filterOrgs  } },
                         { terms: { "teamSlug.keyword": filterTeams  } },
-                        { terms: { "isPublic": true } }
+                        { terms: { "type.keyword": entity  } }
                     ],
                 },
             },
         }
-
-        if (!token) {
-            body.query.bool.filter.bool.must.push({
-                term: {
-                    isPublic: true,
-                },
-            })
-        }
-
-        /*
-        if (terms) {
-            body.query.bool.must.push({
-                query_string: {
-                    default_field: 'content',
-                    query: terms
-                },
-            })
-        }*/
-
-        if (entity) {
-            body.query.bool.must.push({
-                term: {
-                    type: entity,
-                },
-            })
-        }
-        /*
-        if (filterOrgs && filterOrgs.length > 0) {
-            filterOrgs.forEach((organizationSlug: string) => {
-                body.query.bool.filter.bool.should.push({
-                    term: {
-                        'organizationSlug.keyword': {
-                            value: organizationSlug,
-                        },
-                    },
-                })
-            })
-        }
-        if (filterTeams && filterTeams.length > 0) {
-            filterTeams.forEach((teamSlug: string) => {
-                body.query.bool.filter.bool.should.push({
-                    term: {
-                        'teamSlug.keyword': {
-                            value: teamSlug,
-                        },
-                    },
-                })
-            })
-        }
-        if (filterPeople && filterPeople.length > 0) {
-            filterPeople.forEach((email: string) => {
-                body.query.bool.filter.bool.must.push({
-                    term: {
-                        'people.keyword': {
-                            value: email,
-                        },
-                    },
-                })
-            })
-        }
-        if (filterTags && filterTags.length > 0) {
-            filterTags.forEach((tag: string) => {
-                body.query.bool.filter.bool.must.push({
-                    term: {
-                        'tags.keyword': {
-                            value: tag,
-                        },
-                    },
-                })
-            })
-        }*/
 
         console.log(JSON.stringify(body));
 
