@@ -13,7 +13,6 @@ import {
 } from '@kyso-io/kyso-model'
 import { Injectable, Logger, Provider } from '@nestjs/common'
 import axios, { AxiosResponse } from 'axios'
-import { unique } from 'typedoc/dist/lib/utils'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
@@ -319,26 +318,26 @@ export class FullTextSearchService extends AutowiredService {
         } else if (teamSlugs.slugs.length > 0) {
             for (const teamSlug of teamSlugs.slugs) {
                 const team: Team = await this.teamsService.getTeam({ filter: { sluglified_name: teamSlug } })
-                if (!team) {
-                    continue
-                }
-                if (team.visibility === TeamVisibilityEnum.PUBLIC) {
-                    const index: number = filterTeams.indexOf(teamSlug)
-                    if (index === -1) {
-                        filterTeams.push(team.sluglified_name)
-                    }
-                } else {
-                    if (token) {
-                        const index: number = token.permissions.teams.findIndex((permission: ResourcePermissions) => permission.name === team.sluglified_name)
-                        if (index !== -1 || token.isGlobalAdmin()) {
-                            const indexTeam: number = filterTeams.indexOf(teamSlug)
-                            if (indexTeam === -1) {
-                                filterTeams.push(team.sluglified_name)
-                            }
+                
+                if (team && team.sluglified_name) {
+                    if (team.visibility === TeamVisibilityEnum.PUBLIC) {
+                        const index: number = filterTeams.indexOf(teamSlug)
+                        if (index === -1) {
+                            filterTeams.push(team.sluglified_name)
                         }
                     } else {
-                        // the user not logged has filtered by non-public team
-                        return fullTextSearchDTO
+                        if (token) {
+                            const index: number = token.permissions.teams.findIndex((permission: ResourcePermissions) => permission.name === team.sluglified_name)
+                            if (index !== -1 || token.isGlobalAdmin()) {
+                                const indexTeam: number = filterTeams.indexOf(teamSlug)
+                                if (indexTeam === -1) {
+                                    filterTeams.push(team.sluglified_name)
+                                }
+                            }
+                        } else {
+                            // the user not logged has filtered by non-public team
+                            return fullTextSearchDTO
+                        }
                     }
                 }
             }
@@ -348,7 +347,9 @@ export class FullTextSearchService extends AutowiredService {
                 
                 // All the teams of an user
                 for (const team of teams) {
-                    filterTeams.push(team.sluglified_name)
+                    if(team && team.sluglified_name) {
+                        filterTeams.push(team.sluglified_name)
+                    }
                 }
 
                 // All the organizations related to that teams
@@ -356,13 +357,18 @@ export class FullTextSearchService extends AutowiredService {
                 
                 for(const orgId of organizationIds) {
                     const org: Organization = await this.organizationsService.getOrganizationById(orgId);
-                    filterOrganizations.push(org.sluglified_name);
+
+                    if(org && org.sluglified_name) {
+                        filterOrganizations.push(org.sluglified_name);
+                    }   
                 }
             } else {
                 const teams: Team[] = await this.teamsService.getTeams({ filter: { visibility: TeamVisibilityEnum.PUBLIC } })
                 
                 for (const team of teams) {
-                    filterTeams.push(team.sluglified_name)
+                    if(team && team.sluglified_name) {
+                        filterTeams.push(team.sluglified_name)
+                    }
                 }
 
                 // All the organizations related to that teams
