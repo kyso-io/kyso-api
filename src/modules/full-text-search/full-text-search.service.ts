@@ -505,29 +505,31 @@ export class FullTextSearchService extends AutowiredService {
             })
         }
 */
+
+        console.log(searchResults);
         if (type === ElasticSearchIndex.Report) {
             reportsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
                 ...hit._source,
                 score: hit._score,
-                content: hit.highlight.content
+                // content: hit.highlight.content
             }))
         } else if (type === ElasticSearchIndex.Discussion) {
             discussionsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
                 ...hit._source,
                 score: hit._score,
-                content: hit.highlight.content
+                // content: hit.highlight.content
             }))
         } else if (type === ElasticSearchIndex.Comment) {
             commentsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
                 ...hit._source,
                 score: hit._score,
-                content: hit.highlight.content
+                // content: hit.highlight.content
             }))
         } else if (type === ElasticSearchIndex.User) {
             membersFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
                 ...hit._source,
                 score: hit._score,
-                content: hit.highlight.content
+                // content: hit.highlight.content
             }))
         }
 
