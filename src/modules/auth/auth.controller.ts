@@ -28,7 +28,6 @@ import {
     Headers,
     HttpStatus,
     Logger,
-    NotFoundException,
     Param,
     Post,
     PreconditionFailedException,
@@ -553,19 +552,14 @@ export class AuthController extends GenericController<string> {
             this.organizationsService,
             this.platformRoleService,
             this.userRoleService,
-        );
+        )
 
-        const userHasPermission: boolean = await AuthService.hasPermissions(
-            token, 
-            [ReportPermissionsEnum.READ], 
-            team.id, 
-            organization.id
-        );
+        const userHasPermission: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team.id, organization.id)
 
         if (userHasPermission) {
-            response.status(HttpStatus.OK).send();
+            response.status(HttpStatus.OK).send()
         } else {
-            response.status(HttpStatus.FORBIDDEN).send();
+            response.status(HttpStatus.FORBIDDEN).send()
         }
     }
 
@@ -575,14 +569,16 @@ export class AuthController extends GenericController<string> {
             throw new UnauthorizedException('No bearer token provided')
         }
 
-        const objects = await this.authService.retrieveOrgAndTeamFromSlug(checkPermissionDto.organization, checkPermissionDto.team);
-        
+        const objects: { organization: Organization; team: Team } = await this.authService.retrieveOrgAndTeamFromSlug(
+            checkPermissionDto.organization,
+            checkPermissionDto.team,
+        )
+
         const userHasPermission: boolean = AuthService.hasPermissions(
             token,
             [checkPermissionDto.permission as KysoPermissions],
-            objects.team.id,
-            objects.organization.id
-
+            objects.team?.id,
+            objects.organization?.id,
         )
         return new NormalizedResponseDTO(userHasPermission)
     }
