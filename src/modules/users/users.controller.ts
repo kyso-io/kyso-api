@@ -31,6 +31,7 @@ import {
     UploadedFile,
     UseGuards,
     UseInterceptors,
+    Headers
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
@@ -153,19 +154,26 @@ export class UsersController extends GenericController<User> {
         description: `Creates an access token for the specified user`,
     })
     @ApiResponse({ status: 200, description: `Access Token created successfully`, type: KysoUserAccessToken })
+    @Public()
     async createUserAccessToken(
+        @Headers('authorization') jwtToken: string,
         @CurrentToken() token: Token,
         @Body() accessTokenConfiguration: CreateKysoAccessTokenDto,
     ): Promise<NormalizedResponseDTO<KysoUserAccessToken>> {
-        // TODO: get the right permissions for the user
-        const permissions: KysoPermissions[] = []
-        const response: KysoUserAccessToken = await this.usersService.createKysoAccessToken(
-            token.id,
-            accessTokenConfiguration.name,
-            permissions,
-            accessTokenConfiguration.expiration_date,
-        )
-        return new NormalizedResponseDTO(response)
+        if(this.authService.evaluateAndDecodeToken(jwtToken)) {
+            // TODO: get the right permissions for the user
+            const permissions: KysoPermissions[] = []
+            const response: KysoUserAccessToken = await this.usersService.createKysoAccessToken(
+                token.id,
+                accessTokenConfiguration.name,
+                permissions,
+                accessTokenConfiguration.expiration_date,
+            )
+            return new NormalizedResponseDTO(response)
+        } else {
+            throw new ForbiddenException("Your token can't be validated");
+        }
+        
     }
 
     @Patch('/access-token/revoke-all')
