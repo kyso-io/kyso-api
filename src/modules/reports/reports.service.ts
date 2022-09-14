@@ -917,6 +917,12 @@ export class ReportsService extends AutowiredService implements GenericService<R
                         }
                     }
                 }
+
+                if (authors.length === 0) {
+                    // That means, no valid authors have been placed, so we put automatically the uploader
+                    Logger.warn(`Authors provided doesn't exist at Kyso. Setting requester ${uploaderUser.display_name} as author`)
+                    authors.push(uploaderUser.id);
+                }
             } else {
                 // Only set requester as author if there are not authors set
                 authors.push(uploaderUser.id);
