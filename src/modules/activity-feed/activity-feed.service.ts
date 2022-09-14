@@ -40,7 +40,7 @@ export class ActivityFeedService extends AutowiredService {
             endDateMoment = moment()
         }
         const tables: string[] = []
-        for (const m = startDateMoment; m.isBefore(endDateMoment); m.add(1, 'month')) {
+        for (const m = startDateMoment; m.isSameOrBefore(endDateMoment.endOf('month')); m.add(1, 'month')) {
             tables.push(`KysoActivityFeed-${m.year()}-${m.month() + 1}`)
         }
         if (query.sort.created_at === -1) {
