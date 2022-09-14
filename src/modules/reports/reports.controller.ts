@@ -1563,6 +1563,7 @@ export class ReportsController extends GenericController<Report> {
         summary: `Imports from S3 bucket Office documents based on its metadata`,
         description: `By passing the appropiate parameters you can import a bunch of reports`,
     })
+    @Public()
     @Permission([ReportPermissionsEnum.CREATE])
     async importOfficeFromS3(@Body() data: any): Promise<NormalizedResponseDTO<any>> {
         const allSettings: KysoSetting[] = await this.kysoSettingsService.getAll()
