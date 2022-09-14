@@ -2413,35 +2413,6 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return reportTags
     }
 
-    public async pullReport(token: Token, reportName: string, teamName: string, organizationId: string, version: number | null, response: any): Promise<void> {
-        let isGlobalAdmin = false
-        if (token.permissions.global?.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)) {
-            isGlobalAdmin = true
-        }
-
-        const team: Team = await this.teamsService.getUniqueTeam(organizationId, teamName)
-        if (!team) {
-            response.status(404).send(`Team '${teamName}' not found`)
-            return
-        }
-
-        const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id)
-        const index: number = teams.findIndex((t: Team) => t.id === team.id)
-        if (!isGlobalAdmin && index === -1) {
-            response.status(403).send(`User does not have permission to pull report ${reportName}`)
-            return
-        }
-
-        const reports: Report[] = await this.provider.read({ filter: { sluglified_name: reportName, team_id: team.id } })
-        if (reports.length === 0) {
-            response.status(404).send(`Report ${reportName} of team ${teamName} not found`)
-            return
-        }
-        const report: Report = reports[0]
-
-        this.returnZippedReport(report, version, response)
-    }
-
     public async downloadReport(reportId: string, version: number | null, response: any): Promise<void> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
@@ -2451,7 +2422,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         this.returnZippedReport(report, version, response)
     }
 
-    private async returnZippedReport(report: Report, version: number | null, response: any): Promise<void> {
+    public async returnZippedReport(report: Report, version: number | null, response: any): Promise<void> {
         const filter: any = { report_id: report.id }
         if (version) {
             filter.version = version
