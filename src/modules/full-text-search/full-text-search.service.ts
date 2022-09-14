@@ -273,6 +273,19 @@ export class FullTextSearchService extends AutowiredService {
         const filterPeople: string[] = emailSlugs.slugs
         const filterTags: string[] = tagSlugs.slugs
 
+        const requesterOrganizations = await this.organizationsService.getUserOrganizations(token.id);
+        const requesterTeamsVisible = await this.teamsService.getTeamsVisibleForUser(token.id);
+        const userBelongings = new Map<string, string[]>();
+
+        for(const organization of requesterOrganizations) {
+            const teams = requesterTeamsVisible.filter(x => x.organization_id === organization.id);
+            
+            if(teams) {
+                userBelongings.set(organization.sluglified_name, teams.map(x => x.sluglified_name));
+            }
+        }
+
+        /* NOW MANAGED BY THE QUERY
         if (organizationSlugs.slugs.length > 0) {
             for (const organizationSlug of organizationSlugs.slugs) {
                 const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationSlug } })
@@ -384,7 +397,6 @@ export class FullTextSearchService extends AutowiredService {
                 }
             }
         }
-
         // Discard non-unique
         const uniqueTeams = new Set(filterTeams);
         filterTeams = Array.from(uniqueTeams);
@@ -402,9 +414,9 @@ export class FullTextSearchService extends AutowiredService {
         if (filterTeams.length === 0) {
             return fullTextSearchDTO
         }
-
-        const aggregateData: AggregateData = await this.aggregateData(token, searchTerms, filterOrganizations, filterTeams, filterPeople, filterTags)
-        const aggregations: Aggregations = aggregateData.aggregations
+        */
+        
+        
 
         const searchResults: SearchData = await this.searchV2(
             token,
@@ -416,7 +428,12 @@ export class FullTextSearchService extends AutowiredService {
             filterTeams,
             filterPeople,
             filterTags,
+            userBelongings
         )
+
+
+        const aggregateData: AggregateData = await this.aggregateData(token, searchTerms, filterOrganizations, filterTeams, filterPeople, filterTags)
+        const aggregations: Aggregations = aggregateData.aggregations
 
         // Reports
         if (aggregations?.type) {
@@ -657,27 +674,63 @@ export class FullTextSearchService extends AutowiredService {
         filterTeams: string[],
         filterPeople: string[],
         filterTags: string[],
+        userBelongings?: Map<string, string[]>,
     ): Promise<SearchData> {
         const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL)
         const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_search`
         
+        const belongingsQuery = [];
+        
+        if(userBelongings) {
+            for(const organization of userBelongings.keys()) {
+                const queryTerm = {
+                    bool: {
+                        must: [
+                            { term: { "organizationSlug.keyword": organization } },
+                            { terms: { "teamSlug.keyword": userBelongings.get(organization) } }
+                        ]
+                    }
+                }
+
+                belongingsQuery.push(queryTerm);
+            }
+        }
+
+        console.log(belongingsQuery.map(x => x))
+
         const body: any = {
             from: (page - 1) * perPage,
             size: perPage,
             query: {
                 bool: {
-                    must: [
+                    should: [
                         { match: { content: { query: terms, operator: "AND" } } },    
                     ],
-                    filter: [
-                        { terms: { "type": [entity] } },
-                        { terms: { "organizationSlug.keyword": filterOrgs  } },
-                        { terms: { "teamSlug.keyword": filterTeams  } }
-                    ],
+                    filter: {
+                        bool: {
+                            should: [
+                                { term: { isPublic: "true" } },
+                            ],
+                            must: [ 
+                                { terms: { "type.keyword": [entity] } },
+                            ]
+                        }
+                    }
                 },
             },
+            _source: [
+                "entityId", "filePath", "isPublic", "link", "organizationSlug", "people",
+	            "tags", "teamSlug", "title", "type", "version"
+            ],
+            highlight : { 
+                order : "score",
+                fields : {
+                  "content": { "number_of_fragments" : 1, "fragment_size" : 150 }
+                }
+            }  
         }
 
+        body.query.bool.filter.bool.should = [...body.query.bool.filter.bool.should, ...belongingsQuery];
         console.log(JSON.stringify(body));
 
         try {
