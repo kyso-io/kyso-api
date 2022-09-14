@@ -503,28 +503,28 @@ export class FullTextSearchService extends AutowiredService {
         }
 
         if (type === ElasticSearchIndex.Report) {
-            reportsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({
+            reportsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
                 ...hit._source,
                 score: hit._score,
-                // content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
+                content: hit.highlight.content
             }))
         } else if (type === ElasticSearchIndex.Discussion) {
-            discussionsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({
+            discussionsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
                 ...hit._source,
                 score: hit._score,
-                // content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
+                content: hit.highlight.content
             }))
         } else if (type === ElasticSearchIndex.Comment) {
-            commentsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({
+            commentsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
                 ...hit._source,
                 score: hit._score,
-                // content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
+                content: hit.highlight.content
             }))
         } else if (type === ElasticSearchIndex.User) {
-            membersFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({
+            membersFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
                 ...hit._source,
                 score: hit._score,
-                // content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
+                content: hit.highlight.content
             }))
         }
 
@@ -727,7 +727,27 @@ export class FullTextSearchService extends AutowiredService {
                 fields : {
                   "content": { "number_of_fragments" : 1, "fragment_size" : 150 }
                 }
-            }  
+            },
+            "aggs": {
+                "collapsed_hits": {
+                  "cardinality": {
+                    "field": "entityId.keyword"
+                  }
+                },
+                "type": {
+                  "terms": {
+                    "field": "type.keyword",
+                    "size": 10000
+                  },
+                  "aggs": {
+                    "collapsed_hits": {
+                      "cardinality": {
+                        "field": "entityId.keyword"
+                      }
+                    }
+                  }
+                }   
+            },
         }
 
         body.query.bool.filter.bool.should = [...body.query.bool.filter.bool.should, ...belongingsQuery];
