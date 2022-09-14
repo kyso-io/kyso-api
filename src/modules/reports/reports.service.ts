@@ -886,7 +886,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 // If not, use the uploaderUser as author
                 authors = [uploaderUser.id]
             }
-            
+
             report = await this.provider.update(
                 { _id: this.provider.toObjectId(report.id) },
                 {
@@ -900,7 +900,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             )
         } else {
             Logger.log(`Creating new report '${name}'`, ReportsService.name)
-            const authors: string[] = [uploaderUser.id]
+            const authors: string[] = []
             if (kysoConfigFile.authors && Array.isArray(kysoConfigFile.authors)) {
                 for (const email of kysoConfigFile.authors) {
                     const author: User = await this.usersService.getUser({
@@ -917,6 +917,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
                         }
                     }
                 }
+            } else {
+                // Only set requester as author if there are not authors set
+                authors.push(uploaderUser.id);
             }
             // New report
             report = new Report(
