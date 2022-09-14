@@ -42,7 +42,7 @@ import {
     User,
     UserAccount,
 } from '@kyso-io/kyso-model'
-import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import { Octokit } from '@octokit/rest'
 import * as AdmZip from 'adm-zip'
@@ -753,7 +753,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 } = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString())
                 if (!data.valid) {
                     Logger.error(`An error occurred parsing kyso.json`, data.message, ReportsService.name)
-                    throw new PreconditionFailedException(`An error occurred parsing kyso.json: ${data.message}`)
+                    throw new BadRequestException(`An error occurred parsing kyso.json: ${data.message}`)
                 }
                 kysoConfigFile = data.kysoConfigFile
                 break
@@ -765,7 +765,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 } = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString())
                 if (!data.valid) {
                     Logger.error(`An error occurred parsing kyso.{yml,yaml}`, data.message, ReportsService.name)
-                    throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}: ${data.message}`)
+                    throw new BadRequestException(`An error occurred parsing kyso.{yml,yaml}: ${data.message}`)
                 }
                 kysoConfigFile = data.kysoConfigFile
                 break
@@ -773,13 +773,13 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         if (!kysoConfigFile) {
             Logger.error(`No kyso.{yml,yaml,json} file found`, ReportsService.name)
-            throw new PreconditionFailedException(`No kyso.{yml,yaml,json} file found`)
+            throw new BadRequestException(`No kyso.{yml,yaml,json} file found`)
         }
 
         const { valid, message } = KysoConfigFile.isValid(kysoConfigFile)
         if (!valid) {
             Logger.error(`Kyso config file is not valid: ${message}`, ReportsService.name)
-            throw new PreconditionFailedException(`Kyso config file is not valid: ${message}`)
+            throw new BadRequestException(`Kyso config file is not valid: ${message}`)
         }
 
         if (kysoConfigFile.type === ReportType.Meta) {
@@ -793,13 +793,13 @@ export class ReportsService extends AutowiredService implements GenericService<R
         })
         if (!organization) {
             Logger.error(`Organization ${kysoConfigFile.organization} not found`, ReportsService.name)
-            throw new PreconditionFailedException(`Organization ${kysoConfigFile.organization} not found`)
+            throw new NotFoundException(`Organization ${kysoConfigFile.organization} not found`)
         }
 
         const team: Team = await this.teamsService.getUniqueTeam(organization.id, kysoConfigFile.team)
         if (!team) {
             Logger.error(`Team ${kysoConfigFile.team} does not exist`)
-            throw new PreconditionFailedException(`Team ${kysoConfigFile.team} does not exist`)
+            throw new NotFoundException(`Team ${kysoConfigFile.team} does not exist`)
         }
         const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
         if (!userHasPermission) {
@@ -816,7 +816,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         if (!mainFileFound) {
             Logger.error(`Main file ${kysoConfigFile.main} not found`, ReportsService.name)
-            throw new PreconditionFailedException(`Main file ${kysoConfigFile.main} not found`)
+            throw new BadRequestException(`Main file ${kysoConfigFile.main} not found`)
         }
 
         let extractedDir = null
