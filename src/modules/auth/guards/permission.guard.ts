@@ -76,19 +76,20 @@ export class PermissionsGuard implements CanActivate {
                 },
             })
 
-            let teamObject: Team = null;
-            
-            if(team) {
-                teamObject = await this.teamsService.getUniqueTeam(organizationObject.id, team);
-            } 
+            let teamObject: Team = null
+
+            if (team) {
+                teamObject = await this.teamsService.getUniqueTeam(organizationObject.id, team)
+            }
 
             const permissionToActivateEndpoint = this.reflector.getAllAndOverride<any>(PERMISSION_KEY, [context.getHandler(), context.getClass()])
 
             return AuthService.hasPermissions(
-                tokenPayload, 
-                permissionToActivateEndpoint, 
-                teamObject ? teamObject.id : null, 
-                organizationObject.id)
+                tokenPayload,
+                permissionToActivateEndpoint,
+                teamObject ? teamObject.id : null,
+                organizationObject ? organizationObject.id : null,
+            )
         } catch (ex) {
             Logger.error(`Error checking permissions`, ex)
             return false
