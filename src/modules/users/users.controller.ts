@@ -142,9 +142,17 @@ export class UsersController extends GenericController<User> {
         description: `Allows fetching access tokens of an user`,
     })
     @ApiResponse({ status: 200, description: `Access tokens`, type: KysoUserAccessToken, isArray: true })
-    async getAccessTokens(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
-        const tokens: KysoUserAccessToken[] = await this.usersService.getAccessTokens(token.id)
-        return new NormalizedResponseDTO(tokens)
+    @Public()
+    async getAccessTokens(
+        @Headers('authorization') jwtToken: string,
+        @CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+            
+        if(this.authService.evaluateAndDecodeToken(jwtToken.replace("Bearer ", ""))) {
+            const tokens: KysoUserAccessToken[] = await this.usersService.getAccessTokens(token.id)
+            return new NormalizedResponseDTO(tokens)
+        } else {
+            throw new ForbiddenException("Your token can't be validated");
+        }
     }
 
     @Post('/access-token')
@@ -160,20 +168,21 @@ export class UsersController extends GenericController<User> {
         @CurrentToken() token: Token,
         @Body() accessTokenConfiguration: CreateKysoAccessTokenDto,
     ): Promise<NormalizedResponseDTO<KysoUserAccessToken>> {
-        if(this.authService.evaluateAndDecodeToken(jwtToken)) {
-            // TODO: get the right permissions for the user
-            const permissions: KysoPermissions[] = []
+        if(this.authService.evaluateAndDecodeToken(jwtToken.replace("Bearer ", ""))) {
+            // TODO: Now the token has the same permissions that the user, but in the future we can create
+            // tokens with a specific scope
+            const scope: KysoPermissions[] = []
+
             const response: KysoUserAccessToken = await this.usersService.createKysoAccessToken(
                 token.id,
                 accessTokenConfiguration.name,
-                permissions,
+                scope,
                 accessTokenConfiguration.expiration_date,
             )
             return new NormalizedResponseDTO(response)
         } else {
             throw new ForbiddenException("Your token can't be validated");
         }
-        
     }
 
     @Patch('/access-token/revoke-all')
@@ -183,9 +192,17 @@ export class UsersController extends GenericController<User> {
         description: `Revoke all user access tokens`,
     })
     @ApiResponse({ status: 200, description: `Access Tokens deleted successfully`, type: KysoUserAccessToken, isArray: true })
-    async revokeAllUserAccessToken(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
-        const result: KysoUserAccessToken[] = await this.usersService.revokeAllUserAccessToken(token.id)
-        return new NormalizedResponseDTO(result)
+    @Public()
+    async revokeAllUserAccessToken(
+        @Headers('authorization') jwtToken: string,
+        @CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+
+        if(this.authService.evaluateAndDecodeToken(jwtToken.replace("Bearer ", ""))) {
+            const result: KysoUserAccessToken[] = await this.usersService.revokeAllUserAccessToken(token.id)
+            return new NormalizedResponseDTO(result)
+        } else {
+            throw new ForbiddenException("Your token can't be validated");
+        }
     }
 
     @Delete('/access-token/:accessTokenId')
@@ -201,15 +218,22 @@ export class UsersController extends GenericController<User> {
         schema: { type: 'string' },
     })
     @ApiResponse({ status: 200, description: `Access Token deleted successfully`, type: KysoUserAccessToken })
+    @Public()
     async deleteUserAccessToken(
+        @Headers('authorization') jwtToken: string,
         @CurrentToken() token: Token,
         @Param('accessTokenId') accessTokenId: string,
     ): Promise<NormalizedResponseDTO<KysoUserAccessToken>> {
         if (!Validators.isValidObjectId(accessTokenId)) {
             throw new BadRequestException(`Invalid access token id ${accessTokenId}`)
         }
-        const result: KysoUserAccessToken = await this.usersService.deleteKysoAccessToken(token.id, accessTokenId)
-        return new NormalizedResponseDTO(result)
+
+        if(this.authService.evaluateAndDecodeToken(jwtToken.replace("Bearer ", ""))) {
+            const result: KysoUserAccessToken = await this.usersService.deleteKysoAccessToken(token.id, accessTokenId)
+            return new NormalizedResponseDTO(result)
+        } else {
+            throw new ForbiddenException("Your token can't be validated");
+        }
     }
 
     @Get('/:userId')
@@ -224,16 +248,23 @@ export class UsersController extends GenericController<User> {
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
-    @Permission([UserPermissionsEnum.READ])
-    async getUserById(@Param('userId') userId: string): Promise<NormalizedResponseDTO<UserDTO>> {
+    @Public()
+    async getUserById(
+        @Headers('authorization') jwtToken: string,
+        @Param('userId') userId: string): Promise<NormalizedResponseDTO<UserDTO>> {
         if (!Validators.isValidObjectId(userId)) {
             throw new BadRequestException(`Invalid user id ${userId}`)
         }
-        const user: User = await this.usersService.getUserById(userId)
-        if (!user) {
-            throw new NotFoundException(`User with id ${userId} not found`)
+
+        if(this.authService.evaluateAndDecodeToken(jwtToken.replace("Bearer ", ""))) {
+            const user: User = await this.usersService.getUserById(userId)
+            if (!user) {
+                throw new NotFoundException(`User with id ${userId} not found`)
+            }
+            return new NormalizedResponseDTO(UserDTO.fromUser(user))
+        } else {
+            throw new ForbiddenException("Your token can't be validated");
         }
-        return new NormalizedResponseDTO(UserDTO.fromUser(user))
     }
 
     @Get('/:username/profile')
