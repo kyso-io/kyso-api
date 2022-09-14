@@ -727,6 +727,39 @@ export class ReportsService extends AutowiredService implements GenericService<R
         await this.provider.update(filter, { $inc: { views: 1 } })
     }
 
+    private async processAuthors(kysoFileAuthors: string[], uploaderUser: User, team: Team): Promise<string[]> {
+        let authors: string[] = []
+            
+        // If there is a list of authors, stick to that list
+        if (kysoFileAuthors && Array.isArray(kysoFileAuthors)) {
+            for (const email of kysoFileAuthors) {
+                const author: User = await this.usersService.getUser({
+                    filter: {
+                        email,
+                    },
+                })
+                if (author) {
+                    const teams: Team[] = await this.teamsService.getTeamsForController(author.id, { filter: {} })
+                    const indexTeam: number = teams.findIndex((t: Team) => t.id === team.id)
+                    if (indexTeam > -1 || team.visibility === TeamVisibilityEnum.PUBLIC) {
+                        authors.push(author.id)
+                    }
+                }
+            }
+        } else {
+            // If not, use the uploaderUser as author
+            authors = [uploaderUser.id]
+        }
+
+        if (authors.length === 0) {
+            // That means, no valid authors have been placed, so we put automatically the uploader
+            Logger.warn(`Authors provided doesn't exist at Kyso. Setting requester ${uploaderUser.display_name} as author`)
+            authors.push(uploaderUser.id);
+        }
+
+        return authors;
+    }
+
     public async createKysoReport(userId: string, file: Express.Multer.File): Promise<Report | Report[]> {
         Logger.log('Creating report')
         const uploaderUser: User = await this.usersService.getUserById(userId)
@@ -828,8 +861,11 @@ export class ReportsService extends AutowiredService implements GenericService<R
         let report: Report = null
         const reportPath: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.REPORT_PATH)
         let isNew = false
+
         if (reports.length > 0) {
-            // Existing report
+            /**
+             * THE REPORT EXISTS, EDIT IT
+             */
             report = reports[0]
             const lastVersion: number = await this.getLastVersionOfReport(report.id)
             version = lastVersion + 1
@@ -864,29 +900,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
                 }
             }
-            let authors: string[] = []
-            
-            // If there is a list of authors, stick to that list
-            if (kysoConfigFile.authors && Array.isArray(kysoConfigFile.authors)) {
-                for (const email of kysoConfigFile.authors) {
-                    const author: User = await this.usersService.getUser({
-                        filter: {
-                            email,
-                        },
-                    })
-                    if (author) {
-                        const teams: Team[] = await this.teamsService.getTeamsForController(author.id, { filter: {} })
-                        const indexTeam: number = teams.findIndex((t: Team) => t.id === team.id)
-                        if (indexTeam > -1 || team.visibility === TeamVisibilityEnum.PUBLIC) {
-                            authors.push(author.id)
-                        }
-                    }
-                }
-            } else {
-                // If not, use the uploaderUser as author
-                authors = [uploaderUser.id]
-            }
 
+            let authors: string[] = await this.processAuthors(kysoConfigFile.authors, uploaderUser, team);
+            
             report = await this.provider.update(
                 { _id: this.provider.toObjectId(report.id) },
                 {
@@ -899,34 +915,13 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 },
             )
         } else {
+             /**
+             * THE REPORT IS NEW, CREATE IT
+             */
             Logger.log(`Creating new report '${name}'`, ReportsService.name)
-            const authors: string[] = []
-            if (kysoConfigFile.authors && Array.isArray(kysoConfigFile.authors)) {
-                for (const email of kysoConfigFile.authors) {
-                    const author: User = await this.usersService.getUser({
-                        filter: {
-                            email,
-                        },
-                    })
-                    if (author) {
-                        const indexAuthor: number = authors.indexOf(author.id)
-                        const teams: Team[] = await this.teamsService.getTeamsForController(author.id, { filter: {} })
-                        const indexTeam: number = teams.findIndex((t: Team) => t.id === team.id)
-                        if (indexAuthor === -1 && (indexTeam > -1 || team.visibility === TeamVisibilityEnum.PUBLIC)) {
-                            authors.push(author.id)
-                        }
-                    }
-                }
-
-                if (authors.length === 0) {
-                    // That means, no valid authors have been placed, so we put automatically the uploader
-                    Logger.warn(`Authors provided doesn't exist at Kyso. Setting requester ${uploaderUser.display_name} as author`)
-                    authors.push(uploaderUser.id);
-                }
-            } else {
-                // Only set requester as author if there are not authors set
-                authors.push(uploaderUser.id);
-            }
+            
+            let authors: string[] = await this.processAuthors(kysoConfigFile.authors, uploaderUser, team);
+            
             // New report
             report = new Report(
                 name,
@@ -2860,31 +2855,36 @@ export class ReportsService extends AutowiredService implements GenericService<R
     }
 
     private async uploadReportToFtp(reportId: string, sourcePath: string): Promise<void> {
-        // fix kyso-ui#551-556
-        this.preprocessHtmlFiles(sourcePath)
-        // end fix
+        try {
+            // fix kyso-ui#551-556
+            this.preprocessHtmlFiles(sourcePath)
+            // end fix
 
-        const report: Report = await this.getReportById(reportId)
-        let version: number = await this.getLastVersionOfReport(reportId)
-        version = Math.max(1, version)
-        const team: Team = await this.teamsService.getTeamById(report.team_id)
-        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-        const client: Client = await this.sftpService.getClient()
-        const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
-        const destinationPath = join(
-            sftpDestinationFolder,
-            `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`,
-        )
-        const existsPath: boolean | string = await client.exists(destinationPath)
-        if (!existsPath) {
-            Logger.log(`Directory ${destinationPath} does not exist. Creating...`, ReportsService.name)
-            await client.mkdir(destinationPath, true)
-            Logger.log(`Created directory ${destinationPath} in ftp`, ReportsService.name)
+            const report: Report = await this.getReportById(reportId)
+            let version: number = await this.getLastVersionOfReport(reportId)
+            version = Math.max(1, version)
+            const team: Team = await this.teamsService.getTeamById(report.team_id)
+            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            const client: Client = await this.sftpService.getClient()
+            const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+            const destinationPath = join(
+                sftpDestinationFolder,
+                `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`,
+            )
+            const existsPath: boolean | string = await client.exists(destinationPath)
+            
+            if (!existsPath) {
+                Logger.log(`Directory ${destinationPath} does not exist. Creating...`, ReportsService.name)
+                await client.mkdir(destinationPath, true)
+                Logger.log(`Created directory ${destinationPath} in ftp`, ReportsService.name)
+            }
+
+            const result: string = await client.uploadDir(sourcePath, destinationPath)
+            Logger.log(result, ReportsService.name)
+            await client.end()
+        } catch(ex) {
+            Logger.error("Error uploading report to ftp", ex);
         }
-
-        const result: string = await client.uploadDir(sourcePath, destinationPath)
-        Logger.log(result, ReportsService.name)
-        await client.end()
     }
 
     private async deleteReportFromFtp(reportId: string): Promise<void> {
