@@ -250,15 +250,19 @@ export class FullTextSearchService extends AutowiredService {
         // Reports
         const reportsFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0)
         const reportsFullTextSearchResultType: FullTextSearchResultType = new FullTextSearchResultType([], [], [], [], reportsFullTextSearchMetadata)
+        
         // Discussions
         const discussionsFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0)
         const discussionsFullTextSearchResultType: FullTextSearchResultType = new FullTextSearchResultType([], [], [], [], discussionsFullTextSearchMetadata)
+        
         // Comments
         const commentsFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0)
         const commentsFullTextSearchResultType: FullTextSearchResultType = new FullTextSearchResultType([], [], [], [], commentsFullTextSearchMetadata)
+        
         // Members
         const membersFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0)
         const membersFullTextSearchResultType: FullTextSearchResultType = new FullTextSearchResultType([], [], [], [], membersFullTextSearchMetadata)
+        
         // Result
         const fullTextSearchDTO: FullTextSearchDTO = new FullTextSearchDTO(
             reportsFullTextSearchResultType,
@@ -721,12 +725,12 @@ export class FullTextSearchService extends AutowiredService {
                 "entityId", "filePath", "isPublic", "link", "organizationSlug", "people",
 	            "tags", "teamSlug", "title", "type", "version"
             ],
-            highlight : { 
+            /*highlight : { 
                 order : "score",
                 fields : {
                   "content": { "number_of_fragments" : 1, "fragment_size" : 150 }
                 }
-            },
+            },*/
             "aggs": {
                 "type": {
                   "terms": {
