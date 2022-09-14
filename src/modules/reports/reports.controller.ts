@@ -1086,6 +1086,7 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to pull',
         schema: { type: 'string' },
     })
+    @Public()
     async downloadReport(
         @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
         @Headers(HEADER_X_KYSO_TEAM) teamName: string,
@@ -1095,9 +1096,11 @@ export class ReportsController extends GenericController<Report> {
         @Res() response: any,
     ): Promise<any> {
         const report: Report = await this.reportsService.getReportById(reportId)
+
         if (!report) {
             throw new PreconditionFailedException('Report not found')
         }
+        
         const {team, organization} = await this.authService.retrieveOrgAndTeamFromSlug(organizationName, teamName);
         
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
