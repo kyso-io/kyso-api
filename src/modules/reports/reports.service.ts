@@ -729,9 +729,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
     public async createKysoReport(userId: string, file: Express.Multer.File): Promise<Report | Report[]> {
         Logger.log('Creating report')
-        const user: User = await this.usersService.getUserById(userId)
-        Logger.log(`By user: ${user.email}`)
-        const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
+        const uploaderUser: User = await this.usersService.getUserById(userId)
+        Logger.log(`By user: ${uploaderUser.email}`)
+        const isGlobalAdmin: boolean = uploaderUser.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN)
         Logger.log(`is global admin?: ${isGlobalAdmin}`)
 
         const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH)
@@ -783,7 +783,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
 
         if (kysoConfigFile.type === ReportType.Meta) {
-            return this.createMultipleKysoReports(kysoConfigFile, tmpDir, zip, user)
+            return this.createMultipleKysoReports(kysoConfigFile, tmpDir, zip, uploaderUser)
         }
 
         const organization: Organization = await this.organizationsService.getOrganization({
@@ -803,8 +803,8 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
         if (!userHasPermission) {
-            Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
-            throw new PreconditionFailedException(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+            Logger.error(`User ${uploaderUser.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+            throw new PreconditionFailedException(`User ${uploaderUser.username} does not have permission to create report in team ${kysoConfigFile.team}`)
         }
 
         let mainFileFound = false
@@ -864,7 +864,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
                 }
             }
-            const authors: string[] = [user.id]
+            let authors: string[] = []
+            
+            // If there is a list of authors, stick to that list
             if (kysoConfigFile.authors && Array.isArray(kysoConfigFile.authors)) {
                 for (const email of kysoConfigFile.authors) {
                     const author: User = await this.usersService.getUser({
@@ -880,6 +882,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
                         }
                     }
                 }
+            } else {
+                // If not, use the uploaderUser as author
+                authors = [uploaderUser.id]
             }
             report = await this.provider.update(
                 { _id: this.provider.toObjectId(report.id) },
@@ -894,7 +899,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             )
         } else {
             Logger.log(`Creating new report '${name}'`, ReportsService.name)
-            const authors: string[] = [user.id]
+            const authors: string[] = [uploaderUser.id]
             if (kysoConfigFile.authors && Array.isArray(kysoConfigFile.authors)) {
                 for (const email of kysoConfigFile.authors) {
                     const author: User = await this.usersService.getUser({
@@ -995,7 +1000,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
             if (isNew) {
                 NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE, {
-                    user,
+                    user: uploaderUser,
                     organization,
                     team,
                     report,
@@ -1003,7 +1008,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 })
             } else {
                 NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEventEnum.REPORTS_NEW_VERSION, {
-                    user,
+                    user: uploaderUser,
                     organization,
                     team,
                     report,
