@@ -416,8 +416,6 @@ export class FullTextSearchService extends AutowiredService {
         }
         */
         
-        
-
         const searchResults: SearchData = await this.searchV2(
             token,
             searchTerms,
@@ -431,6 +429,7 @@ export class FullTextSearchService extends AutowiredService {
             userBelongings
         )
 
+        /*
         const aggregateData: AggregateData = await this.aggregateData(
             token, searchTerms, filterOrganizations, filterTeams, filterPeople, filterTags)
         const aggregations: Aggregations = aggregateData.aggregations
@@ -501,7 +500,7 @@ export class FullTextSearchService extends AutowiredService {
                 }
             })
         }
-
+*/
         if (type === ElasticSearchIndex.Report) {
             reportsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
                 ...hit._source,
@@ -729,22 +728,10 @@ export class FullTextSearchService extends AutowiredService {
                 }
             },
             "aggs": {
-                "collapsed_hits": {
-                  "cardinality": {
-                    "field": "entityId.keyword"
-                  }
-                },
                 "type": {
                   "terms": {
                     "field": "type.keyword",
                     "size": 10000
-                  },
-                  "aggs": {
-                    "collapsed_hits": {
-                      "cardinality": {
-                        "field": "entityId.keyword"
-                      }
-                    }
                   }
                 }   
             },
