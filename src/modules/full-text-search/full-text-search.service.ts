@@ -431,8 +431,8 @@ export class FullTextSearchService extends AutowiredService {
             userBelongings
         )
 
-
-        const aggregateData: AggregateData = await this.aggregateData(token, searchTerms, filterOrganizations, filterTeams, filterPeople, filterTags)
+        const aggregateData: AggregateData = await this.aggregateData(
+            token, searchTerms, filterOrganizations, filterTeams, filterPeople, filterTags)
         const aggregations: Aggregations = aggregateData.aggregations
 
         // Reports
@@ -506,25 +506,25 @@ export class FullTextSearchService extends AutowiredService {
             reportsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({
                 ...hit._source,
                 score: hit._score,
-                content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
+                // content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
             }))
         } else if (type === ElasticSearchIndex.Discussion) {
             discussionsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({
                 ...hit._source,
                 score: hit._score,
-                content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
+                // content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
             }))
         } else if (type === ElasticSearchIndex.Comment) {
             commentsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({
                 ...hit._source,
                 score: hit._score,
-                content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
+                // content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
             }))
         } else if (type === ElasticSearchIndex.User) {
             membersFullTextSearchResultType.results = searchResults.hits.hits.map((hit: Hit) => ({
                 ...hit._source,
                 score: hit._score,
-                content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
+                // content: hit._source.content.length > 700 ? hit._source.content.substring(0, 700) + '...' : hit._source.content,
             }))
         }
 
