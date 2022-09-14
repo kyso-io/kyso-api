@@ -32,6 +32,9 @@ export class GoogleLoginProvider extends BaseLoginProvider {
                     Authorization: `Bearer ${tokens.id_token}`,
                 },
             })
+
+            console.log(googleUser);
+
             let user = await this.usersService.getUser({
                 filter: { username: googleUser.email },
             })

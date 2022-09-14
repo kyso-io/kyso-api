@@ -360,6 +360,7 @@ export class FullTextSearchService extends AutowiredService {
                 }
             } else {
                 const teams: Team[] = await this.teamsService.getTeams({ filter: { visibility: TeamVisibilityEnum.PUBLIC } })
+                
                 for (const team of teams) {
                     filterTeams.push(team.sluglified_name)
                 }
@@ -369,7 +370,11 @@ export class FullTextSearchService extends AutowiredService {
 
                 for(const orgId of organizationIds) {
                     const org: Organization = await this.organizationsService.getOrganizationById(orgId);
-                    filterOrganizations.push(org.sluglified_name);
+
+                    if(org && org.sluglified_name) {
+                        filterOrganizations.push(org.sluglified_name);
+                    }
+                    
                 }
             }
         }

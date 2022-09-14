@@ -886,6 +886,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 // If not, use the uploaderUser as author
                 authors = [uploaderUser.id]
             }
+            
             report = await this.provider.update(
                 { _id: this.provider.toObjectId(report.id) },
                 {
