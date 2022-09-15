@@ -38,7 +38,7 @@ export class BitbucketLoginProvider extends BaseLoginProvider {
             // Get user's detail
             // Check if the user exists in database, and if not, create it
             let user: User = await this.usersService.getUser({
-                filter: { username: bitbucketUser.username },
+                filter: { email: bitbucketUser.email },
             })
             if (!user) {
                 // User does not exists, create it
