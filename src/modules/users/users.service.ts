@@ -167,7 +167,7 @@ export class UsersService extends AutowiredService {
             'free',
             null,
             null,
-            false,
+            true,
             [],
             AuthService.hashPassword(signUpDto.password),
             null,
@@ -181,7 +181,7 @@ export class UsersService extends AutowiredService {
         const organizationName: string = user.display_name.charAt(0).toUpperCase() + user.display_name.slice(1)
         const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], user.email, '', '', true, '', '', '', '', uuidv4(), user.id)
         Logger.log(`Creating new organization ${newOrganization.sluglified_name}`)
-        
+
         const organizationDb: Organization = await this.organizationsService.createOrganization(token, newOrganization)
 
         // Create user team
