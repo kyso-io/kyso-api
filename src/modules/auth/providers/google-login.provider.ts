@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt'
 import axios from 'axios'
 import { google } from 'googleapis'
 import { ObjectId } from 'mongodb'
+import slug from 'src/helpers/slugify'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../../decorators/autowired'
 import { UsersService } from '../../users/users.service'
@@ -45,9 +46,10 @@ export class GoogleLoginProvider extends BaseLoginProvider {
                     name = `${googleUser.given_name} ${googleUser.family_name}`
                 }
                 Logger.log(`User ${googleUser.email} is a new user`, GoogleLoginProvider.name)
+                
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
                     googleUser.email,
-                    googleUser.email,
+                    slug(googleUser.email),
                     name,
                     googleUser.name,
                     LoginProviderEnum.GOOGLE,

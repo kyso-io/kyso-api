@@ -1,6 +1,7 @@
 import { CreateUserRequestDTO, Login, LoginProviderEnum } from '@kyso-io/kyso-model'
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
+import slug from 'src/helpers/slugify'
 import { Autowired } from '../../../decorators/autowired'
 import { UsersService } from '../../users/users.service'
 import { BaseLoginProvider } from './base-login.provider'
@@ -29,7 +30,7 @@ export class PingIdLoginProvider extends BaseLoginProvider {
                 Logger.log(`User ${login.email} is a new user`)
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
                     login.email,
-                    login.email,
+                    slug(login.email),
                     name,
                     name,
                     LoginProviderEnum.PING_ID_SAML,
@@ -39,7 +40,7 @@ export class PingIdLoginProvider extends BaseLoginProvider {
                     'free',
                     portrait,
                     null,
-                    false,
+                    true,   // If comes from PingID is an enterprise user, that means we can assume is verified
                     [],
                     login.password,
                 )

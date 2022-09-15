@@ -149,11 +149,11 @@ export class OrganizationsService extends AutowiredService {
             '',
             '',
             uuidv4(),
-            null,
+            null
         )
 
         // The name of this organization exists?
-        const organizations: Organization[] = await this.provider.read({ filter: { sluglified_name: organization.sluglified_name } })
+        const organizations: Organization[] = await this.provider.read({ filter: { display_name: organization.display_name } })
 
         if (organizations.length > 0) {
             let i = organizations.length + 1
