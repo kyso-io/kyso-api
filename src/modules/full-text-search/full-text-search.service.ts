@@ -234,15 +234,20 @@ export class FullTextSearchService extends AutowiredService {
     }
 
     private calculateMetadata(type: string, page: number, perPage: number, metadata: any): FullTextSearchMetadata {
-        const numberOfReports = metadata.aggregations.type.buckets.filter(x => x.key === type);
+        if(metadata) {
+            const numberOfReports = metadata.aggregations.type.buckets.filter(x => x.key === type);
             
-        let total = 0;
-        if(numberOfReports && numberOfReports.length > 0) {
-            total = numberOfReports[0].doc_count;
-        }
+            let total = 0;
+            if(numberOfReports && numberOfReports.length > 0) {
+                total = numberOfReports[0].doc_count;
+            }
 
-        return new FullTextSearchMetadata(
-            page, Math.ceil(total/perPage), perPage, total)
+            return new FullTextSearchMetadata(
+                page, Math.ceil(total/perPage), perPage, total)
+        } else {
+            return new FullTextSearchMetadata(1, 1, 10, 10);
+        }
+        
     }
 
     public async fullTextSearch(token: Token, searchTerms: string, page: number, perPage: number, type: ElasticSearchIndex): Promise<FullTextSearchDTO> {
@@ -403,6 +408,8 @@ export class FullTextSearchService extends AutowiredService {
         }
 
         body.query.bool.filter.bool.should = [...body.query.bool.filter.bool.should, ...belongingsQuery];
+
+        console.log(JSON.stringify(body));
 
         try {
             const response = await axios.post(url, body)
