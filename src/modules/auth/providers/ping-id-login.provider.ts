@@ -48,6 +48,7 @@ export class PingIdLoginProvider extends BaseLoginProvider {
 
             return await this.createToken(user)
         } catch (e) {
+            Logger.error("Exception login with PingID", e);
             console.log(e)
             throw new UnauthorizedException('Invalid credentials')
         }
