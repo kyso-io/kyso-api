@@ -1,4 +1,4 @@
-import { ElasticSearchIndex, FullTextSearchDTO, GlobalPermissionsEnum, KysoSettingsEnum, NormalizedResponseDTO, Tag, Token } from '@kyso-io/kyso-model'
+import { ElasticSearchIndex, FullTextSearchDTO, FullTextSearchMetadata, FullTextSearchResultType, GlobalPermissionsEnum, KysoSettingsEnum, NormalizedResponseDTO, Tag, Token } from '@kyso-io/kyso-model'
 import { BadRequestException, Controller, Get, Logger, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import axios, { AxiosResponse } from 'axios'
@@ -57,15 +57,24 @@ export class FullTextSearchController {
         @Query('page') page: number,
         @Query('perPage') perPage: number,
         @Query('type') type: string,
-    ): Promise<NormalizedResponseDTO<FullTextSearchDTO>> {        
-        const fullTextSearchDTO: FullTextSearchDTO = await this.fullTextSearchService.fullTextSearch(
-            token,
-            searchTerms,
-            page,
-            perPage,
-            type as ElasticSearchIndex,
-        )
-        return new NormalizedResponseDTO(fullTextSearchDTO, null)
+    ): Promise<NormalizedResponseDTO<FullTextSearchDTO>> {    
+        if(searchTerms) {
+            const fullTextSearchDTO: FullTextSearchDTO = await this.fullTextSearchService.fullTextSearch(
+                token,
+                searchTerms,
+                page,
+                perPage,
+                type as ElasticSearchIndex,
+            )
+            return new NormalizedResponseDTO(fullTextSearchDTO, null)
+        } else {
+            const emptyMeta: FullTextSearchMetadata = new FullTextSearchMetadata(page, 0, perPage, 0);
+            const emptyResult: FullTextSearchResultType = new FullTextSearchResultType([],[],[],[], emptyMeta);
+            const fullTextSearchDTO: FullTextSearchDTO = new FullTextSearchDTO(emptyResult, emptyResult, emptyResult, emptyResult);
+            
+            return new NormalizedResponseDTO(fullTextSearchDTO, null);
+        }
+        
     }
 
     @Get('/reindex')
