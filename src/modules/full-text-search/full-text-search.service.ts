@@ -486,6 +486,7 @@ export class FullTextSearchService extends AutowiredService {
 
         body.query.bool.filter.bool.should = [...body.query.bool.filter.bool.should, ...belongingsQuery];
         
+        
         console.log(JSON.stringify(body));
 
         try {
