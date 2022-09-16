@@ -479,7 +479,7 @@ export class FullTextSearchService extends AutowiredService {
             highlight : { 
                 order : "score",
                 fields : {
-                  "content": { "number_of_fragments" : 1, "fragment_size" : 150 }
+                  "content": { "number_of_fragments" : 1, "fragment_size" : 150, "max_analyzed_offset": 99999 }
                 }
             }
         }
