@@ -523,8 +523,7 @@ export class OrganizationsService extends AutowiredService {
                     user,
                     organization,
                     emailsCentralized,
-                    previousRole: member.role_names[0],
-                    currentRole: element.role,
+                    role: element.role,
                     frontendUrl,
                 })
             }
