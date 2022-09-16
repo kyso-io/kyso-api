@@ -492,7 +492,8 @@ export class FullTextSearchService extends AutowiredService {
             const response = await axios.post(url, body)
             return response.data
         } catch (e: any) {
-            Logger.error(`Error while aggregating data`, e, FullTextSearchService.name)
+            Logger.error(`Error searching data`, e, FullTextSearchService.name);
+            console.log(e);
             return null
         }
     }
