@@ -112,7 +112,11 @@ export class ReportsController extends GenericController<Report> {
     @Autowired({ typeName: 'AuthService' })
     private authService: AuthService
 
-    constructor(private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider) {
+    constructor(
+        private readonly emailVerifiedGuard: EmailVerifiedGuard,
+        private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider,
+        private readonly solvedCaptchaGuard: SolvedCaptchaGuard,
+    ) {
         super()
     }
 
@@ -1063,7 +1067,7 @@ export class ReportsController extends GenericController<Report> {
     }
 
     @Get('/:reportId/download')
-    @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+    // @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
         summary: `Download a report from SCS`,
         description: `Download a report from SCS. This will download all files from SCS in zip format.`,
@@ -1081,24 +1085,31 @@ export class ReportsController extends GenericController<Report> {
     })
     @Public()
     async downloadReport(
-        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
-        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
         @Param('reportId') reportId: string,
         @Query('version') versionStr: string,
+        @Req() request: any,
         @Res() response: any,
     ): Promise<any> {
         const report: Report = await this.reportsService.getReportById(reportId)
-
         if (!report) {
-            throw new PreconditionFailedException('Report not found')
+            throw new NotFoundException('Report not found')
         }
-        
-        const { team, organization } = await this.authService.retrieveOrgAndTeamFromSlug(organizationName, teamName)
-
-        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team.id, organization.id)
-            if (!hasPermissions) {
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (!team) {
+            throw new NotFoundException('Team not found')
+        }
+        if (token) {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+                const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team.id, team.organization_id)
+                if (!hasPermissions) {
+                    throw new ForbiddenException('You do not have permissions to access this report')
+                }
+            }
+            await this.emailVerifiedGuard.validate(request)
+            await this.solvedCaptchaGuard.validate(request)
+        } else {
+            if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
         }
