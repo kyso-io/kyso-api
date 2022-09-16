@@ -2441,10 +2441,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         const reportFiles: File[] = await this.filesMongoProvider.read({ filter })
         if (reportFiles.length === 0) {
-            response.status(404).send(`Report '${report.sluglified_name}' does not have version '${filter.version}'`)
+            response.status(404).send(new NotFoundException(`Report ${report.sluglified_name} does not have files`))
             return
         }
-
         const zip: AdmZip = new AdmZip()
         Logger.log(`Report '${report.sluglified_name}': downloading ${reportFiles.length} files from Ftp...`, ReportsService.name)
         const team: Team = await this.teamsService.getTeamById(report.team_id)
@@ -2470,11 +2469,8 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const result = await client.downloadDir(destinationPath, localPath)
         Logger.log(result, ReportsService.name)
         zip.addLocalFolder(localPath)
-
         response.set('Content-Disposition', `attachment; filename=${report.id}.zip`)
         response.set('Content-Type', 'application/zip')
-        // response.send(zip.toBuffer())
-        // Logger.log(`Report '${report.sluglified_name}': zip sent to user`, ReportsService.name)
         const zipFilePath = join(localPath, `${report.id}.zip`)
         zip.writeZip(zipFilePath)
         response.download(zipFilePath, `${report.id}.zip`, () => {
@@ -2924,7 +2920,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         const files: File[] = await this.filesMongoProvider.read(query)
         if (files.length === 0) {
-            return 0
+            return 1
         }
         return files[0].version
     }
