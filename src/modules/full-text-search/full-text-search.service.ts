@@ -236,7 +236,7 @@ export class FullTextSearchService extends AutowiredService {
     private calculateMetadata(type: string, page: number, perPage: number, metadata: any): FullTextSearchMetadata {
         if(metadata) {
             const numberOfReports = metadata.aggregations.type.buckets.filter(x => x.key === type);
-            
+
             let total = 0;
             if(numberOfReports && numberOfReports.length > 0) {
                 total = numberOfReports[0].doc_count;
@@ -381,11 +381,11 @@ export class FullTextSearchService extends AutowiredService {
         }
 
         const body: any = {
-            from: 1,
+            from: 0,
             size: 0,
             query: {
                 bool: {
-                    should: [
+                    must: [
                         { match: { content: { query: terms, operator: "AND" } } },    
                     ],
                     filter: {
@@ -403,7 +403,7 @@ export class FullTextSearchService extends AutowiredService {
                     "field": "type.keyword",
                     "size": 10000
                   }
-                }   
+                }
             },
         }
 
@@ -457,29 +457,27 @@ export class FullTextSearchService extends AutowiredService {
             size: perPage,
             query: {
                 bool: {
-                    should: [
-                        { match: { content: { query: terms, operator: "AND" } } },    
+                    must: [
+                        { match: { content: { query: terms, operator: "AND" } } },
+                        { terms: { "type.keyword": [entity] } },
                     ],
                     filter: {
                         bool: {
                             should: [
                                 { term: { isPublic: "true" } },
                             ],
-                            must: [ 
-                                { terms: { "type.keyword": [entity] } },
-                            ]
                         }
                     }
                 },
             },
             _source: [
                 "entityId", "filePath", "isPublic", "link", "organizationSlug", "people",
-	            "tags", "teamSlug", "title", "type", "version"
+                "tags", "teamSlug", "title", "type", "version"
             ],
-            highlight : { 
+            highlight : {
                 order : "score",
                 fields : {
-                  "content": { "number_of_fragments" : 1, "fragment_size" : 150, "max_analyzed_offset": 99999 }
+                    content: { "number_of_fragments" : 1, "fragment_size" : 150, "max_analyzed_offset": 99999 }
                 }
             }
         }
