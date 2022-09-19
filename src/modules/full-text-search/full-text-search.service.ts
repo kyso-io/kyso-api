@@ -381,7 +381,7 @@ export class FullTextSearchService extends AutowiredService {
         }
 
         const body: any = {
-            from: 1,
+            from: 0,
             size: 0,
             query: {
                 bool: {
@@ -476,15 +476,13 @@ export class FullTextSearchService extends AutowiredService {
                 bool: {
                     must: [
                         { match: { content: { query: terms, operator: "AND" } } },
+                        { terms: { "type.keyword": [entity] } },
                     ],
                     filter: {
                         bool: {
                             should: [
                                 { term: { isPublic: "true" } },
                             ],
-                            must: [ 
-                                { terms: { "type.keyword": [entity] } },
-                            ]
                         }
                     }
                 },
