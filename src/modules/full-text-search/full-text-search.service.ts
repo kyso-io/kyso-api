@@ -457,8 +457,8 @@ export class FullTextSearchService extends AutowiredService {
             size: perPage,
             query: {
                 bool: {
-                    should: [
-                        { match: { content: { query: terms, operator: "AND" } } },    
+                    must: [
+                        { match: { content: { query: terms, operator: "AND" } } },
                     ],
                     filter: {
                         bool: {
@@ -474,12 +474,21 @@ export class FullTextSearchService extends AutowiredService {
             },
             _source: [
                 "entityId", "filePath", "isPublic", "link", "organizationSlug", "people",
-	            "tags", "teamSlug", "title", "type", "version"
+                "tags", "teamSlug", "title", "type", "version"
             ],
+            collapse: {
+                field: "fileRef.keyword",
+                inner_hits: {
+                    name: "max_version",
+                    size: 1,
+                    sort: [ { version: "desc" } ],
+                    _source: false
+                }
+            },
             highlight : { 
                 order : "score",
                 fields : {
-                  "content": { "number_of_fragments" : 1, "fragment_size" : 150, "max_analyzed_offset": 99999 }
+                    content: { "number_of_fragments" : 1, "fragment_size" : 150, "max_analyzed_offset": 99999 }
                 }
             }
         }
