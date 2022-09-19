@@ -235,11 +235,11 @@ export class FullTextSearchService extends AutowiredService {
 
     private calculateMetadata(type: string, page: number, perPage: number, metadata: any): FullTextSearchMetadata {
         if(metadata) {
-            const numberOfReports = metadata.aggregations.type.buckets.filter(x => x.key === type);
+            const bucketData = metadata.aggregations.type.buckets.filter(x => x.key === type);
             
             let total = 0;
-            if(numberOfReports && numberOfReports.length > 0) {
-                total = numberOfReports[0].doc_count;
+            if(bucketData && bucketData.length > 0) {
+                total = bucketData[0].collapsed_hits.value;
             }
 
             return new FullTextSearchMetadata(
@@ -385,7 +385,7 @@ export class FullTextSearchService extends AutowiredService {
             size: 0,
             query: {
                 bool: {
-                    should: [
+                    must: [
                         { match: { content: { query: terms, operator: "AND" } } },    
                     ],
                     filter: {
@@ -397,13 +397,30 @@ export class FullTextSearchService extends AutowiredService {
                     }
                 },
             },
-            "aggs": {
-                "type": {
-                  "terms": {
-                    "field": "type.keyword",
-                    "size": 10000
-                  }
-                }   
+            collapse: {
+                field: "fileRef.keyword",
+                inner_hits: {
+                    name: "max_version",
+                    size: 1,
+                    sort: [ { version: "desc" } ],
+                    _source: false
+                }
+            },
+            aggs: {
+                collapsed_hits: {
+                        cardinality: { field: "fileRef.keyword" }
+                },
+                type: {
+                    terms: {
+                        field: "type.keyword",
+                        size: 10000
+                    },
+                    aggs: {
+                        collapsed_hits: {
+                            cardinality: { field: "fileRef.keyword" }
+                        }
+                    }
+                }
             },
         }
 
