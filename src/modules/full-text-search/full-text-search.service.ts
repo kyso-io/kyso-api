@@ -501,7 +501,7 @@ export class FullTextSearchService extends AutowiredService {
             }
         }
 
-        # Add collapse for reports
+        // Add collapse for reports
         if (entity === ElasticSearchIndex.Report) {
             body.collapse = {
                 field: "fileRef.keyword",
