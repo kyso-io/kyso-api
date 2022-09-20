@@ -452,7 +452,15 @@ export class CommentsService extends AutowiredService {
                 return null
             }
             team = await this.teamsService.getTeamById(report.team_id)
+            if (!team) {
+                Logger.error(`Team ${report.team_id} could not be found for comment ${comment.comment_id}`, CommentsService.name)
+                return null
+            }
             organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            if (!organization) {
+                Logger.error(`Organization ${team.organization_id} could not be found for team ${team.id} and comment ${comment.comment_id}`, CommentsService.name)
+                return null
+            }
             kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC
             kysoIndex.link = `/${organization.sluglified_name}/${team.sluglified_name}/${report.sluglified_name}`
         } else if (comment.discussion_id) {
@@ -462,7 +470,15 @@ export class CommentsService extends AutowiredService {
                 return null
             }
             team = await this.teamsService.getTeamById(discussion.team_id)
+            if (!team) {
+                Logger.error(`Team ${discussion.team_id} could not be found for comment ${comment.comment_id}`, CommentsService.name)
+                return null
+            }
             organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            if (!organization) {
+                Logger.error(`Organization ${team.organization_id} could not be found for team ${team.id} and comment ${comment.comment_id}`, CommentsService.name)
+                return null
+            }
             kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC
             kysoIndex.link = `/${organization.sluglified_name}/${team.sluglified_name}/discussions/${discussion.id}`
         }
