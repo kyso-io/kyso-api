@@ -1,4 +1,14 @@
-import { ElasticSearchIndex, FullTextSearchDTO, FullTextSearchMetadata, FullTextSearchResultType, GlobalPermissionsEnum, KysoSettingsEnum, NormalizedResponseDTO, Tag, Token } from '@kyso-io/kyso-model'
+import {
+    ElasticSearchIndex,
+    FullTextSearchDTO,
+    FullTextSearchMetadata,
+    FullTextSearchResultType,
+    GlobalPermissionsEnum,
+    KysoSettingsEnum,
+    NormalizedResponseDTO,
+    Tag,
+    Token,
+} from '@kyso-io/kyso-model'
 import { BadRequestException, Controller, Get, Logger, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import axios, { AxiosResponse } from 'axios'
@@ -57,8 +67,8 @@ export class FullTextSearchController {
         @Query('page') page: number,
         @Query('perPage') perPage: number,
         @Query('type') type: string,
-    ): Promise<NormalizedResponseDTO<FullTextSearchDTO>> {    
-        if(searchTerms) {
+    ): Promise<NormalizedResponseDTO<FullTextSearchDTO>> {
+        if (searchTerms) {
             const fullTextSearchDTO: FullTextSearchDTO = await this.fullTextSearchService.fullTextSearch(
                 token,
                 searchTerms,
@@ -68,13 +78,12 @@ export class FullTextSearchController {
             )
             return new NormalizedResponseDTO(fullTextSearchDTO, null)
         } else {
-            const emptyMeta: FullTextSearchMetadata = new FullTextSearchMetadata(page, 0, perPage, 0);
-            const emptyResult: FullTextSearchResultType = new FullTextSearchResultType([],[],[],[], emptyMeta);
-            const fullTextSearchDTO: FullTextSearchDTO = new FullTextSearchDTO(emptyResult, emptyResult, emptyResult, emptyResult);
-            
-            return new NormalizedResponseDTO(fullTextSearchDTO, null);
+            const emptyMeta: FullTextSearchMetadata = new FullTextSearchMetadata(page, 0, perPage, 0)
+            const emptyResult: FullTextSearchResultType = new FullTextSearchResultType([], [], [], [], emptyMeta)
+            const fullTextSearchDTO: FullTextSearchDTO = new FullTextSearchDTO(emptyResult, emptyResult, emptyResult, emptyResult)
+
+            return new NormalizedResponseDTO(fullTextSearchDTO, null)
         }
-        
     }
 
     @Get('/reindex')
@@ -86,6 +95,21 @@ export class FullTextSearchController {
     @ApiNormalizedResponse({ status: 200, description: `Search results`, type: Tag, isArray: true })
     @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
     public async reindex(@Query('pathToIndex') pathToIndex: string) {
+        this.reindexReports(pathToIndex)
+        this.reindexUsers()
+        this.reindexDiscussions()
+        this.reindexComments()
+    }
+
+    @Get('/reindex-reports')
+    @ApiOperation({
+        summary: `Reindex reports`,
+        description: `Reindex reports`,
+    })
+    @ApiQuery({ name: 'pathToIndex', required: true, description: '/sftp/data/scs' })
+    @ApiNormalizedResponse({ status: 200, description: `Search results`, type: Tag, isArray: true })
+    @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
+    public async reindexReports(@Query('pathToIndex') pathToIndex: string) {
         if (!pathToIndex) {
             throw new BadRequestException('pathToIndex is required')
         }
