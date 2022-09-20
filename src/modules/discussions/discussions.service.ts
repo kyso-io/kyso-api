@@ -192,7 +192,9 @@ export class DiscussionsService extends AutowiredService implements GenericServi
         )
 
         const kysoIndex: KysoIndex = await this.discussionToKysoIndex(discussion)
-        this.fullTextSearchService.updateDocument(kysoIndex)
+        if (kysoIndex) {
+            this.fullTextSearchService.updateDocument(kysoIndex)
+        }
 
         return discussion
     }
@@ -208,7 +210,9 @@ export class DiscussionsService extends AutowiredService implements GenericServi
         )
 
         const kysoIndex: KysoIndex = await this.discussionToKysoIndex(discussion)
-        this.fullTextSearchService.updateDocument(kysoIndex)
+        if (kysoIndex) {
+            this.fullTextSearchService.updateDocument(kysoIndex)
+        }
 
         return discussion
     }
@@ -227,12 +231,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
             throw new NotFoundException('Organization not found')
         }
         if (discussion.user_id !== token.id) {
-            const hasPermissions: boolean = AuthService.hasPermissions(
-                token,
-                [DiscussionPermissionsEnum.EDIT],
-                team.id,
-                organization.id,
-            )
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [DiscussionPermissionsEnum.EDIT], team.id, organization.id)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to update this discussion')
             }
@@ -349,7 +348,9 @@ export class DiscussionsService extends AutowiredService implements GenericServi
         })
 
         const kysoIndex: KysoIndex = await this.discussionToKysoIndex(discussion)
-        this.fullTextSearchService.updateDocument(kysoIndex)
+        if (kysoIndex) {
+            this.fullTextSearchService.updateDocument(kysoIndex)
+        }
 
         return discussion
     }
@@ -389,7 +390,18 @@ export class DiscussionsService extends AutowiredService implements GenericServi
 
     private async discussionToKysoIndex(discussion: Discussion): Promise<KysoIndex> {
         const team: Team = await this.teamsService.getTeamById(discussion.team_id)
+        if (!team) {
+            Logger.error(`Team '${discussion.team_id}' not found for discussion '${discussion.id}'`, DiscussionsService.name)
+            return null
+        }
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        if (!organization) {
+            Logger.error(
+                `Organization '${team.organization_id}' not found for team '${discussion.id}' and discussion '${discussion.id}'`,
+                DiscussionsService.name,
+            )
+            return null
+        }
         let users: User[] = []
         if (discussion.participants) {
             users = await this.usersService.getUsers({
@@ -420,6 +432,10 @@ export class DiscussionsService extends AutowiredService implements GenericServi
     private async indexDiscussion(discussion: Discussion): Promise<any> {
         Logger.log(`Indexing discussion '${discussion.id} ${discussion.title}'...`, UsersService.name)
         const kysoIndex: KysoIndex = await this.discussionToKysoIndex(discussion)
-        return this.fullTextSearchService.indexDocument(kysoIndex)
+        if (kysoIndex) {
+            return this.fullTextSearchService.indexDocument(kysoIndex)
+        } else {
+            return null
+        }
     }
 }
