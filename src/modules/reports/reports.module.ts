@@ -1,6 +1,7 @@
 import { KysoSetting, KysoSettingsEnum } from '@kyso-io/kyso-model'
 import { DynamicModule } from '@nestjs/common'
 import { ClientsModule, Transport } from '@nestjs/microservices'
+import { NestjsFormDataModule } from 'nestjs-form-data'
 import { db } from '../../main'
 import { createLocalReportsProvider, LocalReportsService } from './local-reports.service'
 import { DraftReportsMongoProvider } from './providers/mongo-draft-reports.provider'
@@ -54,6 +55,7 @@ export class ReportsModule {
                         },
                     },
                 ]),
+                NestjsFormDataModule,
             ],
             controllers: [ReportsController],
             exports: [reportServiceDynamicProvider, localRepositoryDynamicProvider],
