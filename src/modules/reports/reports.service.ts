@@ -726,7 +726,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         let authors: string[] = []
             
         // If there is a list of authors, stick to that list
-        if (kysoFileAuthors && Array.isArray(kysoFileAuthors) && authors.length > 0) {
+        if (kysoFileAuthors && Array.isArray(kysoFileAuthors) && kysoFileAuthors.length > 0) {
             for (const email of kysoFileAuthors) {
                 const author: User = await this.usersService.getUser({
                     filter: {
