@@ -437,12 +437,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         if (team) {
             organization = await this.organizationsService.getOrganizationById(team.organization_id)
             if (organization) {
-                this.fullTextSearchService.deleteIndexedResults(
-                    organization.sluglified_name,
-                    team.sluglified_name,
-                    report.sluglified_name,
-                    ElasticSearchIndex.Report,
-                )
+                this.fullTextSearchService.deleteIndexedResults(organization.sluglified_name, team.sluglified_name, report.id, ElasticSearchIndex.Report)
             }
         }
 
