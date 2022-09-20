@@ -149,16 +149,6 @@ export class ReportsService extends AutowiredService implements GenericService<R
         @Inject('NATS_SERVICE') private client: ClientProxy,
     ) {
         super()
-        setTimeout(
-            () =>
-                this.makeHardLinksForReportInFtp([
-                    {
-                        source: '/lightside/protected-team/reports/a/1/prueba.txt',
-                        target: '/lightside/protected-team/reports/a/2/prueba.txt',
-                    },
-                ]),
-            2000,
-        )
     }
 
     checkOwnership(item: Report, requester: Token, organizationName: string, teamName: string): Promise<boolean> {
@@ -761,7 +751,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             Logger.warn(`Authors provided doesn't exist at Kyso. Setting requester ${uploaderUser.display_name} as author`)
             authors.push(uploaderUser.id)
         }
-
+        console.log(authors)
         return authors
     }
 
