@@ -1072,12 +1072,12 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-        const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
+        const userHasPermission: boolean = await this.checkCreateReportPermission(userId, team.sluglified_name)
         if (!userHasPermission) {
             Logger.error(
                 `User ${uploaderUser.username} does not have permission to create report in team ${team.sluglified_name} of the organization ${organization.sluglified_name}`,
             )
-            throw new PreconditionFailedException(
+            throw new ForbiddenException(
                 `User ${uploaderUser.username} does not have permission to create report in team ${team.sluglified_name} of the organization ${organization.sluglified_name}`,
             )
         }
@@ -1150,11 +1150,12 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     hardLinkFile = await this.filesMongoProvider.create(hardLinkFile)
                     const source: string = join(sftpDestinationFolder, file.path_scs)
                     const target: string = join(sftpDestinationFolder, hardLinkFile.path_scs)
-                    const resultRcopy: string = await client.rcopy(source, target)
-                    console.log(resultRcopy)
-                    // sftpWrapper.ext_openssh_hardlink('', '', () => {
-                    //     console.log('llega')
-                    // })
+                    sftpWrapper.ext_openssh_hardlink(source, target, () => {
+                        Logger.log(
+                            `Hard link created from '${source}' to '${target}' for report '${report.id} - ${report.sluglified_name}'`,
+                            ReportsService.name,
+                        )
+                    })
                 }
             }
             await client.end()
