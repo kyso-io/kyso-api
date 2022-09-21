@@ -58,6 +58,7 @@
         "moment": "^2.29.1",
         "mongodb": "^4.2.0",
         "nats": "^2.7.1",
+        "nestjs-form-data": "^1.8.3",
         "nestjs-redoc": "^2.2.2",
         "octokit": "^1.7.0",
         "prom-client": "^14.0.1",

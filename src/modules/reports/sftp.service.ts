@@ -1,5 +1,6 @@
 import { KysoSettingsEnum } from '@kyso-io/kyso-model'
 import { Injectable, Logger, Provider } from '@nestjs/common'
+import { SFTPWrapper } from 'ssh2'
 import * as Client from 'ssh2-sftp-client'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -26,16 +27,16 @@ export class SftpService extends AutowiredService {
         super()
     }
 
-    public async getClient(): Promise<Client> {
+    public async getClient(): Promise<{ client: Client; sftpWrapper: SFTPWrapper }> {
         try {
             const client: Client = new Client()
-            await client.connect({
+            const sftpWrapper: SFTPWrapper  = await client.connect({
                 host: await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_HOST),
                 port: parseInt(await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PORT), 10),
                 username: await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_USERNAME),
                 password: await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PASSWORD),
             })
-            return client
+            return { client, sftpWrapper }
         } catch (e) {
             Logger.error(`Failed to connect to SFTP server`, e, KysoSettingsService.name)
             return null

@@ -147,7 +147,7 @@ export class UsersService extends AutowiredService {
         // exists a prev user with same email?
         const userWithEmail: User = await this.getUser({ filter: { email: signUpDto.email.toLowerCase() } })
         if (userWithEmail) {
-            throw new ConflictException('User already exists')
+            throw new ConflictException('Email in use')
         }
         const isUsernameAvailable: boolean = await this.checkUsernameAvailability(signUpDto.username)
         if (!isUsernameAvailable) {

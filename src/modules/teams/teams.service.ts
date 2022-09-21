@@ -32,7 +32,6 @@ import { ClientProxy } from '@nestjs/microservices'
 import * as moment from 'moment'
 import { extname, join } from 'path'
 import { NATSHelper } from 'src/helpers/natsHelper'
-import * as Client from 'ssh2-sftp-client'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -810,7 +809,7 @@ export class TeamsService extends AutowiredService {
             throw new PreconditionFailedException(`You don't have permissions to upload markdown images to this team`)
         }
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-        const client: Client = await this.sftpService.getClient()
+        const { client } = await this.sftpService.getClient()
         const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
         const containerFolder = `/${organization.sluglified_name}/${team.sluglified_name}/markdown-images`
         const destinationPath = join(sftpDestinationFolder, containerFolder)

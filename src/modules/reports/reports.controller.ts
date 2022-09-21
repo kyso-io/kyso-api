@@ -39,6 +39,7 @@ import {
     Patch,
     Post,
     PreconditionFailedException,
+    Put,
     Query,
     Req,
     Res,
@@ -50,6 +51,7 @@ import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import axios, { AxiosResponse } from 'axios'
 import { ObjectId } from 'mongodb'
+import { FormDataRequest } from 'nestjs-form-data'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { Public } from '../../decorators/is-public'
@@ -69,6 +71,7 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { RelationsService } from '../relations/relations.service'
 import { TagsService } from '../tags/tags.service'
 import { TeamsService } from '../teams/teams.service'
+import { CreateKysoReportVersionDto } from './create-kyso-report-version.dto'
 import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider'
 import { ReportsService } from './reports.service'
 const aqp = require('api-query-params')
@@ -716,6 +719,31 @@ export class ReportsController extends GenericController<Report> {
         }
     }
 
+    @Put('/kyso/:reportId')
+    @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+    @ApiOperation({
+        summary: `Create a new report sending the files`,
+        description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
+    })
+    @ApiResponse({
+        status: 201,
+        description: `Create new version of report`,
+        type: ReportDTO,
+    })
+    @FormDataRequest()
+    @Permission([ReportPermissionsEnum.CREATE])
+    async updateKysoReport(
+        @CurrentToken() token: Token,
+        @Param('reportId') reportId: string,
+        @Body() createKysoReportVersionDto: CreateKysoReportVersionDto,
+    ): Promise<NormalizedResponseDTO<Report | Report[]>> {
+        Logger.log(`Called updateKysoReport`)
+        const data: Report = await this.reportsService.updateKysoReport(token.id, reportId, createKysoReportVersionDto)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(data, token.id)
+        const relations = await this.relationsService.getRelations(data, 'report', { Author: 'User' })
+        return new NormalizedResponseDTO(reportDto, relations)
+    }
+
     @Post('/ui')
     @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
     @ApiOperation({
@@ -1140,23 +1168,33 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
+    @Public()
     async getReportFiles(
-        @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
-        @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
         @Param('reportId') reportId: string,
-        @Query('version') version: string,
+        @Query('version') versionStr: string,
     ): Promise<NormalizedResponseDTO<File>> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
-            throw new PreconditionFailedException('Report not found')
+            throw new NotFoundException('Report not found')
         }
-        const { team, organization } = await this.authService.retrieveOrgAndTeamFromSlug(organizationName, teamName)
+        const team: Team = await this.teamsService.getTeamById(report.team_id)
+        if (!team) {
+            throw new NotFoundException('Team not found')
+        }
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        if (!organization) {
+            throw new NotFoundException('Organization not found')
+        }
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
             const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team.id, organization.id)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
+        }
+        let version: number | null = 0
+        if (versionStr && !isNaN(versionStr as any)) {
+            version = parseInt(versionStr, 10)
         }
         const files: File[] = await this.reportsService.getReportFiles(reportId, version)
         return new NormalizedResponseDTO(files)
@@ -1358,6 +1396,7 @@ export class ReportsController extends GenericController<Report> {
         @CurrentToken() token: Token,
         @Param('teamId') teamId: string,
         @Param('reportSlug') reportSlug: string,
+        @Query('version') versionStr: string,
     ): Promise<NormalizedResponseDTO<ReportDTO>> {
         const team: Team = await this.teamsService.getTeamById(teamId)
         if (!team) {
@@ -1384,9 +1423,13 @@ export class ReportsController extends GenericController<Report> {
         if (!report) {
             throw new NotFoundException('Report not found')
         }
+        let version: number | null = null
+        if (versionStr && !isNaN(Number(versionStr))) {
+            version = parseInt(versionStr, 10)
+        }
         await this.reportsService.increaseViews({ _id: new ObjectId(report.id) })
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
-        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token?.id)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token?.id, version)
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
