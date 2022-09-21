@@ -259,14 +259,13 @@ export class OrganizationsController extends GenericController<Organization> {
     @Public()
     @ApiNormalizedResponse({ status: 201, description: `Created organization`, type: Organization })
     async createOrganization(@CurrentToken() token: Token, @Body() createOrganizationDto: CreateOrganizationDto): Promise<NormalizedResponseDTO<Organization>> {
-        const slugName = slug(createOrganizationDto.display_name);
-        const existsOrganization = this.organizationService.getOrganizationBySlugName(slugName);
-
-        if(!existsOrganization) {
+        const slugName = slug(createOrganizationDto.display_name)
+        const existsOrganization: Organization = await this.organizationService.getOrganizationBySlugName(slugName)
+        if (!existsOrganization) {
             const organization: Organization = await this.organizationService.createOrganization(token, createOrganizationDto)
-            return new NormalizedResponseDTO(organization);
+            return new NormalizedResponseDTO(organization)
         } else {
-            throw new PreconditionFailedException("This organization already exists at Kyso");
+            throw new PreconditionFailedException('This organization already exists at Kyso')
         }
     }
 
