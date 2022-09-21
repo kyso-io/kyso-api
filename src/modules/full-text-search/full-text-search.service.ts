@@ -236,16 +236,18 @@ export class FullTextSearchService extends AutowiredService {
     private calculateMetadata(type: string, page: number, perPage: number, metadata: any): FullTextSearchMetadata {
         if(metadata) {
             const bucketData = metadata.aggregations.type.buckets.filter(x => x.key === type);
-            
             let total = 0;
             if(bucketData && bucketData.length > 0) {
-                total = bucketData[0].collapsed_hits.value;
+                if (type == 'report') {
+                    total = bucketData[0].collapsed_hits.value;
+                } else {
+                    total = bucketData[0].doc_count;
+                }
             }
-
             return new FullTextSearchMetadata(
                 page, Math.ceil(total/perPage), perPage, total)
         } else {
-            return new FullTextSearchMetadata(1, 1, 10, 10);
+            return new FullTextSearchMetadata(0, 0, 0, 0);
         }
         
     }
@@ -491,19 +493,23 @@ export class FullTextSearchService extends AutowiredService {
                 "entityId", "filePath", "isPublic", "link", "organizationSlug", "people",
                 "tags", "teamSlug", "title", "type", "version"
             ],
-            collapse: {
+            highlight : {
+                order : "score",
+                fields : {
+                    content: { "number_of_fragments" : 1, "fragment_size" : 150, "max_analyzed_offset": 99999 }
+                }
+            }
+        }
+
+        // Add collapse for reports
+        if (entity === ElasticSearchIndex.Report) {
+            body.collapse = {
                 field: "fileRef.keyword",
                 inner_hits: {
                     name: "max_version",
                     size: 1,
                     sort: [ { version: "desc" } ],
                     _source: false
-                }
-            },
-            highlight : { 
-                order : "score",
-                fields : {
-                    content: { "number_of_fragments" : 1, "fragment_size" : 150, "max_analyzed_offset": 99999 }
                 }
             }
         }
