@@ -380,7 +380,7 @@ export class OrganizationsService extends AutowiredService {
             // Check if member has the role
             if (!member.role_names.includes(addUserOrganizationDto.role)) {
                 member.role_names.push(addUserOrganizationDto.role)
-                await this.organizationMemberProvider.updateOne({ _id: this.provider.toObjectId(member.id) }, { role_names: member.role_names })
+                await this.organizationMemberProvider.updateOne({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [member.role_names] } })
             }
         } else {
             const newMember: OrganizationMemberJoin = new OrganizationMemberJoin(organization.id, user.id, [addUserOrganizationDto.role], true)

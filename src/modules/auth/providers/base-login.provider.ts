@@ -1,4 +1,4 @@
-import { AddUserAccountDTO, AddUserOrganizationDto, CreateUserRequestDTO, GithubEmail, KysoRole, KysoSettingsEnum, Login, LoginProviderEnum, Organization, Token, User, UserAccount } from '@kyso-io/kyso-model'
+import { AddUserOrganizationDto, KysoSettingsEnum, Organization, Token, User, UserAccount } from '@kyso-io/kyso-model'
 import { Injectable, Logger } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { OrganizationsService } from 'src/modules/organizations/organizations.service'
@@ -15,7 +15,7 @@ export class BaseLoginProvider {
     protected kysoSettingsService: KysoSettingsService
 
     constructor(protected readonly jwtService: JwtService) {}
-    
+
     public async createToken(user: User): Promise<string> {
         const payload: Token = new Token(
             user.id.toString(),
@@ -36,45 +36,37 @@ export class BaseLoginProvider {
                 username: userAccount.username,
             })),
         )
-
-        const tokenExpirationTimeInHours = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN)
-
+        const tokenExpirationTimeInHours: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN)
         return this.jwtService.sign(
             { payload },
             {
-                // expiresIn: `${tokenExpirationTimeInHours}h`,
-                expiresIn: `1m`,
+                expiresIn: `${tokenExpirationTimeInHours}h`,
                 issuer: 'kyso',
             },
         )
     }
 
     public async addUserToOrganizationsAutomatically(user: User): Promise<void> {
-        const automaticOrgs = await this.kysoSettingsService.getValue(
-            KysoSettingsEnum.ADD_NEW_USERS_AUTOMATICALLY_TO_ORG
-        );
-
-        console.log(automaticOrgs)
-
-        if(automaticOrgs) {
+        const automaticOrgs = await this.kysoSettingsService.getValue(KysoSettingsEnum.ADD_NEW_USERS_AUTOMATICALLY_TO_ORG)
+        if (automaticOrgs) {
             Logger.log(`Adding ${user.email} as TEAM_READER automatically to the following orgs ${automaticOrgs}`)
-
-            const splittedOrgs = automaticOrgs.split(",");
-
-            for(const organizationSlug of splittedOrgs) {
+            const splittedOrgs = automaticOrgs.split(',')
+            for (const organizationSlug of splittedOrgs) {
                 const org: Organization = await this.organizationsService.getOrganization({
                     filter: {
                         sluglified_name: organizationSlug,
                     },
                 })
-
-                const member = new AddUserOrganizationDto();
-                member.organizationId = org.id;
-                member.role = PlatformRole.TEAM_READER_ROLE.name;
-                member.userId = user.id
-
-                await this.organizationsService.addMemberToOrganization(member);
+                if (!org) {
+                    Logger.error(`Organization ${organizationSlug} not found`)
+                    continue
+                }
+                const addUserOrganizationDto: AddUserOrganizationDto = new AddUserOrganizationDto()
+                addUserOrganizationDto.organizationId = org.id
+                addUserOrganizationDto.role = PlatformRole.TEAM_READER_ROLE.name
+                addUserOrganizationDto.userId = user.id
+                await this.organizationsService.addMemberToOrganization(addUserOrganizationDto)
             }
-        } 
+        }
     }
 }
