@@ -52,7 +52,7 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { CurrentToken } from './annotations/current-token.decorator'
-import { AuthService, TOKEN_EXPIRATION_HOURS } from './auth.service'
+import { AuthService } from './auth.service'
 import { PlatformRoleService } from './platform-role.service'
 import { UserRoleService } from './user-role.service'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -132,12 +132,13 @@ export class AuthController extends GenericController<string> {
     async login(@Body() login: Login, @Res() res): Promise<void> {
         const jwt: string = await this.authService.login(login)
         const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX)
+        const tokenExpirationTimeInHours = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN)
         res.cookie('kyso-jwt-token', jwt, {
             secure: process.env.NODE_ENV !== 'development',
             httpOnly: true,
             path: staticContentPrefix,
             sameSite: 'strict',
-            expires: moment().add(TOKEN_EXPIRATION_HOURS, 'hours').toDate(),
+            expires: moment().add(tokenExpirationTimeInHours, 'hours').toDate(),
         })
         res.send(new NormalizedResponseDTO(jwt))
     }

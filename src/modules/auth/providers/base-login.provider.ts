@@ -42,7 +42,8 @@ export class BaseLoginProvider {
         return this.jwtService.sign(
             { payload },
             {
-                expiresIn: `${tokenExpirationTimeInHours}h`,
+                // expiresIn: `${tokenExpirationTimeInHours}h`,
+                expiresIn: `1m`,
                 issuer: 'kyso',
             },
         )

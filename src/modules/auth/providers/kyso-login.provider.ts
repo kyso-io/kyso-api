@@ -1,9 +1,9 @@
-import { KysoUserAccessToken, Token, UserAccount } from '@kyso-io/kyso-model'
+import { KysoUserAccessToken } from '@kyso-io/kyso-model'
 import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { Autowired } from '../../../decorators/autowired'
 import { UsersService } from '../../users/users.service'
-import { AuthService, TOKEN_EXPIRATION_TIME } from '../auth.service'
+import { AuthService } from '../auth.service'
 import { BaseLoginProvider } from './base-login.provider'
 
 @Injectable()
@@ -28,7 +28,7 @@ export class KysoLoginProvider extends BaseLoginProvider {
         const isRightPassword = await AuthService.isPasswordCorrect(password, user.hashed_password)
 
         if (isRightPassword) {
-            return await this.createToken(user);
+            return await this.createToken(user)
         } else {
             throw new UnauthorizedException('Invalid credentials')
         }
@@ -37,8 +37,7 @@ export class KysoLoginProvider extends BaseLoginProvider {
     async loginWithAccessToken(access_token: string, username: string): Promise<string> {
         // Get user from database
         const user = await this.usersService.getUser({
-            filter: { email: username.toLowerCase()
-          },
+            filter: { email: username.toLowerCase() },
         })
         if (!user) {
             throw new UnauthorizedException('User does not exist')
@@ -49,7 +48,7 @@ export class KysoLoginProvider extends BaseLoginProvider {
         if (!dbAccessToken) {
             throw new UnauthorizedException('Invalid credentials')
         } else {
-            return await this.createToken(user);
+            return await this.createToken(user)
         }
     }
 }

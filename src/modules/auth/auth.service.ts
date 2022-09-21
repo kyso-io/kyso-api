@@ -38,9 +38,6 @@ import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provi
 import { PingIdLoginProvider } from './providers/ping-id-login.provider'
 import { UserRoleService } from './user-role.service'
 
-export const TOKEN_EXPIRATION_HOURS = 24
-export const TOKEN_EXPIRATION_TIME = `${TOKEN_EXPIRATION_HOURS}h`
-
 function factory(service: AuthService) {
     return service
 }
@@ -75,7 +72,7 @@ export class AuthService extends AutowiredService {
         private readonly jwtService: JwtService,
         private readonly kysoLoginProvider: KysoLoginProvider,
         private readonly pingIdLoginProvider: PingIdLoginProvider,
-        private readonly platformRoleProvider: PlatformRoleMongoProvider
+        private readonly platformRoleProvider: PlatformRoleMongoProvider,
     ) {
         super()
     }
@@ -86,15 +83,14 @@ export class AuthService extends AutowiredService {
                 sluglified_name: organizationSlug,
             },
         })
-    
-        const teamObject: Team = await this.teamsService.getUniqueTeam(organizationObject.id, teamSlug);
+
+        const teamObject: Team = await this.teamsService.getUniqueTeam(organizationObject.id, teamSlug)
 
         return {
             organization: organizationObject,
-            team: teamObject
+            team: teamObject,
         }
     }
-    
 
     static hashPassword(plainPassword: string): string {
         return bcrypt.hashSync(plainPassword)
@@ -198,7 +194,9 @@ export class AuthService extends AutowiredService {
                     const organization: Organization = await organizationService.getOrganization({ filter: { _id: objectId } })
 
                     if (organization?.allowed_access_domains && organization.allowed_access_domains.length > 0) {
-                        const allowedDomain: boolean = organization.allowed_access_domains.some((domain: string) => user.email.indexOf(domain.toLowerCase()) > -1)
+                        const allowedDomain: boolean = organization.allowed_access_domains.some(
+                            (domain: string) => user.email.indexOf(domain.toLowerCase()) > -1,
+                        )
                         if (!allowedDomain) {
                             continue
                         }
@@ -319,12 +317,12 @@ export class AuthService extends AutowiredService {
     }
 
     /**
-     * 
-     * @param tokenPayload 
-     * @param permissionToActivateEndpoint 
+     *
+     * @param tokenPayload
+     * @param permissionToActivateEndpoint
      * @param teamId teamSlugName ie: protected-team
      * @param organizationId organizationSlugName ie: lightside
-     * @returns 
+     * @returns
      */
     static hasPermissions(tokenPayload: Token, permissionToActivateEndpoint: KysoPermissions[], teamId: string, organizationId: string): boolean {
         if (!tokenPayload) {
@@ -484,13 +482,13 @@ export class AuthService extends AutowiredService {
      */
     evaluateAndDecodeToken(token: string): Token {
         try {
-            const tokenStatus: TokenStatusEnum = this.verifyToken(token);
+            const tokenStatus: TokenStatusEnum = this.verifyToken(token)
 
-            switch(tokenStatus) {
-                case TokenStatusEnum.VALID: 
-                    return this.decodeToken(token);
+            switch (tokenStatus) {
+                case TokenStatusEnum.VALID:
+                    return this.decodeToken(token)
                 default:
-                    return undefined;
+                    return undefined
             }
         } catch (ex) {
             // TOKEN IS NOT VALID
@@ -500,21 +498,20 @@ export class AuthService extends AutowiredService {
 
     decodeToken(token: string): Token {
         try {
-            const decodedToken = this.jwtService.decode(token);
-            return (decodedToken as any).payload as Token;
-        } catch(ex) {
-            return undefined;
+            const decodedToken = this.jwtService.decode(token)
+            return (decodedToken as any).payload as Token
+        } catch (ex) {
+            return undefined
         }
     }
-    
+
     verifyToken(token: string): TokenStatusEnum {
         try {
-            this.jwtService.verify(token);
-            return TokenStatusEnum.VALID;
-        } catch(ex) {
+            this.jwtService.verify(token)
+            return TokenStatusEnum.VALID
+        } catch (ex) {
             return ex.message as TokenStatusEnum
         }
-
     }
 
     public async refreshToken(token: Token): Promise<string> {
@@ -539,10 +536,11 @@ export class AuthService extends AutowiredService {
                 username: userAccount.username,
             })),
         )
+        const tokenExpirationTimeInHours = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN)
         return this.jwtService.sign(
             { payload },
             {
-                expiresIn: TOKEN_EXPIRATION_TIME,
+                expiresIn: `${tokenExpirationTimeInHours}h`,
                 issuer: 'kyso',
             },
         )
