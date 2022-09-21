@@ -976,46 +976,44 @@ export class ReportsService extends AutowiredService implements GenericService<R
             await this.checkReportTags(userId, report.id, kysoConfigFile.tags)
         }
 
-        new Promise<void>(async () => {
-            Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
-            await this.uploadReportToFtp(report.id, extractedDir)
-            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
-            Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
+        Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
+        await this.uploadReportToFtp(report.id, extractedDir)
+        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
+        Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
 
-            let files: string[] = await this.getFilePaths(extractedDir)
-            // Remove '/reportPath' from the paths
-            files = files.map((file: string) => file.replace(reportPath, ''))
+        let files: string[] = await this.getFilePaths(extractedDir)
+        // Remove '/reportPath' from the paths
+        files = files.map((file: string) => file.replace(reportPath, ''))
 
-            const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
-            const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
+        const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
+        const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
 
-            axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
-                () => {},
-                (err) => {
-                    Logger.warn(`${pathToIndex} was not indexed properly`, err)
-                },
-            )
+        axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
+            () => {},
+            (err) => {
+                Logger.warn(`${pathToIndex} was not indexed properly`, err)
+            },
+        )
 
-            const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
 
-            if (isNew) {
-                NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE, {
-                    user: uploaderUser,
-                    organization,
-                    team,
-                    report,
-                    frontendUrl,
-                })
-            } else {
-                NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEventEnum.REPORTS_NEW_VERSION, {
-                    user: uploaderUser,
-                    organization,
-                    team,
-                    report,
-                    frontendUrl,
-                })
-            }
-        })
+        if (isNew) {
+            NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE, {
+                user: uploaderUser,
+                organization,
+                team,
+                report,
+                frontendUrl,
+            })
+        } else {
+            NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEventEnum.REPORTS_NEW_VERSION, {
+                user: uploaderUser,
+                organization,
+                team,
+                report,
+                frontendUrl,
+            })
+        }
 
         return report
     }
@@ -1133,52 +1131,47 @@ export class ReportsService extends AutowiredService implements GenericService<R
             )
         }
 
-        new Promise<void>(async () => {
-            Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
-            await this.uploadReportToFtp(report.id, extractedDir)
+        Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
+        await this.uploadReportToFtp(report.id, extractedDir)
 
-            Logger.log(`Creating hard links for report '${report.id} ${report.sluglified_name}'...`, ReportsService.name)
-            const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
-            const { client, sftpWrapper } = await this.sftpService.getClient()
-            const reportFiles: File[] = await this.getReportFiles(report.id, lastVersion)
-            for (const fileId of createKysoReportVersionDto.unmodifiedFiles) {
-                const index: number = reportFiles.findIndex((file: File) => file.id === fileId)
-                if (index !== -1) {
-                    const file: File = reportFiles[index]
-                    const newPathScs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${file.name}`
-                    let hardLinkFile: File = new File(report.id, file.name, newPathScs, file.size, file.sha, version)
-                    hardLinkFile = await this.filesMongoProvider.create(hardLinkFile)
-                    const source: string = join(sftpDestinationFolder, file.path_scs)
-                    const target: string = join(sftpDestinationFolder, hardLinkFile.path_scs)
-                    sftpWrapper.ext_openssh_hardlink(source, target, () => {
-                        Logger.log(
-                            `Hard link created from '${source}' to '${target}' for report '${report.id} - ${report.sluglified_name}'`,
-                            ReportsService.name,
-                        )
-                    })
-                }
+        Logger.log(`Creating hard links for report '${report.id} ${report.sluglified_name}'...`, ReportsService.name)
+        const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+        const { client, sftpWrapper } = await this.sftpService.getClient()
+        const reportFiles: File[] = await this.getReportFiles(report.id, lastVersion)
+        for (const fileId of createKysoReportVersionDto.unmodifiedFiles) {
+            const index: number = reportFiles.findIndex((file: File) => file.id === fileId)
+            if (index !== -1) {
+                const file: File = reportFiles[index]
+                const newPathScs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${file.name}`
+                let hardLinkFile: File = new File(report.id, file.name, newPathScs, file.size, file.sha, version)
+                hardLinkFile = await this.filesMongoProvider.create(hardLinkFile)
+                const source: string = join(sftpDestinationFolder, file.path_scs)
+                const target: string = join(sftpDestinationFolder, hardLinkFile.path_scs)
+                sftpWrapper.ext_openssh_hardlink(source, target, () => {
+                    Logger.log(`Hard link created from '${source}' to '${target}' for report '${report.id} - ${report.sluglified_name}'`, ReportsService.name)
+                })
             }
-            await client.end()
-            Logger.log(`Report '${report.id} ${report.sluglified_name}': Files uploaded to Ftp`, ReportsService.name)
+        }
+        await client.end()
+        Logger.log(`Report '${report.id} ${report.sluglified_name}': Files uploaded to Ftp`, ReportsService.name)
 
-            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
-            Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
-            const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
-            const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
-            axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
-                () => {},
-                (err) => {
-                    Logger.warn(`${pathToIndex} was not indexed properly`, err)
-                },
-            )
-            const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-            NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEventEnum.REPORTS_NEW_VERSION, {
-                user: uploaderUser,
-                organization,
-                team,
-                report,
-                frontendUrl,
-            })
+        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
+        Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
+        const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
+        const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
+        axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
+            () => {},
+            (err) => {
+                Logger.warn(`${pathToIndex} was not indexed properly`, err)
+            },
+        )
+        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
+        NATSHelper.safelyEmit<KysoReportsNewVersionEvent>(this.client, KysoEventEnum.REPORTS_NEW_VERSION, {
+            user: uploaderUser,
+            organization,
+            team,
+            report,
+            frontendUrl,
         })
         return report
     }

@@ -1396,6 +1396,7 @@ export class ReportsController extends GenericController<Report> {
         @CurrentToken() token: Token,
         @Param('teamId') teamId: string,
         @Param('reportSlug') reportSlug: string,
+        @Query('version') versionStr: string,
     ): Promise<NormalizedResponseDTO<ReportDTO>> {
         const team: Team = await this.teamsService.getTeamById(teamId)
         if (!team) {
@@ -1422,9 +1423,13 @@ export class ReportsController extends GenericController<Report> {
         if (!report) {
             throw new NotFoundException('Report not found')
         }
+        let version: number | null = null
+        if (versionStr && !isNaN(Number(versionStr))) {
+            version = parseInt(versionStr, 10)
+        }
         await this.reportsService.increaseViews({ _id: new ObjectId(report.id) })
         const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' })
-        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token?.id)
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token?.id, version)
         return new NormalizedResponseDTO(reportDto, relations)
     }
 
