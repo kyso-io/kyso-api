@@ -751,7 +751,6 @@ export class ReportsService extends AutowiredService implements GenericService<R
             Logger.warn(`Authors provided doesn't exist at Kyso. Setting requester ${uploaderUser.display_name} as author`)
             authors.push(uploaderUser.id)
         }
-        console.log(authors)
         return authors
     }
 
@@ -1088,6 +1087,42 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const version: number = lastVersion + 1
         const extractedDir: string = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`)
         moveSync(tmpDir, extractedDir, { overwrite: true })
+
+        const reportFiles: File[] = await this.getReportFiles(report.id, lastVersion)
+        const map: Map<string, boolean> = new Map<string, boolean>()
+        const files: File[] = await this.getReportFiles(reportId, lastVersion)
+        for (const unmodifiedFile of createKysoReportVersionDto.unmodifiedFiles) {
+            const file: File = files.find((file: File) => file.id === unmodifiedFile)
+            if (!file) {
+                continue
+            }
+            const partsFile: string[] = file.path_scs.replace('/', '').split('/')
+            partsFile.splice(0, 5)
+            if (partsFile.length > 1) {
+                for (let i = 1; i < partsFile.length; i++) {
+                    const path: string = join(
+                        `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`,
+                        partsFile.slice(0, i).join('/'),
+                    )
+                    if (!map.has(path)) {
+                        map.set(path, true)
+                    }
+                }
+            }
+        }
+
+        const { client, sftpWrapper } = await this.sftpService.getClient()
+        const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
+        const existingFoldersPreviousVersion: string[] = Array.from(map.keys())
+
+        for (const existingFolderPreviousVersion of existingFoldersPreviousVersion) {
+            const destinationPath: string = join(sftpDestinationFolder, existingFolderPreviousVersion)
+            Logger.log(`Report '${report.id} - ${report.sluglified_name}': Creating in SCS the folder '${destinationPath}'`, ReportsService.name)
+            const result: string = await client.mkdir(destinationPath, true)
+            Logger.debug(result)
+            Logger.log(`Report '${report.id} - ${report.sluglified_name}': Folder '${destinationPath}' created`, ReportsService.name)
+        }
+
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Checking files...`, ReportsService.name)
         for (const entry of zip.getEntries()) {
             const originalName: string = entry.entryName
@@ -1135,9 +1170,6 @@ export class ReportsService extends AutowiredService implements GenericService<R
         await this.uploadReportToFtp(report.id, extractedDir)
 
         Logger.log(`Creating hard links for report '${report.id} ${report.sluglified_name}'...`, ReportsService.name)
-        const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
-        const { client, sftpWrapper } = await this.sftpService.getClient()
-        const reportFiles: File[] = await this.getReportFiles(report.id, lastVersion)
         for (const fileId of createKysoReportVersionDto.unmodifiedFiles) {
             const index: number = reportFiles.findIndex((file: File) => file.id === fileId)
             if (index !== -1) {
@@ -1147,9 +1179,17 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 hardLinkFile = await this.filesMongoProvider.create(hardLinkFile)
                 const source: string = join(sftpDestinationFolder, file.path_scs)
                 const target: string = join(sftpDestinationFolder, hardLinkFile.path_scs)
-                sftpWrapper.ext_openssh_hardlink(source, target, () => {
-                    Logger.log(`Hard link created from '${source}' to '${target}' for report '${report.id} - ${report.sluglified_name}'`, ReportsService.name)
-                })
+                const createHardLinkInSftp = () =>
+                    new Promise<void>((resolve) => {
+                        sftpWrapper.ext_openssh_hardlink(source, target, () => {
+                            Logger.log(
+                                `Hard link created from '${source}' to '${target}' for report '${report.id} - ${report.sluglified_name}'`,
+                                ReportsService.name,
+                            )
+                            resolve()
+                        })
+                    })
+                await createHardLinkInSftp()
             }
         }
         await client.end()
@@ -3004,7 +3044,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     private async uploadReportToFtp(reportId: string, sourcePath: string): Promise<void> {
         try {
             // fix kyso-ui#551-556
-            this.preprocessHtmlFiles(sourcePath)
+            await this.preprocessHtmlFiles(sourcePath)
             // end fix
 
             const report: Report = await this.getReportById(reportId)
@@ -3032,27 +3072,6 @@ export class ReportsService extends AutowiredService implements GenericService<R
         } catch (ex) {
             Logger.error('Error uploading report to ftp', ex)
         }
-    }
-
-    // TODO: delete function
-    private async makeHardLinksForReportInFtp(
-        hardLinks: {
-            source: string
-            target: string
-        }[],
-    ): Promise<void> {
-        const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
-        const { client, sftpWrapper } = await this.sftpService.getClient()
-        // sftpWrapper.ext_openssh_hardlink('', '', () => {
-        //     console.log('llega')
-        // })
-        for (const hardLink of hardLinks) {
-            const source: string = join(sftpDestinationFolder, hardLink.source)
-            const target: string = join(sftpDestinationFolder, hardLink.target)
-            const resultRcopy: string = await client.rcopy(source, target)
-            console.log(resultRcopy)
-        }
-        await client.end()
     }
 
     private async deleteReportFromFtp(reportId: string): Promise<void> {
