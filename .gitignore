@@ -10,6 +10,12 @@
 /.npmrc-*
 /.npmrc.*
 
+# Avoid uploading .hosts.* files to git
+/.hosts.*
+
+# Ignore data directory
+/data
+
 # Logs
 logs
 *.log
