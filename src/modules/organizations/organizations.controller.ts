@@ -13,6 +13,7 @@ import {
     PaginatedResponseDto,
     Relations,
     ReportDTO,
+    ResourcePermissions,
     StoragePermissionsEnum,
     TeamMember,
     TeamPermissionsEnum,
@@ -161,12 +162,23 @@ export class OrganizationsController extends GenericController<Organization> {
         if (!organization) {
             throw new NotFoundException('Organization not found')
         }
-        if (!token) {
-            delete organization.billingEmail
-            delete organization.stripe_subscription_id
-            delete organization.tax_identifier
-            delete organization.tax_identifier
-            delete organization.options
+        let deleteSensitiveData: boolean
+        if (token) {
+            const index: number = token.permissions.organizations.findIndex((o: ResourcePermissions) => o.organization_id === organization.id)
+            if (index !== -1) {
+                deleteSensitiveData = !token.permissions.organizations[index].permissions.includes(OrganizationPermissionsEnum.ADMIN)
+            } else {
+                deleteSensitiveData = true
+            }
+        } else {
+            deleteSensitiveData = true
+        }
+        if (deleteSensitiveData) {
+            delete organization?.billingEmail
+            delete organization?.stripe_subscription_id
+            delete organization?.tax_identifier
+            delete organization?.invitation_code
+            delete organization.options?.notifications
         }
         return new NormalizedResponseDTO(organization)
     }
@@ -182,12 +194,30 @@ export class OrganizationsController extends GenericController<Organization> {
         description: `Id of the organization to fetch`,
         schema: { type: 'string' },
     })
-    @Permission([OrganizationPermissionsEnum.READ])
+    @Public()
     @ApiNormalizedResponse({ status: 200, description: `Organization matching id`, type: Organization })
-    async getOrganizationById(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
+    async getOrganizationById(@CurrentToken() token: Token, @Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
         const organization: Organization = await this.organizationService.getOrganizationById(organizationId)
         if (!organization) {
             throw new PreconditionFailedException('Organization not found')
+        }
+        let deleteSensitiveData: boolean
+        if (token) {
+            const index: number = token.permissions.organizations.findIndex((o: ResourcePermissions) => o.organization_id === organizationId)
+            if (index !== -1) {
+                deleteSensitiveData = !token.permissions.organizations[index].permissions.includes(OrganizationPermissionsEnum.ADMIN)
+            } else {
+                deleteSensitiveData = true
+            }
+        } else {
+            deleteSensitiveData = true
+        }
+        if (deleteSensitiveData) {
+            delete organization?.billingEmail
+            delete organization?.stripe_subscription_id
+            delete organization?.tax_identifier
+            delete organization?.invitation_code
+            delete organization.options?.notifications
         }
         return new NormalizedResponseDTO(organization)
     }

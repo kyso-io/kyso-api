@@ -235,11 +235,11 @@ export class AuthController extends GenericController<string> {
         const parser = new Saml2js(xmlResponse)
         const data = parser.toObject()
 
-        console.log(data);
+        console.log(data)
 
         if (data && data.mail && data.givenName && data.sn) {
             // Build JWT token and redirect to frontend
-            console.log('Build JWT token and redirect to frontend');
+            console.log('Build JWT token and redirect to frontend')
             const login: Login = new Login(
                 uuidv4(), // set a random password
                 LoginProviderEnum.PING_ID_SAML,
@@ -400,18 +400,40 @@ export class AuthController extends GenericController<string> {
         if (!requesterUser) {
             throw new UnauthorizedException('Unhautenticated request')
         }
-        // If the user is global admin
-        const result = new NormalizedResponseDTO(requesterUser.permissions)
-        if (requesterUser.isGlobalAdmin()) {
-            return result
-        }
 
-        // If is not global admin, then only return this info if the requester is the same as the username parameter
-        if (requesterUser.username.toLowerCase() === username.toLowerCase()) {
-            return result
-        } else {
+        if (!requesterUser.isGlobalAdmin() && requesterUser.username.toLowerCase() !== username.toLowerCase()) {
             throw new UnauthorizedException(`The requester user has no rights to access other user permissions`)
         }
+
+        const finalPermissions: TokenPermissions = requesterUser.permissions
+        const { data: publicTokenPermissions } = await this.getPublicPermissions()
+        // Global permissions
+        for (const kysoPermission of publicTokenPermissions.global) {
+            if (!finalPermissions.global.includes(kysoPermission)) {
+                finalPermissions.global.push(kysoPermission)
+            }
+        }
+        // Organization permissions
+        for (const publicOrganizationResourcePermission of publicTokenPermissions.organizations) {
+            const index: number = finalPermissions.organizations.findIndex(
+                (organizationResourcePermission: ResourcePermissions) => organizationResourcePermission.id === publicOrganizationResourcePermission.id,
+            )
+            if (index === -1) {
+                finalPermissions.organizations.push(publicOrganizationResourcePermission)
+            }
+        }
+        // Team permissions
+        for (const publicTeamResourcePermission of publicTokenPermissions.teams) {
+            const index: number = finalPermissions.teams.findIndex(
+                (teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === publicTeamResourcePermission.id,
+            )
+            if (index === -1) {
+                finalPermissions.teams.push(publicTeamResourcePermission)
+            }
+        }
+
+        // If the user is global admin
+        return new NormalizedResponseDTO(finalPermissions)
     }
 
     @Get('/public-permissions')
