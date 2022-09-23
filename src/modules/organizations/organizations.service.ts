@@ -132,7 +132,7 @@ export class OrganizationsService extends AutowiredService {
         const numOrganizationsCreatedByUser: number = await this.provider.count({ filter: { user_id: token.id } })
         const value: number = parseInt(await this.kysoSettingsService.getValue(KysoSettingsEnum.MAX_ORGANIZATIONS_PER_USER), 10)
         if (numOrganizationsCreatedByUser >= value) {
-            throw new ForbiddenException('You have reached the maximum number of organizations')
+            throw new ForbiddenException('You have reached the maximum number of organizations you can create')
         }
 
         const organization: Organization = new Organization(
