@@ -418,13 +418,12 @@ export class TeamsService extends AutowiredService {
     }
 
     async createTeam(token: Token, team: Team) {
+        const numTeamsCreatedByUser: number = await this.provider.count({ filter: { user_id: token.id } })
+        const value: number = parseInt(await this.kysoSettingsService.getValue(KysoSettingsEnum.MAX_TEAMS_PER_USER), 10)
+        if (numTeamsCreatedByUser >= value) {
+            throw new ForbiddenException('You have reached the maximum number of teams you can create')
+        }
         try {
-            const numTeamsCreatedByUser: number = await this.provider.count({ filter: { user_id: token.id } })
-            const value: number = parseInt(await this.kysoSettingsService.getValue(KysoSettingsEnum.MAX_TEAMS_PER_USER), 10)
-            if (numTeamsCreatedByUser >= value) {
-                throw new ForbiddenException('You have reached the maximum number of teams')
-            }
-
             team.sluglified_name = slugify(team.display_name)
 
             // The name of this team exists in the organization?
