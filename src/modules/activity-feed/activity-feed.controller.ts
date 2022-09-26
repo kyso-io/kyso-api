@@ -117,6 +117,9 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
                         }
                     }
                 } else {
+                    if (!query.filter.team) {
+                        query.filter.team = {}
+                    }
                     query.filter.team.$in = teamSlugs
                 }
             }
