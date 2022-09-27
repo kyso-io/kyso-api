@@ -3,6 +3,7 @@ import {
     HEADER_X_KYSO_TEAM,
     NormalizedResponseDTO,
     Organization,
+    OrganizationPermissionsEnum,
     Report,
     ResourcePermissions,
     Team,
@@ -644,7 +645,7 @@ export class TeamsController extends GenericController<Team> {
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Deleted team`, type: Team })
-    @Permission([TeamPermissionsEnum.DELETE])
+    @Permission([OrganizationPermissionsEnum.ADMIN, TeamPermissionsEnum.ADMIN, TeamPermissionsEnum.DELETE])
     public async deleteTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Team>> {
         const team: Team = await this.teamsService.deleteTeam(token, teamId)
         return new NormalizedResponseDTO(team)
