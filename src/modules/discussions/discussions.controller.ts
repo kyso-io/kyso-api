@@ -13,21 +13,7 @@ import {
     Token,
     UpdateDiscussionRequestDTO,
 } from '@kyso-io/kyso-model'
-import {
-    Body,
-    Controller,
-    Delete,
-    ForbiddenException,
-    Get,
-    Headers,
-    NotFoundException,
-    Param,
-    Patch,
-    Post,
-    PreconditionFailedException,
-    Req,
-    UseGuards,
-} from '@nestjs/common'
+import { Body, Controller, Delete, ForbiddenException, Get, Headers, Param, Patch, Post, PreconditionFailedException, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
@@ -133,15 +119,10 @@ export class DiscussionsController extends GenericController<Discussion> {
             throw new PreconditionFailedException('Discussion not found')
         }
 
-        const objects = await this.authService.retrieveOrgAndTeamFromSlug(teamName, organizationName);
+        const objects: { organization: Organization; team: Team } = await this.authService.retrieveOrgAndTeamFromSlug(teamName, organizationName)
 
         if (objects.team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = AuthService.hasPermissions(
-                token, 
-                [DiscussionPermissionsEnum.READ], 
-                objects.team.id, 
-                objects.organization.id
-            );
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [DiscussionPermissionsEnum.READ], objects.team.id, objects.organization.id)
 
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
@@ -175,17 +156,14 @@ export class DiscussionsController extends GenericController<Discussion> {
         if (!discussion) {
             throw new InvalidInputError('Discussion not found')
         }
-        
-        const objects = await this.authService.retrieveOrgAndTeamFromSlug(organizationName, teamName);
+
+        const objects: { organization: Organization; team: Team } = await this.authService.retrieveOrgAndTeamFromSlug(organizationName, teamName)
         if (!objects.team) {
             throw new PreconditionFailedException(`Team ${discussion.team_id} not found`)
         }
-        
+
         if (objects.team.visibility !== TeamVisibilityEnum.PUBLIC) {
-            const hasPermissions: boolean = AuthService.hasPermissions(
-                token, [DiscussionPermissionsEnum.READ], 
-                objects.team.id, objects.organization.id
-            )
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [DiscussionPermissionsEnum.READ], objects.team.id, objects.organization.id)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to access this report')
             }
