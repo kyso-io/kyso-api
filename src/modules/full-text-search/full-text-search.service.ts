@@ -20,6 +20,7 @@ import { OrganizationsService } from '../organizations/organizations.service'
 import { TeamsService } from '../teams/teams.service'
 import { AggregateData, AggregationBucket, Aggregations, TypeBucket } from './aggregate-data'
 import { Hit, SearchData } from './search-data'
+import { ObjectId } from 'mongodb'
 
 function factory(service: FullTextSearchService) {
     return service
@@ -296,8 +297,33 @@ export class FullTextSearchService extends AutowiredService {
         const filterPeople: string[] = emailSlugs.slugs
         const filterTags: string[] = tagSlugs.slugs
 
-        const requesterOrganizations = await this.organizationsService.getUserOrganizations(token.id);
-        const requesterTeamsVisible = await this.teamsService.getTeamsVisibleForUser(token.id);
+        let requesterOrganizations = []
+        let requesterTeamsVisible = []
+        // For users get their organizations and teams, for users not logged in
+		// compute public teams and organizations
+        if (token) {
+            requesterOrganizations = await this.organizationsService.getUserOrganizations(token.id);
+            requesterTeamsVisible = await this.teamsService.getTeamsVisibleForUser(token.id);
+        } else {
+            requesterTeamsVisible = await this.teamsService.getTeams({
+                filter: {
+                    visibility: TeamVisibilityEnum.PUBLIC,
+                },
+            })
+            const uniqueOrganizationIds: string[] = []
+            if (requesterTeamsVisible.length > 0) {
+                requesterTeamsVisible.forEach((team) => {
+                    if (!uniqueOrganizationIds.includes(team.organization_id)) {
+                        uniqueOrganizationIds.push(team.organization_id)
+                    }
+                })
+            }
+            requesterOrganizations = await this.organizationsService.getOrganizations({
+                filter: {
+                    _id: { $in: uniqueOrganizationIds.map((id) => new ObjectId(id)) },
+                },
+            })
+        }
         const userBelongings = new Map<string, string[]>();
 
         for(const organization of requesterOrganizations) {
