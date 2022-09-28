@@ -433,6 +433,14 @@ export class UsersService extends AutowiredService {
     public async getAccessTokens(userId: string): Promise<KysoUserAccessToken[]> {
         return this.kysoAccessTokenProvider.read({
             filter: { user_id: userId },
+            projection: {
+                _id: 1,
+                name: 1,
+                user_id: 1,
+                status: 1,
+                expiration_date: 1,
+                last_used: 1,
+            }
         })
     }
 
