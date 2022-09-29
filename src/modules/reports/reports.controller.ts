@@ -23,7 +23,7 @@ import {
     Team,
     TeamVisibilityEnum,
     Token,
-    UpdateReportRequestDTO,
+    UpdateReportRequestDTO
 } from '@kyso-io/kyso-model'
 import {
     BadRequestException,
@@ -45,7 +45,7 @@ import {
     Res,
     UploadedFile,
     UseGuards,
-    UseInterceptors,
+    UseInterceptors
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
@@ -588,7 +588,7 @@ export class ReportsController extends GenericController<Report> {
         )
     }
 
-    @Get('/:reportName/:teamId/exists')
+    @Get('/:teamId/:reportName/exists')
     @UseGuards(PermissionsGuard)
     @ApiOperation({
         summary: `Check if report exists`,
@@ -612,7 +612,7 @@ export class ReportsController extends GenericController<Report> {
         schema: { type: 'string' },
     })
     @Permission([ReportPermissionsEnum.READ])
-    async checkReport(@Param('reportName') reportName: string, @Param('teamId') teamId: string): Promise<boolean> {
+    async checkReport(@Param('teamId') teamId: string, @Param('reportName') reportName: string): Promise<boolean> {
         const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: slugify(reportName), team_id: teamId } })
         return report != null
     }
@@ -1263,10 +1263,7 @@ export class ReportsController extends GenericController<Report> {
         description: 'Id of the report to fetch',
         schema: { type: 'string' },
     })
-    async getBranches(
-        @CurrentToken() token: Token,
-        @Param('reportId') reportId: string,
-    ): Promise<NormalizedResponseDTO<GithubBranch[]>> {
+    async getBranches(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<GithubBranch[]>> {
         const report: Report = await this.reportsService.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('Report not found')
