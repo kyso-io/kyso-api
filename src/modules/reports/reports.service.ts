@@ -1633,33 +1633,27 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
         await this.checkReportTags(userId, report.id, kysoConfigFile.tags)
 
-        new Promise<void>(async () => {
-            Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
-            await this.uploadReportToFtp(report.id, extractedDir)
-            report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
-            Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
+        Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
+        await this.uploadReportToFtp(report.id, extractedDir)
+        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } })
+        Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name)
 
-            let files: string[] = await this.getFilePaths(extractedDir)
-            // Remove '/reportPath' from the paths
-            files = files.map((file: string) => file.replace(reportPath, ''))
+        const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
+        const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
 
-            const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL)
-            const pathToIndex: string = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`
+        axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
+            () => {},
+            (err) => {
+                Logger.warn(`${pathToIndex} was not indexed properly`, err)
+            },
+        )
 
-            axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
-                () => {},
-                (err) => {
-                    Logger.warn(`${pathToIndex} was not indexed properly`, err)
-                },
-            )
-
-            NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE, {
-                user,
-                organization,
-                team,
-                report,
-                frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-            })
+        NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE, {
+            user,
+            organization,
+            team,
+            report,
+            frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
         })
 
         return report
