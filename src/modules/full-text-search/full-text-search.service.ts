@@ -300,7 +300,7 @@ export class FullTextSearchService extends AutowiredService {
         let requesterOrganizations = []
         let requesterTeamsVisible = []
         // For users get their organizations and teams, for users not logged in
-		// compute public teams and organizations
+        // compute public teams and organizations
         if (token) {
             requesterOrganizations = await this.organizationsService.getUserOrganizations(token.id);
             requesterTeamsVisible = await this.teamsService.getTeamsVisibleForUser(token.id);
@@ -408,6 +408,11 @@ export class FullTextSearchService extends AutowiredService {
             }
         }
 
+        // Don't do the query if we don't have an orgs/teams filter
+        if (belongingsQuery.length == 0) {
+            return null
+        }
+
         const body: any = {
             from: 0,
             size: 0,
@@ -418,9 +423,8 @@ export class FullTextSearchService extends AutowiredService {
                     ],
                     filter: {
                         bool: {
-                            should: [
-                                { term: { isPublic: "true" } },
-                            ]
+                            minimum_should_match: 1,
+                            should: [],
                         }
                     }
                 },
@@ -497,6 +501,11 @@ export class FullTextSearchService extends AutowiredService {
             }
         }
 
+        // Don't do the query if we don't have an orgs/teams filter
+        if (belongingsQuery.length == 0) {
+            return null
+        }
+
         const body: any = {
             from: (page - 1) * perPage,
             size: perPage,
@@ -508,9 +517,8 @@ export class FullTextSearchService extends AutowiredService {
                     ],
                     filter: {
                         bool: {
-                            should: [
-                                { term: { isPublic: "true" } },
-                            ],
+                            minimum_should_match: 1,
+                            should: [],
                         }
                     }
                 },
@@ -541,7 +549,6 @@ export class FullTextSearchService extends AutowiredService {
         }
 
         body.query.bool.filter.bool.should = [...body.query.bool.filter.bool.should, ...belongingsQuery];
-        
         
         console.log(JSON.stringify(body));
 
