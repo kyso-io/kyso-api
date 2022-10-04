@@ -22,6 +22,7 @@ import {
     Delete,
     ForbiddenException,
     Get,
+    Headers,
     NotFoundException,
     Param,
     Patch,
@@ -31,7 +32,6 @@ import {
     UploadedFile,
     UseGuards,
     UseInterceptors,
-    Headers
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
@@ -143,15 +143,12 @@ export class UsersController extends GenericController<User> {
     })
     @ApiResponse({ status: 200, description: `Access tokens`, type: KysoUserAccessToken, isArray: true })
     @Public()
-    async getAccessTokens(
-        @Headers('authorization') jwtToken: string,
-        @CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
-            
-        if(this.authService.evaluateAndDecodeToken(jwtToken.replace("Bearer ", ""))) {
+    async getAccessTokens(@Headers('authorization') jwtToken: string, @CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+        if (jwtToken && this.authService.evaluateAndDecodeToken(jwtToken.replace('Bearer ', ''))) {
             const tokens: KysoUserAccessToken[] = await this.usersService.getAccessTokens(token.id)
             return new NormalizedResponseDTO(tokens)
         } else {
-            throw new ForbiddenException("Your token can't be validated");
+            throw new ForbiddenException("Your token can't be validated")
         }
     }
 
@@ -168,7 +165,7 @@ export class UsersController extends GenericController<User> {
         @CurrentToken() token: Token,
         @Body() accessTokenConfiguration: CreateKysoAccessTokenDto,
     ): Promise<NormalizedResponseDTO<KysoUserAccessToken>> {
-        if(this.authService.evaluateAndDecodeToken(jwtToken.replace("Bearer ", ""))) {
+        if (jwtToken && this.authService.evaluateAndDecodeToken(jwtToken.replace('Bearer ', ''))) {
             // TODO: Now the token has the same permissions that the user, but in the future we can create
             // tokens with a specific scope
             const scope: KysoPermissions[] = []
@@ -181,7 +178,7 @@ export class UsersController extends GenericController<User> {
             )
             return new NormalizedResponseDTO(response)
         } else {
-            throw new ForbiddenException("Your token can't be validated");
+            throw new ForbiddenException("Your token can't be validated")
         }
     }
 
@@ -195,13 +192,13 @@ export class UsersController extends GenericController<User> {
     @Public()
     async revokeAllUserAccessToken(
         @Headers('authorization') jwtToken: string,
-        @CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
-
-        if(this.authService.evaluateAndDecodeToken(jwtToken.replace("Bearer ", ""))) {
+        @CurrentToken() token: Token,
+    ): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+        if (jwtToken && this.authService.evaluateAndDecodeToken(jwtToken.replace('Bearer ', ''))) {
             const result: KysoUserAccessToken[] = await this.usersService.revokeAllUserAccessToken(token.id)
             return new NormalizedResponseDTO(result)
         } else {
-            throw new ForbiddenException("Your token can't be validated");
+            throw new ForbiddenException("Your token can't be validated")
         }
     }
 
@@ -228,11 +225,11 @@ export class UsersController extends GenericController<User> {
             throw new BadRequestException(`Invalid access token id ${accessTokenId}`)
         }
 
-        if(this.authService.evaluateAndDecodeToken(jwtToken.replace("Bearer ", ""))) {
+        if (this.authService.evaluateAndDecodeToken(jwtToken.replace('Bearer ', ''))) {
             const result: KysoUserAccessToken = await this.usersService.deleteKysoAccessToken(token.id, accessTokenId)
             return new NormalizedResponseDTO(result)
         } else {
-            throw new ForbiddenException("Your token can't be validated");
+            throw new ForbiddenException("Your token can't be validated")
         }
     }
 
@@ -249,21 +246,19 @@ export class UsersController extends GenericController<User> {
     })
     @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
     @Public()
-    async getUserById(
-        @Headers('authorization') jwtToken: string,
-        @Param('userId') userId: string): Promise<NormalizedResponseDTO<UserDTO>> {
+    async getUserById(@Headers('authorization') jwtToken: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<UserDTO>> {
         if (!Validators.isValidObjectId(userId)) {
             throw new BadRequestException(`Invalid user id ${userId}`)
         }
 
-        if(this.authService.evaluateAndDecodeToken(jwtToken.replace("Bearer ", ""))) {
+        if (this.authService.evaluateAndDecodeToken(jwtToken.replace('Bearer ', ''))) {
             const user: User = await this.usersService.getUserById(userId)
             if (!user) {
                 throw new NotFoundException(`User with id ${userId} not found`)
             }
             return new NormalizedResponseDTO(UserDTO.fromUser(user))
         } else {
-            throw new ForbiddenException("Your token can't be validated");
+            throw new ForbiddenException("Your token can't be validated")
         }
     }
 
