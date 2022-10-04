@@ -162,16 +162,12 @@ export class OrganizationsController extends GenericController<Organization> {
         if (!organization) {
             throw new NotFoundException('Organization not found')
         }
-        let deleteSensitiveData: boolean
+        let deleteSensitiveData = true
         if (token) {
-            const index: number = token.permissions.organizations.findIndex((o: ResourcePermissions) => o.organization_id === organization.id)
+            const index: number = token.permissions.organizations.findIndex((o: ResourcePermissions) => o.id === organization.id)
             if (index !== -1) {
                 deleteSensitiveData = !token.permissions.organizations[index].permissions.includes(OrganizationPermissionsEnum.ADMIN)
-            } else {
-                deleteSensitiveData = true
             }
-        } else {
-            deleteSensitiveData = true
         }
         if (deleteSensitiveData) {
             delete organization?.billingEmail
@@ -201,16 +197,12 @@ export class OrganizationsController extends GenericController<Organization> {
         if (!organization) {
             throw new PreconditionFailedException('Organization not found')
         }
-        let deleteSensitiveData: boolean
+        let deleteSensitiveData = true
         if (token) {
-            const index: number = token.permissions.organizations.findIndex((o: ResourcePermissions) => o.organization_id === organizationId)
+            const index: number = token.permissions.organizations.findIndex((o: ResourcePermissions) => o.id === organizationId)
             if (index !== -1) {
                 deleteSensitiveData = !token.permissions.organizations[index].permissions.includes(OrganizationPermissionsEnum.ADMIN)
-            } else {
-                deleteSensitiveData = true
             }
-        } else {
-            deleteSensitiveData = true
         }
         if (deleteSensitiveData) {
             delete organization?.billingEmail

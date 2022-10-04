@@ -323,16 +323,16 @@ export class OrganizationsService extends AutowiredService {
             throw new PreconditionFailedException('Organization does not exist')
         }
         const data: any = {}
-        if (updateOrganizationDTO.location) {
+        if (updateOrganizationDTO.hasOwnProperty('location')) {
             data.location = updateOrganizationDTO.location
         }
-        if (updateOrganizationDTO.link) {
+        if (updateOrganizationDTO.hasOwnProperty('link')) {
             data.link = updateOrganizationDTO.link
         }
-        if (updateOrganizationDTO.bio) {
+        if (updateOrganizationDTO.hasOwnProperty('bio')) {
             data.bio = updateOrganizationDTO.bio
         }
-        if (updateOrganizationDTO.allowed_access_domains) {
+        if (updateOrganizationDTO.hasOwnProperty('allowed_access_domains')) {
             data.allowed_access_domains = updateOrganizationDTO.allowed_access_domains
         }
         organizationDb = await this.provider.update(
