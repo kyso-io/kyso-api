@@ -161,7 +161,7 @@ export class UsersService extends AutowiredService {
         // Create user into database
         const newUser: User = new User(
             signUpDto.email,
-            signUpDto.username,
+            signUpDto.username.toLowerCase(),
             signUpDto.display_name,
             signUpDto.display_name,
             LoginProviderEnum.KYSO,
