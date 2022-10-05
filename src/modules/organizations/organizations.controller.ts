@@ -41,11 +41,11 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express'
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { Public } from 'src/decorators/is-public'
-import slug from 'src/helpers/slugify'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
 import { QueryParser } from '../../helpers/queryParser'
+import slugify from '../../helpers/slugify'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard'
@@ -281,7 +281,7 @@ export class OrganizationsController extends GenericController<Organization> {
     @Public()
     @ApiNormalizedResponse({ status: 201, description: `Created organization`, type: Organization })
     async createOrganization(@CurrentToken() token: Token, @Body() createOrganizationDto: CreateOrganizationDto): Promise<NormalizedResponseDTO<Organization>> {
-        const slugName = slug(createOrganizationDto.display_name)
+        const slugName: string = slugify(createOrganizationDto.display_name)
         const existsOrganization: Organization = await this.organizationService.getOrganizationBySlugName(slugName)
         if (!existsOrganization) {
             const organization: Organization = await this.organizationService.createOrganization(token, createOrganizationDto)
