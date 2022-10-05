@@ -40,6 +40,7 @@ import { URLSearchParams } from 'url'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
+import slugify from '../../helpers/slugify'
 import { PlatformRole } from '../../security/platform-roles'
 import { AuthService } from '../auth/auth.service'
 import { GitlabLoginProvider } from '../auth/providers/gitlab-login.provider'
@@ -153,7 +154,10 @@ export class UsersService extends AutowiredService {
         if (!isUsernameAvailable) {
             throw new ConflictException('Username in use')
         }
-
+        if (signUpDto.username.includes('@')) {
+            const usernameParts: string[] = signUpDto.username.split('@')
+            signUpDto.username = slugify(usernameParts[0])
+        }
         // Create user into database
         const newUser: User = new User(
             signUpDto.email,
@@ -172,14 +176,37 @@ export class UsersService extends AutowiredService {
             AuthService.hashPassword(signUpDto.password),
             null,
         )
-        Logger.log(`Creating new user ${signUpDto.display_name} with email ${signUpDto.email}...`)
+        let counter = 1
+        do {
+            const existsUser: User = await this.getUser({ filter: { username: newUser.username } })
+            if (!existsUser) {
+                break
+            }
+            newUser.username = slugify(`${signUpDto.username}-${counter}`)
+            counter++
+        } while (true)
+        Logger.log(`Creating new user ${signUpDto.display_name} with email ${signUpDto.email} and username ${signUpDto.username}...`, UsersService.name)
         const user: User = await this.provider.create(newUser)
         const tokenStr: string = await this.authService.login(new Login(signUpDto.password, LoginProviderEnum.KYSO, signUpDto.email, null))
-        const token: Token = await this.authService.evaluateAndDecodeToken(tokenStr)
-
+        const token: Token = this.authService.evaluateAndDecodeToken(tokenStr)
         // Create user organization
         const organizationName: string = user.display_name.charAt(0).toUpperCase() + user.display_name.slice(1)
-        const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], user.email, '', '', true, '', '', '', '', uuidv4(), user.id)
+        const newOrganization: Organization = new Organization(
+            organizationName,
+            organizationName,
+            [],
+            [],
+            user.email,
+            '',
+            '',
+            true,
+            '',
+            '',
+            '',
+            '',
+            uuidv4(),
+            user.id,
+        )
         Logger.log(`Creating new organization ${newOrganization.sluglified_name}`)
 
         const organizationDb: Organization = await this.organizationsService.createOrganization(token, newOrganization)
@@ -440,7 +467,7 @@ export class UsersService extends AutowiredService {
                 status: 1,
                 expiration_date: 1,
                 last_used: 1,
-            }
+            },
         })
     }
 

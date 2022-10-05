@@ -2,9 +2,9 @@ import { AddUserAccountDTO, CreateUserRequestDTO, Login, LoginProviderEnum, Toke
 import { Injectable, Logger } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { ObjectId } from 'mongodb'
-import slug from 'src/helpers/slugify'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../../decorators/autowired'
+import slugify from '../../../helpers/slugify'
 import { GitlabReposService } from '../../gitlab-repos/gitlab-repos.service'
 import { GitlabAccessToken } from '../../gitlab-repos/interfaces/gitlab-access-token'
 import { GitlabUser } from '../../gitlab-repos/interfaces/gitlab-user'
@@ -37,7 +37,7 @@ export class GitlabLoginProvider extends BaseLoginProvider {
                 // User does not exists, create it
                 const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
                     gitlabUser.email,
-                    slug(gitlabUser.username),
+                    slugify(gitlabUser.username),
                     gitlabUser.name,
                     gitlabUser.name,
                     LoginProviderEnum.GITLAB,
