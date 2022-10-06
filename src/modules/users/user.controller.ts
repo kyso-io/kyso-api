@@ -1,12 +1,11 @@
 import { NormalizedResponseDTO, Token, User, UserDTO } from '@kyso-io/kyso-model'
-import { Controller, Get, UseGuards } from '@nestjs/common'
+import { Controller, ForbiddenException, Get } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { AuthService } from '../auth/auth.service'
-import { PermissionsGuard } from '../auth/guards/permission.guard'
 import { UsersService } from './users.service'
 
 @ApiTags('user')
@@ -38,6 +37,9 @@ export class UserController extends GenericController<User> {
         type: User,
     })
     async getAuthenticatedUser(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<UserDTO>> {
+        if (!token) {
+            throw new ForbiddenException()
+        }
         const user: User = await this.usersService.getUserById(token.id)
         return new NormalizedResponseDTO(UserDTO.fromUser(user))
     }
