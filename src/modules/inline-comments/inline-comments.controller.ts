@@ -139,7 +139,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
         @Param('id') id: string,
         @Body() updateInlineCommentDto: UpdateInlineCommentDto,
     ): Promise<NormalizedResponseDTO<InlineCommentDto>> {
-        const inlineComment: InlineComment = await this.inlineCommentsService.updateInlineComment(token.id, id, updateInlineCommentDto)
+        const inlineComment: InlineComment = await this.inlineCommentsService.updateInlineComment(token, id, updateInlineCommentDto)
         const relations: Relations = await this.relationsService.getRelations(inlineComment, 'InlineComment')
         const inlineCommentDto: InlineCommentDto = await this.inlineCommentsService.inlineCommentModelToInlineCommentDto(inlineComment)
         return new NormalizedResponseDTO(inlineCommentDto, relations)
@@ -160,7 +160,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
     })
     @Permission([InlineCommentPermissionsEnum.DELETE])
     async delete(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<boolean>> {
-        const deleted: boolean = await this.inlineCommentsService.deleteInlineComment(token.id, id)
+        const deleted: boolean = await this.inlineCommentsService.deleteInlineComment(token, id)
         return new NormalizedResponseDTO(deleted)
     }
 }

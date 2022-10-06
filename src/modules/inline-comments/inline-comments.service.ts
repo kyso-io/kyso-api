@@ -1,7 +1,20 @@
-import { CreateInlineCommentDto, InlineComment, InlineCommentDto, Report, Team, UpdateInlineCommentDto, User } from '@kyso-io/kyso-model'
+import {
+    CreateInlineCommentDto,
+    InlineComment,
+    InlineCommentDto,
+    Organization,
+    Report,
+    ResourcePermissions,
+    Team,
+    Token,
+    UpdateInlineCommentDto,
+    User,
+} from '@kyso-io/kyso-model'
 import { ForbiddenException, Injectable, NotFoundException, Provider } from '@nestjs/common'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
+import { PlatformRole } from '../../security/platform-roles'
+import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
@@ -26,6 +39,9 @@ export class InlineCommentsService extends AutowiredService {
 
     @Autowired({ typeName: 'TeamsService' })
     private teamsService: TeamsService
+
+    @Autowired({ typeName: 'OrganizationsService' })
+    private organizationsService: OrganizationsService
 
     @Autowired({ typeName: 'UsersService' })
     private usersService: UsersService
@@ -54,36 +70,92 @@ export class InlineCommentsService extends AutowiredService {
             throw new ForbiddenException(`User with id ${userId} is not allowed to create inline comments for report ${report.sluglified_name}`)
         }
         const inlineComment: InlineComment = new InlineComment(
-            report.id, 
-            createInlineCommentDto.cell_id, 
-            userId, 
+            report.id,
+            createInlineCommentDto.cell_id,
+            userId,
             createInlineCommentDto.text,
-            false, 
             false,
-            createInlineCommentDto.mentions
+            false,
+            createInlineCommentDto.mentions,
         )
-        
+
         return this.provider.create(inlineComment)
     }
 
-    public async updateInlineComment(userId: string, id: string, updateInlineCommentDto: UpdateInlineCommentDto): Promise<InlineComment> {
+    public async updateInlineComment(token: Token, id: string, updateInlineCommentDto: UpdateInlineCommentDto): Promise<InlineComment> {
         const inlineComment: InlineComment = await this.getById(id)
         if (!inlineComment) {
             throw new NotFoundException(`Inline comment with id ${id} not found`)
         }
-        if (inlineComment.user_id !== userId) {
-            throw new ForbiddenException(`User with id ${userId} is not allowed to update inline comment ${id}`)
+        if (inlineComment.user_id !== token.id) {
+            const report: Report = await this.reportsService.getReportById(inlineComment.report_id)
+            if (!report) {
+                throw new NotFoundException(`Report with id ${inlineComment.report_id} not found`)
+            }
+            const team: Team = await this.teamsService.getTeamById(report.team_id)
+            if (!team) {
+                throw new NotFoundException(`Team with id ${report.team_id} not found`)
+            }
+            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            if (!organization) {
+                throw new NotFoundException(`Organization with id ${team.organization_id} not found`)
+            }
+            let isOrgAdmin = false
+            const organizationResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find(
+                (organizationResourcePermissions: ResourcePermissions) => organizationResourcePermissions.id === organization.id,
+            )
+            if (organizationResourcePermissions) {
+                isOrgAdmin = organizationResourcePermissions.role_names.includes(PlatformRole.ORGANIZATION_ADMIN_ROLE.name)
+            }
+            let isTeamAdmin = false
+            const teamResourcePermissions: ResourcePermissions | undefined = token.permissions.teams.find(
+                (teamResourcePermissions: ResourcePermissions) => teamResourcePermissions.id === team.id,
+            )
+            if (teamResourcePermissions) {
+                isTeamAdmin = teamResourcePermissions.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name)
+            }
+            if (!isOrgAdmin && !isTeamAdmin && !token.isGlobalAdmin()) {
+                throw new ForbiddenException(`User with id ${token.id} is not allowed to update inline comment ${id}`)
+            }
         }
         return this.provider.update({ _id: this.provider.toObjectId(inlineComment.id) }, { $set: { edited: true, text: updateInlineCommentDto.text } })
     }
 
-    public async deleteInlineComment(userId: string, id: string): Promise<boolean> {
+    public async deleteInlineComment(token: Token, id: string): Promise<boolean> {
         const inlineComment: InlineComment = await this.getById(id)
         if (!inlineComment) {
             throw new NotFoundException(`Inline comment with id ${id} not found`)
         }
-        if (inlineComment.user_id !== userId) {
-            throw new ForbiddenException(`User with id ${userId} is not allowed to delete this inline comment`)
+        if (inlineComment.user_id !== token.id) {
+            const report: Report = await this.reportsService.getReportById(inlineComment.report_id)
+            if (!report) {
+                throw new NotFoundException(`Report with id ${inlineComment.report_id} not found`)
+            }
+            const team: Team = await this.teamsService.getTeamById(report.team_id)
+            if (!team) {
+                throw new NotFoundException(`Team with id ${report.team_id} not found`)
+            }
+            const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+            if (!organization) {
+                throw new NotFoundException(`Organization with id ${team.organization_id} not found`)
+            }
+            let isOrgAdmin = false
+            const organizationResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find(
+                (organizationResourcePermissions: ResourcePermissions) => organizationResourcePermissions.id === organization.id,
+            )
+            if (organizationResourcePermissions) {
+                isOrgAdmin = organizationResourcePermissions.role_names.includes(PlatformRole.ORGANIZATION_ADMIN_ROLE.name)
+            }
+            let isTeamAdmin = false
+            const teamResourcePermissions: ResourcePermissions | undefined = token.permissions.teams.find(
+                (teamResourcePermissions: ResourcePermissions) => teamResourcePermissions.id === team.id,
+            )
+            if (teamResourcePermissions) {
+                isTeamAdmin = teamResourcePermissions.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name)
+            }
+            if (!isOrgAdmin && !isTeamAdmin && !token.isGlobalAdmin()) {
+                throw new ForbiddenException(`User with id ${token.id} is not allowed to delete this inline comment`)
+            }
         }
         await this.provider.deleteOne({ _id: this.provider.toObjectId(id) })
         return true
@@ -103,7 +175,7 @@ export class InlineCommentsService extends AutowiredService {
             inlineComment.markedAsDeleted,
             user.name,
             user.avatar_url,
-            inlineComment.mentions
+            inlineComment.mentions,
         )
     }
 }
