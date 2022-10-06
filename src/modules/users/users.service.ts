@@ -171,7 +171,7 @@ export class UsersService extends AutowiredService {
             'free',
             null,
             null,
-            true,
+            false,
             [],
             AuthService.hashPassword(signUpDto.password),
             null,
@@ -583,7 +583,7 @@ export class UsersService extends AutowiredService {
             },
         })
         if (result.length === 0) {
-            throw new PreconditionFailedException('Token not found')
+            throw new PreconditionFailedException('Token not found for this email')
         }
         const userForgotPassword: UserForgotPassword = result[0]
         if (userForgotPassword.modified_at !== null) {
