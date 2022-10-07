@@ -78,17 +78,24 @@ export class AuthService extends AutowiredService {
     }
 
     async retrieveOrgAndTeamFromSlug(organizationSlug: string, teamSlug: string): Promise<{ organization: Organization; team: Team }> {
-        const organizationObject: Organization = await this.organizationsService.getOrganization({
+        let team: Team | null = null
+        const organization: Organization = await this.organizationsService.getOrganization({
             filter: {
                 sluglified_name: organizationSlug,
             },
         })
-
-        const teamObject: Team = await this.teamsService.getUniqueTeam(organizationObject.id, teamSlug)
-
+        if (!organization) {
+            return { organization, team }
+        }
+        if (teamSlug) {
+            team = await this.teamsService.getUniqueTeam(organization.id, teamSlug)
+            if (!team) {
+                return { organization, team }
+            }
+        }
         return {
-            organization: organizationObject,
-            team: teamObject,
+            organization,
+            team,
         }
     }
 
