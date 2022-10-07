@@ -13,12 +13,11 @@ import {
     Token,
     UpdateDiscussionRequestDTO,
 } from '@kyso-io/kyso-model'
-import { Body, Controller, Delete, ForbiddenException, Get, Headers, Param, Patch, Post, PreconditionFailedException, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, ForbiddenException, Get, Headers, NotFoundException, Param, Patch, Post, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired'
 import { GenericController } from '../../generic/controller.generic'
-import { InvalidInputError } from '../../helpers/errorHandling'
 import { QueryParser } from '../../helpers/queryParser'
 import { CurrentToken } from '../auth/annotations/current-token.decorator'
 import { Permission } from '../auth/annotations/permission.decorator'
@@ -116,10 +115,16 @@ export class DiscussionsController extends GenericController<Discussion> {
             filter: { id: discussionId, mark_delete_at: { $eq: null } },
         })
         if (!discussion) {
-            throw new PreconditionFailedException('Discussion not found')
+            throw new NotFoundException('Discussion not found')
         }
 
         const objects: { organization: Organization; team: Team } = await this.authService.retrieveOrgAndTeamFromSlug(teamName, organizationName)
+        if (!objects.organization) {
+            throw new NotFoundException('Organization not found')
+        }
+        if (!objects.team) {
+            throw new NotFoundException('Team not found')
+        }
 
         if (objects.team.visibility !== TeamVisibilityEnum.PUBLIC) {
             const hasPermissions: boolean = AuthService.hasPermissions(token, [DiscussionPermissionsEnum.READ], objects.team.id, objects.organization.id)
@@ -154,12 +159,15 @@ export class DiscussionsController extends GenericController<Discussion> {
     ): Promise<NormalizedResponseDTO<Comment[]>> {
         const discussion: Discussion = await this.discussionsService.getDiscussionById(discussionId)
         if (!discussion) {
-            throw new InvalidInputError('Discussion not found')
+            throw new NotFoundException('Discussion not found')
         }
 
         const objects: { organization: Organization; team: Team } = await this.authService.retrieveOrgAndTeamFromSlug(organizationName, teamName)
+        if (!objects.organization) {
+            throw new NotFoundException('Organization not found')
+        }
         if (!objects.team) {
-            throw new PreconditionFailedException(`Team ${discussion.team_id} not found`)
+            throw new NotFoundException(`Team ${discussion.team_id} not found`)
         }
 
         if (objects.team.visibility !== TeamVisibilityEnum.PUBLIC) {
