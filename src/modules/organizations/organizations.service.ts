@@ -145,12 +145,12 @@ export class OrganizationsService extends AutowiredService {
             '',
             '',
             false,
+            createOrganizationDto.location,
+            createOrganizationDto.link,
             createOrganizationDto.bio,
             '',
-            '',
-            '',
             uuidv4(),
-            null,
+            token.id,
         )
 
         // The name of this organization exists?
