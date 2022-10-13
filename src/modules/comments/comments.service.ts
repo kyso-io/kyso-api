@@ -369,12 +369,7 @@ export class CommentsService extends AutowiredService {
         }
         const userIsCommentCreator: boolean = comment.user_id === token.id
         if (!userIsCommentCreator) {
-            const hasPermissions: boolean = AuthService.hasPermissions(
-                token,
-                [CommentPermissionsEnum.DELETE],
-                team.id,
-                organization.id,
-            )
+            const hasPermissions: boolean = AuthService.hasPermissions(token, [CommentPermissionsEnum.DELETE], team.id, organization.id)
             if (!hasPermissions) {
                 throw new ForbiddenException('You do not have permissions to delete this comment')
             }
@@ -421,7 +416,7 @@ export class CommentsService extends AutowiredService {
     public async deleteReportComments(reportId: string): Promise<void> {
         const comments: Comment[] = await this.provider.read({ filter: { report_id: reportId } })
         for (const comment of comments) {
-            await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } })
+            await this.provider.deleteOne({ _id: this.provider.toObjectId(comment.id) })
             Logger.log(`Deleting comment '${comment.id}' of user '${comment.user_id}' in ElasticSearch...`, CommentsService.name)
             this.fullTextSearchService.deleteDocument(ElasticSearchIndex.Comment, comment.id)
         }
@@ -458,7 +453,10 @@ export class CommentsService extends AutowiredService {
             }
             organization = await this.organizationsService.getOrganizationById(team.organization_id)
             if (!organization) {
-                Logger.error(`Organization ${team.organization_id} could not be found for team ${team.id} and comment ${comment.comment_id}`, CommentsService.name)
+                Logger.error(
+                    `Organization ${team.organization_id} could not be found for team ${team.id} and comment ${comment.comment_id}`,
+                    CommentsService.name,
+                )
                 return null
             }
             kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC
@@ -476,7 +474,10 @@ export class CommentsService extends AutowiredService {
             }
             organization = await this.organizationsService.getOrganizationById(team.organization_id)
             if (!organization) {
-                Logger.error(`Organization ${team.organization_id} could not be found for team ${team.id} and comment ${comment.comment_id}`, CommentsService.name)
+                Logger.error(
+                    `Organization ${team.organization_id} could not be found for team ${team.id} and comment ${comment.comment_id}`,
+                    CommentsService.name,
+                )
                 return null
             }
             kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC

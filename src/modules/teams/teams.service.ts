@@ -18,6 +18,7 @@ import {
     Report,
     ReportPermissionsEnum,
     Team,
+    InlineComment,
     TeamInfoDto,
     TeamMember,
     TeamMemberJoin,
@@ -40,6 +41,7 @@ import slugify from '../../helpers/slugify'
 import { PlatformRole } from '../../security/platform-roles'
 import { CommentsService } from '../comments/comments.service'
 import { DiscussionsService } from '../discussions/discussions.service'
+import { InlineCommentsService } from '../inline-comments/inline-comments.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { ReportsService } from '../reports/reports.service'
@@ -82,6 +84,9 @@ export class TeamsService extends AutowiredService {
 
     @Autowired({ typeName: 'DiscussionsService' })
     private discussionsService: DiscussionsService
+
+    @Autowired({ typeName: 'InlineCommentsService' })
+    private inlineCommentsService: InlineCommentsService
 
     constructor(
         private readonly provider: TeamsMongoProvider,
@@ -1005,6 +1010,31 @@ export class TeamsService extends AutowiredService {
             }
             map.get(teamId).comments++
             map.get(teamId).lastChange = moment.max(moment(comment.updated_at), moment(map.get(teamId).lastChange)).toDate()
+        })
+        const inlineCommentsQuery: any = {
+            filter: {
+                report_id: {
+                    $in: reports.map((x: Report) => x.id),
+                },
+            },
+        }
+        const inlineComments: InlineComment[] = await this.inlineCommentsService.getInlineComments(inlineCommentsQuery)
+        inlineComments.forEach((inlineComment: InlineComment) => {
+            if (!reportTeamMap.has(inlineComment.report_id)) {
+                return
+            }
+            const teamId: string = reportTeamMap.get(inlineComment.report_id)
+            if (!map.has(teamId)) {
+                map.set(teamId, {
+                    members: 0,
+                    reports: 0,
+                    discussions: 0,
+                    comments: 0,
+                    lastChange: moment('1970-01-10').toDate(),
+                })
+            }
+            map.get(teamId).comments++
+            map.get(teamId).lastChange = moment.max(moment(inlineComment.updated_at), moment(map.get(teamId).lastChange)).toDate()
         })
         const result: TeamInfoDto[] = []
         map.forEach(
