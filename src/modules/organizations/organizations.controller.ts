@@ -344,10 +344,11 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @Permission([OrganizationPermissionsEnum.EDIT])
     public async updateOrganizationOptions(
+        @CurrentToken() token: Token,
         @Param('organizationId') organizationId: string,
         @Body() organizationOptions: OrganizationOptions,
     ): Promise<NormalizedResponseDTO<Organization>> {
-        const updatedOrganization: Organization = await this.organizationService.updateOrganizationOptions(organizationId, organizationOptions)
+        const updatedOrganization: Organization = await this.organizationService.updateOrganizationOptions(token, organizationId, organizationOptions)
         return new NormalizedResponseDTO(updatedOrganization)
     }
 
