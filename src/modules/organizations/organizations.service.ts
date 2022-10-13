@@ -176,6 +176,11 @@ export class OrganizationsService extends AutowiredService {
         organization.user_id = token.id
         const newOrganization: Organization = await this.provider.create(organization)
 
+        NATSHelper.safelyEmit<KysoOrganizationsCreateEvent>(this.client, KysoEventEnum.ORGANIZATIONS_CREATE, {
+            user: await this.usersService.getUserById(token.id),
+            organization: newOrganization,
+        })
+
         // Add user to his organization
         await this.addMembersById(newOrganization.id, [token.id], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name])
 
@@ -192,11 +197,6 @@ export class OrganizationsService extends AutowiredService {
             token.id,
         )
         await this.teamsService.createTeam(token, generalTeam)
-
-        NATSHelper.safelyEmit<KysoOrganizationsCreateEvent>(this.client, KysoEventEnum.ORGANIZATIONS_CREATE, {
-            user: await this.usersService.getUserById(token.id),
-            organization: newOrganization,
-        })
 
         return newOrganization
     }
