@@ -210,9 +210,18 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
                 }
             }
         } else {
-            query.filter.team = {
-                $in: teamSlugs,
-            }
+            query.filter.$or = [
+                {
+                    team: {
+                        $in: teamSlugs,
+                    },
+                },
+                {
+                    team: {
+                        $eq: null,
+                    },
+                },
+            ]
         }
         const activityFeed: ActivityFeed[] = await this.activityFeedService.getActivityFeed(query)
         const relations: Relations = await this.getRelations(activityFeed)
@@ -269,7 +278,16 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
                 return new NormalizedResponseDTO(activityFeed)
             }
         }
-        query.filter.team = team.sluglified_name
+        query.filter.$or = [
+            {
+                team: team.sluglified_name,
+            },
+            {
+                team: {
+                    $eq: null,
+                },
+            },
+        ]
         const activityFeed: ActivityFeed[] = await this.activityFeedService.getActivityFeed(query)
         const relations: Relations = await this.getRelations(activityFeed)
         return new NormalizedResponseDTO(activityFeed, relations)
