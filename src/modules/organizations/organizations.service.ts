@@ -4,6 +4,7 @@ import {
     Comment,
     CreateOrganizationDto,
     Discussion,
+    InlineComment,
     InviteUserDto,
     KysoEventEnum,
     KysoOrganizationsAddMemberEvent,
@@ -53,10 +54,10 @@ import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
 import { NATSHelper } from '../../helpers/natsHelper'
-import slugify from '../../helpers/slugify'
 import { PlatformRole } from '../../security/platform-roles'
 import { CommentsService } from '../comments/comments.service'
 import { DiscussionsService } from '../discussions/discussions.service'
+import { InlineCommentsService } from '../inline-comments/inline-comments.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { ReportsService } from '../reports/reports.service'
 import { TeamsService } from '../teams/teams.service'
@@ -95,6 +96,9 @@ export class OrganizationsService extends AutowiredService {
 
     @Autowired({ typeName: 'DiscussionsService' })
     private discussionsService: DiscussionsService
+
+    @Autowired({ typeName: 'InlineCommentsService' })
+    private inlineCommentsService: InlineCommentsService
 
     constructor(
         private readonly provider: OrganizationsMongoProvider,
@@ -798,6 +802,25 @@ export class OrganizationsService extends AutowiredService {
             }
             map.get(organizationId).comments++
             map.get(organizationId).lastChange = moment.max(moment(comment.updated_at), moment(map.get(organizationId).lastChange)).toDate()
+        })
+        const inlineCommentsQuery: any = {
+            filter: {
+                report_id: {
+                    $in: reports.map((x: Report) => x.id),
+                },
+            },
+        }
+        const inlineComments: InlineComment[] = await this.inlineCommentsService.getInlineComments(inlineCommentsQuery)
+        inlineComments.forEach((inlineComment: InlineComment) => {
+            if (!mapReportOrg.has(inlineComment.report_id)) {
+                return
+            }
+            const organizationId: string = mapReportOrg.get(inlineComment.report_id)
+            if (!map.has(organizationId)) {
+                map.set(organizationId, { members: 0, reports: 0, discussions: 0, comments: 0, lastChange: moment('1970-01-10').toDate(), avatar_url: null })
+            }
+            map.get(organizationId).comments++
+            map.get(organizationId).lastChange = moment.max(moment(inlineComment.updated_at), moment(map.get(organizationId).lastChange)).toDate()
         })
         const result: OrganizationInfoDto[] = []
         map.forEach(

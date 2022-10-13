@@ -70,6 +70,7 @@ import { CommentsService } from '../comments/comments.service'
 import { FullTextSearchService } from '../full-text-search/full-text-search.service'
 import { GithubReposService } from '../github-repos/github-repos.service'
 import { GitlabReposService } from '../gitlab-repos/gitlab-repos.service'
+import { InlineCommentsService } from '../inline-comments/inline-comments.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { OrganizationsService } from '../organizations/organizations.service'
 import { TagsService } from '../tags/tags.service'
@@ -139,6 +140,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
     @Autowired({ typeName: 'FullTextSearchService' })
     private fullTextSearchService: FullTextSearchService
+
+    @Autowired({ typeName: 'InlineCommentsService' })
+    private inlineCommentsService: InlineCommentsService
 
     constructor(
         private readonly provider: ReportsMongoProvider,
@@ -418,6 +422,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
         // Delete all comments
         await this.commentsService.deleteReportComments(reportId)
+
+        // Delete inline comments
+        await this.inlineCommentsService.deleteReportInlineComments(reportId)
 
         // Delete relations with tags
         await this.tagsService.removeTagRelationsOfEntity(reportId)
