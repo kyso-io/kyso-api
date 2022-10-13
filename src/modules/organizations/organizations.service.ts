@@ -53,6 +53,7 @@ import { extname } from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
+import { arrayEquals } from '../../helpers/array-equals'
 import { NATSHelper } from '../../helpers/natsHelper'
 import { PlatformRole } from '../../security/platform-roles'
 import { CommentsService } from '../comments/comments.service'
@@ -309,17 +310,31 @@ export class OrganizationsService extends AutowiredService {
         }
     }
 
-    public async updateOrganizationOptions(organizationId: string, options: OrganizationOptions): Promise<Organization> {
+    public async updateOrganizationOptions(token: Token, organizationId: string, options: OrganizationOptions): Promise<Organization> {
         const organizationDb: Organization = await this.getOrganizationById(organizationId)
         if (!organizationDb) {
-            throw new PreconditionFailedException('Organization does not exist')
+            throw new NotFoundException('Organization does not exist')
         }
-        return await this.provider.update(
+        const organization: Organization = await this.provider.update(
             { _id: this.provider.toObjectId(organizationDb.id) },
             {
                 $set: { options },
             },
         )
+        if (
+            organization.options.notifications.centralized &&
+            !arrayEquals(organizationDb.options.notifications.emails, organization.options.notifications.emails)
+        ) {
+            NATSHelper.safelyEmit<KysoOrganizationsUpdateEvent>(this.client, KysoEventEnum.ORGANIZATIONS_UPDATE_CENTRALIZED_COMMUNICATIONS, {
+                user: await this.usersService.getUserById(token.id),
+                organization,
+            })
+        }
+        NATSHelper.safelyEmit<KysoOrganizationsUpdateEvent>(this.client, KysoEventEnum.ORGANIZATIONS_UPDATE_OPTIONS, {
+            user: await this.usersService.getUserById(token.id),
+            organization,
+        })
+        return organization
     }
 
     public async updateOrganization(token: Token, organizationId: string, updateOrganizationDTO: UpdateOrganizationDTO): Promise<Organization> {
@@ -651,6 +666,9 @@ export class OrganizationsService extends AutowiredService {
         for (const organizationMemberJoin of members) {
             if (!map.has(organizationMemberJoin.organization_id)) {
                 const organization: Organization = await this.getOrganizationById(organizationMemberJoin.organization_id)
+                if (!organization) {
+                    continue
+                }
                 const members: OrganizationMember[] = await this.getOrganizationMembers(organization.id)
                 map.set(organization.id, {
                     members: members.length,
