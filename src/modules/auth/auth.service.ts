@@ -200,6 +200,10 @@ export class AuthService extends AutowiredService {
                     const objectId = new mongo.ObjectId(organizationMembership.organization_id)
                     const organization: Organization = await organizationService.getOrganization({ filter: { _id: objectId } })
 
+                    if (!organization) {
+                        continue
+                    }
+
                     if (organization?.allowed_access_domains && organization.allowed_access_domains.length > 0) {
                         const allowedDomain: boolean = organization.allowed_access_domains.some(
                             (domain: string) => user.email.indexOf(domain.toLowerCase()) > -1,

@@ -53,4 +53,12 @@ export class ActivityFeedService extends AutowiredService {
         const activityFeed: ActivityFeed[] = (await Promise.all(promises)).flat()
         return activityFeed
     }
+
+    public async deleteActivityFeed(filter: any): Promise<void> {
+        const collections: any[] = await db.collections()
+        const activityFeedCollections: any[] = collections.filter((collection) => collection.collectionName.startsWith('KysoActivityFeed'))
+        for (const collection of activityFeedCollections) {
+            await collection.deleteMany(filter)
+        }
+    }
 }

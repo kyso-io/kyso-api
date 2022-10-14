@@ -3,6 +3,7 @@ import {
     Comment,
     Discussion,
     GlobalPermissionsEnum,
+    InlineComment,
     KysoEventEnum,
     KysoRole,
     KysoSettingsEnum,
@@ -18,7 +19,6 @@ import {
     Report,
     ReportPermissionsEnum,
     Team,
-    InlineComment,
     TeamInfoDto,
     TeamMember,
     TeamMemberJoin,
@@ -39,6 +39,7 @@ import { AutowiredService } from '../../generic/autowired.generic'
 import { userHasPermission } from '../../helpers/permissions'
 import slugify from '../../helpers/slugify'
 import { PlatformRole } from '../../security/platform-roles'
+import { ActivityFeedService } from '../activity-feed/activity-feed.service'
 import { CommentsService } from '../comments/comments.service'
 import { DiscussionsService } from '../discussions/discussions.service'
 import { InlineCommentsService } from '../inline-comments/inline-comments.service'
@@ -87,6 +88,9 @@ export class TeamsService extends AutowiredService {
 
     @Autowired({ typeName: 'InlineCommentsService' })
     private inlineCommentsService: InlineCommentsService
+
+    @Autowired({ typeName: 'ActivityFeedService' })
+    private activityFeedService: ActivityFeedService
 
     constructor(
         private readonly provider: TeamsMongoProvider,
@@ -515,20 +519,11 @@ export class TeamsService extends AutowiredService {
         return []
     }
 
-    public async deleteGivenOrganization(organization_id: string): Promise<void> {
-        const organization: Organization = await this.organizationsService.getOrganizationById(organization_id)
+    public async deleteGivenOrganization(token: Token, organization_id: string): Promise<void> {
         // Get all team  of the organization
         const teams: Team[] = await this.getTeams({ filter: { organization_id } })
         for (const team of teams) {
-            // Delete all members of this team
-            await this.teamMemberProvider.deleteMany({ team_id: team.id })
-            // Delete team
-            await this.provider.deleteOne({ filter: { _id: this.provider.toObjectId(team.id) } })
-
-            NATSHelper.safelyEmit<KysoTeamsDeleteEvent>(this.client, KysoEventEnum.TEAMS_DELETE, {
-                organization,
-                team,
-            })
+            await this.deleteTeam(token, team.id)
         }
     }
 
@@ -789,17 +784,20 @@ export class TeamsService extends AutowiredService {
         for (const report of teamReports) {
             await this.reportsService.deleteReport(token, report.id, true)
         }
+        // Delete all activity feed from this team
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
+        await this.activityFeedService.deleteActivityFeed({
+            organization: organization.sluglified_name,
+            team: team.sluglified_name,
+        })
         // Delete all members of this team
         await this.teamMemberProvider.deleteMany({ team_id: team.id })
         // Delete team
         await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
-        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-
         NATSHelper.safelyEmit<KysoTeamsDeleteEvent>(this.client, KysoEventEnum.TEAMS_DELETE, {
             organization,
             team,
         })
-
         return team
     }
 
