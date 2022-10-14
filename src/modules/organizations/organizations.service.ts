@@ -56,6 +56,7 @@ import { AutowiredService } from '../../generic/autowired.generic'
 import { arrayEquals } from '../../helpers/array-equals'
 import { NATSHelper } from '../../helpers/natsHelper'
 import { PlatformRole } from '../../security/platform-roles'
+import { ActivityFeedService } from '../activity-feed/activity-feed.service'
 import { CommentsService } from '../comments/comments.service'
 import { DiscussionsService } from '../discussions/discussions.service'
 import { InlineCommentsService } from '../inline-comments/inline-comments.service'
@@ -100,6 +101,9 @@ export class OrganizationsService extends AutowiredService {
 
     @Autowired({ typeName: 'InlineCommentsService' })
     private inlineCommentsService: InlineCommentsService
+
+    @Autowired({ typeName: 'ActivityFeedService' })
+    private activityFeedService: ActivityFeedService
 
     constructor(
         private readonly provider: OrganizationsMongoProvider,
@@ -205,23 +209,22 @@ export class OrganizationsService extends AutowiredService {
     public async deleteOrganization(token: Token, organizationId: string): Promise<Organization> {
         const organization: Organization = await this.getOrganizationById(organizationId)
         if (!organization) {
-            throw new PreconditionFailedException('Organization does not exist')
+            throw new NotFoundException('Organization does not exist')
         }
-
         // Delete all teams of this organization
-        await this.teamsService.deleteGivenOrganization(organization.id)
-
+        await this.teamsService.deleteGivenOrganization(token, organization.id)
         // Delete all members of this organization
         await this.organizationMemberProvider.deleteMany({ organization_id: organization.id })
-
+        // Delete all activity feed of this organization
+        await this.activityFeedService.deleteActivityFeed({
+            organization: organization.sluglified_name,
+        })
         // Delete the organization
         await this.provider.deleteOne({ _id: this.provider.toObjectId(organization.id) })
-
         NATSHelper.safelyEmit<KysoOrganizationsDeleteEvent>(this.client, KysoEventEnum.ORGANIZATIONS_DELETE, {
             user: await this.usersService.getUserById(token.id),
             organization,
         })
-
         return organization
     }
 

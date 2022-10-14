@@ -227,7 +227,7 @@ export class OrganizationsController extends GenericController<Organization> {
         schema: { type: 'string' },
     })
     @ApiNormalizedResponse({ status: 200, description: `Organization matching id`, type: Organization })
-    @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
+    @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN, OrganizationPermissionsEnum.ADMIN, OrganizationPermissionsEnum.DELETE])
     public async deleteOrganization(
         @CurrentToken() token: Token,
         @Param('organizationId') organizationId: string,
