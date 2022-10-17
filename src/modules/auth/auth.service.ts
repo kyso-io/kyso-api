@@ -185,6 +185,7 @@ export class AuthService extends AutowiredService {
                     permissions: [...new Set(computedPermissions)], // Remove duplicated permissions
                     organization_id: team.organization_id,
                     role_names: teamMembership.role_names,
+                    team_visibility: team.visibility,
                 })
             }
         }
@@ -277,6 +278,7 @@ export class AuthService extends AutowiredService {
                                 organization_inherited: true,
                                 organization_id: orgTeam.organization_id, // Remove duplicated permissions
                                 role_names: organizationMembership.role_names,
+                                team_visibility: orgTeam.visibility,
                             })
                         }
                     }

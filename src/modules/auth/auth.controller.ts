@@ -457,6 +457,7 @@ export class AuthController extends GenericController<string> {
                     permissions: PlatformRole.EXTERNAL_ROLE.permissions,
                     organization_id: team.organization_id,
                     role_names: ['external'],
+                    team_visibility: team.visibility,
                 })
             })
             publicTeams.forEach((team) => {
