@@ -387,7 +387,15 @@ export class ReportsService extends AutowiredService implements GenericService<R
             dataToUpdate.show_output = updateReportRequestDTO.show_output
         }
         if (updateReportRequestDTO.hasOwnProperty('main_file') && updateReportRequestDTO.main_file != null && updateReportRequestDTO.main_file.length > 0) {
-            dataToUpdate.main_file = updateReportRequestDTO.main_file
+            const files: File[] = await this.filesMongoProvider.read({
+                filter: {
+                    report_id: report.id,
+                    id: updateReportRequestDTO.main_file,
+                },
+            })
+            if (files.length > 0) {
+                dataToUpdate.main_file = files[0].name
+            }
         }
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: dataToUpdate })
 
@@ -2691,87 +2699,54 @@ export class ReportsService extends AutowiredService implements GenericService<R
         } else if (path && path.length > 0) {
             sanitizedPath = path.replace('./', '').replace(/\/$/, '')
         }
+        reportFiles = reportFiles.filter((file: File) => file.name.startsWith(sanitizedPath))
 
-        let filesInPath: any[] = [...reportFiles]
+        const pathParts = sanitizedPath.split('/').filter((p) => p !== '')
+        let result: GithubFileHash[] = []
 
-        if (sanitizedPath !== '') {
-            // Get the files that are in the path
-            reportFiles = reportFiles.filter((file: File) => file.name.startsWith(sanitizedPath + '/') || file.name.startsWith(sanitizedPath))
-            filesInPath = reportFiles.map((file: File) => {
+        if (pathParts.length === 0) {
+            result = reportFiles.map((file) => {
+                const nameParts = file.name.split('/')
+                const numParts = nameParts.length
                 return {
-                    ...file,
-                    name: file.name.replace(sanitizedPath + '/', ''),
+                    id: numParts === 1 && file.name.includes('.') ? file.id : null,
+                    type: numParts === 1 && file.name.includes('.') ? 'file' : 'folder',
+                    path: nameParts[0],
+                    hash: numParts === 1 ? file.sha : null,
+                    htmlUrl: null,
+                    path_scs: numParts === 1 ? file.path_scs : null,
+                    version: numParts === 1 ? file.version : null,
                 }
             })
-        }
-
-        let result = []
-        const level = { result }
-
-        filesInPath.forEach((file: File) => {
-            file.name.split('/').reduce((r, name: string) => {
-                if (!r[name]) {
-                    r[name] = { result: [] }
-                    r.result.push({ name, id: file.id, children: r[name].result })
+        } else if (pathParts.length > 0 && !sanitizedPath.includes('.')) {
+            result = reportFiles.map((file) => {
+                const nameParts = file.name.split('/').slice(pathParts.length)
+                const numParts = nameParts.length
+                return {
+                    id: numParts === 1 && file.name.includes('.') ? file.id : null,
+                    type: numParts === 1 && file.name.includes('.') ? 'file' : 'folder',
+                    path: nameParts[0],
+                    hash: numParts === 1 ? file.sha : null,
+                    htmlUrl: null,
+                    path_scs: numParts === 1 ? file.path_scs : null,
+                    version: numParts === 1 ? file.version : null,
                 }
-                return r[name]
-            }, level)
-        })
-
-        if (result.length === 0) {
-            const justFile: File = reportFiles.find((file: File) => file.name.startsWith(sanitizedPath))
-            return [
-                {
-                    id: justFile.id,
-                    type: 'file',
-                    path: justFile.name.replace(`${sanitizedPath}/`, ''),
-                    hash: justFile.sha,
-                    htmlUrl: '',
-                    path_scs: justFile.path_scs,
-                    version: justFile.version,
-                },
-            ]
+            })
+        } else if (pathParts.length > 0 && sanitizedPath.includes('.')) {
+            const file = reportFiles[0]
+            const nameParts = file.name.split('/')
+            result[0] = {
+                id: file.id,
+                type: 'file',
+                path: nameParts[nameParts.length - 1],
+                hash: file.sha,
+                htmlUrl: null,
+                path_scs: file.path_scs,
+                version: file.version,
+            }
         }
 
-        if (result.length === 1 && result[0].children.length > 0) {
-            // We are inside a directory
-            const getDeepChild = (element: any) => {
-                if (element?.children && element.children.length > 0) {
-                    return getDeepChild(element.children[0])
-                }
-                return [element]
-            }
-            result = getDeepChild(result[0].children[0])
-        }
-
-        const tree: GithubFileHash[] = []
-        result.forEach((element: any) => {
-            const file: File = reportFiles.find((f: File) => f.id === element.id)
-            if (element.children.length > 0) {
-                // Directory
-                tree.push({
-                    id: null,
-                    type: 'dir',
-                    path: element.name,
-                    hash: file.sha,
-                    htmlUrl: '',
-                    path_scs: file.path_scs,
-                    version: file.version,
-                })
-            } else {
-                // File
-                tree.push({
-                    id: file.id,
-                    type: 'file',
-                    path: file.name.replace(`${sanitizedPath}/`, ''),
-                    hash: file.sha,
-                    htmlUrl: '',
-                    path_scs: file.path_scs,
-                    version: file.version,
-                })
-            }
-        })
-        return tree
+        return result
     }
 
     private async getKysoFileContent(reportId: string, hash: string): Promise<Buffer> {
