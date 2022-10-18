@@ -837,8 +837,8 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
         if (!userHasPermission) {
-            Logger.error(`User ${uploaderUser.username} does not have permission to create report in team ${kysoConfigFile.team}`)
-            throw new PreconditionFailedException(`User ${uploaderUser.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+            Logger.error(`User ${uploaderUser.username} does not have permission to create report in channel ${kysoConfigFile.team}`)
+            throw new PreconditionFailedException(`User ${uploaderUser.username} does not have permission to create report in channel ${kysoConfigFile.team}`)
         }
 
         let mainFileFound = false
@@ -1079,10 +1079,10 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const userHasPermission: boolean = await this.checkCreateReportPermission(userId, team.sluglified_name)
         if (!userHasPermission) {
             Logger.error(
-                `User ${uploaderUser.username} does not have permission to create report in team ${team.sluglified_name} of the organization ${organization.sluglified_name}`,
+                `User ${uploaderUser.username} does not have permission to create report in channel ${team.sluglified_name} of the organization ${organization.sluglified_name}`,
             )
             throw new ForbiddenException(
-                `User ${uploaderUser.username} does not have permission to create report in team ${team.sluglified_name} of the organization ${organization.sluglified_name}`,
+                `User ${uploaderUser.username} does not have permission to create report in channel ${team.sluglified_name} of the organization ${organization.sluglified_name}`,
             )
         }
         const reportPath: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.REPORT_PATH)
@@ -1327,8 +1327,8 @@ export class ReportsService extends AutowiredService implements GenericService<R
             }
             const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.team)
             if (!userHasPermission) {
-                Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
-                throw new ForbiddenException(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+                Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`)
+                throw new ForbiddenException(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`)
             }
 
             kysoConfigFilesMap.set(reportFolderName, { kysoConfigFile, organization, team })
@@ -1546,8 +1546,8 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team)
         if (!userHasPermission) {
-            Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
-            throw new ForbiddenException(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+            Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`)
+            throw new ForbiddenException(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`)
         }
         let extractedDir = null
 
@@ -2096,7 +2096,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         new Promise<void>(async () => {
             const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.team)
             if (!userHasPermission) {
-                Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+                Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`)
                 await this.deleteReport(token, report.id)
 
                 NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE_NO_PERMISSIONS, {
@@ -2247,7 +2247,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         new Promise<void>(async () => {
             const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.team)
             if (!userHasPermission) {
-                Logger.error(`User ${user.username} does not have permission to create report in team ${kysoConfigFile.team}`)
+                Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`)
                 await this.deleteReport(token, report.id)
 
                 NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE_NO_PERMISSIONS, {
