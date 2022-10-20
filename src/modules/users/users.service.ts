@@ -137,7 +137,7 @@ export class UsersService extends AutowiredService {
         if (team) {
             return false
         }
-        const user: User = await this.getUser({ filter: { username } })
+        const user: User = await this.getUser({ filter: { username: username } })
         if (user) {
             return false
         }
@@ -150,18 +150,30 @@ export class UsersService extends AutowiredService {
         if (userWithEmail) {
             throw new ConflictException('Email in use')
         }
-        const isUsernameAvailable: boolean = await this.checkUsernameAvailability(signUpDto.username)
-        if (!isUsernameAvailable) {
-            throw new ConflictException('Username in use')
-        }
+        // if the username is an email address, use only the username
         if (signUpDto.username.includes('@')) {
             const usernameParts: string[] = signUpDto.username.split('@')
             signUpDto.username = slugify(usernameParts[0])
         }
+        signUpDto.username = slugify(signUpDto.username.toLowerCase())
+        const isUsernameAvailable: boolean = await this.checkUsernameAvailability(signUpDto.username)
+        // Check if the provided username is in use and or add a number suffix until one is available
+        if (!isUsernameAvailable) {
+            let counter = 1
+            while (true) {
+                const new_username = `${signUpDto.username}-${counter}`
+                const isUsernameAvailable: boolean = await this.checkUsernameAvailability(new_username)
+                if (isUsernameAvailable) {
+                    signUpDto.username = new_username
+                    break
+                }
+                counter++
+            }
+        }
         // Create user into database
         const newUser: User = new User(
             signUpDto.email,
-            signUpDto.username.toLowerCase(),
+            signUpDto.username,
             signUpDto.display_name,
             signUpDto.display_name,
             LoginProviderEnum.KYSO,
@@ -176,15 +188,6 @@ export class UsersService extends AutowiredService {
             AuthService.hashPassword(signUpDto.password),
             null,
         )
-        let counter = 1
-        do {
-            const existsUser: User = await this.getUser({ filter: { username: newUser.username } })
-            if (!existsUser) {
-                break
-            }
-            newUser.username = slugify(`${signUpDto.username}-${counter}`)
-            counter++
-        } while (true)
         Logger.log(`Creating new user ${signUpDto.display_name} with email ${signUpDto.email} and username ${signUpDto.username}...`, UsersService.name)
         const user: User = await this.provider.create(newUser)
         const tokenStr: string = await this.authService.login(new Login(signUpDto.password, LoginProviderEnum.KYSO, signUpDto.email, null))

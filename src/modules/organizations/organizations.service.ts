@@ -166,16 +166,19 @@ export class OrganizationsService extends AutowiredService {
         const organizations: Organization[] = await this.provider.read({ filter: { display_name: organization.display_name } })
 
         if (organizations.length > 0) {
-            let i = organizations.length + 1
-            do {
-                const candidate_sluglified_name = `${organization.sluglified_name}-${i}`
-                const index: number = organizations.findIndex((org: Organization) => org.sluglified_name === candidate_sluglified_name)
-                if (index === -1) {
-                    organization.sluglified_name = candidate_sluglified_name
-                    break
+            const index: number = organizations.findIndex((org: Organization) => org.sluglified_name === organization.sluglified_name)
+            if (index !== -1) {
+                let i = 1
+                while (true) {
+                    const candidate_sluglified_name = `${organization.sluglified_name}-${i}`
+                    const index: number = organizations.findIndex((org: Organization) => org.sluglified_name === candidate_sluglified_name)
+                    if (index === -1) {
+                        organization.sluglified_name = candidate_sluglified_name
+                        break
+                    }
+                    i++
                 }
-                i++
-            } while (true)
+            }
         }
 
         organization.user_id = token.id
