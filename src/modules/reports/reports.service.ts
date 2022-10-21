@@ -1227,6 +1227,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     },
                 },
             )
+            await this.checkReportTags(userId, report.id, kysoConfigFile.tags)
         }
 
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name)
