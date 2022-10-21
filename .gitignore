@@ -47,3 +47,6 @@ lerna-debug.log*
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+# bin/tsc-lint.sh file
+.tsconfig-lint.json
