@@ -1,4 +1,3 @@
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
     AddUserOrganizationDto,
     Comment,
@@ -49,7 +48,6 @@ import {
 import { ClientProxy } from '@nestjs/microservices'
 import axios, { AxiosResponse } from 'axios'
 import * as moment from 'moment'
-import { extname } from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { Autowired } from '../../decorators/autowired'
 import { AutowiredService } from '../../generic/autowired.generic'
@@ -62,6 +60,7 @@ import { DiscussionsService } from '../discussions/discussions.service'
 import { InlineCommentsService } from '../inline-comments/inline-comments.service'
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
 import { ReportsService } from '../reports/reports.service'
+import { SftpService } from '../reports/sftp.service'
 import { TeamsService } from '../teams/teams.service'
 import { UsersService } from '../users/users.service'
 import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider'
@@ -104,6 +103,9 @@ export class OrganizationsService extends AutowiredService {
 
     @Autowired({ typeName: 'ActivityFeedService' })
     private activityFeedService: ActivityFeedService
+
+    @Autowired({ typeName: 'SftpService' })
+    private sftpService: SftpService
 
     constructor(
         private readonly provider: OrganizationsMongoProvider,
@@ -222,6 +224,8 @@ export class OrganizationsService extends AutowiredService {
         await this.activityFeedService.deleteActivityFeed({
             organization: organization.sluglified_name,
         })
+        // Delete image
+        await this.deleteProfilePicture(organizationId)
         // Delete the organization
         await this.provider.deleteOne({ _id: this.provider.toObjectId(organization.id) })
         NATSHelper.safelyEmit<KysoOrganizationsDeleteEvent>(this.client, KysoEventEnum.ORGANIZATIONS_DELETE, {
@@ -591,65 +595,67 @@ export class OrganizationsService extends AutowiredService {
         })
     }
 
-    private async getS3Client(): Promise<S3Client> {
-        const awsRegion = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_REGION)
-        const awsAccessKey = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_ACCESS_KEY_ID)
-        const awsSecretAccessKey = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_SECRET_ACCESS_KEY)
-
-        return new S3Client({
-            region: awsRegion,
-            credentials: {
-                accessKeyId: awsAccessKey,
-                secretAccessKey: awsSecretAccessKey,
-            },
-        })
-    }
-
-    public async setProfilePicture(organizationId: string, file: any): Promise<Organization> {
+    public async setProfilePicture(organizationId: string, file: Express.Multer.File): Promise<Organization> {
         const organization: Organization = await this.getOrganizationById(organizationId)
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-
         if (!organization) {
-            throw new PreconditionFailedException('Organization not found')
+            throw new NotFoundException('Organization not found')
         }
-        const s3Client: S3Client = await this.getS3Client()
-        if (organization?.avatar_url && organization.avatar_url.length > 0) {
-            Logger.log(`Removing previous image of organization ${organization.sluglified_name}`, OrganizationsService.name)
-            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
-                Bucket: s3Bucket,
-                Key: organization.avatar_url.split('/').slice(-1)[0],
+        let avatar_url: string
+        try {
+            avatar_url = await this.sftpService.uploadPublicFileFromPost(file)
+        } catch (e) {
+            Logger.error(`An error occurred while uploading the organization image`, e, OrganizationsService.name)
+            throw new InternalServerErrorException('Error uploading organization image')
+        }
+        const scsPublicPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PUBLIC_PREFIX)
+        if (!scsPublicPrefix) {
+            Logger.error('STATIC_CONTENT_PUBLIC_PREFIX is not defined', OrganizationsService.name)
+            throw new InternalServerErrorException('Error uploading file')
+        }
+        if (organization?.avatar_url && organization.avatar_url !== avatar_url && organization.avatar_url.startsWith(scsPublicPrefix)) {
+            // Check if some entity is using the image
+            const usersAvatarUrl: User[] = await this.usersService.getUsers({ filter: { avatar_url: organization.avatar_url } })
+            const usersBackgroundUrl: User[] = await this.usersService.getUsers({ filter: { background_image_url: organization.avatar_url } })
+            const organizations: Organization[] = await this.getOrganizations({
+                filter: { avatar_url: organization.avatar_url, id: { $ne: organization.id } },
             })
-            await s3Client.send(deleteObjectCommand)
+            const teams: Team[] = await this.teamsService.getTeams({ filter: { avatar_url: organization.avatar_url } })
+            const reports: Report[] = await this.reportsService.getReports({ filter: { preview_picture: organization.avatar_url } })
+            if (usersAvatarUrl.length === 0 && usersBackgroundUrl.length === 0 && organizations.length === 0 && teams.length === 0 && reports.length === 0) {
+                // Remove file from SFTP
+                try {
+                    await this.sftpService.deletePublicFile(organization.avatar_url)
+                } catch (e) {
+                    Logger.error(`An error occurred while deleting the organization image`, e, OrganizationsService.name)
+                }
+            }
         }
-        Logger.log(`Uploading image for organization ${organization.sluglified_name}`, OrganizationsService.name)
-        const Key = `${uuidv4()}${extname(file.originalname)}`
-        await s3Client.send(
-            new PutObjectCommand({
-                Bucket: s3Bucket,
-                Key,
-                Body: file.buffer,
-            }),
-        )
-        Logger.log(`Uploaded image for organization ${organization.sluglified_name}`, OrganizationsService.name)
-        const avatar_url = `https://${s3Bucket}.s3.amazonaws.com/${Key}`
         return this.provider.update({ _id: this.provider.toObjectId(organization.id) }, { $set: { avatar_url } })
     }
 
     public async deleteProfilePicture(organizationId: string): Promise<Organization> {
         const organization: Organization = await this.getOrganizationById(organizationId)
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-
         if (!organization) {
-            throw new PreconditionFailedException('Organization not found')
+            throw new NotFoundException('Organization not found')
         }
-        const s3Client: S3Client = await this.getS3Client()
-        if (organization?.avatar_url && organization.avatar_url.length > 0) {
-            Logger.log(`Removing previous image of organization ${organization.sluglified_name}`, OrganizationsService.name)
-            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
-                Bucket: s3Bucket,
-                Key: organization.avatar_url.split('/').slice(-1)[0],
+        const scsPublicPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PUBLIC_PREFIX)
+        if (organization?.avatar_url && organization.avatar_url.startsWith(scsPublicPrefix)) {
+            // Check if some entity is using the image
+            const usersAvatarUrl: User[] = await this.usersService.getUsers({ filter: { avatar_url: organization.avatar_url } })
+            const usersBackgroundUrl: User[] = await this.usersService.getUsers({ filter: { background_image_url: organization.avatar_url } })
+            const organizations: Organization[] = await this.getOrganizations({
+                filter: { avatar_url: organization.avatar_url, id: { $ne: organization.id } },
             })
-            await s3Client.send(deleteObjectCommand)
+            const teams: Team[] = await this.teamsService.getTeams({ filter: { avatar_url: organization.avatar_url } })
+            const reports: Report[] = await this.reportsService.getReports({ filter: { preview_picture: organization.avatar_url } })
+            if (usersAvatarUrl.length === 0 && usersBackgroundUrl.length === 0 && organizations.length === 0 && teams.length === 0 && reports.length === 0) {
+                // Remove file from SFTP
+                try {
+                    await this.sftpService.deletePublicFile(organization.avatar_url)
+                } catch (e) {
+                    Logger.error(`An error occurred while deleting the organization image`, e, OrganizationsService.name)
+                }
+            }
         }
         return this.provider.update({ _id: this.provider.toObjectId(organization.id) }, { $set: { avatar_url: null } })
     }

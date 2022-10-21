@@ -461,7 +461,7 @@ export class UsersController extends GenericController<User> {
         description: `Allows uploading a profile picture for a user the image`,
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated user`, type: UserDTO })
-    public async setProfilePicture(@CurrentToken() token: Token, @UploadedFile() file: any): Promise<NormalizedResponseDTO<UserDTO>> {
+    public async setProfilePicture(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<UserDTO>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }
@@ -480,7 +480,7 @@ export class UsersController extends GenericController<User> {
         description: `Allows uploading a profile picture for a user the image`,
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated user`, type: UserDTO })
-    public async setBackgroundImage(@CurrentToken() token: Token, @UploadedFile() file: any): Promise<NormalizedResponseDTO<UserDTO>> {
+    public async setBackgroundImage(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<UserDTO>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }

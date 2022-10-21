@@ -166,10 +166,16 @@ export class KysoSettingsService extends AutowiredService {
                 return `SFTP username`
             case KysoSettingsEnum.SFTP_PASSWORD:
                 return `SFTP password`
+            case KysoSettingsEnum.SFTP_PUBLIC_USERNAME:
+                return `SFTP username for public content`
+            case KysoSettingsEnum.SFTP_PUBLIC_PASSWORD:
+                return `SFTP password for public content`
             case KysoSettingsEnum.SFTP_DESTINATION_FOLDER:
                 return `SFTP destination folder`
             case KysoSettingsEnum.STATIC_CONTENT_PREFIX:
                 return `Static content prefix`
+            case KysoSettingsEnum.STATIC_CONTENT_PUBLIC_PREFIX:
+                return `Static content prefix for public content`
             case KysoSettingsEnum.REPORT_PATH:
                 return `Path where reports are unzipped`
             case KysoSettingsEnum.ELASTICSEARCH_URL:
@@ -239,7 +245,7 @@ export class KysoSettingsService extends AutowiredService {
             case KysoSettingsEnum.MAX_TEAMS_PER_USER:
                 return 'Maximum number of teams in an organization that a user can create'
             case KysoSettingsEnum.KYSO_WEBHOOK_URL:
-                    return 'Webhooks URL (s3 import, du, etc.)'
+                return 'Webhooks URL (s3 import, du, etc.)'
             default:
                 return 'No description provided'
         }

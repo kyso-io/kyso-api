@@ -1,4 +1,3 @@
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
     Comment,
     Discussion,
@@ -28,7 +27,16 @@ import {
     UpdateTeamMembersDTO,
     User,
 } from '@kyso-io/kyso-model'
-import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import {
+    ForbiddenException,
+    Inject,
+    Injectable,
+    InternalServerErrorException,
+    Logger,
+    NotFoundException,
+    PreconditionFailedException,
+    Provider,
+} from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import * as moment from 'moment'
 import { extname, join } from 'path'
@@ -688,50 +696,44 @@ export class TeamsService extends AutowiredService {
         return this.getMembers(userId)
     }
 
-    private async getS3Client(): Promise<S3Client> {
-        const awsRegion = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_REGION)
-        const awsAccessKey = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_ACCESS_KEY_ID)
-        const awsSecretAccessKey = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_SECRET_ACCESS_KEY)
-
-        return new S3Client({
-            region: awsRegion,
-            credentials: {
-                accessKeyId: awsAccessKey,
-                secretAccessKey: awsSecretAccessKey,
-            },
-        })
-    }
-
-    public async setProfilePicture(token: Token, teamId: string, file: any): Promise<Team> {
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+    public async setProfilePicture(token: Token, teamId: string, file: Express.Multer.File): Promise<Team> {
         let team: Team = await this.getTeamById(teamId)
         if (!team) {
-            throw new PreconditionFailedException('Team not found')
+            throw new NotFoundException('Team not found')
         }
-        const s3Client: S3Client = await this.getS3Client()
-        if (team?.avatar_url && team.avatar_url.length > 0) {
-            Logger.log(`Removing previous image of team ${team.sluglified_name}`, OrganizationsService.name)
-            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
-                Bucket: s3Bucket,
-                Key: team.avatar_url.split('/').slice(-1)[0],
+        let avatar_url: string
+        try {
+            avatar_url = await this.sftpService.uploadPublicFileFromPost(file)
+        } catch (e) {
+            Logger.error(`An error occurred while uploading the team image`, e, TeamsService.name)
+            throw new InternalServerErrorException('Error uploading the team image')
+        }
+        const scsPublicPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PUBLIC_PREFIX)
+        if (!scsPublicPrefix) {
+            Logger.error('STATIC_CONTENT_PUBLIC_PREFIX is not defined', TeamsService.name)
+            throw new InternalServerErrorException('Error uploading file')
+        }
+        if (team?.avatar_url && team.avatar_url !== avatar_url && team.avatar_url.startsWith(scsPublicPrefix)) {
+            // Check if some entity is using the image
+            const usersAvatarUrl: User[] = await this.usersService.getUsers({ filter: { avatar_url: team.avatar_url } })
+            const usersBackgroundUrl: User[] = await this.usersService.getUsers({ filter: { background_image_url: team.avatar_url } })
+            const organizations: Organization[] = await this.organizationsService.getOrganizations({
+                filter: { avatar_url: team.avatar_url },
             })
-            await s3Client.send(deleteObjectCommand)
+            const teams: Team[] = await this.getTeams({ filter: { avatar_url: team.avatar_url, id: { $ne: team.id } } })
+            const reports: Report[] = await this.reportsService.getReports({ filter: { preview_picture: team.avatar_url } })
+            if (usersAvatarUrl.length === 0 && usersBackgroundUrl.length === 0 && organizations.length === 0 && teams.length === 0 && reports.length === 0) {
+                // Remove file from SFTP
+                try {
+                    await this.sftpService.deletePublicFile(team.avatar_url)
+                } catch (e) {
+                    Logger.error(`An error occurred while deleting the team image`, e, TeamsService.name)
+                }
+            }
         }
-        Logger.log(`Uploading image for team ${team.sluglified_name}`, OrganizationsService.name)
-        const Key = `${uuidv4()}${extname(file.originalname)}`
-        await s3Client.send(
-            new PutObjectCommand({
-                Bucket: s3Bucket,
-                Key,
-                Body: file.buffer,
-            }),
-        )
-        Logger.log(`Uploaded image for team ${team.sluglified_name}`, OrganizationsService.name)
-        const avatar_url = `https://${s3Bucket}.s3.amazonaws.com/${Key}`
         team = await this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url } })
         if (team) {
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-
             NATSHelper.safelyEmit<KysoTeamsUpdateEvent>(this.client, KysoEventEnum.TEAMS_UPDATE, {
                 user: await this.usersService.getUserById(token.id),
                 organization,
@@ -743,24 +745,31 @@ export class TeamsService extends AutowiredService {
 
     public async deleteProfilePicture(token: Token, teamId: string): Promise<Team> {
         let team: Team = await this.getTeamById(teamId)
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-
         if (!team) {
-            throw new PreconditionFailedException('Team not found')
+            throw new NotFoundException('Team not found')
         }
-        const s3Client: S3Client = await this.getS3Client()
-        if (team?.avatar_url && team.avatar_url.length > 0) {
-            Logger.log(`Removing previous image of team ${team.sluglified_name}`, OrganizationsService.name)
-            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
-                Bucket: s3Bucket,
-                Key: team.avatar_url.split('/').slice(-1)[0],
+        const scsPublicPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PUBLIC_PREFIX)
+        if (team?.avatar_url && team.avatar_url.startsWith(scsPublicPrefix)) {
+            // Check if some entity is using the image
+            const usersAvatarUrl: User[] = await this.usersService.getUsers({ filter: { avatar_url: team.avatar_url } })
+            const usersBackgroundUrl: User[] = await this.usersService.getUsers({ filter: { background_image_url: team.avatar_url } })
+            const organizations: Organization[] = await this.organizationsService.getOrganizations({
+                filter: { avatar_url: team.avatar_url },
             })
-            await s3Client.send(deleteObjectCommand)
+            const teams: Team[] = await this.getTeams({ filter: { avatar_url: team.avatar_url, id: { $ne: team.id } } })
+            const reports: Report[] = await this.reportsService.getReports({ filter: { preview_picture: team.avatar_url } })
+            if (usersAvatarUrl.length === 0 && usersBackgroundUrl.length === 0 && organizations.length === 0 && teams.length === 0 && reports.length === 0) {
+                // Remove file from SFTP
+                try {
+                    await this.sftpService.deletePublicFile(team.avatar_url)
+                } catch (e) {
+                    Logger.error(`An error occurred while deleting the team image`, e, TeamsService.name)
+                }
+            }
         }
         team = await this.provider.update({ _id: this.provider.toObjectId(team.id) }, { $set: { avatar_url: null } })
         if (team) {
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-
             NATSHelper.safelyEmit<KysoTeamsUpdateEvent>(this.client, KysoEventEnum.TEAMS_UPDATE, {
                 user: await this.usersService.getUserById(token.id),
                 organization,
@@ -792,6 +801,8 @@ export class TeamsService extends AutowiredService {
         })
         // Delete all members of this team
         await this.teamMemberProvider.deleteMany({ team_id: team.id })
+        // Delete image
+        await this.deleteProfilePicture(token, team.id)
         // Delete team
         await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) })
         NATSHelper.safelyEmit<KysoTeamsDeleteEvent>(this.client, KysoEventEnum.TEAMS_DELETE, {
@@ -811,7 +822,9 @@ export class TeamsService extends AutowiredService {
             throw new PreconditionFailedException(`You don't have permissions to upload markdown images to this team`)
         }
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-        const { client } = await this.sftpService.getClient()
+        const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_USERNAME)
+        const password: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PASSWORD)
+        const { client } = await this.sftpService.getClient(username, password)
         const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
         const containerFolder = `/${organization.sluglified_name}/${team.sluglified_name}/markdown-images`
         const destinationPath = join(sftpDestinationFolder, containerFolder)

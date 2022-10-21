@@ -1446,7 +1446,7 @@ export class ReportsController extends GenericController<Report> {
         @Headers(HEADER_X_KYSO_TEAM) teamName: string,
         @CurrentToken() token: Token,
         @Param('reportId') reportId: string,
-        @UploadedFile() file: any,
+        @UploadedFile() file: Express.Multer.File,
     ): Promise<NormalizedResponseDTO<ReportDTO>> {
         const reportData: Report = await this.reportsService.getReportById(reportId)
 

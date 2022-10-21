@@ -602,7 +602,7 @@ export class TeamsController extends GenericController<Team> {
     public async setProfilePicture(
         @CurrentToken() token: Token,
         @Param('teamId') teamId: string,
-        @UploadedFile() file: any,
+        @UploadedFile() file: Express.Multer.File,
     ): Promise<NormalizedResponseDTO<Team>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)

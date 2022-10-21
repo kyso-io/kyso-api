@@ -487,7 +487,10 @@ export class OrganizationsController extends GenericController<Organization> {
     })
     @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: Organization })
     @Permission([TeamPermissionsEnum.EDIT])
-    public async setProfilePicture(@Param('organizationId') organizationId: string, @UploadedFile() file: any): Promise<NormalizedResponseDTO<Organization>> {
+    public async setProfilePicture(
+        @Param('organizationId') organizationId: string,
+        @UploadedFile() file: Express.Multer.File,
+    ): Promise<NormalizedResponseDTO<Organization>> {
         if (!file) {
             throw new BadRequestException(`Missing file`)
         }

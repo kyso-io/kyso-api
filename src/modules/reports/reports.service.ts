@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { S3Client } from '@aws-sdk/client-s3'
 import {
     Comment,
     CreateReportDTO,
@@ -42,7 +42,17 @@ import {
     User,
     UserAccount,
 } from '@kyso-io/kyso-model'
-import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common'
+import {
+    BadRequestException,
+    ForbiddenException,
+    Inject,
+    Injectable,
+    InternalServerErrorException,
+    Logger,
+    NotFoundException,
+    PreconditionFailedException,
+    Provider,
+} from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import { Octokit } from '@octokit/rest'
 import * as AdmZip from 'adm-zip'
@@ -50,7 +60,7 @@ import axios, { AxiosResponse } from 'axios'
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs'
 import { moveSync } from 'fs-extra'
 import * as glob from 'glob'
-import { extname, join } from 'path'
+import { join } from 'path'
 import * as sha256File from 'sha256-file'
 import { NATSHelper } from 'src/helpers/natsHelper'
 import { PlatformRole } from 'src/security/platform-roles'
@@ -504,7 +514,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
     public async getReportFileContent(file: File): Promise<Buffer> {
         try {
-            const { client } = await this.sftpService.getClient()
+            const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_USERNAME)
+            const password: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PASSWORD)
+            const { client } = await this.sftpService.getClient(username, password)
             const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
             const destinationPath = join(sftpDestinationFolder, file.path_scs)
             const existsPath: boolean | string = await client.exists(destinationPath)
@@ -709,8 +721,8 @@ export class ReportsService extends AutowiredService implements GenericService<R
             mainFile ? mainFile.path_scs : null,
             mainFile ? mainFile.version : null,
             lastVersion,
-            organization.sluglified_name,
-            team.sluglified_name,
+            organization?.sluglified_name,
+            team?.sluglified_name,
         )
     }
 
@@ -767,6 +779,40 @@ export class ReportsService extends AutowiredService implements GenericService<R
             authors.push(uploaderUser.id)
         }
         return authors
+    }
+
+    private async updateReportPreviewPicture(report: Report, localFilePath: string): Promise<Report> {
+        let preview_picture: string
+        try {
+            preview_picture = await this.sftpService.uploadPublicFileFromLocalFile(localFilePath)
+        } catch (e) {
+            Logger.error(`An error occurred while updating the report image`, e, ReportsService.name)
+            throw new InternalServerErrorException('Error updating the report image')
+        }
+        const scsPublicPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PUBLIC_PREFIX)
+        if (!scsPublicPrefix) {
+            Logger.error('STATIC_CONTENT_PUBLIC_PREFIX is not defined', ReportsService.name)
+            throw new InternalServerErrorException('Error updating the report image')
+        }
+        if (report?.preview_picture && report.preview_picture !== preview_picture && report.preview_picture.startsWith(scsPublicPrefix)) {
+            // Check if some entity is using the image
+            const usersAvatarUrl: User[] = await this.usersService.getUsers({ filter: { avatar_url: report.preview_picture } })
+            const usersBackgroundUrl: User[] = await this.usersService.getUsers({ filter: { background_image_url: report.preview_picture } })
+            const organizations: Organization[] = await this.organizationsService.getOrganizations({
+                filter: { avatar_url: report.preview_picture },
+            })
+            const teams: Team[] = await this.teamsService.getTeams({ filter: { avatar_url: report.preview_picture } })
+            const reports: Report[] = await this.getReports({ filter: { preview_picture: report.preview_picture }, id: { $ne: report.id } })
+            if (usersAvatarUrl.length === 0 && usersBackgroundUrl.length === 0 && organizations.length === 0 && teams.length === 0 && reports.length === 0) {
+                // Remove file from SFTP
+                try {
+                    await this.sftpService.deletePublicFile(report.preview_picture)
+                } catch (e) {
+                    Logger.error(`An error occurred while deleting the report image`, e, ReportsService.name)
+                }
+            }
+        }
+        return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture } })
     }
 
     public async createKysoReport(userId: string, file: Express.Multer.File): Promise<Report | Report[]> {
@@ -894,19 +940,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 reportFile = await this.filesMongoProvider.create(reportFile)
                 reportFiles.push(reportFile)
                 if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
-                    const s3Client: S3Client = await this.getS3Client()
-                    const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-                    const key = `${uuidv4()}${extname(originalName)}`
-                    await s3Client.send(
-                        new PutObjectCommand({
-                            Bucket: s3Bucket,
-                            Key: key,
-                            Body: readFileSync(localFilePath),
-                        }),
-                    )
-                    const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
-                    report.preview_picture = preview_picture
-                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+                    report = await this.updateReportPreviewPicture(report, localFilePath)
                 }
             }
 
@@ -972,19 +1006,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 file = await this.filesMongoProvider.create(file)
                 reportFiles.push(file)
                 if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
-                    const s3Client: S3Client = await this.getS3Client()
-                    const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-                    const key = `${uuidv4()}${extname(originalName)}`
-                    await s3Client.send(
-                        new PutObjectCommand({
-                            Bucket: s3Bucket,
-                            Key: key,
-                            Body: readFileSync(localFilePath),
-                        }),
-                    )
-                    const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
-                    report.preview_picture = preview_picture
-                    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+                    report = await this.updateReportPreviewPicture(report, localFilePath)
                 }
             }
             await this.checkReportTags(userId, report.id, kysoConfigFile.tags)
@@ -1126,7 +1148,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
             }
         }
 
-        const { client, sftpWrapper } = await this.sftpService.getClient()
+        const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_USERNAME)
+        const password: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PASSWORD)
+        const { client, sftpWrapper } = await this.sftpService.getClient(username, password)
         const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
         const existingFoldersPreviousVersion: string[] = Array.from(map.keys())
 
@@ -1151,19 +1175,43 @@ export class ReportsService extends AutowiredService implements GenericService<R
             let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version)
             reportFile = await this.filesMongoProvider.create(reportFile)
             if (kysoConfigFile && originalName === kysoConfigFile?.preview) {
-                const s3Client: S3Client = await this.getS3Client()
-                const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-                const key = `${uuidv4()}${extname(originalName)}`
-                await s3Client.send(
-                    new PutObjectCommand({
-                        Bucket: s3Bucket,
-                        Key: key,
-                        Body: readFileSync(localFilePath),
-                    }),
-                )
-                const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
-                report.preview_picture = preview_picture
-                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+                let preview_picture: string
+                try {
+                    preview_picture = await this.sftpService.uploadPublicFileFromLocalFile(localFilePath)
+                } catch (e) {
+                    Logger.error(`An error occurred while updating the report image`, e, ReportsService.name)
+                    throw new InternalServerErrorException('Error updating the report image')
+                }
+                const scsPublicPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PUBLIC_PREFIX)
+                if (!scsPublicPrefix) {
+                    Logger.error('STATIC_CONTENT_PUBLIC_PREFIX is not defined', ReportsService.name)
+                    throw new InternalServerErrorException('Error updating the report image')
+                }
+                if (report?.preview_picture && report.preview_picture !== preview_picture && report.preview_picture.startsWith(scsPublicPrefix)) {
+                    // Check if some entity is using the image
+                    const usersAvatarUrl: User[] = await this.usersService.getUsers({ filter: { avatar_url: report.preview_picture } })
+                    const usersBackgroundUrl: User[] = await this.usersService.getUsers({ filter: { background_image_url: report.preview_picture } })
+                    const organizations: Organization[] = await this.organizationsService.getOrganizations({
+                        filter: { avatar_url: report.preview_picture },
+                    })
+                    const teams: Team[] = await this.teamsService.getTeams({ filter: { avatar_url: report.preview_picture } })
+                    const reports: Report[] = await this.getReports({ filter: { preview_picture: report.preview_picture }, id: { $ne: report.id } })
+                    if (
+                        usersAvatarUrl.length === 0 &&
+                        usersBackgroundUrl.length === 0 &&
+                        organizations.length === 0 &&
+                        teams.length === 0 &&
+                        reports.length === 0
+                    ) {
+                        // Remove file from SFTP
+                        try {
+                            await this.sftpService.deletePublicFile(report.preview_picture)
+                        } catch (e) {
+                            Logger.error(`An error occurred while deleting the report image`, e, ReportsService.name)
+                        }
+                    }
+                }
+                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture } })
             }
         }
         if (kysoConfigFile) {
@@ -1419,19 +1467,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
                     file = await this.filesMongoProvider.create(file)
                     reportFiles.push(file)
                     if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
-                        const s3Client: S3Client = await this.getS3Client()
-                        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-                        const key = `${uuidv4()}${extname(originalName)}`
-                        await s3Client.send(
-                            new PutObjectCommand({
-                                Bucket: s3Bucket,
-                                Key: key,
-                                Body: readFileSync(localFilePath),
-                            }),
-                        )
-                        const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
-                        report.preview_picture = preview_picture
-                        report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+                        report = await this.updateReportPreviewPicture(report, localFilePath)
                     }
                 }
                 await this.checkReportTags(user.id, report.id, kysoConfigFile.tags)
@@ -1630,19 +1666,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             file = await this.filesMongoProvider.create(file)
             reportFiles.push(file)
             if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
-                const s3Client: S3Client = await this.getS3Client()
-                const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-                const key = `${uuidv4()}${extname(originalName)}`
-                await s3Client.send(
-                    new PutObjectCommand({
-                        Bucket: s3Bucket,
-                        Key: key,
-                        Body: readFileSync(localFilePath),
-                    }),
-                )
-                const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
-                report.preview_picture = preview_picture
-                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+                report = await this.updateReportPreviewPicture(report, localFilePath)
             }
         }
 
@@ -1697,7 +1721,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading main file to Ftp...`, ReportsService.name)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-        const { client } = await this.sftpService.getClient()
+        const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_USERNAME)
+        const password: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PASSWORD)
+        const { client } = await this.sftpService.getClient(username, password)
         const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
         const ftpReportPath: string = join(
             sftpDestinationFolder,
@@ -2518,19 +2544,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
             let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version)
             reportFile = await this.filesMongoProvider.create(reportFile)
             if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
-                const s3Client: S3Client = await this.getS3Client()
-                const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
-                const key = `${uuidv4()}${extname(originalName)}`
-                await s3Client.send(
-                    new PutObjectCommand({
-                        Bucket: s3Bucket,
-                        Key: key,
-                        Body: readFileSync(files[i].filePath),
-                    }),
-                )
-                const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${key}`
-                report.preview_picture = preview_picture
-                report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: preview_picture } })
+                report = await this.updateReportPreviewPicture(report, files[i].filePath)
             }
         }
 
@@ -2648,7 +2662,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
         Logger.log(`Report '${report.sluglified_name}': downloading ${reportFiles.length} files from Ftp...`, ReportsService.name)
         const team: Team = await this.teamsService.getTeamById(report.team_id)
         const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-        const { client } = await this.sftpService.getClient()
+        const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_USERNAME)
+        const password: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PASSWORD)
+        const { client } = await this.sftpService.getClient(username, password)
         const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
         const destinationPath = join(
             sftpDestinationFolder,
@@ -2761,7 +2777,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
         const reportFile: File = files[files.length - 1]
         try {
-            const { client } = await this.sftpService.getClient()
+            const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_USERNAME)
+            const password: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PASSWORD)
+            const { client } = await this.sftpService.getClient(username, password)
             const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
             const destinationPath = join(sftpDestinationFolder, reportFile.path_scs)
             const existsPath: boolean | string = await client.exists(destinationPath)
@@ -2775,49 +2793,71 @@ export class ReportsService extends AutowiredService implements GenericService<R
         }
     }
 
-    public async setPreviewPicture(reportId: string, file: any): Promise<Report> {
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
+    public async setPreviewPicture(reportId: string, file: Express.Multer.File): Promise<Report> {
         const report: Report = await this.getReportById(reportId)
         if (!report) {
-            throw new PreconditionFailedException('Report not found')
+            throw new NotFoundException('Report not found')
         }
-        const s3Client: S3Client = await this.getS3Client()
-        if (report?.preview_picture && report.preview_picture.length > 0) {
-            Logger.log(`Removing previous image of report ${report.sluglified_name}`, ReportsService.name)
-            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
-                Bucket: s3Bucket,
-                Key: report.preview_picture.split('/').slice(-1)[0],
+        let preview_picture: string
+        try {
+            preview_picture = await this.sftpService.uploadPublicFileFromPost(file)
+        } catch (e) {
+            Logger.error(`An error occurred while uploading the report preview image '${report.sluglified_name}'`, e, ReportsService.name)
+            throw new InternalServerErrorException('An error occurred while uploading the report preview image')
+        }
+        const scsPublicPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PUBLIC_PREFIX)
+        if (!scsPublicPrefix) {
+            Logger.error('STATIC_CONTENT_PUBLIC_PREFIX is not defined', ReportsService.name)
+            throw new InternalServerErrorException('Error uploading file')
+        }
+        if (report?.preview_picture && report.preview_picture !== preview_picture && report.preview_picture.startsWith(scsPublicPrefix)) {
+            // Check if some entity is using the image
+            const usersAvatarUrl: User[] = await this.usersService.getUsers({ filter: { avatar_url: report.preview_picture } })
+            const usersBackgroundUrl: User[] = await this.usersService.getUsers({ filter: { background_image_url: report.preview_picture } })
+            const organizations: Organization[] = await this.organizationsService.getOrganizations({
+                filter: { avatar_url: report.preview_picture },
             })
-            await s3Client.send(deleteObjectCommand)
+            const teams: Team[] = await this.teamsService.getTeams({ filter: { avatar_url: report.preview_picture } })
+            const reports: Report[] = await this.getReports({ filter: { preview_picture: report.preview_picture }, id: { $ne: report.id } })
+            if (usersAvatarUrl.length === 0 && usersBackgroundUrl.length === 0 && organizations.length === 0 && teams.length === 0 && reports.length === 0) {
+                // Remove file from SFTP
+                try {
+                    await this.sftpService.deletePublicFile(report.preview_picture)
+                } catch (e) {
+                    Logger.error(`An error occurred while deleting the report image`, e, ReportsService.name)
+                }
+            }
         }
-        Logger.log(`Uploading image for report ${report.sluglified_name}`, ReportsService.name)
-        const Key = `${uuidv4()}${extname(file.originalname)}`
-        await s3Client.send(
-            new PutObjectCommand({
-                Bucket: s3Bucket,
-                Key,
-                Body: file.buffer,
-            }),
-        )
-        Logger.log(`Uploaded image for report ${report.sluglified_name}`, ReportsService.name)
-        const preview_picture = `https://${s3Bucket}.s3.amazonaws.com/${Key}`
         return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture } })
     }
 
     public async deletePreviewPicture(reportId: string): Promise<Report> {
-        const s3Bucket = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_S3_BUCKET)
         const report: Report = await this.getReportById(reportId)
         if (!report) {
             throw new PreconditionFailedException('Report not found')
         }
-        const s3Client: S3Client = await this.getS3Client()
-        if (report?.preview_picture && report.preview_picture.length > 0) {
-            Logger.log(`Removing previous image of report ${report.sluglified_name}`, OrganizationsService.name)
-            const deleteObjectCommand: DeleteObjectCommand = new DeleteObjectCommand({
-                Bucket: s3Bucket,
-                Key: report.preview_picture.split('/').slice(-1)[0],
+        const scsPublicPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PUBLIC_PREFIX)
+        if (!scsPublicPrefix) {
+            Logger.error('STATIC_CONTENT_PUBLIC_PREFIX is not defined', OrganizationsService.name)
+            throw new InternalServerErrorException('Error uploading file')
+        }
+        if (report?.preview_picture && report.preview_picture.startsWith(scsPublicPrefix)) {
+            // Check if some entity is using the image
+            const usersAvatarUrl: User[] = await this.usersService.getUsers({ filter: { avatar_url: report.preview_picture } })
+            const usersBackgroundUrl: User[] = await this.usersService.getUsers({ filter: { background_image_url: report.preview_picture } })
+            const organizations: Organization[] = await this.organizationsService.getOrganizations({
+                filter: { avatar_url: report.preview_picture },
             })
-            await s3Client.send(deleteObjectCommand)
+            const teams: Team[] = await this.teamsService.getTeams({ filter: { avatar_url: report.preview_picture } })
+            const reports: Report[] = await this.getReports({ filter: { preview_picture: report.preview_picture }, id: { $ne: report.id } })
+            if (usersAvatarUrl.length === 0 && usersBackgroundUrl.length === 0 && organizations.length === 0 && teams.length === 0 && reports.length === 0) {
+                // Remove file from SFTP
+                try {
+                    await this.sftpService.deletePublicFile(report.preview_picture)
+                } catch (e) {
+                    Logger.error(`An error occurred while deleting the report image`, e, ReportsService.name)
+                }
+            }
         }
         return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: null } })
     }
@@ -3028,7 +3068,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
             version = Math.max(1, version)
             const team: Team = await this.teamsService.getTeamById(report.team_id)
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-            const { client } = await this.sftpService.getClient()
+            const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_USERNAME)
+            const password: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PASSWORD)
+            const { client } = await this.sftpService.getClient(username, password)
             const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
             const destinationPath = join(
                 sftpDestinationFolder,
@@ -3059,7 +3101,9 @@ export class ReportsService extends AutowiredService implements GenericService<R
                 return
             }
             const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-            const { client } = await this.sftpService.getClient()
+            const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_USERNAME)
+            const password: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PASSWORD)
+            const { client } = await this.sftpService.getClient(username, password)
             const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER)
             const destinationPath = join(sftpDestinationFolder, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}`)
             const existsPath: boolean | string = await client.exists(destinationPath)
