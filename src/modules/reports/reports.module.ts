@@ -10,7 +10,6 @@ import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.pro
 import { ReportsMongoProvider } from './providers/mongo-reports.provider'
 import { StarredReportsMongoProvider } from './providers/mongo-starred-reports.provider'
 import { VersionsMongoProvider } from './providers/mongo-versions.provider'
-import { FilesS3Provider } from './providers/s3-files.provider'
 import { ReportsController } from './reports.controller'
 import { createProvider, ReportsService } from './reports.service'
 import { createSftpProvider, SftpService } from './sftp.service'
@@ -24,7 +23,6 @@ export class ReportsModule {
         return {
             module: ReportsModule,
             providers: [
-                FilesS3Provider,
                 FilesMongoProvider,
                 localRepositoryDynamicProvider,
                 LocalReportsService,

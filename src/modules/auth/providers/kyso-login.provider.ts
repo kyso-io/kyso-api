@@ -1,5 +1,5 @@
 import { KysoUserAccessToken } from '@kyso-io/kyso-model'
-import { Injectable, UnauthorizedException } from '@nestjs/common'
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { Autowired } from '../../../decorators/autowired'
 import { UsersService } from '../../users/users.service'
@@ -16,6 +16,9 @@ export class KysoLoginProvider extends BaseLoginProvider {
     }
 
     async login(password: string, username?: string): Promise<string> {
+        if (!password) {
+            throw new BadRequestException('Password is required')
+        }
         // Get user from database
         const user = await this.usersService.getUser({
             filter: { email: username.toLowerCase() },
@@ -35,6 +38,9 @@ export class KysoLoginProvider extends BaseLoginProvider {
     }
 
     async loginWithAccessToken(access_token: string, username: string): Promise<string> {
+        if (!access_token) {
+            throw new BadRequestException('Access token is required')
+        }
         // Get user from database
         const user = await this.usersService.getUser({
             filter: { email: username.toLowerCase() },
