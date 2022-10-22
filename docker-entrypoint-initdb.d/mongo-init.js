@@ -1,7 +1,7 @@
-db = new Mongo().getDB('kyso')
+db = new Mongo().getDB('kyso');
 
 db.createUser({
-    user: 'kysodb',
-    pwd: 'kysodb',
-    roles: [{ role: 'readWrite', db: 'kyso' }],
-})
+  user: 'kysodb',
+  pwd: 'kysodb',
+  roles: [{ role: 'readWrite', db: 'kyso' }],
+});

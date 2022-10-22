@@ -1,17 +1,17 @@
-import { PinnedReport } from '@kyso-io/kyso-model'
-import { Injectable, Logger } from '@nestjs/common'
-import { db } from '../../../main'
-import { MongoProvider } from '../../../providers/mongo.provider'
+import { PinnedReport } from '@kyso-io/kyso-model';
+import { Injectable, Logger } from '@nestjs/common';
+import { db } from '../../../main';
+import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class PinnedReportsMongoProvider extends MongoProvider<PinnedReport> {
-    version = 1
-    
-    constructor() {
-        super('PinnedReport', db)
-    }
+  version = 1;
 
-    populateMinimalData() {
-        Logger.log(`${this.baseCollection} has no minimal data to populate`)
-    }
+  constructor() {
+    super('PinnedReport', db);
+  }
+
+  populateMinimalData() {
+    Logger.log(`${this.baseCollection} has no minimal data to populate`);
+  }
 }

@@ -1,23 +1,23 @@
-import { OrganizationMemberJoin } from '@kyso-io/kyso-model'
-import { Injectable, Logger } from '@nestjs/common'
-import { db } from '../../../main'
-import { MongoProvider } from '../../../providers/mongo.provider'
+import { OrganizationMemberJoin } from '@kyso-io/kyso-model';
+import { Injectable, Logger } from '@nestjs/common';
+import { db } from '../../../main';
+import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class OrganizationMemberMongoProvider extends MongoProvider<any> {
-    version = 1
-    
-    constructor() {
-        super('OrganizationMember', db)
-    }
+  version = 1;
 
-    populateMinimalData() {
-        Logger.log(`${this.baseCollection} has no minimal data to populate`)
-    }
+  constructor() {
+    super('OrganizationMember', db);
+  }
 
-    async getMembers(organizationId: string): Promise<OrganizationMemberJoin[]> {
-        const allMembers = await this.read({ filter: { organization_id: organizationId } })
+  populateMinimalData() {
+    Logger.log(`${this.baseCollection} has no minimal data to populate`);
+  }
 
-        return allMembers
-    }
+  async getMembers(organizationId: string): Promise<OrganizationMemberJoin[]> {
+    const allMembers = await this.read({ filter: { organization_id: organizationId } });
+
+    return allMembers;
+  }
 }
