@@ -380,7 +380,10 @@ export class OrganizationsService extends AutowiredService {
     if (!validRoles.includes(addUserOrganizationDto.role)) {
       throw new PreconditionFailedException('Invalid role');
     }
-    let sendNotifications = false;
+    const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
+    const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
+    let emailsCentralized: string[] = [];
+
     const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id);
     const member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id);
     if (member) {
@@ -388,19 +391,27 @@ export class OrganizationsService extends AutowiredService {
       if (!member.role_names.includes(addUserOrganizationDto.role)) {
         member.role_names.push(addUserOrganizationDto.role);
         await this.organizationMemberProvider.updateOne({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [member.role_names] } });
+
+        try {
+          if (isCentralized) {
+            emailsCentralized = organization.options.notifications.emails;
+          }
+          NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_UPDATE_MEMBER_ROLE, {
+            user,
+            organization,
+            emailsCentralized,
+            role: addUserOrganizationDto.role,
+            frontendUrl,
+          });
+        } catch (ex) {
+          Logger.error('Error sending notifications of role change for an existing member in an organization', ex);
+        }
       }
     } else {
       const newMember: OrganizationMemberJoin = new OrganizationMemberJoin(organization.id, user.id, [addUserOrganizationDto.role], true);
       await this.organizationMemberProvider.create(newMember);
-      sendNotifications = true;
-    }
 
-    // SEND NOTIFICATIONS
-    if (sendNotifications) {
       try {
-        const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
-        const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-        let emailsCentralized: string[] = [];
         if (isCentralized) {
           emailsCentralized = organization.options.notifications.emails;
         }
