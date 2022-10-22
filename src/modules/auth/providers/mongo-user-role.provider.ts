@@ -1,16 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common'
-import { db } from '../../../main'
-import { MongoProvider } from '../../../providers/mongo.provider'
+import { Injectable, Logger } from '@nestjs/common';
+import { db } from '../../../main';
+import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class UserRoleMongoProvider extends MongoProvider<any> {
-    version = 1
-    
-    constructor() {
-        super('UserRole', db)
-    }
+  version = 1;
 
-    populateMinimalData() {
-        Logger.log(`${this.baseCollection} has no minimal data to populate`)
-    }
+  constructor() {
+    super('UserRole', db);
+  }
+
+  populateMinimalData() {
+    Logger.log(`${this.baseCollection} has no minimal data to populate`);
+  }
 }

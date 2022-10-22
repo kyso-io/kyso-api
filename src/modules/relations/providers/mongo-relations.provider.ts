@@ -1,32 +1,32 @@
-import { Relation } from '@kyso-io/kyso-model'
-import { Injectable, Logger } from '@nestjs/common'
-import { ObjectId } from 'mongodb'
-import { db } from '../../../main'
-import { MongoProvider } from '../../../providers/mongo.provider'
+import { Relation } from '@kyso-io/kyso-model';
+import { Injectable, Logger } from '@nestjs/common';
+import { ObjectId } from 'mongodb';
+import { db } from '../../../main';
+import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class RelationsMongoProvider extends MongoProvider<Relation> {
-    version = 1
-    
-    provider: any
+  version = 1;
 
-    constructor() {
-        super('Relation', db)
-    }
+  provider: any;
 
-    async readFromCollectionByIds(collection, ids) {
-        const cursor = await this.getCollection(collection).find({ _id: { $in: ids.map((id) => new ObjectId(id)) } })
+  constructor() {
+    super('Relation', db);
+  }
 
-        const items = (await cursor.toArray()).map((item) => {
-            item.id = item._id.toString()
-            delete item._id
-            return item
-        })
+  async readFromCollectionByIds(collection, ids) {
+    const cursor = await this.getCollection(collection).find({ _id: { $in: ids.map((id) => new ObjectId(id)) } });
 
-        return items
-    }
+    const items = (await cursor.toArray()).map((item) => {
+      item.id = item._id.toString();
+      delete item._id;
+      return item;
+    });
 
-    populateMinimalData() {
-        Logger.log(`${this.baseCollection} has no minimal data to populate`)
-    }
+    return items;
+  }
+
+  populateMinimalData() {
+    Logger.log(`${this.baseCollection} has no minimal data to populate`);
+  }
 }

@@ -1,21 +1,20 @@
-import { KysoUserAccessToken, User } from '@kyso-io/kyso-model'
-import { Injectable, Logger } from '@nestjs/common'
-import { v4 as uuidv4 } from 'uuid'
-import { db } from '../../../main'
-import { MongoProvider } from '../../../providers/mongo.provider'
-
+import { KysoUserAccessToken, User } from '@kyso-io/kyso-model';
+import { Injectable, Logger } from '@nestjs/common';
+import { v4 as uuidv4 } from 'uuid';
+import { db } from '../../../main';
+import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class KysoUserAccessTokensMongoProvider extends MongoProvider<KysoUserAccessToken> {
-    version = 1
-    
-    provider: any
+  version = 1;
 
-    constructor() {
-        super('KysoUserAccessToken', db)
-    }
+  provider: any;
 
-    async populateMinimalData() {
-        Logger.log(`${this.baseCollection} has no minimal data to populate`)
-    }    
+  constructor() {
+    super('KysoUserAccessToken', db);
+  }
+
+  async populateMinimalData() {
+    Logger.log(`${this.baseCollection} has no minimal data to populate`);
+  }
 }

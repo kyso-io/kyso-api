@@ -1,42 +1,42 @@
-import { Injectable, Logger } from '@nestjs/common'
-import { NotFoundError } from '../../../helpers/errorHandling'
-import { db } from '../../../main'
-import { MongoProvider } from '../../../providers/mongo.provider'
+import { Injectable, Logger } from '@nestjs/common';
+import { NotFoundError } from '../../../helpers/errorHandling';
+import { db } from '../../../main';
+import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class VersionsMongoProvider extends MongoProvider<any> {
-    version = 1
-    
-    constructor() {
-        super('Version', db)
-    }
+  version = 1;
 
-    populateMinimalData() {
-        Logger.log(`${this.baseCollection} has no minimal data to populate`)
-    }
+  constructor() {
+    super('Version', db);
+  }
 
-    async getReportVersions(reportId) {
-        const versions = await this.read({
-            filter: {
-                report_id: reportId,
-            },
-        })
-        return versions
-    }
+  populateMinimalData() {
+    Logger.log(`${this.baseCollection} has no minimal data to populate`);
+  }
 
-    async getReportVersion(reportId, version) {
-        const versions = await this.read({
-            filter: {
-                _id: version,
-                report_id: reportId,
-            },
-            limit: 1,
-        })
+  async getReportVersions(reportId) {
+    const versions = await this.read({
+      filter: {
+        report_id: reportId,
+      },
+    });
+    return versions;
+  }
 
-        if (versions.length === 0)
-            throw new NotFoundError({
-                message: "The specified version couldn't be found",
-            })
-        return versions[0]
-    }
+  async getReportVersion(reportId, version) {
+    const versions = await this.read({
+      filter: {
+        _id: version,
+        report_id: reportId,
+      },
+      limit: 1,
+    });
+
+    if (versions.length === 0)
+      throw new NotFoundError({
+        message: "The specified version couldn't be found",
+      });
+    return versions[0];
+  }
 }

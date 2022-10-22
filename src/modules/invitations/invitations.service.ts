@@ -1,191 +1,189 @@
 import {
-    CreateInvitationDto,
-    Invitation,
-    InvitationStatus,
-    InvitationType,
-    KysoEventEnum,
-    KysoInvitationsTeamCreateEvent,
-    KysoSettingsEnum,
-    Organization,
-    Team,
-    TeamMember,
-    User,
-} from '@kyso-io/kyso-model'
-import { Inject, Injectable, PreconditionFailedException, Provider } from '@nestjs/common'
-import { ClientProxy } from '@nestjs/microservices'
-import { Autowired } from '../../decorators/autowired'
-import { AutowiredService } from '../../generic/autowired.generic'
-import { NATSHelper } from '../../helpers/natsHelper'
-import { KysoSettingsService } from '../kyso-settings/kyso-settings.service'
-import { OrganizationsService } from '../organizations/organizations.service'
-import { TeamsService } from '../teams/teams.service'
-import { UsersService } from '../users/users.service'
-import { InvitationsMongoProvider } from './providers/invitations-mongo.provider'
+  CreateInvitationDto,
+  Invitation,
+  InvitationStatus,
+  InvitationType,
+  KysoEventEnum,
+  KysoInvitationsTeamCreateEvent,
+  KysoSettingsEnum,
+  Organization,
+  Team,
+  TeamMember,
+  User,
+} from '@kyso-io/kyso-model';
+import { Inject, Injectable, PreconditionFailedException, Provider } from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
+import { Autowired } from '../../decorators/autowired';
+import { AutowiredService } from '../../generic/autowired.generic';
+import { NATSHelper } from '../../helpers/natsHelper';
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service';
+import { OrganizationsService } from '../organizations/organizations.service';
+import { TeamsService } from '../teams/teams.service';
+import { UsersService } from '../users/users.service';
+import { InvitationsMongoProvider } from './providers/invitations-mongo.provider';
 
 function factory(service: InvitationsService) {
-    return service
+  return service;
 }
 
 export function createProvider(): Provider<InvitationsService> {
-    return {
-        provide: `${InvitationsService.name}`,
-        useFactory: (service) => factory(service),
-        inject: [InvitationsService],
-    }
+  return {
+    provide: `${InvitationsService.name}`,
+    useFactory: (service) => factory(service),
+    inject: [InvitationsService],
+  };
 }
 
 @Injectable()
 export class InvitationsService extends AutowiredService {
-    @Autowired({ typeName: 'UsersService' })
-    private usersService: UsersService
+  @Autowired({ typeName: 'UsersService' })
+  private usersService: UsersService;
 
-    @Autowired({ typeName: 'TeamsService' })
-    private teamsService: TeamsService
+  @Autowired({ typeName: 'TeamsService' })
+  private teamsService: TeamsService;
 
-    @Autowired({ typeName: 'OrganizationsService' })
-    private organizationsService: OrganizationsService
+  @Autowired({ typeName: 'OrganizationsService' })
+  private organizationsService: OrganizationsService;
 
-    @Autowired({ typeName: 'KysoSettingsService' })
-    private kysoSettingsService: KysoSettingsService
+  @Autowired({ typeName: 'KysoSettingsService' })
+  private kysoSettingsService: KysoSettingsService;
 
-    constructor(private readonly provider: InvitationsMongoProvider, @Inject('NATS_SERVICE') private client: ClientProxy) {
-        super()
+  constructor(private readonly provider: InvitationsMongoProvider, @Inject('NATS_SERVICE') private client: ClientProxy) {
+    super();
+  }
+
+  public async getInvitationById(id: string): Promise<Invitation> {
+    return this.getInvitation({ filter: { _id: this.provider.toObjectId(id) } });
+  }
+
+  public async getInvitation(query: any): Promise<Invitation> {
+    const invitations: Invitation[] = await this.provider.read(query);
+    if (invitations.length === 0) {
+      return null;
     }
+    return invitations[0];
+  }
 
-    public async getInvitationById(id: string): Promise<Invitation> {
-        return this.getInvitation({ filter: { _id: this.provider.toObjectId(id) } })
+  public async getInvitations(query: any): Promise<Invitation[]> {
+    return this.provider.read(query);
+  }
+
+  public async updateInvitation(filterQuery: any, updateQuery: any): Promise<Invitation> {
+    return this.provider.update(filterQuery, updateQuery);
+  }
+
+  public async createInvitation(userId: string, createInvitationDto: CreateInvitationDto): Promise<Invitation> {
+    const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
+    const invitations: Invitation[] = await this.provider.read({
+      filter: {
+        email: createInvitationDto.email,
+        entity: createInvitationDto.entity,
+        entity_id: createInvitationDto.entity_id,
+        status: InvitationStatus.Pending,
+      },
+    });
+    if (invitations.length > 0) {
+      throw new PreconditionFailedException(`Invitation for ${createInvitationDto.email} of type ${createInvitationDto.entity} already exists`);
     }
+    const invitation: Invitation = await this.provider.create({ creator_id: userId, status: InvitationStatus.Pending, ...createInvitationDto });
+    switch (invitation.entity) {
+      case InvitationType.Team:
+        const user: User = await this.usersService.getUserById(invitation.creator_id);
+        const team: Team = await this.teamsService.getTeamById(invitation.entity_id);
+        const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
 
-    public async getInvitation(query: any): Promise<Invitation> {
-        const invitations: Invitation[] = await this.provider.read(query)
-        if (invitations.length === 0) {
-            return null
-        }
-        return invitations[0]
+        NATSHelper.safelyEmit<KysoInvitationsTeamCreateEvent>(this.client, KysoEventEnum.INVITATIONS_TEAM_CREATE, {
+          user,
+          roles: invitation.payload.roles.map((role: string) => role.replace('-', ' ')),
+          frontendUrl,
+          organization,
+          team,
+          invitation,
+        });
+
+        break;
+      case InvitationType.Organization:
+        break;
     }
+    return invitation;
+  }
 
-    public async getInvitations(query: any): Promise<Invitation[]> {
-        return this.provider.read(query)
+  public async deleteInvitation(invitationId: string): Promise<Invitation> {
+    const invitation: Invitation = await this.getInvitationById(invitationId);
+    if (!invitation) {
+      throw new PreconditionFailedException('Invitation not found');
     }
+    await this.provider.deleteOne({ _id: this.provider.toObjectId(invitationId) });
+    return invitation;
+  }
 
-    public async updateInvitation(filterQuery: any, updateQuery: any): Promise<Invitation> {
-        return this.provider.update(filterQuery, updateQuery)
+  public async acceptInvitation(userId: string, id: string): Promise<Invitation> {
+    const invitation: Invitation = await this.getInvitationById(id);
+    if (!invitation) {
+      throw new PreconditionFailedException('Invitation not found');
     }
-
-    public async createInvitation(userId: string, createInvitationDto: CreateInvitationDto): Promise<Invitation> {
-        const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL)
-        const invitations: Invitation[] = await this.provider.read({
-            filter: {
-                email: createInvitationDto.email,
-                entity: createInvitationDto.entity,
-                entity_id: createInvitationDto.entity_id,
-                status: InvitationStatus.Pending,
-            },
-        })
-        if (invitations.length > 0) {
-            throw new PreconditionFailedException(`Invitation for ${createInvitationDto.email} of type ${createInvitationDto.entity} already exists`)
-        }
-        const invitation: Invitation = await this.provider.create({ creator_id: userId, status: InvitationStatus.Pending, ...createInvitationDto })
-        switch (invitation.entity) {
-            case InvitationType.Team:
-                const user: User = await this.usersService.getUserById(invitation.creator_id)
-                const team: Team = await this.teamsService.getTeamById(invitation.entity_id)
-                const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id)
-
-                NATSHelper.safelyEmit<KysoInvitationsTeamCreateEvent>(this.client, KysoEventEnum.INVITATIONS_TEAM_CREATE, {
-                    user,
-                    roles: invitation.payload.roles.map((role: string) => role.replace('-', ' ')),
-                    frontendUrl,
-                    organization,
-                    team,
-                    invitation,
-                })
-
-                break
-            case InvitationType.Organization:
-                break
-        }
-        return invitation
+    const user: User = await this.usersService.getUserById(userId);
+    if (!user) {
+      throw new PreconditionFailedException('Invalid credentials found');
     }
-
-    public async deleteInvitation(invitationId: string): Promise<Invitation> {
-        const invitation: Invitation = await this.getInvitationById(invitationId)
-        if (!invitation) {
-            throw new PreconditionFailedException('Invitation not found')
-        }
-        await this.provider.deleteOne({ _id: this.provider.toObjectId(invitationId) })
-        return invitation
+    if (user.email !== invitation.email) {
+      throw new PreconditionFailedException('User email does not match invitation email');
     }
-
-    public async acceptInvitation(userId: string, id: string): Promise<Invitation> {
-        const invitation: Invitation = await this.getInvitationById(id)
-        if (!invitation) {
-            throw new PreconditionFailedException('Invitation not found')
-        }
-        const user: User = await this.usersService.getUserById(userId)
-        if (!user) {
-            throw new PreconditionFailedException('Invalid credentials found')
-        }
-        if (user.email !== invitation.email) {
-            throw new PreconditionFailedException('User email does not match invitation email')
-        }
-        if (invitation.status !== InvitationStatus.Pending) {
-            throw new PreconditionFailedException('Invitation is not pending')
-        }
-        switch (invitation.entity) {
-            case InvitationType.Team:
-                const team: Team = await this.teamsService.getTeamById(invitation.entity_id)
-                if (!team) {
-                    throw new PreconditionFailedException('Team not found')
-                }
-                const teamMembers: TeamMember[] = await this.teamsService.getMembers(team.id)
-                const index: number = teamMembers.findIndex((member: TeamMember) => member.id === user.id)
-                if (index > -1) {
-                    throw new PreconditionFailedException('User is already member of team')
-                }
-                await this.teamsService.addMembersById(team.id, [user.id], [...invitation.payload.roles])
-                break
-            case InvitationType.Organization:
-                break
-        }
-        return this.provider.update({ _id: this.provider.toObjectId(invitation.id) }, { $set: { status: InvitationStatus.Accepted } })
+    if (invitation.status !== InvitationStatus.Pending) {
+      throw new PreconditionFailedException('Invitation is not pending');
     }
-
-    public async rejectInvitation(userId: string, id: string): Promise<Invitation> {
-        const invitation: Invitation = await this.getInvitationById(id)
-        if (!invitation) {
-            throw new PreconditionFailedException('Invitation not found')
+    switch (invitation.entity) {
+      case InvitationType.Team:
+        const team: Team = await this.teamsService.getTeamById(invitation.entity_id);
+        if (!team) {
+          throw new PreconditionFailedException('Team not found');
         }
-        const user: User = await this.usersService.getUserById(userId)
-        if (!user) {
-            throw new PreconditionFailedException('User not found')
+        const teamMembers: TeamMember[] = await this.teamsService.getMembers(team.id);
+        const index: number = teamMembers.findIndex((member: TeamMember) => member.id === user.id);
+        if (index > -1) {
+          throw new PreconditionFailedException('User is already member of team');
         }
-        if (user.email !== invitation.email) {
-            throw new PreconditionFailedException('User email does not match invitation email')
-        }
-        if (invitation.status !== InvitationStatus.Pending) {
-            throw new PreconditionFailedException('Invitation is not pending')
-        }
-        return this.provider.update({ _id: this.provider.toObjectId(invitation.id) }, { $set: { status: InvitationStatus.Rejected } })
+        await this.teamsService.addMembersById(team.id, [user.id], [...invitation.payload.roles]);
+        break;
+      case InvitationType.Organization:
+        break;
     }
+    return this.provider.update({ _id: this.provider.toObjectId(invitation.id) }, { $set: { status: InvitationStatus.Accepted } });
+  }
 
-    public async getInvitationOfUser(userId: string, invitationId: string): Promise<Invitation> {
-        const user: User = await this.usersService.getUserById(userId)
-        if (!user) {
-            throw new PreconditionFailedException('User not found')
-        }
-        const invitation: Invitation = await this.getInvitationById(invitationId)
-        if (!invitation) {
-            throw new PreconditionFailedException('Invitation not found')
-        }
-        if (invitation.email !== user.email) {
-            throw new PreconditionFailedException('The invitation does not belong to this user')
-        }
-        if (invitation.status !== InvitationStatus.Pending) {
-            throw new PreconditionFailedException(
-                `The invitation has already been ${invitation.status === InvitationStatus.Accepted ? 'accepted' : 'rejected'}`,
-            )
-        }
-        return invitation
+  public async rejectInvitation(userId: string, id: string): Promise<Invitation> {
+    const invitation: Invitation = await this.getInvitationById(id);
+    if (!invitation) {
+      throw new PreconditionFailedException('Invitation not found');
     }
+    const user: User = await this.usersService.getUserById(userId);
+    if (!user) {
+      throw new PreconditionFailedException('User not found');
+    }
+    if (user.email !== invitation.email) {
+      throw new PreconditionFailedException('User email does not match invitation email');
+    }
+    if (invitation.status !== InvitationStatus.Pending) {
+      throw new PreconditionFailedException('Invitation is not pending');
+    }
+    return this.provider.update({ _id: this.provider.toObjectId(invitation.id) }, { $set: { status: InvitationStatus.Rejected } });
+  }
+
+  public async getInvitationOfUser(userId: string, invitationId: string): Promise<Invitation> {
+    const user: User = await this.usersService.getUserById(userId);
+    if (!user) {
+      throw new PreconditionFailedException('User not found');
+    }
+    const invitation: Invitation = await this.getInvitationById(invitationId);
+    if (!invitation) {
+      throw new PreconditionFailedException('Invitation not found');
+    }
+    if (invitation.email !== user.email) {
+      throw new PreconditionFailedException('The invitation does not belong to this user');
+    }
+    if (invitation.status !== InvitationStatus.Pending) {
+      throw new PreconditionFailedException(`The invitation has already been ${invitation.status === InvitationStatus.Accepted ? 'accepted' : 'rejected'}`);
+    }
+    return invitation;
+  }
 }
