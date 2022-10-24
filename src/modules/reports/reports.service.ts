@@ -869,7 +869,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
       Logger.error(`Team ${kysoConfigFile.team} does not exist`);
       throw new NotFoundException(`Team ${kysoConfigFile.team} does not exist`);
     }
-    const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team);
+    const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.organization, kysoConfigFile.team);
     if (!userHasPermission) {
       Logger.error(`User ${uploaderUser.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
       throw new PreconditionFailedException(`User ${uploaderUser.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
@@ -1088,7 +1088,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     }
     const team: Team = await this.teamsService.getTeamById(report.team_id);
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-    const userHasPermission: boolean = await this.checkCreateReportPermission(userId, team.sluglified_name);
+    const userHasPermission: boolean = await this.checkCreateReportPermission(userId, organization.sluglified_name, team.sluglified_name);
     if (!userHasPermission) {
       Logger.error(`User ${uploaderUser.username} does not have permission to create report in channel ${team.sluglified_name} of the organization ${organization.sluglified_name}`);
       throw new ForbiddenException(`User ${uploaderUser.username} does not have permission to create report in channel ${team.sluglified_name} of the organization ${organization.sluglified_name}`);
@@ -1344,7 +1344,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         Logger.error(`Team ${kysoConfigFile.team} does not exist`);
         throw new PreconditionFailedException(`Team ${kysoConfigFile.team} does not exist`);
       }
-      const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.team);
+      const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.organization, kysoConfigFile.team);
       if (!userHasPermission) {
         Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
         throw new ForbiddenException(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
@@ -1553,7 +1553,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
       Logger.error(`Team ${kysoConfigFile.team} does not exist`);
       throw new PreconditionFailedException(`Team ${kysoConfigFile.team} does not exist`);
     }
-    const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.team);
+    const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.organization, kysoConfigFile.team);
     if (!userHasPermission) {
       Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
       throw new ForbiddenException(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
@@ -1887,7 +1887,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     new Promise<void>(async () => {
       Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${sha}'`, ReportsService.name);
 
-      const userHasPermission: boolean = await this.checkCreateReportPermission(token.id, kysoConfigFile.team);
+      const userHasPermission: boolean = await this.checkCreateReportPermission(token.id, kysoConfigFile.organization, kysoConfigFile.team);
       if (!userHasPermission) {
         Logger.error(`User ${user.username} does not have permission to delete report ${report.sluglified_name} in team ${kysoConfigFile.team}`, ReportsService.name);
         await this.deleteReport(token, report.id);
@@ -2078,7 +2078,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     }
 
     new Promise<void>(async () => {
-      const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.team);
+      const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.organization, kysoConfigFile.team);
       if (!userHasPermission) {
         Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
         await this.deleteReport(token, report.id);
@@ -2229,7 +2229,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     }
 
     new Promise<void>(async () => {
-      const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.team);
+      const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.organization, kysoConfigFile.team);
       if (!userHasPermission) {
         Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
         await this.deleteReport(token, report.id);
@@ -2848,7 +2848,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     return Array.from(map.values());
   }
 
-  private async checkCreateReportPermission(userId: string, teamName: string): Promise<boolean> {
+  private async checkCreateReportPermission(userId: string, organizationName: string, teamName: string): Promise<boolean> {
     const user: User = await this.usersService.getUserById(userId);
 
     const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
@@ -2864,23 +2864,22 @@ export class ReportsService extends AutowiredService implements GenericService<R
       return true;
     }
 
-    const teamResourcePermissions: ResourcePermissions = permissions.teams.find((t: ResourcePermissions) => t.name === teamName);
+    const organizationResourcePermissions: ResourcePermissions = permissions.organizations.find((o: ResourcePermissions) => o.name === organizationName);
+    if (!organizationResourcePermissions) {
+      Logger.log(`User ${user.username} is not a member of the organization ${organizationResourcePermissions.name}`, ReportsService.name);
+      return false;
+    }
+
+    const teamResourcePermissions: ResourcePermissions = permissions.teams.find((t: ResourcePermissions) => t.name === teamName && t.organization_id === organizationResourcePermissions.id);
     if (!teamResourcePermissions) {
       Logger.log(`User ${user.username} is not a member of the team ${teamName}`, ReportsService.name);
       return false;
     }
 
-    if (teamResourcePermissions?.permissions && Array.isArray(teamResourcePermissions.permissions)) {
-      return teamResourcePermissions.permissions.includes(ReportPermissionsEnum.CREATE);
-    } else {
-      // Check if the user is a member of the organization
-      const organizationResourcePermissions: ResourcePermissions = permissions.organizations.find((o: ResourcePermissions) => o.id === teamResourcePermissions.organization_id);
-      if (!organizationResourcePermissions) {
-        Logger.log(`User ${user.username} is not a member of the organization ${organizationResourcePermissions.name}`, ReportsService.name);
-        return false;
-      }
+    if (teamResourcePermissions.organization_inherited) {
       return organizationResourcePermissions.permissions.includes(ReportPermissionsEnum.CREATE);
     }
+    return teamResourcePermissions.hasOwnProperty('permissions') && Array.isArray(teamResourcePermissions.permissions) && teamResourcePermissions.permissions.includes(ReportPermissionsEnum.CREATE);
   }
 
   public async getReportByName(reportName: string, teamName: string, organizationId: string): Promise<Report> {
