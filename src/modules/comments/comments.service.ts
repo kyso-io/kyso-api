@@ -142,9 +142,13 @@ export class CommentsService extends AutowiredService {
     }
 
     if (discussion) {
+      Logger.log('Checking mentions in discussion');
       await this.checkMentionsInDiscussionComment(newComment, commentDto.user_ids);
     } else if (report) {
+      Logger.log('Checking mentions in report');
       await this.checkMentionsInReportComment(newComment, commentDto.user_ids);
+    } else {
+      Logger.warn('No discussion nor report. Not checking mentions in any place...');
     }
 
     this.indexComment(newComment);
