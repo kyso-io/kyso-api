@@ -50,6 +50,7 @@ export class TestingDataPopulatorService {
   private Ahsoka_ExternalUser: User;
   private Dooku_WithoutOrg: User;
   private Leia_OrgAdmin: User;
+  private Amidala_Reader: User;
 
   private BabyYoda_Token: Token;
   private Gideon_Token: Token;
@@ -314,6 +315,23 @@ export class TestingDataPopulatorService {
         'n0tiene',
       );
 
+      const amidala_Reader: CreateUserRequestDTO = new CreateUserRequestDTO(
+        `${mailPrefix}+amidala@dev.kyso.io`,
+        'amidala',
+        'Padmé Amidala',
+        'Amidala',
+        LoginProviderEnum.KYSO,
+        '[Reader] Amidala is a reader',
+        '',
+        '',
+        'free',
+        'https://bit.ly/3Dhh8Ku',
+        null,
+        true,
+        [],
+        'n0tiene',
+      );
+
       this.Rey_TeamAdminUser = await this._createUser(rey_TestTeamAdminUser);
       this.Kylo_TeamContributorUser = await this._createUser(kylo_TestTeamContributorUser);
       this.Chewbacca_TeamReaderUser = await this._createUser(chewbacca_TestTeamReaderUser);
@@ -323,6 +341,7 @@ export class TestingDataPopulatorService {
       this.Ahsoka_ExternalUser = await this._createUser(ahsoka_ExternalUser);
       this.Dooku_WithoutOrg = await this._createUser(dooku_WithoutOrg);
       this.Leia_OrgAdmin = await this._createUser(leia_OrgAdmin);
+      this.Amidala_Reader = await this._createUser(amidala_Reader);
 
       await this.usersService.updateUser(
         { id: this.Rey_TeamAdminUser.id },
@@ -423,6 +442,18 @@ export class TestingDataPopulatorService {
             show_captcha: false,
             avatar_url: leia_OrgAdmin.avatar_url,
             global_permissions: leia_OrgAdmin.global_permissions,
+          },
+        },
+      );
+
+      await this.usersService.updateUser(
+        { id: this.Amidala_Reader.id },
+        {
+          $set: {
+            email_verified: true,
+            show_captcha: false,
+            avatar_url: amidala_Reader.avatar_url,
+            global_permissions: amidala_Reader.global_permissions,
           },
         },
       );
@@ -851,14 +882,23 @@ export class TestingDataPopulatorService {
       Logger.log(`Adding ${this.Chewbacca_TeamReaderUser.email} as ${PlatformRole.TEAM_READER_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
       await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.Chewbacca_TeamReaderUser.id.toString()], [PlatformRole.TEAM_READER_ROLE.name]);
 
+      Logger.log(`Adding ${this.BabyYoda_OrganizationAdminUser.email} as ${PlatformRole.TEAM_READER_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
+      await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.BabyYoda_OrganizationAdminUser.id.toString()], [PlatformRole.TEAM_READER_ROLE.name]);
+
       Logger.log(`Adding ${this.Ahsoka_ExternalUser.email} as ${PlatformRole.TEAM_CONTRIBUTOR_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
       await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.Ahsoka_ExternalUser.id.toString()], [PlatformRole.TEAM_CONTRIBUTOR_ROLE.name]);
+
+      Logger.log(`Adding ${this.Kylo_TeamContributorUser.email} as ${PlatformRole.TEAM_CONTRIBUTOR_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
+      await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.Kylo_TeamContributorUser.id.toString()], [PlatformRole.TEAM_CONTRIBUTOR_ROLE.name]);
 
       Logger.log(`Adding ${this.Rey_TeamAdminUser.email} as ${PlatformRole.TEAM_ADMIN_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
       await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.Rey_TeamAdminUser.id.toString()], [PlatformRole.TEAM_ADMIN_ROLE.name]);
 
       Logger.log(`Adding ${this.Leia_OrgAdmin.email} as ${PlatformRole.ORGANIZATION_ADMIN_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
       await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.Leia_OrgAdmin.id.toString()], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name]);
+
+      Logger.log(`Adding ${this.Amidala_Reader.email} as ${PlatformRole.ORGANIZATION_ADMIN_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
+      await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.Amidala_Reader.id.toString()], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name]);
     } catch (ex) {
       Logger.error('Error at assignUsersToOrganizations', ex);
     }
@@ -867,10 +907,7 @@ export class TestingDataPopulatorService {
   private async assignUsersToTeams() {
     try {
       Logger.log(`Adding ${this.Gideon_OrganizationAdminUser.display_name} to team ${this.PrivateTeam.sluglified_name} with role ${this.CustomTeamRole.name}`);
-      await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Gideon_OrganizationAdminUser.id], [this.CustomTeamRole.name]);
-
-      Logger.log(`Adding ${this.Rey_TeamAdminUser.display_name} to team ${this.PrivateTeam.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}`);
-      await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Rey_TeamAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name]);
+      await this.teamsService.addMembersById(this.PrivateTeam.id, [this.Gideon_OrganizationAdminUser.id], [PlatformRole.TEAM_READER_ROLE.name]);
 
       Logger.log(`Adding ${this.Ahsoka_ExternalUser.display_name} to team ${this.ProtectedTeamWithCustomRole.sluglified_name} with role ${PlatformRole.TEAM_CONTRIBUTOR_ROLE.name}`);
       await this.teamsService.addMembersById(this.ProtectedTeamWithCustomRole.id, [this.Ahsoka_ExternalUser.id], [PlatformRole.TEAM_CONTRIBUTOR_ROLE.name]);
@@ -878,6 +915,15 @@ export class TestingDataPopulatorService {
       /* api-tests */
       Logger.log(`Adding ${this.Chewbacca_TeamReaderUser.display_name} to team ${this.APITests_PrivateChannel.sluglified_name} with role ${PlatformRole.TEAM_READER_ROLE.name}`);
       await this.teamsService.addMembersById(this.APITests_PrivateChannel.id, [this.Chewbacca_TeamReaderUser.id], [PlatformRole.TEAM_READER_ROLE.name]);
+
+      Logger.log(`Adding ${this.Kylo_TeamContributorUser.display_name} to team ${this.APITests_PrivateChannel.sluglified_name} with role ${PlatformRole.TEAM_CONTRIBUTOR_ROLE.name}`);
+      await this.teamsService.addMembersById(this.APITests_PrivateChannel.id, [this.Kylo_TeamContributorUser.id], [PlatformRole.TEAM_CONTRIBUTOR_ROLE.name]);
+
+      Logger.log(`Adding ${this.BabyYoda_OrganizationAdminUser.display_name} to team ${this.APITests_PrivateChannel.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}`);
+      await this.teamsService.addMembersById(this.APITests_PrivateChannel.id, [this.BabyYoda_OrganizationAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name]);
+
+      Logger.log(`Adding ${this.Amidala_Reader.display_name} to team ${this.APITests_PrivateChannel.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}`);
+      await this.teamsService.addMembersById(this.APITests_PrivateChannel.id, [this.BabyYoda_OrganizationAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name]);
     } catch (ex) {
       Logger.error('Error at assignUsersToTeams', ex);
     }
