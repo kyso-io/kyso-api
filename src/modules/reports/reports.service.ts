@@ -295,6 +295,10 @@ export class ReportsService extends AutowiredService implements GenericService<R
       false,
       kysoConfigFile && kysoConfigFile.main ? kysoConfigFile.main : null,
     );
+
+    if (createReportDto.id) {
+      report.id = createReportDto.id;
+    }
     Logger.log('Creating report');
     report = await this.provider.create(report);
 

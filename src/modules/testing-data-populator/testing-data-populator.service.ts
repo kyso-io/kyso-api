@@ -35,6 +35,8 @@ import { ReportsService } from '../reports/reports.service';
 import { TagsService } from '../tags/tags.service';
 import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
+import { faker } from '@faker-js/faker';
+import slug from 'src/helpers/slugify';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { exec } = require('child_process');
 
@@ -168,9 +170,9 @@ export class TestingDataPopulatorService {
         'Rey Skywalker',
         'Rey',
         LoginProviderEnum.KYSO,
-        '[Team Admin] Rey is a Team Admin',
-        '',
-        '',
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
         'free',
         'https://bit.ly/3okf2mg',
         null,
@@ -185,9 +187,9 @@ export class TestingDataPopulatorService {
         'Ben Solo',
         'Kylo Ren',
         LoginProviderEnum.KYSO,
-        '[Team Contributor] Kylo Ren is a Team Contributor',
-        '',
-        '',
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
         'free',
         'https://bit.ly/3qfdNVo',
         null,
@@ -202,9 +204,9 @@ export class TestingDataPopulatorService {
         'GRWAAAAAAWWLLL Chewbacca',
         'Chewbacca',
         LoginProviderEnum.KYSO,
-        '[Team Reader] Chewbacca is a Team Reader',
-        '',
-        '',
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
         'free',
         'https://bit.ly/3slTUyI',
         null,
@@ -219,9 +221,9 @@ export class TestingDataPopulatorService {
         'The Greatest Moff Giddeon',
         'Moff Gideon',
         LoginProviderEnum.KYSO,
-        '[Organization Admin] Moff Gideon is an Organization Admin',
-        '',
-        '',
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
         'free',
         'https://bit.ly/3EWyNG6',
         null,
@@ -236,9 +238,9 @@ export class TestingDataPopulatorService {
         'Lord Palpatine',
         'palpatine',
         LoginProviderEnum.KYSO,
-        '[Platform Admin] Palpatine is a platform admin',
-        '',
-        '',
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
         'free',
         'https://bit.ly/3IXAFki',
         null,
@@ -253,9 +255,9 @@ export class TestingDataPopulatorService {
         'Grogu aka Baby Yoda',
         'Baby Yoda',
         LoginProviderEnum.KYSO,
-        '[Organization Admin] Baby Yoda is an Organization Admin',
-        '',
-        '',
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
         'free',
         'https://bit.ly/34q5SxQ',
         null,
@@ -270,9 +272,9 @@ export class TestingDataPopulatorService {
         'Ahsoka Tano',
         'Ahsoka Tano',
         LoginProviderEnum.KYSO,
-        '[External] Ahsoka is a External user',
-        '',
-        '',
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
         'free',
         'https://bit.ly/3FeZCZO',
         null,
@@ -287,9 +289,9 @@ export class TestingDataPopulatorService {
         'Count Dooku',
         'Count Dooku',
         LoginProviderEnum.KYSO,
-        '[Contributor] Count Dooku is a Contributor',
-        '',
-        '',
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
         'free',
         'https://bit.ly/3W4adfX',
         null,
@@ -304,9 +306,9 @@ export class TestingDataPopulatorService {
         'Leia Organa',
         'Leia Organa',
         LoginProviderEnum.KYSO,
-        '[Org Admin] Leia Organa is org admin',
-        '',
-        '',
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
         'free',
         'https://bit.ly/3DxTfzj',
         null,
@@ -321,9 +323,9 @@ export class TestingDataPopulatorService {
         'Padmé Amidala',
         'Amidala',
         LoginProviderEnum.KYSO,
-        '[Reader] Amidala is a reader',
-        '',
-        '',
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
         'free',
         'https://bit.ly/3Dhh8Ku',
         null,
@@ -514,6 +516,41 @@ export class TestingDataPopulatorService {
     }
   }
 
+  /**
+   * Creates a random report
+   * @param creator Creator of the report
+   * @param channelId Channel in which the report will be placed
+   * @param count Optional, number of reports to create
+   */
+  private async createRandomReport(creator: User, channelId: string, count?: number): Promise<any> {
+    try {
+      let numberOfReportsToCreate = 1;
+
+      if (count && count > 0) {
+        numberOfReportsToCreate = count;
+      }
+
+      for (let i = 0; i < numberOfReportsToCreate; i++) {
+        try {
+          const randomReport = await this.generateRandomReport(channelId);
+          await this._createReport(creator, randomReport);
+        } catch (ex) {
+          Logger.error('Error generating random report', ex);
+        }
+      }
+    } catch (ex) {
+      Logger.error('Error generating random report', ex);
+    }
+  }
+
+  private async generateRandomReport(channelId: string, fixedReportId?: string): Promise<any> {
+    const reportTitle = faker.company.catchPhrase();
+
+    const randomReport = new CreateReportDTO(slug(reportTitle), null, RepositoryProvider.KYSO, 'main', '.', channelId, reportTitle, faker.hacker.phrase(), null, null, fixedReportId);
+
+    return randomReport;
+  }
+
   private async createTestingReports() {
     try {
       const reportKylosThoughts = new CreateReportDTO(
@@ -575,6 +612,84 @@ export class TestingDataPopulatorService {
       );
 
       this.RebelScumCounterAttackReport = await this._createReport(this.Rey_TeamAdminUser, reportRebelScumCounterAttack);
+
+      /*********************/
+      /* api-tests reports */
+      /*********************/
+      // Scenario: Delete a public report being an unauthorized user
+      const rr1 = await this.generateRandomReport(this.APITests_PublicChannel.id, '63596fd9b3388dc3de683ead');
+      await this._createReport(this.Chewbacca_TeamReaderUser, rr1);
+
+      // Scenario: Delete a protected report being an unauthorized user
+      const rr2 = await this.generateRandomReport(this.APITests_ProtectedChannel.id, '63597688eddfd38c1d7b44a5');
+      await this._createReport(this.Chewbacca_TeamReaderUser, rr2);
+
+      // Scenario: Delete a protected report being an unauthorized user
+      const rr3 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '635976c24de76e0e9451d8b3');
+      await this._createReport(this.Chewbacca_TeamReaderUser, rr3);
+
+      const rr4 = await this.generateRandomReport(this.APITests_PublicChannel.id, '63597c477d26f8fbbc9d8ba4');
+      await this._createReport(this.Ahsoka_ExternalUser, rr4);
+
+      const rr5 = await this.generateRandomReport(this.APITests_ProtectedChannel.id, '63597caeb00fd5b902813aa9');
+      await this._createReport(this.Ahsoka_ExternalUser, rr5);
+
+      const rr6 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '63597d243ef740bde54aad46');
+      await this._createReport(this.Kylo_TeamContributorUser, rr6);
+
+      const rr7 = await this.generateRandomReport(this.APITests_PublicChannel.id, '63597dfce86ab9f1dd20c5df');
+      await this._createReport(this.Leia_OrgAdmin, rr7);
+
+      const rr8 = await this.generateRandomReport(this.APITests_ProtectedChannel.id, '63597e77de9ddb0aa5c03059');
+      await this._createReport(this.Leia_OrgAdmin, rr8);
+
+      const rr9 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '63597f35e9f8e31a0642288c');
+      await this._createReport(this.Kylo_TeamContributorUser, rr9);
+
+      const rr10 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '63597f8a549ed03279144ead');
+      await this._createReport(this.Rey_TeamAdminUser, rr10);
+
+      const rr11 = await this.generateRandomReport(this.APITests_PublicChannel.id, '6359800d1a2d0631ffc9fe95');
+      await this._createReport(this.Amidala_Reader, rr11);
+
+      const rr12 = await this.generateRandomReport(this.APITests_ProtectedChannel.id, '635980ab77aa10746b01606e');
+      await this._createReport(this.Amidala_Reader, rr12);
+
+      const rr13 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '6359813ce4b9ea2012aea302');
+      await this._createReport(this.Kylo_TeamContributorUser, rr13);
+
+      const rr14 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '635981a574a32b3860aa6d6a');
+      await this._createReport(this.Leia_OrgAdmin, rr14);
+
+      /*
+      this.createRandomReport(this.Chewbacca_TeamReaderUser, this.APITests_PublicChannel.id, 3);
+      this.createRandomReport(this.Chewbacca_TeamReaderUser, this.APITests_ProtectedChannel.id, 3);
+      this.createRandomReport(this.Chewbacca_TeamReaderUser, this.APITests_PrivateChannel.id, 3);
+
+      this.createRandomReport(this.Kylo_TeamContributorUser, this.APITests_PublicChannel.id, 3);
+      this.createRandomReport(this.Kylo_TeamContributorUser, this.APITests_ProtectedChannel.id, 3);
+      this.createRandomReport(this.Kylo_TeamContributorUser, this.APITests_PrivateChannel.id, 3);
+
+      this.createRandomReport(this.Ahsoka_ExternalUser, this.APITests_PublicChannel.id, 3);
+      this.createRandomReport(this.Ahsoka_ExternalUser, this.APITests_ProtectedChannel.id, 3);
+      this.createRandomReport(this.Ahsoka_ExternalUser, this.APITests_PrivateChannel.id, 3);
+
+      this.createRandomReport(this.BabyYoda_OrganizationAdminUser, this.APITests_PublicChannel.id, 3);
+      this.createRandomReport(this.BabyYoda_OrganizationAdminUser, this.APITests_ProtectedChannel.id, 3);
+      this.createRandomReport(this.BabyYoda_OrganizationAdminUser, this.APITests_PrivateChannel.id, 3);
+
+      this.createRandomReport(this.Rey_TeamAdminUser, this.APITests_PublicChannel.id, 3);
+      this.createRandomReport(this.Rey_TeamAdminUser, this.APITests_ProtectedChannel.id, 3);
+      this.createRandomReport(this.Rey_TeamAdminUser, this.APITests_PrivateChannel.id, 3);
+
+      this.createRandomReport(this.Amidala_Reader, this.APITests_PublicChannel.id, 3);
+      this.createRandomReport(this.Amidala_Reader, this.APITests_ProtectedChannel.id, 3);
+      this.createRandomReport(this.Amidala_Reader, this.APITests_PrivateChannel.id, 3);
+
+      this.createRandomReport(this.Leia_OrgAdmin, this.APITests_PublicChannel.id, 3);
+      this.createRandomReport(this.Leia_OrgAdmin, this.APITests_ProtectedChannel.id, 3);
+      this.createRandomReport(this.Leia_OrgAdmin, this.APITests_PrivateChannel.id, 3);
+      */
 
       // Create reports using kyso-cli
       // Check that kyso-cli is available
@@ -744,13 +859,13 @@ export class TestingDataPopulatorService {
         [],
         [],
         'darkside@kyso.io',
-        'random-stripe-id-with-no-use',
-        'G891724',
+        faker.random.alphaNumeric(), // stripe
+        'ES87961244T', // tax-id
         false,
-        '',
-        '',
-        '',
-        '',
+        faker.address.cityName(), // location
+        faker.internet.url(), // link
+        faker.hacker.phrase(), // bio
+        faker.image.animals(), // avatar_url
         uuidv4(),
         null,
       );
@@ -765,13 +880,13 @@ export class TestingDataPopulatorService {
         [this.CustomOrganizationRole],
         [],
         'lightside@kyso.io',
-        'another-random-stripe-id-with-no-use',
-        'ES87961244T',
+        faker.random.alphaNumeric(), // stripe
+        'ES87961244T', // tax-id
         false,
-        '',
-        '',
-        '',
-        '',
+        faker.address.cityName(), // location
+        faker.internet.url(), // link
+        faker.hacker.phrase(), // bio
+        faker.image.animals(), // avatar_url
         uuidv4(),
         null,
       );
@@ -784,13 +899,13 @@ export class TestingDataPopulatorService {
         [],
         [],
         'lo+api-tests-organization@kyso.io',
-        'another-random-stripe-id-with-no-use',
-        'ES87961244T',
-        true,
-        '',
-        '',
-        '',
-        '',
+        faker.random.alphaNumeric(), // stripe
+        'ES87961244T', // tax-id
+        false,
+        faker.address.cityName(), // location
+        faker.internet.url(), // link
+        faker.hacker.phrase(), // bio
+        faker.image.animals(), // avatar_url
         uuidv4(),
         null,
       );
@@ -818,28 +933,68 @@ export class TestingDataPopulatorService {
 
       const protectedTeam = new Team(
         'Protected TEAM',
-        'https://bit.ly/3e9mDOZ',
-        'A protected team with custom roles',
-        '',
-        'Sacramento',
+        faker.image.animals(),
+        faker.commerce.productDescription(),
+        faker.internet.url(),
+        faker.address.cityName(),
         [this.CustomTeamRole],
         this.LightsideOrganization.id,
         TeamVisibilityEnum.PROTECTED,
         null,
       );
 
-      const privateTeam = new Team('PRIVATE TeaM', 'https://bit.ly/3sr8x45', 'A private team', '', 'Milwaukee', [this.CustomTeamRole], this.DarksideOrganization.id, TeamVisibilityEnum.PRIVATE, null);
+      const privateTeam = new Team(
+        'PRIVATE TeaM',
+        faker.image.animals(),
+        faker.commerce.productDescription(),
+        faker.internet.url(),
+        faker.address.cityName(),
+        [this.CustomTeamRole],
+        this.DarksideOrganization.id,
+        TeamVisibilityEnum.PRIVATE,
+        null,
+      );
 
       this.PublicTeam = await this._createTeam(publicTeam);
       this.ProtectedTeamWithCustomRole = await this._createTeam(protectedTeam);
       this.PrivateTeam = await this._createTeam(privateTeam);
 
       // API Tests
-      const apiTests_publicChannel = new Team('Public Channel', '', 'A Public Channel', '', 'Sacramento', [], this.APITests_Organization.id, TeamVisibilityEnum.PUBLIC, null);
+      const apiTests_publicChannel = new Team(
+        'Public Channel',
+        faker.image.animals(),
+        faker.commerce.productDescription(),
+        faker.internet.url(),
+        faker.address.cityName(),
+        [],
+        this.APITests_Organization.id,
+        TeamVisibilityEnum.PUBLIC,
+        null,
+      );
 
-      const apiTests_protectedChannel = new Team('Protected Channel', '', 'A Protected Channel', '', 'Sacramento', [], this.APITests_Organization.id, TeamVisibilityEnum.PROTECTED, null);
+      const apiTests_protectedChannel = new Team(
+        'Protected Channel',
+        faker.image.animals(),
+        faker.commerce.productDescription(),
+        faker.internet.url(),
+        faker.address.cityName(),
+        [],
+        this.APITests_Organization.id,
+        TeamVisibilityEnum.PROTECTED,
+        null,
+      );
 
-      const apiTests_privateChannel = new Team('Private Channel', '', 'A Private Channel', '', 'Sacramento', [], this.APITests_Organization.id, TeamVisibilityEnum.PRIVATE, null);
+      const apiTests_privateChannel = new Team(
+        'Private Channel',
+        faker.image.animals(),
+        faker.commerce.productDescription(),
+        faker.internet.url(),
+        faker.address.cityName(),
+        [],
+        this.APITests_Organization.id,
+        TeamVisibilityEnum.PRIVATE,
+        null,
+      );
 
       this.APITests_PublicChannel = await this._createTeam(apiTests_publicChannel);
       this.APITests_ProtectedChannel = await this._createTeam(apiTests_protectedChannel);
