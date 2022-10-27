@@ -332,7 +332,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     const reportCreator: boolean = report.user_id === token.id;
     const reportAuthor: boolean = report.author_ids.includes(token.id);
     if (!reportCreator && !reportAuthor) {
-      const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.EDIT], team.id, organization.id);
+      const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.EDIT], team, organization);
       if (!hasPermissions) {
         throw new ForbiddenException('You do not have permissions to update this report');
       }

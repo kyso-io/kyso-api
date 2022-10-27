@@ -127,7 +127,7 @@ export class DiscussionsController extends GenericController<Discussion> {
     }
 
     if (objects.team.visibility !== TeamVisibilityEnum.PUBLIC) {
-      const hasPermissions: boolean = AuthService.hasPermissions(token, [DiscussionPermissionsEnum.READ], objects.team.id, objects.organization.id);
+      const hasPermissions: boolean = AuthService.hasPermissions(token, [DiscussionPermissionsEnum.READ], objects.team, objects.organization);
 
       if (!hasPermissions) {
         throw new ForbiddenException('You do not have permissions to access this report');
@@ -171,7 +171,7 @@ export class DiscussionsController extends GenericController<Discussion> {
     }
 
     if (objects.team.visibility !== TeamVisibilityEnum.PUBLIC) {
-      const hasPermissions: boolean = AuthService.hasPermissions(token, [DiscussionPermissionsEnum.READ], objects.team.id, objects.organization.id);
+      const hasPermissions: boolean = AuthService.hasPermissions(token, [DiscussionPermissionsEnum.READ], objects.team, objects.organization);
       if (!hasPermissions) {
         throw new ForbiddenException('You do not have permissions to access this report');
       }
