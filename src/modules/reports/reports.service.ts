@@ -2776,32 +2776,44 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
   public async deletePreviewPicture(reportId: string): Promise<Report> {
     const report: Report = await this.getReportById(reportId);
+
     if (!report) {
       throw new PreconditionFailedException('Report not found');
     }
-    const scsPublicPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PUBLIC_PREFIX);
-    if (!scsPublicPrefix) {
-      Logger.error('STATIC_CONTENT_PUBLIC_PREFIX is not defined', OrganizationsService.name);
-      throw new InternalServerErrorException('Error uploading file');
-    }
-    if (report?.preview_picture && report.preview_picture.startsWith(scsPublicPrefix)) {
-      // Check if some entity is using the image
-      const usersAvatarUrl: User[] = await this.usersService.getUsers({ filter: { avatar_url: report.preview_picture } });
-      const usersBackgroundUrl: User[] = await this.usersService.getUsers({ filter: { background_image_url: report.preview_picture } });
-      const organizations: Organization[] = await this.organizationsService.getOrganizations({
-        filter: { avatar_url: report.preview_picture },
-      });
-      const teams: Team[] = await this.teamsService.getTeams({ filter: { avatar_url: report.preview_picture } });
-      const reports: Report[] = await this.getReports({ filter: { preview_picture: report.preview_picture }, id: { $ne: report.id } });
-      if (usersAvatarUrl.length === 0 && usersBackgroundUrl.length === 0 && organizations.length === 0 && teams.length === 0 && reports.length === 0) {
-        // Remove file from SFTP
-        try {
-          await this.sftpService.deletePublicFile(report.preview_picture);
-        } catch (e) {
-          Logger.error(`An error occurred while deleting the report image`, e, ReportsService.name);
+
+    try {
+      const scsPublicPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PUBLIC_PREFIX);
+
+      if (!scsPublicPrefix) {
+        Logger.error('STATIC_CONTENT_PUBLIC_PREFIX is not defined', OrganizationsService.name);
+        throw new InternalServerErrorException('Error uploading file');
+      }
+
+      if (report?.preview_picture && report.preview_picture.startsWith(scsPublicPrefix)) {
+        // Check if some entity is using the image
+        const usersAvatarUrl: User[] = await this.usersService.getUsers({ filter: { avatar_url: report.preview_picture } });
+        const usersBackgroundUrl: User[] = await this.usersService.getUsers({ filter: { background_image_url: report.preview_picture } });
+        const organizations: Organization[] = await this.organizationsService.getOrganizations({
+          filter: { avatar_url: report.preview_picture },
+        });
+        const teams: Team[] = await this.teamsService.getTeams({ filter: { avatar_url: report.preview_picture } });
+        const reports: Report[] = await this.getReports({ filter: { preview_picture: report.preview_picture }, id: { $ne: report.id } });
+        if (usersAvatarUrl.length === 0 && usersBackgroundUrl.length === 0 && organizations.length === 0 && teams.length === 0 && reports.length === 0) {
+          // Remove file from SFTP
+          try {
+            await this.sftpService.deletePublicFile(report.preview_picture);
+          } catch (e) {
+            Logger.error(`An error occurred while deleting the report image`, e, ReportsService.name);
+          }
         }
       }
+    } catch (ex) {
+      // If the preview file is not deleted, is not a crysis... just reflect it in the logs
+      // and the life continues...
+      Logger.warn(`Error deleting preview picture for report ${report.id} in remote file server`);
     }
+
+    // In any case, update the preview_picture to null
     return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: null } });
   }
 
