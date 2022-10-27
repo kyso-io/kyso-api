@@ -904,9 +904,9 @@ export class ReportsController extends GenericController<Report> {
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Delete a report`,
-    description: `Allows deleting a specific report`,
+    description: `Allows deleting a specific report using its {reportId}`,
   })
-  @ApiResponse({ status: 204, description: `Report deleted` })
+  @ApiResponse({ status: 200, description: `Report deleted successfully` })
   @ApiParam({
     name: 'reportId',
     required: true,
@@ -914,15 +914,10 @@ export class ReportsController extends GenericController<Report> {
     schema: { type: 'string' },
   })
   @Permission([ReportPermissionsEnum.DELETE])
-  async deleteReport(
-    @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
-    @Headers(HEADER_X_KYSO_TEAM) teamName: string,
-    @CurrentToken() token: Token,
-    @Param('reportId') reportId: string,
-  ): Promise<NormalizedResponseDTO<Report>> {
+  async deleteReport(@Headers() headers: any, @CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
     const reportData: Report = await this.reportsService.getReportById(reportId);
 
-    const isOwner = await this.reportsService.checkOwnership(reportData, token, organizationName, teamName);
+    const isOwner = await this.reportsService.checkOwnership(reportData, token, headers[HEADER_X_KYSO_ORGANIZATION], headers[HEADER_X_KYSO_TEAM]);
 
     if (!isOwner) {
       throw new ForbiddenException('Insufficient permissions');
