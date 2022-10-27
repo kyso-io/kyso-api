@@ -360,7 +360,7 @@ export class AuthService extends AutowiredService {
       let userPermissionsInThatOrganization: ResourcePermissions;
 
       // If the team is private we should not take into account the organization permissions
-      if (organization.id && team.type !== TeamVisibilityEnum.PRIVATE) {
+      if (organization.id && team.visibility !== TeamVisibilityEnum.PRIVATE) {
         userPermissionsInThatOrganization = tokenPayload.permissions.organizations.find((x) => x.id.toLowerCase() === organization.id.toLowerCase());
       }
 
