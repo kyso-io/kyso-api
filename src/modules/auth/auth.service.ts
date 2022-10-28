@@ -352,7 +352,7 @@ export class AuthService extends AutowiredService {
     } else {
       // Check if user has the required permissions in the team
       let userPermissionsInThatTeam: ResourcePermissions;
-      if (team.id) {
+      if (team?.id) {
         userPermissionsInThatTeam = tokenPayload.permissions.teams.find((x) => x.id.toLowerCase() === team.id.toLowerCase());
       }
 
