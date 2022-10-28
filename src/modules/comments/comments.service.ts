@@ -4,14 +4,9 @@ import {
   CommentPermissionsEnum,
   Discussion,
   ElasticSearchIndex,
-  KysoCommentsCreateEvent,
-  KysoCommentsDeleteEvent,
-  KysoCommentsUpdateEvent,
   KysoDiscussionsNewMentionEvent,
   KysoEventEnum,
   KysoIndex,
-  KysoReportsMentionsEvent,
-  KysoReportsNewMentionEvent,
   KysoSettingsEnum,
   Organization,
   Report,
@@ -22,7 +17,6 @@ import {
 } from '@kyso-io/kyso-model';
 import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import { BaseCommentsService } from 'src/services/base-comments.service';
 import { Autowired } from '../../decorators/autowired';
 import { AutowiredService } from '../../generic/autowired.generic';
 import { NATSHelper } from '../../helpers/natsHelper';
@@ -34,6 +28,7 @@ import { OrganizationsService } from '../organizations/organizations.service';
 import { ReportsService } from '../reports/reports.service';
 import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
+import { BaseCommentsService } from './base-comments.service';
 import { CommentsMongoProvider } from './providers/mongo-comments.provider';
 
 function factory(service: CommentsService) {

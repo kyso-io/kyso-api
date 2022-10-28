@@ -13,7 +13,7 @@ import {
   User,
 } from '@kyso-io/kyso-model';
 import { BaseComment } from '@kyso-io/kyso-model/dist/models/base-comment.model';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Provider } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { Autowired } from 'src/decorators/autowired';
 import { AutowiredService } from 'src/generic/autowired.generic';
@@ -24,6 +24,18 @@ import { OrganizationsService } from 'src/modules/organizations/organizations.se
 import { ReportsService } from 'src/modules/reports/reports.service';
 import { TeamsService } from 'src/modules/teams/teams.service';
 import { UsersService } from 'src/modules/users/users.service';
+
+function factory(service: BaseCommentsService) {
+  return service;
+}
+
+export function createBaseCommentsProvider(): Provider<BaseCommentsService> {
+  return {
+    provide: `${BaseCommentsService.name}`,
+    useFactory: (service) => factory(service),
+    inject: [BaseCommentsService],
+  };
+}
 
 @Injectable()
 export class BaseCommentsService extends AutowiredService {
