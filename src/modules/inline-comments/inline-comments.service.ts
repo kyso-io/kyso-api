@@ -1,5 +1,6 @@
 import { CreateInlineCommentDto, InlineComment, InlineCommentDto, Organization, Report, ResourcePermissions, Team, Token, UpdateInlineCommentDto, User } from '@kyso-io/kyso-model';
 import { ForbiddenException, Injectable, NotFoundException, Provider } from '@nestjs/common';
+import { BaseCommentsService } from 'src/services/base-comments.service';
 import { Autowired } from '../../decorators/autowired';
 import { AutowiredService } from '../../generic/autowired.generic';
 import { PlatformRole } from '../../security/platform-roles';
@@ -35,6 +36,9 @@ export class InlineCommentsService extends AutowiredService {
   @Autowired({ typeName: 'UsersService' })
   private usersService: UsersService;
 
+  @Autowired({ typeName: 'BaseCommentsService' })
+  private baseCommentsService: BaseCommentsService;
+
   constructor(private readonly provider: MongoInlineCommentsProvider) {
     super();
   }
@@ -66,29 +70,55 @@ export class InlineCommentsService extends AutowiredService {
     if (!team) {
       throw new ForbiddenException(`User with id ${userId} is not allowed to create inline comments for report ${report.sluglified_name}`);
     }
-    const inlineComment: InlineComment = new InlineComment(report.id, createInlineCommentDto.cell_id, userId, createInlineCommentDto.text, false, false, createInlineCommentDto.mentions);
 
-    return this.provider.create(inlineComment);
+    const user: User = await this.usersService.getUserById(userId);
+    if (!user) {
+      throw new NotFoundException(`User with id ${userId} was not found`);
+    }
+
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
+    if (!organization) {
+      throw new NotFoundException(`Organization with id ${team.organization_id} was not found`);
+    }
+
+    const inlineComment: InlineComment = new InlineComment(report.id, createInlineCommentDto.cell_id, userId, createInlineCommentDto.text, false, false, createInlineCommentDto.mentions);
+    const result = await this.provider.create(inlineComment);
+
+    this.baseCommentsService.sendCreateCommentNotifications(user, organization, team, inlineComment, report, null);
+
+    this.baseCommentsService.checkMentionsInReportComment(report.id, userId, createInlineCommentDto.mentions);
+
+    return result;
   }
 
   public async updateInlineComment(token: Token, id: string, updateInlineCommentDto: UpdateInlineCommentDto): Promise<InlineComment> {
     const inlineComment: InlineComment = await this.getById(id);
+
     if (!inlineComment) {
       throw new NotFoundException(`Inline comment with id ${id} not found`);
     }
+
+    const report: Report = await this.reportsService.getReportById(inlineComment.report_id);
+    if (!report) {
+      throw new NotFoundException(`Report with id ${inlineComment.report_id} not found`);
+    }
+
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!team) {
+      throw new NotFoundException(`Team with id ${report.team_id} not found`);
+    }
+
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
+    if (!organization) {
+      throw new NotFoundException(`Organization with id ${team.organization_id} not found`);
+    }
+
+    const user: User = await this.usersService.getUserById(inlineComment.user_id);
+    if (!user) {
+      throw new NotFoundException(`User with id ${inlineComment.user_id} was not found`);
+    }
+
     if (inlineComment.user_id !== token.id) {
-      const report: Report = await this.reportsService.getReportById(inlineComment.report_id);
-      if (!report) {
-        throw new NotFoundException(`Report with id ${inlineComment.report_id} not found`);
-      }
-      const team: Team = await this.teamsService.getTeamById(report.team_id);
-      if (!team) {
-        throw new NotFoundException(`Team with id ${report.team_id} not found`);
-      }
-      const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-      if (!organization) {
-        throw new NotFoundException(`Organization with id ${team.organization_id} not found`);
-      }
       let isOrgAdmin = false;
       const organizationResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find(
         (organizationResourcePermissions: ResourcePermissions) => organizationResourcePermissions.id === organization.id,
@@ -101,31 +131,48 @@ export class InlineCommentsService extends AutowiredService {
       if (teamResourcePermissions) {
         isTeamAdmin = teamResourcePermissions.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name);
       }
+
       if (!isOrgAdmin && !isTeamAdmin && !token.isGlobalAdmin()) {
         throw new ForbiddenException(`User with id ${token.id} is not allowed to update inline comment ${id}`);
       }
     }
-    return this.provider.update({ _id: this.provider.toObjectId(inlineComment.id) }, { $set: { edited: true, text: updateInlineCommentDto.text } });
+
+    const updateResult = this.provider.update({ _id: this.provider.toObjectId(inlineComment.id) }, { $set: { edited: true, text: updateInlineCommentDto.text } });
+
+    this.baseCommentsService.sendUpdateCommentNotifications(user, organization, team, inlineComment, report, null);
+    this.baseCommentsService.checkMentionsInReportComment(report.id, user.id, inlineComment.mentions);
+
+    return updateResult;
   }
 
   public async deleteInlineComment(token: Token, id: string): Promise<boolean> {
     const inlineComment: InlineComment = await this.getById(id);
+
     if (!inlineComment) {
       throw new NotFoundException(`Inline comment with id ${id} not found`);
     }
+
+    const report: Report = await this.reportsService.getReportById(inlineComment.report_id);
+    if (!report) {
+      throw new NotFoundException(`Report with id ${inlineComment.report_id} not found`);
+    }
+
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!team) {
+      throw new NotFoundException(`Team with id ${report.team_id} not found`);
+    }
+
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
+    if (!organization) {
+      throw new NotFoundException(`Organization with id ${team.organization_id} not found`);
+    }
+
+    const user: User = await this.usersService.getUserById(inlineComment.user_id);
+    if (!user) {
+      throw new NotFoundException(`User with id ${inlineComment.user_id} was not found`);
+    }
+
     if (inlineComment.user_id !== token.id) {
-      const report: Report = await this.reportsService.getReportById(inlineComment.report_id);
-      if (!report) {
-        throw new NotFoundException(`Report with id ${inlineComment.report_id} not found`);
-      }
-      const team: Team = await this.teamsService.getTeamById(report.team_id);
-      if (!team) {
-        throw new NotFoundException(`Team with id ${report.team_id} not found`);
-      }
-      const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-      if (!organization) {
-        throw new NotFoundException(`Organization with id ${team.organization_id} not found`);
-      }
       let isOrgAdmin = false;
       const organizationResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find(
         (organizationResourcePermissions: ResourcePermissions) => organizationResourcePermissions.id === organization.id,
@@ -142,7 +189,11 @@ export class InlineCommentsService extends AutowiredService {
         throw new ForbiddenException(`User with id ${token.id} is not allowed to delete this inline comment`);
       }
     }
+
     await this.provider.deleteOne({ _id: this.provider.toObjectId(id) });
+
+    this.baseCommentsService.sendDeleteCommentNotifications(user, organization, team, inlineComment, report, null);
+
     return true;
   }
 
