@@ -231,7 +231,7 @@ export class DiscussionsService extends AutowiredService implements GenericServi
       throw new NotFoundException('Organization not found');
     }
     if (discussion.user_id !== token.id) {
-      const hasPermissions: boolean = AuthService.hasPermissions(token, [DiscussionPermissionsEnum.EDIT], team.id, organization.id);
+      const hasPermissions: boolean = AuthService.hasPermissions(token, [DiscussionPermissionsEnum.EDIT], team, organization);
       if (!hasPermissions) {
         throw new ForbiddenException('You do not have permissions to update this discussion');
       }

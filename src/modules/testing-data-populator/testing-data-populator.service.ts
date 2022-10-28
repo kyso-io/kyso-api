@@ -1078,7 +1078,7 @@ export class TestingDataPopulatorService {
       await this.teamsService.addMembersById(this.APITests_PrivateChannel.id, [this.BabyYoda_OrganizationAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name]);
 
       Logger.log(`Adding ${this.Amidala_Reader.display_name} to team ${this.APITests_PrivateChannel.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}`);
-      await this.teamsService.addMembersById(this.APITests_PrivateChannel.id, [this.BabyYoda_OrganizationAdminUser.id], [PlatformRole.TEAM_ADMIN_ROLE.name]);
+      await this.teamsService.addMembersById(this.APITests_PrivateChannel.id, [this.Amidala_Reader.id], [PlatformRole.TEAM_ADMIN_ROLE.name]);
     } catch (ex) {
       Logger.error('Error at assignUsersToTeams', ex);
     }

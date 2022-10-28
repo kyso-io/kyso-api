@@ -333,7 +333,7 @@ export class AuthService extends AutowiredService {
    * @param organizationId organizationSlugName ie: lightside
    * @returns
    */
-  static hasPermissions(tokenPayload: Token, permissionToActivateEndpoint: KysoPermissions[], teamId: string, organizationId: string): boolean {
+  static hasPermissions(tokenPayload: Token, permissionToActivateEndpoint: KysoPermissions[], team: Team, organization: Organization): boolean {
     if (!tokenPayload) {
       Logger.log('Received null token');
       return false;
@@ -352,14 +352,16 @@ export class AuthService extends AutowiredService {
     } else {
       // Check if user has the required permissions in the team
       let userPermissionsInThatTeam: ResourcePermissions;
-      if (teamId) {
-        userPermissionsInThatTeam = tokenPayload.permissions.teams.find((x) => x.id.toLowerCase() === teamId.toLowerCase());
+      if (team?.id) {
+        userPermissionsInThatTeam = tokenPayload.permissions.teams.find((x) => x.id.toLowerCase() === team.id.toLowerCase());
       }
 
       // Check if user has the required permissions in the organization
       let userPermissionsInThatOrganization: ResourcePermissions;
-      if (organizationId) {
-        userPermissionsInThatOrganization = tokenPayload.permissions.organizations.find((x) => x.id.toLowerCase() === organizationId.toLowerCase());
+
+      // If the team is private we should not take into account the organization permissions
+      if (organization?.id && team?.visibility !== TeamVisibilityEnum.PRIVATE) {
+        userPermissionsInThatOrganization = tokenPayload.permissions.organizations.find((x) => x.id.toLowerCase() === organization.id.toLowerCase());
       }
 
       // Finally, check the global permissions

@@ -550,7 +550,7 @@ export class AuthController extends GenericController<string> {
 
     token.permissions = await AuthService.buildFinalPermissionsForUser(token.username, this.usersService, this.teamsService, this.organizationsService, this.platformRoleService, this.userRoleService);
 
-    const userHasPermission: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team.id, organization.id);
+    const userHasPermission: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team, organization);
 
     if (userHasPermission) {
       response.status(HttpStatus.OK).send();
@@ -567,7 +567,7 @@ export class AuthController extends GenericController<string> {
 
     const objects: { organization: Organization; team: Team } = await this.authService.retrieveOrgAndTeamFromSlug(checkPermissionDto.organization, checkPermissionDto.team);
 
-    const userHasPermission: boolean = AuthService.hasPermissions(token, [checkPermissionDto.permission as KysoPermissions], objects.team?.id, objects.organization?.id);
+    const userHasPermission: boolean = AuthService.hasPermissions(token, [checkPermissionDto.permission as KysoPermissions], objects.team, objects.organization);
     return new NormalizedResponseDTO(userHasPermission);
   }
 }

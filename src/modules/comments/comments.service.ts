@@ -365,7 +365,7 @@ export class CommentsService extends AutowiredService {
     }
     const userIsCommentCreator: boolean = comment.user_id === token.id;
     if (!userIsCommentCreator) {
-      const hasPermissions: boolean = AuthService.hasPermissions(token, [CommentPermissionsEnum.DELETE], team.id, organization.id);
+      const hasPermissions: boolean = AuthService.hasPermissions(token, [CommentPermissionsEnum.DELETE], team, organization);
       if (!hasPermissions) {
         throw new ForbiddenException('You do not have permissions to delete this comment');
       }
