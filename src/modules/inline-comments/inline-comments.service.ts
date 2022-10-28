@@ -1,9 +1,9 @@
 import { CreateInlineCommentDto, InlineComment, InlineCommentDto, Organization, Report, ResourcePermissions, Team, Token, UpdateInlineCommentDto, User } from '@kyso-io/kyso-model';
 import { ForbiddenException, Injectable, NotFoundException, Provider } from '@nestjs/common';
-import { BaseCommentsService } from 'src/services/base-comments.service';
 import { Autowired } from '../../decorators/autowired';
 import { AutowiredService } from '../../generic/autowired.generic';
 import { PlatformRole } from '../../security/platform-roles';
+import { BaseCommentsService } from '../comments/base-comments.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { ReportsService } from '../reports/reports.service';
 import { TeamsService } from '../teams/teams.service';
