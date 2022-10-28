@@ -25,7 +25,11 @@ import { ReportsService } from 'src/modules/reports/reports.service';
 import { TeamsService } from 'src/modules/teams/teams.service';
 import { UsersService } from 'src/modules/users/users.service';
 
-export function createBaseCommentsProvider(): Provider<CommentsService> {
+function factory(service: BaseCommentsService) {
+  return service;
+}
+
+export function createBaseCommentsProvider(): Provider<BaseCommentsService> {
   return {
     provide: `${BaseCommentsService.name}`,
     useFactory: (service) => factory(service),
@@ -150,7 +154,4 @@ export class BaseCommentsService extends AutowiredService {
       });
     }
   }
-}
-function factory(service: any): CommentsService {
-  throw new Error('Function not implemented.');
 }
