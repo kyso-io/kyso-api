@@ -845,7 +845,7 @@ export class TestingDataPopulatorService {
   private async _createComment(comment: Comment): Promise<Comment> {
     try {
       Logger.log(`Creating ${comment.text} comment...`);
-      return this.commentsService.createComment(comment);
+      return this.commentsService.createCommentWithoutNotifications(comment);
     } catch (ex) {
       Logger.log(`"${comment.text}" comment already exists`);
     }
@@ -1149,7 +1149,7 @@ export class TestingDataPopulatorService {
       );
 
       d1_c1.discussion_id = entityD1.id;
-      const entityD1C1 = await this.commentsService.createComment(d1_c1);
+      const entityD1C1 = await this.commentsService.createCommentWithoutNotifications(d1_c1);
 
       const d1_c2 = new Comment(
         "Are you sure Gideon? I don't want to lose the war for that...",
@@ -1162,7 +1162,7 @@ export class TestingDataPopulatorService {
       );
 
       d1_c2.discussion_id = entityD1.id;
-      await this.commentsService.createComment(d1_c2);
+      await this.commentsService.createCommentWithoutNotifications(d1_c2);
 
       const d1_c3 = new Comment(
         "It's a good idea, if not you'll have delays and enter in a debt with Jabba",
@@ -1175,7 +1175,7 @@ export class TestingDataPopulatorService {
       );
       d1_c2.discussion_id = entityD1.id;
 
-      await this.commentsService.createComment(d1_c3);
+      await this.commentsService.createCommentWithoutNotifications(d1_c3);
 
       const entityD2: Discussion = await this.discussionsService.createDiscussion(discussion_two);
 
@@ -1190,17 +1190,17 @@ export class TestingDataPopulatorService {
       );
 
       d2_c1.discussion_id = entityD2.id;
-      await this.commentsService.createComment(d2_c1);
+      await this.commentsService.createCommentWithoutNotifications(d2_c1);
 
       const d2_c2 = new Comment('RRWWWGG GGWWWRGHH RAWRGWAWGGR', 'RRWWWGG GGWWWRGHH RAWRGWAWGGR', this.Chewbacca_TeamReaderUser.id, this.RebelScumCounterAttackReport.id, null, null, []);
 
       d2_c2.discussion_id = entityD2.id;
-      await this.commentsService.createComment(d2_c2);
+      await this.commentsService.createCommentWithoutNotifications(d2_c2);
 
       const d2_c3 = new Comment('Hahahahaha good one Chewy', 'Hahahahaha good one Chewy', this.Kylo_TeamContributorUser.id, this.RebelScumCounterAttackReport.id, null, null, []);
 
       d2_c3.discussion_id = entityD2.id;
-      await this.commentsService.createComment(d2_c3);
+      await this.commentsService.createCommentWithoutNotifications(d2_c3);
 
       const entityD3: Discussion = await this.discussionsService.createDiscussion(discussion_three);
 
@@ -1215,7 +1215,7 @@ export class TestingDataPopulatorService {
       );
 
       d3_c1.discussion_id = entityD3.id;
-      await this.commentsService.createComment(d3_c1);
+      await this.commentsService.createCommentWithoutNotifications(d3_c1);
     } catch (ex) {
       Logger.error('Error at createDiscussions', ex);
     }

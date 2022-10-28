@@ -21,6 +21,7 @@ import { TagsModule } from './modules/tags/tags.module';
 import { TeamsModule } from './modules/teams/teams.module';
 import { TestingDataPopulatorModule } from './modules/testing-data-populator/testing-data-populator.module';
 import { UsersModule } from './modules/users/users.module';
+import { BaseCommentsService } from './services/base-comments.service';
 
 @Module({
   imports: [
@@ -46,7 +47,7 @@ import { UsersModule } from './modules/users/users.module';
     TestingDataPopulatorModule,
     UsersModule.forRoot(),
   ],
-  providers: [RequestLoggerMiddleware],
+  providers: [RequestLoggerMiddleware, BaseCommentsService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

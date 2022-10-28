@@ -22,6 +22,7 @@ import {
 } from '@kyso-io/kyso-model';
 import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
+import { BaseCommentsService } from 'src/services/base-comments.service';
 import { Autowired } from '../../decorators/autowired';
 import { AutowiredService } from '../../generic/autowired.generic';
 import { NATSHelper } from '../../helpers/natsHelper';
@@ -69,6 +70,10 @@ export class CommentsService extends AutowiredService {
 
   @Autowired({ typeName: 'FullTextSearchService' })
   private fullTextSearchService: FullTextSearchService;
+
+  @Autowired({ typeName: 'BaseCommentsService' })
+  private baseCommentsService: BaseCommentsService;
+
   constructor(private readonly provider: CommentsMongoProvider, @Inject('NATS_SERVICE') private client: ClientProxy) {
     super();
   }
@@ -114,39 +119,19 @@ export class CommentsService extends AutowiredService {
     }
 
     let newComment: Comment = new Comment(commentDto.text, commentDto.plain_text, token.id, commentDto.report_id, commentDto.discussion_id, commentDto.comment_id, commentDto.user_ids);
-    newComment = await this.createComment(newComment);
+    newComment = await this.createCommentWithoutNotifications(newComment);
 
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     const user: User = await this.usersService.getUserById(token.id);
 
-    if (newComment?.comment_id) {
-      NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_REPLY, {
-        user,
-        organization,
-        team,
-        comment: newComment,
-        discussion,
-        report,
-        frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-      });
-    } else {
-      NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_CREATE, {
-        user,
-        organization,
-        team,
-        comment: newComment,
-        discussion,
-        report,
-        frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-      });
-    }
+    this.baseCommentsService.sendCreateCommentNotifications(user, organization, team, newComment, report, discussion);
 
     if (discussion) {
       Logger.log('Checking mentions in discussion');
       await this.checkMentionsInDiscussionComment(newComment, commentDto.user_ids);
     } else if (report) {
       Logger.log('Checking mentions in report');
-      await this.checkMentionsInReportComment(newComment, commentDto.user_ids);
+      await this.baseCommentsService.checkMentionsInReportComment(newComment.report_id, newComment.user_id, commentDto.user_ids);
     } else {
       Logger.warn('No discussion nor report. Not checking mentions in any place...');
     }
@@ -211,53 +196,7 @@ export class CommentsService extends AutowiredService {
     }
   }
 
-  private async checkMentionsInReportComment(comment: Comment, userIds: string[]): Promise<void> {
-    const report: Report = await this.reportsService.getReportById(comment.report_id);
-    const team: Team = await this.teamsService.getTeamById(report.team_id);
-    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-    const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-    const creator: User = await this.usersService.getUserById(comment.user_id);
-    const mentionedUsers: User[] = [];
-    const centralizedMails: boolean = organization?.options?.notifications?.centralized || false;
-    // Remove the creator of the message from the users to notify
-    const indexCreator: number = userIds.findIndex((userId: string) => userId === creator.id);
-    if (indexCreator !== -1) {
-      userIds.splice(indexCreator, 1);
-    }
-    for (const userId of userIds) {
-      const user: User = await this.usersService.getUserById(userId);
-      if (!user) {
-        Logger.error(`Could not find user with id ${userId}`, CommentsService.name);
-        continue;
-      }
-      mentionedUsers.push(user);
-      if (centralizedMails) {
-        continue;
-      }
-      NATSHelper.safelyEmit<KysoReportsNewMentionEvent>(this.client, KysoEventEnum.REPORTS_NEW_MENTION, {
-        user,
-        creator,
-        organization,
-        team,
-        report,
-        frontendUrl,
-      });
-    }
-    if (centralizedMails && organization.options.notifications.emails.length > 0 && mentionedUsers.length > 0) {
-      const emails: string[] = organization.options.notifications.emails;
-      NATSHelper.safelyEmit<KysoReportsMentionsEvent>(this.client, KysoEventEnum.REPORTS_MENTIONS, {
-        to: emails,
-        creator,
-        users: mentionedUsers,
-        organization,
-        team,
-        report,
-        frontendUrl,
-      });
-    }
-  }
-
-  async createComment(comment: Comment): Promise<Comment> {
+  async createCommentWithoutNotifications(comment: Comment): Promise<Comment> {
     return this.provider.create(comment);
   }
 
@@ -297,19 +236,12 @@ export class CommentsService extends AutowiredService {
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     const user: User = await this.usersService.getUserById(token.id);
 
-    NATSHelper.safelyEmit<KysoCommentsUpdateEvent>(this.client, KysoEventEnum.COMMENTS_UPDATE, {
-      user,
-      organization,
-      team,
-      comment,
-      discussion,
-      report,
-      frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-    });
-
     if (updatedComment?.discussion_id) {
       await this.discussionsService.checkParticipantsInDiscussion(updatedComment.discussion_id);
     }
+
+    this.baseCommentsService.sendUpdateCommentNotifications(user, organization, team, comment, report, null);
+    this.baseCommentsService.checkMentionsInReportComment(report.id, user.id, updatedComment.mentions);
 
     Logger.log(`Updating comment '${updatedComment.id}' of user '${updatedComment.user_id}' in Elasticsearch...`, CommentsService.name);
     const kysoIndex: KysoIndex = await this.commentToKysoIndex(updatedComment);
@@ -372,15 +304,7 @@ export class CommentsService extends AutowiredService {
     }
     comment = await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } });
 
-    NATSHelper.safelyEmit<KysoCommentsDeleteEvent>(this.client, KysoEventEnum.COMMENTS_DELETE, {
-      user: await this.usersService.getUserById(token.id),
-      organization: await this.organizationsService.getOrganizationById(team.organization_id),
-      team,
-      comment,
-      discussion,
-      report,
-      frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-    });
+    this.baseCommentsService.sendDeleteCommentNotifications(await this.usersService.getUserById(token.id), organization, team, comment, report, discussion);
 
     if (discussion) {
       await this.discussionsService.checkParticipantsInDiscussion(discussion.id);
