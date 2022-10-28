@@ -71,33 +71,29 @@ export class BaseCommentsService extends AutowiredService {
   }
 
   public async sendCreateCommentNotifications(user: User, organization: Organization, team: Team | null, comment: BaseComment, report: Report, discussion: Discussion | null): Promise<void> {
-    try {
-      if (comment?.comment_id) {
-        Logger.log(`Sending ${KysoEventEnum.COMMENTS_REPLY} event to NATS`);
+    if (comment?.comment_id) {
+      Logger.log(`Sending ${KysoEventEnum.COMMENTS_REPLY} event to NATS`);
 
-        NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_REPLY, {
-          user,
-          organization,
-          team,
-          comment,
-          discussion,
-          report,
-          frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-        });
-      } else {
-        Logger.log(`Sending ${KysoEventEnum.COMMENTS_CREATE} event to NATS`);
-        NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_CREATE, {
-          user,
-          organization,
-          team,
-          comment,
-          discussion,
-          report,
-          frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-        });
-      }
-    } catch (ex) {
-      Logger.warn('An error happened sending create comment notifications', ex);
+      NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_REPLY, {
+        user,
+        organization,
+        team,
+        comment,
+        discussion,
+        report,
+        frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+      });
+    } else {
+      Logger.log(`Sending ${KysoEventEnum.COMMENTS_CREATE} event to NATS`);
+      NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_CREATE, {
+        user,
+        organization,
+        team,
+        comment,
+        discussion,
+        report,
+        frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+      });
     }
   }
 
