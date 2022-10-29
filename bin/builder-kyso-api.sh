@@ -123,7 +123,7 @@ docker_run() {
   DOCKER_COMMAND="$(
     printf "%s" \
       "docker run -d --restart always --user '$(id -u):$(id -g)' " \
-      "--network host --name '$CONTAINER_NAME' $CONTAINER_VARS" \
+      "--network host --name '$CONTAINER_NAME' $CONTAINER_VARS " \
       "$VOLUMES $WORKDIR '$BUILDER_TAG' /bin/sh -c '$CONTAINER_COMMAND'"
   )"
   eval "$DOCKER_COMMAND"
@@ -164,7 +164,7 @@ Usage: $0 CMND [ARGS]
 Where CMND can be one of:
 - pull: pull latest version of the builder container image
 - setup: prepare local files (.npmrc.kyso & .env.docker)
-- start: launch container in daemon mode with the right settings
+- start|restart: launch container in daemon mode with the right settings
 - stop|status|rm|logs: operations on the container
 - sh: execute interactive shell (/bin/bash) on the running container
 - shr: execute interactive shell (/bin/bash) as root on the running container
@@ -189,5 +189,10 @@ shr) shift && docker_sh "root" "$@" ;;
 start) shift && docker_run "$@" ;;
 status) docker_status ;;
 stop) docker_stop ;;
+restart)
+  shift 1
+  docker_stop || true
+  docker_run "$@"
+;;
 *) usage ;;
 esac
