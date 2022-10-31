@@ -3,7 +3,6 @@ import {
   DraftReport,
   EntityEnum,
   File,
-  GithubBranch,
   GithubFileHash,
   GlobalPermissionsEnum,
   HEADER_X_KYSO_ORGANIZATION,
@@ -72,6 +71,7 @@ import { RelationsService } from '../relations/relations.service';
 import { TagsService } from '../tags/tags.service';
 import { TeamsService } from '../teams/teams.service';
 import { CreateKysoReportVersionDto } from './create-kyso-report-version.dto';
+import { CreateKysoReportDto } from './create-kyso-report.dto';
 import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider';
 import { ReportsService } from './reports.service';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -694,14 +694,14 @@ export class ReportsController extends GenericController<Report> {
     description: `Created report`,
     type: ReportDTO,
   })
-  @UseInterceptors(FileInterceptor('file'))
+  @FormDataRequest()
   @Permission([ReportPermissionsEnum.CREATE])
-  async createKysoReport(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Report | Report[]>> {
+  async createKysoReport(@CurrentToken() token: Token, @Body() createKysoReportDto: CreateKysoReportDto): Promise<NormalizedResponseDTO<Report | Report[]>> {
     Logger.log(`Called createKysoReport`);
-    if (!file) {
+    if (!createKysoReportDto.file) {
       throw new BadRequestException(`Missing file`);
     }
-    const data: Report | Report[] = await this.reportsService.createKysoReport(token.id, file);
+    const data: Report | Report[] = await this.reportsService.createKysoReport(token.id, createKysoReportDto);
     if (Array.isArray(data)) {
       const reportDtos: ReportDTO[] = [];
       for (const report of data) {
@@ -756,7 +756,7 @@ export class ReportsController extends GenericController<Report> {
   @Permission([ReportPermissionsEnum.CREATE])
   async createUIReport(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Report>> {
     Logger.log(`Called createUIReport`);
-    const report: Report = await this.reportsService.createUIReport(token.id, file);
+    const report: Report = await this.reportsService.createUIReport(token.id, file, null);
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id);
     const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
     return new NormalizedResponseDTO(reportDto, relations);
@@ -776,7 +776,7 @@ export class ReportsController extends GenericController<Report> {
   @UseInterceptors(FileInterceptor('file'))
   @Permission([ReportPermissionsEnum.EDIT])
   async updateMainFileReport(@CurrentToken() token: Token, @Param('reportId') reportId: string, @UploadedFile() file: any): Promise<NormalizedResponseDTO<Report>> {
-    const report: Report = await this.reportsService.updateMainFileReport(token.id, reportId, file);
+    const report: Report = await this.reportsService.updateMainFileReport(token.id, reportId, file, null);
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id);
     const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
     return new NormalizedResponseDTO(reportDto, relations);
@@ -1184,7 +1184,11 @@ export class ReportsController extends GenericController<Report> {
     schema: { type: 'string' },
   })
   @Public()
-  async getReportVersions(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Req() req): Promise<NormalizedResponseDTO<{ version: number; created_at: Date; num_files: number }>> {
+  async getReportVersions(
+    @CurrentToken() token: Token,
+    @Param('reportId') reportId: string,
+    @Req() req,
+  ): Promise<NormalizedResponseDTO<{ version: number; created_at: Date; num_files: number; message: string }>> {
     const report: Report = await this.reportsService.getReportById(reportId);
     if (!report) {
       throw new NotFoundException('Report not found');
@@ -1209,55 +1213,13 @@ export class ReportsController extends GenericController<Report> {
     if (!query.sort) {
       query.sort = { created_at: -1 };
     }
-    const versions: any[] = await this.reportsService.getReportVersions(reportId);
+    const versions: { version: number; created_at: Date; num_files: number; message: string }[] = await this.reportsService.getReportVersions(reportId);
     if (query.sort.created_at === 1) {
       versions.sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
     } else {
       versions.sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
     }
     return new NormalizedResponseDTO(versions);
-  }
-
-  @Get('/:reportId/branches')
-  @ApiOperation({
-    summary: `Get branches of a report`,
-    description: `By passing in the appropriate options you can see all the branches of a report`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Branches of the specified report`,
-    type: GithubBranch,
-    isArray: true,
-  })
-  @ApiParam({
-    name: 'reportId',
-    required: true,
-    description: 'Id of the report to fetch',
-    schema: { type: 'string' },
-  })
-  async getBranches(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<GithubBranch[]>> {
-    const report: Report = await this.reportsService.getReportById(reportId);
-    if (!report) {
-      throw new PreconditionFailedException('Report not found');
-    }
-    const team: Team = await this.teamsService.getTeamById(report.team_id);
-    if (!team) {
-      throw new PreconditionFailedException('Team not found');
-    }
-
-    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-    if (!organization) {
-      throw new NotFoundException(`Organization with id ${team.organization_id} not found`);
-    }
-
-    if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-      const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team, organization);
-      if (!hasPermissions) {
-        throw new ForbiddenException('You do not have permissions to access this report');
-      }
-    }
-    const branches: GithubBranch[] = await this.reportsService.getBranches(reportId);
-    return new NormalizedResponseDTO(branches);
   }
 
   @Get('/:reportId/tree')

@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { IsArray, IsInt, IsMongoId, IsPositive } from 'class-validator';
+import { IsArray, IsInt, IsMongoId, IsOptional, IsPositive, IsString } from 'class-validator';
 import { IsFile, MemoryStoredFile } from 'nestjs-form-data';
 
 export class CreateKysoReportVersionDto {
@@ -36,4 +36,8 @@ export class CreateKysoReportVersionDto {
 
   @IsFile()
   public file: MemoryStoredFile;
+
+  @IsOptional()
+  @IsString()
+  public message: string;
 }

@@ -3,13 +3,11 @@ import { DynamicModule } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { NestjsFormDataModule } from 'nestjs-form-data';
 import { db } from '../../main';
-import { createLocalReportsProvider, LocalReportsService } from './local-reports.service';
 import { DraftReportsMongoProvider } from './providers/mongo-draft-reports.provider';
 import { FilesMongoProvider } from './providers/mongo-files.provider';
 import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider';
 import { ReportsMongoProvider } from './providers/mongo-reports.provider';
 import { StarredReportsMongoProvider } from './providers/mongo-starred-reports.provider';
-import { VersionsMongoProvider } from './providers/mongo-versions.provider';
 import { ReportsController } from './reports.controller';
 import { createProvider, ReportsService } from './reports.service';
 import { createSftpProvider, SftpService } from './sftp.service';
@@ -17,15 +15,12 @@ import { createSftpProvider, SftpService } from './sftp.service';
 export class ReportsModule {
   static async forRoot(): Promise<DynamicModule> {
     const reportServiceDynamicProvider = createProvider();
-    const localRepositoryDynamicProvider = createLocalReportsProvider();
     const sftpDynamicProvider = createSftpProvider();
 
     return {
       module: ReportsModule,
       providers: [
         FilesMongoProvider,
-        localRepositoryDynamicProvider,
-        LocalReportsService,
         reportServiceDynamicProvider,
         PinnedReportsMongoProvider,
         ReportsService,
@@ -34,7 +29,6 @@ export class ReportsModule {
         SftpService,
         StarredReportsMongoProvider,
         DraftReportsMongoProvider,
-        VersionsMongoProvider,
       ],
       imports: [
         ClientsModule.registerAsync([
@@ -56,7 +50,7 @@ export class ReportsModule {
         NestjsFormDataModule,
       ],
       controllers: [ReportsController],
-      exports: [reportServiceDynamicProvider, localRepositoryDynamicProvider],
+      exports: [reportServiceDynamicProvider],
     };
   }
 }

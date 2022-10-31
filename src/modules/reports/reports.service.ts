@@ -6,7 +6,6 @@ import {
   ElasticSearchIndex,
   EntityEnum,
   File,
-  GithubBranch,
   GithubFileHash,
   GithubRepository,
   GlobalPermissionsEnum,
@@ -77,7 +76,7 @@ import { TagsService } from '../tags/tags.service';
 import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
 import { CreateKysoReportVersionDto } from './create-kyso-report-version.dto';
-import { LocalReportsService } from './local-reports.service';
+import { CreateKysoReportDto } from './create-kyso-report.dto';
 import { DraftReportsMongoProvider } from './providers/mongo-draft-reports.provider';
 import { FilesMongoProvider } from './providers/mongo-files.provider';
 import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider';
@@ -107,9 +106,6 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
   @Autowired({ typeName: 'GithubReposService' })
   private githubReposService: GithubReposService;
-
-  @Autowired({ typeName: 'LocalReportsService' })
-  private localReportsService: LocalReportsService;
 
   @Autowired({ typeName: 'CommentsService' })
   private commentsService: CommentsService;
@@ -155,33 +151,26 @@ export class ReportsService extends AutowiredService implements GenericService<R
     super();
   }
 
-  checkOwnership(item: Report, requester: Token, organizationName: string, teamName: string): Promise<boolean> {
-    let hasAdequatePermissions;
-
+  async checkOwnership(item: Report, requester: Token, organizationName: string, teamName: string): Promise<boolean> {
     // Check if the user who is requesting the edition of the discussion is the owner of the discussion
-    if (item.user_id === requester.id) {
-      hasAdequatePermissions = true;
-    } else {
-      hasAdequatePermissions = false;
+    if (item.user_id !== requester.id) {
+      return false;
     }
-
-    if (!hasAdequatePermissions) {
-      // Check if the user who is requesting the edition of the discussion has TEAM_ADMIN or ORG_ADMIN
-      const teamPermissions = requester.permissions.teams.find((x) => x.name === teamName);
-
-      if (teamPermissions && teamPermissions.role_names) {
-        const isTeamAdmin = teamPermissions.role_names.find((x) => x === PlatformRole.TEAM_ADMIN_ROLE.name) !== undefined;
-        const isOrgAdmin = teamPermissions.role_names.find((x) => x === PlatformRole.ORGANIZATION_ADMIN_ROLE.name) !== undefined;
-        const isPlatformAdmin = teamPermissions.role_names.find((x) => x === PlatformRole.PLATFORM_ADMIN_ROLE.name) !== undefined;
-
-        if (isTeamAdmin || isOrgAdmin || isPlatformAdmin) {
-          hasAdequatePermissions = true;
-        } else {
-          hasAdequatePermissions = false;
-        }
+    // Check if the user who is requesting the edition of the discussion has TEAM_ADMIN or ORG_ADMIN
+    const orgPermissions: ResourcePermissions = requester.permissions.organizations.find((org: ResourcePermissions) => org.name === organizationName);
+    if (!orgPermissions) {
+      return false;
+    }
+    let hasAdequatePermissions = false;
+    const teamPermissions: ResourcePermissions = requester.permissions.teams.find((x: ResourcePermissions) => x.name === teamName && x.organization_id === orgPermissions.id);
+    if (teamPermissions && teamPermissions.role_names) {
+      const isTeamAdmin: boolean = teamPermissions.role_names.find((x: string) => x === PlatformRole.TEAM_ADMIN_ROLE.name) !== undefined;
+      const isOrgAdmin: boolean = teamPermissions.role_names.find((x: string) => x === PlatformRole.ORGANIZATION_ADMIN_ROLE.name) !== undefined;
+      const isPlatformAdmin: boolean = teamPermissions.role_names.find((x: string) => x === PlatformRole.PLATFORM_ADMIN_ROLE.name) !== undefined;
+      if (isTeamAdmin || isOrgAdmin || isPlatformAdmin) {
+        hasAdequatePermissions = true;
       }
     }
-
     return hasAdequatePermissions;
   }
 
@@ -469,14 +458,6 @@ export class ReportsService extends AutowiredService implements GenericService<R
     }
 
     return report;
-  }
-
-  public async getBranches(reportId: string): Promise<GithubBranch[]> {
-    const report: Report = await this.getReportById(reportId);
-    if (!report) {
-      throw new PreconditionFailedException('The specified report could not be found');
-    }
-    return this.localReportsService.getReportVersions(report.id);
   }
 
   public async getReportTree(reportId: string, path: string, version: number | null): Promise<GithubFileHash | GithubFileHash[]> {
@@ -799,7 +780,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture } });
   }
 
-  public async createKysoReport(userId: string, file: Express.Multer.File): Promise<Report | Report[]> {
+  public async createKysoReport(userId: string, createKysoReportDto: CreateKysoReportDto): Promise<Report | Report[]> {
     Logger.log('Creating report');
     const uploaderUser: User = await this.usersService.getUserById(userId);
     Logger.log(`By user: ${uploaderUser.email}`);
@@ -808,7 +789,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
     const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH);
     const tmpDir = `${tmpFolder}/${uuidv4()}`;
-    const zip = new AdmZip(file.buffer);
+    const zip: AdmZip = new AdmZip(createKysoReportDto.file.buffer);
     zip.extractAllTo(tmpDir, true);
 
     Logger.log(`Extracted zip file to ${tmpDir}`);
@@ -855,7 +836,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     }
 
     if (kysoConfigFile.type === ReportType.Meta) {
-      return this.createMultipleKysoReports(kysoConfigFile, tmpDir, zip, uploaderUser);
+      return this.createMultipleKysoReports(kysoConfigFile, tmpDir, zip, uploaderUser, null, createKysoReportDto.message);
     }
 
     const organization: Organization = await this.organizationsService.getOrganization({
@@ -920,7 +901,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const sha: string = sha256File(localFilePath);
         const size: number = statSync(localFilePath).size;
         const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`;
-        let reportFile = new File(report.id, originalName, path_scs, size, sha, version);
+        let reportFile = new File(report.id, originalName, path_scs, size, sha, version, createKysoReportDto.message);
         reportFile = await this.filesMongoProvider.create(reportFile);
         reportFiles.push(reportFile);
         if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
@@ -986,7 +967,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         const sha: string = sha256File(localFilePath);
         const size: number = statSync(localFilePath).size;
         const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`;
-        let file: File = new File(report.id, originalName, path_scs, size, sha, 1);
+        let file: File = new File(report.id, originalName, path_scs, size, sha, 1, createKysoReportDto.message);
         file = await this.filesMongoProvider.create(file);
         reportFiles.push(file);
         if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
@@ -1151,7 +1132,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
       const sha: string = sha256File(localFilePath);
       const size: number = statSync(localFilePath).size;
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`;
-      let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version);
+      let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version, createKysoReportVersionDto.message);
       reportFile = await this.filesMongoProvider.create(reportFile);
       if (kysoConfigFile && originalName === kysoConfigFile?.preview) {
         let preview_picture: string;
@@ -1212,7 +1193,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
       if (index !== -1) {
         const file: File = reportFiles[index];
         const newPathScs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${file.name}`;
-        let hardLinkFile: File = new File(report.id, file.name, newPathScs, file.size, file.sha, version);
+        let hardLinkFile: File = new File(report.id, file.name, newPathScs, file.size, file.sha, version, createKysoReportVersionDto.message);
         hardLinkFile = await this.filesMongoProvider.create(hardLinkFile);
         const source: string = join(sftpDestinationFolder, file.path_scs);
         const target: string = join(sftpDestinationFolder, hardLinkFile.path_scs);
@@ -1252,7 +1233,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     return report;
   }
 
-  public async createMultipleKysoReports(baseKysoConfigFile: KysoConfigFile, baseTmpDir: string, zip: AdmZip, user: User, basePath?: string): Promise<Report[]> {
+  public async createMultipleKysoReports(baseKysoConfigFile: KysoConfigFile, baseTmpDir: string, zip: AdmZip, user: User, basePath: string, message: string): Promise<Report[]> {
     const kysoConfigFilesMap: Map<string, { kysoConfigFile: KysoConfigFile; organization: Organization; team: Team }> = new Map<
       string,
       { kysoConfigFile: KysoConfigFile; organization: Organization; team: Team }
@@ -1385,7 +1366,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
           const sha: string = sha256File(localFilePath);
           const size: number = statSync(localFilePath).size;
           const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`;
-          let reportFile = new File(report.id, originalName, path_scs, size, sha, version);
+          let reportFile = new File(report.id, originalName, path_scs, size, sha, version, message);
           reportFile = await this.filesMongoProvider.create(reportFile);
           reportFiles.push(reportFile);
         }
@@ -1430,7 +1411,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
           const sha: string = sha256File(localFilePath);
           const size: number = statSync(localFilePath).size;
           const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`;
-          let file: File = new File(report.id, originalName, path_scs, size, sha, 1);
+          let file: File = new File(report.id, originalName, path_scs, size, sha, 1, message);
           file = await this.filesMongoProvider.create(file);
           reportFiles.push(file);
           if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
@@ -1488,7 +1469,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     return newReports;
   }
 
-  public async createUIReport(userId: string, file: Express.Multer.File): Promise<Report> {
+  public async createUIReport(userId: string, file: Express.Multer.File, message: string): Promise<Report> {
     Logger.log('Creating report');
     const user: User = await this.usersService.getUserById(userId);
     Logger.log(`By user: ${user.email}`);
@@ -1631,7 +1612,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
       const sha: string = sha256File(localFilePath);
       const size: number = statSync(localFilePath).size;
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`;
-      let file: File = new File(report.id, originalName, path_scs, size, sha, version);
+      let file: File = new File(report.id, originalName, path_scs, size, sha, version, message);
       file = await this.filesMongoProvider.create(file);
       reportFiles.push(file);
       if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
@@ -1669,7 +1650,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     return report;
   }
 
-  public async updateMainFileReport(userId: string, reportId: string, file: any): Promise<Report> {
+  public async updateMainFileReport(userId: string, reportId: string, file: Express.Multer.File, message: string): Promise<Report> {
     const report: Report = await this.getReport({
       filter: {
         _id: this.provider.toObjectId(reportId),
@@ -1729,7 +1710,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         size = statSync(mainFileReportLocalPath).size;
       }
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion + 1}/${fileLastVersion.name}`;
-      let fileNewVersion: File = new File(report.id, fileLastVersion.name, path_scs, size, sha, lastVersion + 1);
+      let fileNewVersion: File = new File(report.id, fileLastVersion.name, path_scs, size, sha, lastVersion + 1, message);
       fileNewVersion = await this.filesMongoProvider.create(fileNewVersion);
       Logger.log(`Report '${report.id} ${report.sluglified_name}': Created new version ${lastVersion + 1} for file '${fileLastVersion.name}'`, ReportsService.name);
     }
@@ -1885,7 +1866,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
     if (kysoConfigFile.type === ReportType.Meta) {
       await this.deleteReport(token, report.id);
-      return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName);
+      return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null);
     }
 
     new Promise<void>(async () => {
@@ -1904,7 +1885,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return;
       }
 
-      await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew);
+      await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew, null);
 
       const team: Team = await this.teamsService.getTeamById(report.team_id);
       const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
@@ -1969,7 +1950,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     }
     Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name);
 
-    await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false);
+    await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false, null);
   }
 
   public async createReportFromBitbucketRepository(token: Token, repositoryName: string, branch: string): Promise<Report | Report[]> {
@@ -2078,7 +2059,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
     if (kysoConfigFile.type === ReportType.Meta) {
       await this.deleteReport(token, report.id);
-      return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName);
+      return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null);
     }
 
     new Promise<void>(async () => {
@@ -2095,7 +2076,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return;
       }
 
-      await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew);
+      await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew, null);
 
       const team: Team = await this.teamsService.getTeamById(report.team_id);
       const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
@@ -2229,7 +2210,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
 
     if (kysoConfigFile.type === ReportType.Meta) {
       await this.deleteReport(token, report.id);
-      return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName);
+      return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null);
     }
 
     new Promise<void>(async () => {
@@ -2246,7 +2227,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
         return;
       }
 
-      await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew);
+      await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew, null);
 
       const team: Team = await this.teamsService.getTeamById(report.team_id);
       const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
@@ -2319,7 +2300,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     }
     Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name);
 
-    await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false);
+    await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false, null);
   }
 
   public async downloadGitlabRepo(token: Token, report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
@@ -2368,7 +2349,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     }
     Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name);
 
-    await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false);
+    await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false, null);
   }
 
   private async normalizeFilePaths(report: Report, filePaths: string[]): Promise<{ files: { name: string; filePath: string }[]; kysoConfigFile: KysoConfigFile }> {
@@ -2417,7 +2398,15 @@ export class ReportsService extends AutowiredService implements GenericService<R
     return { files, kysoConfigFile };
   }
 
-  private async uploadRepositoryFilesToSCS(userId: string, report: Report, tmpDir: string, kysoConfigFile: KysoConfigFile, files: { name: string; filePath: string }[], isNew: boolean): Promise<void> {
+  private async uploadRepositoryFilesToSCS(
+    userId: string,
+    report: Report,
+    tmpDir: string,
+    kysoConfigFile: KysoConfigFile,
+    files: { name: string; filePath: string }[],
+    isNew: boolean,
+    message: string,
+  ): Promise<void> {
     const organization: Organization = await this.organizationsService.getOrganization({
       filter: {
         sluglified_name: kysoConfigFile.organization,
@@ -2438,7 +2427,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     }
 
     // fix kyso-ui#551-556
-    this.preprocessHtmlFiles(tmpDir);
+    await this.preprocessHtmlFiles(tmpDir);
     // end fix
 
     let mainFile = null;
@@ -2485,7 +2474,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
       const sha: string = sha256File(files[i].filePath);
       const size: number = statSync(files[i].filePath).size;
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`;
-      let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version);
+      let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version, message);
       reportFile = await this.filesMongoProvider.create(reportFile);
       if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
         report = await this.updateReportPreviewPicture(report, files[i].filePath);
@@ -2836,7 +2825,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     return this.filesMongoProvider.read(query);
   }
 
-  public async getReportVersions(reportId: string): Promise<{ version: number; created_at: Date; num_files: number }[]> {
+  public async getReportVersions(reportId: string): Promise<{ version: number; created_at: Date; num_files: number; message: string }[]> {
     const report: Report = await this.getReportById(reportId);
     if (!report) {
       throw new PreconditionFailedException('Report not found');
@@ -2850,13 +2839,14 @@ export class ReportsService extends AutowiredService implements GenericService<R
       },
     };
     const files: File[] = await this.filesMongoProvider.read(query);
-    const map: Map<number, { version: number; created_at: Date; num_files: number }> = new Map<number, { version: number; created_at: Date; num_files: number }>();
+    const map: Map<number, { version: number; created_at: Date; num_files: number; message: string }> = new Map<number, { version: number; created_at: Date; num_files: number; message: string }>();
     files.forEach((file: File) => {
       if (!map.has(file.version)) {
         map.set(file.version, {
           version: file.version,
           created_at: file.created_at,
           num_files: 0,
+          message: file.message ?? '',
         });
       }
       map.get(file.version).num_files++;
