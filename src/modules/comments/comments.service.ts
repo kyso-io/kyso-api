@@ -121,6 +121,19 @@ export class CommentsService extends AutowiredService {
 
     this.baseCommentsService.sendCreateCommentNotifications(user, organization, team, newComment, report, discussion);
 
+    if (newComment.comment_id) {
+      // It's a reply to a "parent" comment. We must send a notification to the author of the parent
+      // comment
+      const parentComment: Comment = await this.getCommentById(newComment.comment_id);
+
+      if (parentComment) {
+        const parentAuthor: User = await this.usersService.getUserById(parentComment.author_id);
+        this.baseCommentsService.sendReplyCommentNotifications(parentAuthor, organization, team, newComment, report, discussion);
+      } else {
+        Logger.warn(`Cant find parent comment ${newComment.comment_id} for comment ${newComment.id}. No reply notification was sent`);
+      }
+    }
+
     if (discussion) {
       Logger.log('Checking mentions in discussion');
       await this.checkMentionsInDiscussionComment(newComment, commentDto.user_ids);
@@ -236,6 +249,20 @@ export class CommentsService extends AutowiredService {
     }
 
     this.baseCommentsService.sendUpdateCommentNotifications(user, organization, team, comment, report, null);
+
+    if (updatedComment.comment_id) {
+      // It's a reply to a "parent" comment. We must send a notification to the author of the parent
+      // comment
+      const parentComment: Comment = await this.getCommentById(updatedComment.comment_id);
+
+      if (parentComment) {
+        const parentAuthor: User = await this.usersService.getUserById(parentComment.author_id);
+        this.baseCommentsService.sendReplyCommentNotifications(parentAuthor, organization, team, updatedComment, report, discussion);
+      } else {
+        Logger.warn(`Cant find parent comment ${updatedComment.comment_id} for comment ${updatedComment.id}. No reply notification was sent`);
+      }
+    }
+
     this.baseCommentsService.checkMentionsInReportComment(report.id, user.id, updatedComment.mentions);
 
     Logger.log(`Updating comment '${updatedComment.id}' of user '${updatedComment.user_id}' in Elasticsearch...`, CommentsService.name);

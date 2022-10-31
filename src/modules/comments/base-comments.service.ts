@@ -58,6 +58,18 @@ export class BaseCommentsService extends AutowiredService {
     super();
   }
 
+  public async sendReplyCommentNotifications(user: User, organization: Organization, team: Team | null, comment: BaseComment, report: Report, discussion: Discussion | null): Promise<void> {
+    NATSHelper.safelyEmit<KysoCommentsDeleteEvent>(this.client, KysoEventEnum.COMMENTS_REPLY, {
+      user,
+      organization,
+      team,
+      comment,
+      discussion,
+      report,
+      frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+    });
+  }
+
   public async sendDeleteCommentNotifications(user: User, organization: Organization, team: Team | null, comment: BaseComment, report: Report, discussion: Discussion | null): Promise<void> {
     NATSHelper.safelyEmit<KysoCommentsDeleteEvent>(this.client, KysoEventEnum.COMMENTS_DELETE, {
       user,
