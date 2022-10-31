@@ -58,7 +58,7 @@ export class KysoSettingsService extends AutowiredService {
       case KysoSettingsEnum.MAIL_FROM:
         return '"kyso" <dev@dev.kyso.io>';
       case KysoSettingsEnum.ELASTICSEARCH_URL:
-        return 'http://elasticsearch-master.elasticsearch-lo.svc.cluster.local:9200';
+        return 'http://elasticsearch:9200';
       case KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN:
         return '8';
       case KysoSettingsEnum.DURATION_HOURS_TOKEN_EMAIL_VERIFICATION:
@@ -90,7 +90,7 @@ export class KysoSettingsService extends AutowiredService {
       case KysoSettingsEnum.TMP_FOLDER_PATH:
         return '/app/data';
       case KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL:
-        return 'http://kyso-indexer-api.kyso-indexer-api-lo.svc.cluster.local:8080';
+        return 'http://kyso-scs:8080';
       case KysoSettingsEnum.UNAUTHORIZED_REDIRECT_URL:
         return '/login';
       case KysoSettingsEnum.CUSTOMIZE_LOGIN_CENTRAL_LOGO_URL:
@@ -100,7 +100,7 @@ export class KysoSettingsService extends AutowiredService {
       case KysoSettingsEnum.REPORT_PATH:
         return '/data';
       case KysoSettingsEnum.KYSO_NATS_URL:
-        return 'nats://localhost:4222';
+        return 'nats://nats:4222';
       case KysoSettingsEnum.ADD_NEW_USERS_AUTOMATICALLY_TO_ORG:
         return '';
       case KysoSettingsEnum.MAX_FILE_SIZE:
