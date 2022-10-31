@@ -95,18 +95,19 @@ export class BaseCommentsService extends AutowiredService {
         report,
         frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
       });
-    } else {
-      Logger.log(`Sending ${KysoEventEnum.COMMENTS_CREATE} event to NATS`);
-      NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_CREATE, {
-        user,
-        organization,
-        team,
-        comment,
-        discussion,
-        report,
-        frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-      });
     }
+
+    // We should send the event as a new created comment in any case... because it is!
+    Logger.log(`Sending ${KysoEventEnum.COMMENTS_CREATE} event to NATS`);
+    NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_CREATE, {
+      user,
+      organization,
+      team,
+      comment,
+      discussion,
+      report,
+      frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+    });
   }
 
   public async checkMentionsInReportComment(reportId: string, commentAuthorId: string, mentionedUserIds: string[]): Promise<void> {
