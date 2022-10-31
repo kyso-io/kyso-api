@@ -5,7 +5,7 @@ import { db } from '../../../main';
 import { MongoProvider } from '../../../providers/mongo.provider';
 @Injectable()
 export class FilesMongoProvider extends MongoProvider<File> {
-  version = 3;
+  version = 4;
 
   constructor() {
     super('File', db);
@@ -45,5 +45,15 @@ export class FilesMongoProvider extends MongoProvider<File> {
 
   public async migrate_from_2_to_3() {
     await this.getCollection().updateMany({}, { $unset: { path_s3: '' } });
+  }
+
+  public async migrate_from_3_to_4() {
+    this.db.collection('Version').drop((err, result) => {
+      if (err) {
+        Logger.error(err);
+      } else {
+        Logger.log(`Removed collection 'Version' from db: ${result}`, FilesMongoProvider.name);
+      }
+    });
   }
 }
