@@ -756,7 +756,7 @@ export class ReportsController extends GenericController<Report> {
   @Permission([ReportPermissionsEnum.CREATE])
   async createUIReport(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Report>> {
     Logger.log(`Called createUIReport`);
-    const report: Report = await this.reportsService.createUIReport(token.id, file, null);
+    const report: Report = await this.reportsService.createUIReport(token.id, file, null, null);
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id);
     const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
     return new NormalizedResponseDTO(reportDto, relations);
@@ -776,7 +776,7 @@ export class ReportsController extends GenericController<Report> {
   @UseInterceptors(FileInterceptor('file'))
   @Permission([ReportPermissionsEnum.EDIT])
   async updateMainFileReport(@CurrentToken() token: Token, @Param('reportId') reportId: string, @UploadedFile() file: any): Promise<NormalizedResponseDTO<Report>> {
-    const report: Report = await this.reportsService.updateMainFileReport(token.id, reportId, file, null);
+    const report: Report = await this.reportsService.updateMainFileReport(token.id, reportId, file, null, null);
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id);
     const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
     return new NormalizedResponseDTO(reportDto, relations);
