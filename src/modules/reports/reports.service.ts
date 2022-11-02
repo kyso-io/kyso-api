@@ -465,7 +465,7 @@ export class ReportsService extends AutowiredService implements GenericService<R
     if (!report) {
       throw new NotFoundError({ message: 'The specified report could not be found' });
     }
-    return this.getKysoReportTree(report.id, path, version);
+    return this.getKysoReportTree(reportId, path, version);
   }
 
   public async getFileById(id: string): Promise<File> {
@@ -2656,15 +2656,16 @@ export class ReportsService extends AutowiredService implements GenericService<R
       result = reportFiles.map((file) => {
         const nameParts = file.name.split('/');
         const numParts = nameParts.length;
-        return {
-          id: numParts === 1 && file.name.includes('.') ? file.id : null,
-          type: numParts === 1 && file.name.includes('.') ? 'file' : 'folder',
+        const toReturn = {
+          id: numParts === 1 /*&& file.name.includes('.')*/ ? file.id : null,
+          type: numParts === 1 /*&& file.name.includes('.')*/ ? 'file' : 'folder',
           path: nameParts[0],
           hash: numParts === 1 ? file.sha : null,
           htmlUrl: null,
           path_scs: numParts === 1 ? file.path_scs : null,
           version: numParts === 1 ? file.version : null,
         };
+        return toReturn;
       });
     } else if (pathParts.length > 0 && !sanitizedPath.includes('.')) {
       result = reportFiles.map((file) => {
@@ -2694,7 +2695,8 @@ export class ReportsService extends AutowiredService implements GenericService<R
       };
     }
 
-    return result;
+    const arrayUniqueByKey = [...new Map(result.map((item) => [item['path'], item])).values()];
+    return arrayUniqueByKey;
   }
 
   private async getKysoFileContent(reportId: string, hash: string): Promise<Buffer> {
