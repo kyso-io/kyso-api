@@ -2694,7 +2694,8 @@ export class ReportsService extends AutowiredService implements GenericService<R
       };
     }
 
-    return result;
+    // Remove duplicates by name
+    return result.filter((file: GithubFileHash, index: number, self: GithubFileHash[]) => index === self.findIndex((t: GithubFileHash) => t.path === file.path));
   }
 
   private async getKysoFileContent(reportId: string, hash: string): Promise<Buffer> {
