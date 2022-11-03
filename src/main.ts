@@ -201,7 +201,12 @@ async function connectToDatabase() {
     } catch (err) {
       Logger.error(`Couldn't connect with mongoDB instance at ${process.env.DATABASE_URI}`);
       Logger.error(err);
-      process.exit();
+      // User process.kill instead of process.exit to end the dev execution.
+      // See: https://github.com/nestjs/nest/issues/8077#issuecomment-922443560
+      Logger.warn(`Terminating process in 10 seconds.`);
+      const timer = (ms) => new Promise((res) => setTimeout(res, ms));
+      await timer(10000);
+      process.kill(0);
     }
   }
 }
