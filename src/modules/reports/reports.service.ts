@@ -52,15 +52,14 @@ import * as glob from 'glob';
 import { join } from 'path';
 import * as sha256File from 'sha256-file';
 import { NATSHelper } from 'src/helpers/natsHelper';
-import { PlatformRole } from 'src/security/platform-roles';
 import { replaceStringInFilesSync } from 'tiny-replace-files';
 import { v4 as uuidv4 } from 'uuid';
 import { Autowired } from '../../decorators/autowired';
 import { AutowiredService } from '../../generic/autowired.generic';
-import { GenericService } from '../../generic/service.generic';
 import { NotFoundError } from '../../helpers/errorHandling';
 import slugify from '../../helpers/slugify';
 import { Validators } from '../../helpers/validators';
+import { PlatformRole } from '../../security/platform-roles';
 import { AuthService } from '../auth/auth.service';
 import { PlatformRoleService } from '../auth/platform-role.service';
 import { UserRoleService } from '../auth/user-role.service';
@@ -97,7 +96,7 @@ export function createProvider(): Provider<ReportsService> {
 }
 
 @Injectable()
-export class ReportsService extends AutowiredService implements GenericService<Report> {
+export class ReportsService extends AutowiredService {
   @Autowired({ typeName: 'UsersService' })
   private usersService: UsersService;
 
@@ -151,41 +150,39 @@ export class ReportsService extends AutowiredService implements GenericService<R
     super();
   }
 
-  async checkOwnership(item: Report, requester: Token, organizationName: string, teamName: string): Promise<boolean> {
-    // Check if the user who is requesting the edition of the discussion is the owner of the discussion
-    if (item.user_id !== requester.id) {
-      return false;
-    }
-    // Check if the user who is requesting the edition of the discussion has TEAM_ADMIN or ORG_ADMIN
-    const orgPermissions: ResourcePermissions = requester.permissions.organizations.find((org: ResourcePermissions) => org.name === organizationName);
-    if (!orgPermissions) {
-      return false;
-    }
-    let hasAdequatePermissions = false;
-    const teamPermissions: ResourcePermissions = requester.permissions.teams.find((x: ResourcePermissions) => x.name === teamName && x.organization_id === orgPermissions.id);
-    if (teamPermissions && teamPermissions.role_names) {
-      const isTeamAdmin: boolean = teamPermissions.role_names.find((x: string) => x === PlatformRole.TEAM_ADMIN_ROLE.name) !== undefined;
-      const isOrgAdmin: boolean = teamPermissions.role_names.find((x: string) => x === PlatformRole.ORGANIZATION_ADMIN_ROLE.name) !== undefined;
-      const isPlatformAdmin: boolean = teamPermissions.role_names.find((x: string) => x === PlatformRole.PLATFORM_ADMIN_ROLE.name) !== undefined;
-      if (isTeamAdmin || isOrgAdmin || isPlatformAdmin) {
-        hasAdequatePermissions = true;
-      }
-    }
-    return hasAdequatePermissions;
+  public async isOwner(userId: string, requesterId: string): Promise<boolean> {
+    return userId === requesterId;
   }
 
-  private async getS3Client(): Promise<S3Client> {
-    const awsRegion = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_REGION);
-    const awsAccessKey = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_ACCESS_KEY_ID);
-    const awsSecretAccessKey = await this.kysoSettingsService.getValue(KysoSettingsEnum.AWS_SECRET_ACCESS_KEY);
-
-    return new S3Client({
-      region: awsRegion,
-      credentials: {
-        accessKeyId: awsAccessKey,
-        secretAccessKey: awsSecretAccessKey,
-      },
-    });
+  public async canExecuteAction(token: Token, organization: Organization, team: Team): Promise<boolean> {
+    const organizationResourcePermissions: ResourcePermissions = token.permissions.organizations.find((resourcePermissions: ResourcePermissions) => resourcePermissions.id === organization.id);
+    if (!organizationResourcePermissions) {
+      return false;
+    }
+    const teamResourcePermissions: ResourcePermissions = token.permissions.teams.find(
+      (resourcePermissions: ResourcePermissions) => resourcePermissions.id === team.id && resourcePermissions.organization_id === organization.id,
+    );
+    if (team.visibility === TeamVisibilityEnum.PUBLIC || team.visibility === TeamVisibilityEnum.PROTECTED) {
+      if (teamResourcePermissions) {
+        const isTeamAdmin: boolean = teamResourcePermissions.role_names.find((x: string) => x === PlatformRole.TEAM_ADMIN_ROLE.name) !== undefined;
+        const isOrgAdmin: boolean = teamResourcePermissions.role_names.find((x: string) => x === PlatformRole.ORGANIZATION_ADMIN_ROLE.name) !== undefined;
+        const isPlatformAdmin: boolean = teamResourcePermissions.role_names.find((x: string) => x === PlatformRole.PLATFORM_ADMIN_ROLE.name) !== undefined;
+        return isTeamAdmin || isOrgAdmin || isPlatformAdmin;
+      } else {
+        const isTeamAdmin: boolean = organizationResourcePermissions.role_names.find((x: string) => x === PlatformRole.TEAM_ADMIN_ROLE.name) !== undefined;
+        const isOrgAdmin: boolean = organizationResourcePermissions.role_names.find((x: string) => x === PlatformRole.ORGANIZATION_ADMIN_ROLE.name) !== undefined;
+        const isPlatformAdmin: boolean = organizationResourcePermissions.role_names.find((x: string) => x === PlatformRole.PLATFORM_ADMIN_ROLE.name) !== undefined;
+        return isTeamAdmin || isOrgAdmin || isPlatformAdmin;
+      }
+    } else {
+      // Private team
+      if (teamResourcePermissions) {
+        const isTeamAdmin: boolean = teamResourcePermissions.role_names.find((x: string) => x === PlatformRole.TEAM_ADMIN_ROLE.name) !== undefined;
+        return isTeamAdmin;
+      } else {
+        return false;
+      }
+    }
   }
 
   public async getReports(query): Promise<Report[]> {
