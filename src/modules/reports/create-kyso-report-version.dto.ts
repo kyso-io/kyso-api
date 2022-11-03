@@ -1,3 +1,4 @@
+import { GitMetadata } from '@kyso-io/kyso-model';
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsArray, IsInt, IsMongoId, IsOptional, IsPositive, IsString } from 'class-validator';
@@ -40,4 +41,14 @@ export class CreateKysoReportVersionDto {
   @IsOptional()
   @IsString()
   public message: string;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    try {
+      return JSON.parse(value);
+    } catch (e) {
+      return [];
+    }
+  })
+  public git_metadata: GitMetadata;
 }

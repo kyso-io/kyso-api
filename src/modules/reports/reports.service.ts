@@ -8,6 +8,7 @@ import {
   File,
   GithubFileHash,
   GithubRepository,
+  GitMetadata,
   GlobalPermissionsEnum,
   KysoConfigFile,
   KysoEventEnum,
@@ -833,7 +834,7 @@ export class ReportsService extends AutowiredService {
     }
 
     if (kysoConfigFile.type === ReportType.Meta) {
-      return this.createMultipleKysoReports(kysoConfigFile, tmpDir, zip, uploaderUser, null, createKysoReportDto.message);
+      return this.createMultipleKysoReports(kysoConfigFile, tmpDir, zip, uploaderUser, null, createKysoReportDto.message, createKysoReportDto.git_metadata);
     }
 
     const organization: Organization = await this.organizationsService.getOrganization({
@@ -898,7 +899,7 @@ export class ReportsService extends AutowiredService {
         const sha: string = sha256File(localFilePath);
         const size: number = statSync(localFilePath).size;
         const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`;
-        let reportFile = new File(report.id, originalName, path_scs, size, sha, version, createKysoReportDto.message);
+        let reportFile = new File(report.id, originalName, path_scs, size, sha, version, createKysoReportDto.message, createKysoReportDto.git_metadata);
         reportFile = await this.filesMongoProvider.create(reportFile);
         reportFiles.push(reportFile);
         if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
@@ -964,7 +965,7 @@ export class ReportsService extends AutowiredService {
         const sha: string = sha256File(localFilePath);
         const size: number = statSync(localFilePath).size;
         const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`;
-        let file: File = new File(report.id, originalName, path_scs, size, sha, 1, createKysoReportDto.message);
+        let file: File = new File(report.id, originalName, path_scs, size, sha, 1, createKysoReportDto.message, createKysoReportDto.git_metadata);
         file = await this.filesMongoProvider.create(file);
         reportFiles.push(file);
         if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
@@ -1129,7 +1130,7 @@ export class ReportsService extends AutowiredService {
       const sha: string = sha256File(localFilePath);
       const size: number = statSync(localFilePath).size;
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`;
-      let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version, createKysoReportVersionDto.message);
+      let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version, createKysoReportVersionDto.message, createKysoReportVersionDto.git_metadata);
       reportFile = await this.filesMongoProvider.create(reportFile);
       if (kysoConfigFile && originalName === kysoConfigFile?.preview) {
         let preview_picture: string;
@@ -1190,7 +1191,7 @@ export class ReportsService extends AutowiredService {
       if (index !== -1) {
         const file: File = reportFiles[index];
         const newPathScs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${file.name}`;
-        let hardLinkFile: File = new File(report.id, file.name, newPathScs, file.size, file.sha, version, createKysoReportVersionDto.message);
+        let hardLinkFile: File = new File(report.id, file.name, newPathScs, file.size, file.sha, version, createKysoReportVersionDto.message, createKysoReportVersionDto.git_metadata);
         hardLinkFile = await this.filesMongoProvider.create(hardLinkFile);
         const source: string = join(sftpDestinationFolder, file.path_scs);
         const target: string = join(sftpDestinationFolder, hardLinkFile.path_scs);
@@ -1230,7 +1231,15 @@ export class ReportsService extends AutowiredService {
     return report;
   }
 
-  public async createMultipleKysoReports(baseKysoConfigFile: KysoConfigFile, baseTmpDir: string, zip: AdmZip, user: User, basePath: string, message: string): Promise<Report[]> {
+  public async createMultipleKysoReports(
+    baseKysoConfigFile: KysoConfigFile,
+    baseTmpDir: string,
+    zip: AdmZip,
+    user: User,
+    basePath: string,
+    message: string,
+    git_metadata: GitMetadata,
+  ): Promise<Report[]> {
     const kysoConfigFilesMap: Map<string, { kysoConfigFile: KysoConfigFile; organization: Organization; team: Team }> = new Map<
       string,
       { kysoConfigFile: KysoConfigFile; organization: Organization; team: Team }
@@ -1363,7 +1372,7 @@ export class ReportsService extends AutowiredService {
           const sha: string = sha256File(localFilePath);
           const size: number = statSync(localFilePath).size;
           const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`;
-          let reportFile = new File(report.id, originalName, path_scs, size, sha, version, message);
+          let reportFile = new File(report.id, originalName, path_scs, size, sha, version, message, git_metadata);
           reportFile = await this.filesMongoProvider.create(reportFile);
           reportFiles.push(reportFile);
         }
@@ -1408,7 +1417,7 @@ export class ReportsService extends AutowiredService {
           const sha: string = sha256File(localFilePath);
           const size: number = statSync(localFilePath).size;
           const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`;
-          let file: File = new File(report.id, originalName, path_scs, size, sha, 1, message);
+          let file: File = new File(report.id, originalName, path_scs, size, sha, 1, message, git_metadata);
           file = await this.filesMongoProvider.create(file);
           reportFiles.push(file);
           if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
@@ -1466,7 +1475,7 @@ export class ReportsService extends AutowiredService {
     return newReports;
   }
 
-  public async createUIReport(userId: string, file: Express.Multer.File, message: string): Promise<Report> {
+  public async createUIReport(userId: string, file: Express.Multer.File, message: string, git_metadata: GitMetadata): Promise<Report> {
     Logger.log('Creating report');
     const user: User = await this.usersService.getUserById(userId);
     Logger.log(`By user: ${user.email}`);
@@ -1609,7 +1618,7 @@ export class ReportsService extends AutowiredService {
       const sha: string = sha256File(localFilePath);
       const size: number = statSync(localFilePath).size;
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`;
-      let file: File = new File(report.id, originalName, path_scs, size, sha, version, message);
+      let file: File = new File(report.id, originalName, path_scs, size, sha, version, message, git_metadata);
       file = await this.filesMongoProvider.create(file);
       reportFiles.push(file);
       if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
@@ -1647,7 +1656,7 @@ export class ReportsService extends AutowiredService {
     return report;
   }
 
-  public async updateMainFileReport(userId: string, reportId: string, file: Express.Multer.File, message: string): Promise<Report> {
+  public async updateMainFileReport(userId: string, reportId: string, file: Express.Multer.File, message: string, git_metadata: GitMetadata): Promise<Report> {
     const report: Report = await this.getReport({
       filter: {
         _id: this.provider.toObjectId(reportId),
@@ -1707,7 +1716,7 @@ export class ReportsService extends AutowiredService {
         size = statSync(mainFileReportLocalPath).size;
       }
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion + 1}/${fileLastVersion.name}`;
-      let fileNewVersion: File = new File(report.id, fileLastVersion.name, path_scs, size, sha, lastVersion + 1, message);
+      let fileNewVersion: File = new File(report.id, fileLastVersion.name, path_scs, size, sha, lastVersion + 1, message, git_metadata);
       fileNewVersion = await this.filesMongoProvider.create(fileNewVersion);
       Logger.log(`Report '${report.id} ${report.sluglified_name}': Created new version ${lastVersion + 1} for file '${fileLastVersion.name}'`, ReportsService.name);
     }
@@ -1863,7 +1872,7 @@ export class ReportsService extends AutowiredService {
 
     if (kysoConfigFile.type === ReportType.Meta) {
       await this.deleteReport(token, report.id);
-      return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null);
+      return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null, null);
     }
 
     new Promise<void>(async () => {
@@ -1882,7 +1891,7 @@ export class ReportsService extends AutowiredService {
         return;
       }
 
-      await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew, null);
+      await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew, null, null);
 
       const team: Team = await this.teamsService.getTeamById(report.team_id);
       const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
@@ -1947,7 +1956,7 @@ export class ReportsService extends AutowiredService {
     }
     Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name);
 
-    await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false, null);
+    await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false, null, null);
   }
 
   public async createReportFromBitbucketRepository(token: Token, repositoryName: string, branch: string): Promise<Report | Report[]> {
@@ -2056,7 +2065,7 @@ export class ReportsService extends AutowiredService {
 
     if (kysoConfigFile.type === ReportType.Meta) {
       await this.deleteReport(token, report.id);
-      return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null);
+      return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null, null);
     }
 
     new Promise<void>(async () => {
@@ -2073,7 +2082,7 @@ export class ReportsService extends AutowiredService {
         return;
       }
 
-      await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew, null);
+      await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew, null, null);
 
       const team: Team = await this.teamsService.getTeamById(report.team_id);
       const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
@@ -2207,7 +2216,7 @@ export class ReportsService extends AutowiredService {
 
     if (kysoConfigFile.type === ReportType.Meta) {
       await this.deleteReport(token, report.id);
-      return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null);
+      return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null, null);
     }
 
     new Promise<void>(async () => {
@@ -2224,7 +2233,7 @@ export class ReportsService extends AutowiredService {
         return;
       }
 
-      await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew, null);
+      await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew, null, null);
 
       const team: Team = await this.teamsService.getTeamById(report.team_id);
       const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
@@ -2297,7 +2306,7 @@ export class ReportsService extends AutowiredService {
     }
     Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name);
 
-    await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false, null);
+    await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false, null, null);
   }
 
   public async downloadGitlabRepo(token: Token, report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
@@ -2346,7 +2355,7 @@ export class ReportsService extends AutowiredService {
     }
     Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name);
 
-    await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false, null);
+    await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false, null, null);
   }
 
   private async normalizeFilePaths(report: Report, filePaths: string[]): Promise<{ files: { name: string; filePath: string }[]; kysoConfigFile: KysoConfigFile }> {
@@ -2403,6 +2412,7 @@ export class ReportsService extends AutowiredService {
     files: { name: string; filePath: string }[],
     isNew: boolean,
     message: string,
+    git_metadata: GitMetadata,
   ): Promise<void> {
     const organization: Organization = await this.organizationsService.getOrganization({
       filter: {
@@ -2471,7 +2481,7 @@ export class ReportsService extends AutowiredService {
       const sha: string = sha256File(files[i].filePath);
       const size: number = statSync(files[i].filePath).size;
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`;
-      let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version, message);
+      let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version, message, git_metadata);
       reportFile = await this.filesMongoProvider.create(reportFile);
       if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
         report = await this.updateReportPreviewPicture(report, files[i].filePath);
