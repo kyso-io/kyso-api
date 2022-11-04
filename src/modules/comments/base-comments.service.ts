@@ -95,10 +95,28 @@ export class BaseCommentsService extends AutowiredService {
   }
 
   public async sendCreateCommentNotifications(user: User, organization: Organization, team: Team | null, comment: BaseComment, report: Report, discussion: Discussion | null): Promise<void> {
-    if (comment?.comment_id) {
-      Logger.log(`Sending ${KysoEventEnum.COMMENTS_REPLY} event to NATS`);
+    if (!user || !organization || !team || !comment || !report) {
+      return;
+    }
 
-      NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_REPLY, {
+    try {
+      if (comment?.comment_id) {
+        Logger.log(`Sending ${KysoEventEnum.COMMENTS_REPLY} event to NATS`);
+
+        NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_REPLY, {
+          user,
+          organization,
+          team,
+          comment,
+          discussion,
+          report,
+          frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+        });
+      }
+
+      // We should send the event as a new created comment in any case... because it is!
+      Logger.log(`Sending ${KysoEventEnum.COMMENTS_CREATE} event to NATS`);
+      NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_CREATE, {
         user,
         organization,
         team,
@@ -107,64 +125,62 @@ export class BaseCommentsService extends AutowiredService {
         report,
         frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
       });
+    } catch (ex) {
+      Logger.warn('Error sending create comment notifications', ex);
     }
-
-    // We should send the event as a new created comment in any case... because it is!
-    Logger.log(`Sending ${KysoEventEnum.COMMENTS_CREATE} event to NATS`);
-    NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_CREATE, {
-      user,
-      organization,
-      team,
-      comment,
-      discussion,
-      report,
-      frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-    });
   }
 
   public async checkMentionsInReportComment(reportId: string, commentAuthorId: string, mentionedUserIds: string[]): Promise<void> {
-    const report: Report = await this.reportsService.getReportById(reportId);
-    const team: Team = await this.teamsService.getTeamById(report.team_id);
-    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-    const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-    const creator: User = await this.usersService.getUserById(commentAuthorId);
-    const mentionedUsers: User[] = [];
-    const centralizedMails: boolean = organization?.options?.notifications?.centralized || false;
-    // Remove the creator of the message from the users to notify
-    const indexCreator: number = mentionedUserIds.findIndex((userId: string) => userId === creator.id);
-    if (indexCreator !== -1) {
-      mentionedUserIds.splice(indexCreator, 1);
+    if (!reportId || !commentAuthorId || !mentionedUserIds) {
+      return;
     }
-    for (const userId of mentionedUserIds) {
-      const user: User = await this.usersService.getUserById(userId);
-      if (!user) {
-        Logger.error(`Could not find user with id ${userId}`, CommentsService.name);
-        continue;
+
+    try {
+      const report: Report = await this.reportsService.getReportById(reportId);
+      const team: Team = await this.teamsService.getTeamById(report.team_id);
+      const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
+      const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
+      const creator: User = await this.usersService.getUserById(commentAuthorId);
+      const mentionedUsers: User[] = [];
+      const centralizedMails: boolean = organization?.options?.notifications?.centralized || false;
+      // Remove the creator of the message from the users to notify
+      const indexCreator: number = mentionedUserIds.findIndex((userId: string) => userId === creator.id);
+      if (indexCreator !== -1) {
+        mentionedUserIds.splice(indexCreator, 1);
       }
-      mentionedUsers.push(user);
-      if (centralizedMails) {
-        continue;
+      for (const userId of mentionedUserIds) {
+        const user: User = await this.usersService.getUserById(userId);
+        if (!user) {
+          Logger.error(`Could not find user with id ${userId}`, CommentsService.name);
+          continue;
+        }
+        mentionedUsers.push(user);
+        if (centralizedMails) {
+          continue;
+        }
+        NATSHelper.safelyEmit<KysoReportsNewMentionEvent>(this.client, KysoEventEnum.REPORTS_NEW_MENTION, {
+          user,
+          creator,
+          organization,
+          team,
+          report,
+          frontendUrl,
+        });
       }
-      NATSHelper.safelyEmit<KysoReportsNewMentionEvent>(this.client, KysoEventEnum.REPORTS_NEW_MENTION, {
-        user,
-        creator,
-        organization,
-        team,
-        report,
-        frontendUrl,
-      });
-    }
-    if (centralizedMails && organization.options.notifications.emails.length > 0 && mentionedUsers.length > 0) {
-      const emails: string[] = organization.options.notifications.emails;
-      NATSHelper.safelyEmit<KysoReportsMentionsEvent>(this.client, KysoEventEnum.REPORTS_MENTIONS, {
-        to: emails,
-        creator,
-        users: mentionedUsers,
-        organization,
-        team,
-        report,
-        frontendUrl,
-      });
+      if (centralizedMails && organization.options.notifications.emails.length > 0 && mentionedUsers.length > 0) {
+        const emails: string[] = organization.options.notifications.emails;
+        NATSHelper.safelyEmit<KysoReportsMentionsEvent>(this.client, KysoEventEnum.REPORTS_MENTIONS, {
+          to: emails,
+          creator,
+          users: mentionedUsers,
+          organization,
+          team,
+          report,
+          frontendUrl,
+        });
+      }
+    } catch (ex) {
+      Logger.warn('Error checking mentions in comment', ex);
     }
   }
 }
