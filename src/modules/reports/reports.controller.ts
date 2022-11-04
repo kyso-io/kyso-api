@@ -756,7 +756,7 @@ export class ReportsController extends GenericController<Report> {
   @Permission([ReportPermissionsEnum.CREATE])
   async createUIReport(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Report>> {
     Logger.log(`Called createUIReport`);
-    const report: Report = await this.reportsService.createUIReport(token.id, file, null);
+    const report: Report = await this.reportsService.createUIReport(token.id, file, null, null);
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id);
     const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
     return new NormalizedResponseDTO(reportDto, relations);
@@ -776,7 +776,7 @@ export class ReportsController extends GenericController<Report> {
   @UseInterceptors(FileInterceptor('file'))
   @Permission([ReportPermissionsEnum.EDIT])
   async updateMainFileReport(@CurrentToken() token: Token, @Param('reportId') reportId: string, @UploadedFile() file: any): Promise<NormalizedResponseDTO<Report>> {
-    const report: Report = await this.reportsService.updateMainFileReport(token.id, reportId, file, null);
+    const report: Report = await this.reportsService.updateMainFileReport(token.id, reportId, file, null, null);
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id);
     const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
     return new NormalizedResponseDTO(reportDto, relations);
@@ -914,16 +914,28 @@ export class ReportsController extends GenericController<Report> {
     schema: { type: 'string' },
   })
   @Permission([ReportPermissionsEnum.DELETE])
-  async deleteReport(@Headers() headers: any, @CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
-    const reportData: Report = await this.reportsService.getReportById(reportId);
-
-    const isOwner = await this.reportsService.checkOwnership(reportData, token, headers[HEADER_X_KYSO_ORGANIZATION], headers[HEADER_X_KYSO_TEAM]);
-
-    if (!isOwner) {
-      throw new ForbiddenException('Insufficient permissions');
+  async deleteReport(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
+    const report: Report = await this.reportsService.getReportById(reportId);
+    if (!report) {
+      throw new NotFoundException('Report not found');
     }
-    const report: Report = await this.reportsService.deleteReport(token, reportId, true);
-    return new NormalizedResponseDTO(report);
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+    const isOwner: boolean = await this.reportsService.isOwner(report.user_id, token.id);
+    if (!isOwner) {
+      const canExecuteAction: boolean = await this.reportsService.canExecuteAction(token, organization, team);
+      if (!canExecuteAction) {
+        throw new ForbiddenException('You can not delete this report');
+      }
+    }
+    const deletedReport: Report = await this.reportsService.deleteReport(token, reportId, true);
+    return new NormalizedResponseDTO(deletedReport);
   }
 
   @Patch('/:reportId/pin')
@@ -1388,19 +1400,25 @@ export class ReportsController extends GenericController<Report> {
   })
   @ApiNormalizedResponse({ status: 201, description: `Updated report`, type: ReportDTO })
   @Permission([ReportPermissionsEnum.EDIT])
-  public async setProfilePicture(
-    @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
-    @Headers(HEADER_X_KYSO_TEAM) teamName: string,
-    @CurrentToken() token: Token,
-    @Param('reportId') reportId: string,
-    @UploadedFile() file: Express.Multer.File,
-  ): Promise<NormalizedResponseDTO<ReportDTO>> {
-    const reportData: Report = await this.reportsService.getReportById(reportId);
-
-    const isOwner: boolean = await this.reportsService.checkOwnership(reportData, token, organizationName, teamName);
-
+  public async setProfilePicture(@CurrentToken() token: Token, @Param('reportId') reportId: string, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<ReportDTO>> {
+    const report: Report = await this.reportsService.getReportById(reportId);
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+    const isOwner: boolean = await this.reportsService.isOwner(report.user_id, token.id);
     if (!isOwner) {
-      throw new ForbiddenException('Insufficient permissions');
+      const canExecuteAction: boolean = await this.reportsService.canExecuteAction(token, organization, team);
+      if (!canExecuteAction) {
+        throw new ForbiddenException('You can not update the report image');
+      }
     }
     if (!file) {
       throw new BadRequestException(`Missing file`);
@@ -1408,10 +1426,9 @@ export class ReportsController extends GenericController<Report> {
     if (file.mimetype.split('/')[0] !== 'image') {
       throw new BadRequestException(`Only image files are allowed`);
     }
-
-    const report: Report = await this.reportsService.setPreviewPicture(reportId, file);
-    const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id);
-    const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
+    const updatedReport: Report = await this.reportsService.setPreviewPicture(reportId, file);
+    const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(updatedReport, token.id);
+    const relations = await this.relationsService.getRelations(updatedReport, 'report', { Author: 'User' });
     return new NormalizedResponseDTO(reportDto, relations);
   }
 
@@ -1435,17 +1452,28 @@ export class ReportsController extends GenericController<Report> {
     @CurrentToken() token: Token,
     @Param('reportId') reportId: string,
   ): Promise<NormalizedResponseDTO<ReportDTO>> {
-    const reportData: Report = await this.reportsService.getReportById(reportId);
-
-    const isOwner = await this.reportsService.checkOwnership(reportData, token, organizationName, teamName);
-
-    if (!isOwner) {
-      throw new ForbiddenException('Insufficient permissions');
+    const report: Report = await this.reportsService.getReportById(reportId);
+    if (!report) {
+      throw new NotFoundException('Report not found');
     }
-
-    const report: Report = await this.reportsService.deletePreviewPicture(reportId);
-    const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id);
-    const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+    const isOwner: boolean = await this.reportsService.isOwner(report.user_id, token.id);
+    if (!isOwner) {
+      const canExecuteAction: boolean = await this.reportsService.canExecuteAction(token, organization, team);
+      if (!canExecuteAction) {
+        throw new ForbiddenException('You can not delete the image from the report');
+      }
+    }
+    const updatedReport: Report = await this.reportsService.deletePreviewPicture(reportId);
+    const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(updatedReport, token.id);
+    const relations = await this.relationsService.getRelations(updatedReport, 'report', { Author: 'User' });
     return new NormalizedResponseDTO(reportDto, relations);
   }
 
