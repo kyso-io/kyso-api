@@ -14,6 +14,7 @@ import { RedocModule, RedocOptions } from 'nestjs-redoc';
 import { AppModule } from './app.module';
 import { getSingletons, registerSingleton } from './decorators/autowired';
 import { TransformInterceptor } from './interceptors/exclude.interceptor';
+import { TraceabilityInterceptor } from './interceptors/traceability.interceptor';
 import { KysoSettingsService } from './modules/kyso-settings/kyso-settings.service';
 import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service';
 const { NodeTracerProvider } = require('@opentelemetry/sdk-trace-node');
@@ -109,6 +110,7 @@ async function bootstrap() {
   );
   app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+  app.useGlobalInterceptors(new TraceabilityInterceptor(app.get('NATS_SERVICE')));
 
   app.setGlobalPrefix(globalPrefix);
 
