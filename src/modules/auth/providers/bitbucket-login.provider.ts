@@ -66,13 +66,8 @@ export class BitbucketLoginProvider extends BaseLoginProvider {
 
       const index: number = user.accounts.findIndex((userAccount: UserAccount) => userAccount.type === LoginProviderEnum.BITBUCKET && userAccount.accountId === bitbucketUser.account_id);
       if (index === -1) {
-        user.accounts.push({
-          type: LoginProviderEnum.BITBUCKET,
-          accountId: bitbucketUser.account_id,
-          username: bitbucketUser.username,
-          accessToken,
-          payload: bitbucketLoginResponse,
-        });
+        const userAccount: UserAccount = new UserAccount(LoginProviderEnum.BITBUCKET, bitbucketUser.account_id, bitbucketUser.username, accessToken, bitbucketLoginResponse);
+        user.accounts.push(userAccount);
         Logger.log(`User ${bitbucketUser.username} is adding Bitbucket account`, BitbucketLoginProvider.name);
       } else {
         user.accounts[index].accessToken = accessToken;
@@ -97,13 +92,8 @@ export class BitbucketLoginProvider extends BaseLoginProvider {
       const user: User = await this.usersService.getUserById(token.id);
       const index: number = user.accounts.findIndex((userAccount: UserAccount) => userAccount.type === LoginProviderEnum.BITBUCKET && userAccount.accountId === bitbucketUser.account_id);
       if (index === -1) {
-        user.accounts.push({
-          type: LoginProviderEnum.BITBUCKET,
-          accountId: bitbucketUser.account_id,
-          username: bitbucketUser.username,
-          accessToken,
-          payload: bitbucketLoginResponse,
-        });
+        const userAccount: UserAccount = new UserAccount(LoginProviderEnum.BITBUCKET, bitbucketUser.account_id, bitbucketUser.username, accessToken, bitbucketLoginResponse);
+        user.accounts.push(userAccount);
         Logger.log(`User ${bitbucketUser.username} is adding Bitbucket account`, BitbucketLoginProvider.name);
       } else {
         user.accounts[index].accessToken = accessToken;

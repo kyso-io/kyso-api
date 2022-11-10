@@ -47,7 +47,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import axios, { AxiosResponse } from 'axios';
 import { ObjectId } from 'mongodb';
 import { FormDataRequest } from 'nestjs-form-data';
@@ -225,14 +225,7 @@ export class ReportsController extends GenericController<Report> {
     if (!data.filter.hasOwnProperty('organization_id') && !data.filter.hasOwnProperty('team_id')) {
       throw new BadRequestException('You must specify an organization_id or team_id');
     }
-    const paginatedResponseDto: PaginatedResponseDto<ReportDTO> = {
-      currentPage: 0,
-      itemCount: 0,
-      itemsPerPage: 0,
-      results: [],
-      totalItems: 0,
-      totalPages: 0,
-    };
+    const paginatedResponseDto: PaginatedResponseDto<ReportDTO> = new PaginatedResponseDto<ReportDTO>(0, 0, 0, [], 0, 0);
     if (!token) {
       if (data.filter.organization_id) {
         const organization: Organization = await this.organizationsService.getOrganizationById(data.filter.organization_id);
@@ -412,14 +405,7 @@ export class ReportsController extends GenericController<Report> {
         },
       ],
     };
-    const paginatedResponseDto: PaginatedResponseDto<ReportDTO> = {
-      currentPage: 0,
-      itemCount: 0,
-      itemsPerPage: 0,
-      results: [],
-      totalItems: 0,
-      totalPages: 0,
-    };
+    const paginatedResponseDto: PaginatedResponseDto<ReportDTO> = new PaginatedResponseDto<ReportDTO>(0, 0, 0, [], 0, 0);
     if (token) {
       const userTokenTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(user_id);
       if (token.id === user_id) {
@@ -689,6 +675,12 @@ export class ReportsController extends GenericController<Report> {
     summary: `Create a new report sending the files`,
     description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
   })
+  @ApiBody({
+    description: 'Update organization',
+    required: true,
+    type: CreateKysoReportDto,
+    examples: CreateKysoReportDto.examples(),
+  })
   @ApiResponse({
     status: 201,
     description: `Created report`,
@@ -722,6 +714,12 @@ export class ReportsController extends GenericController<Report> {
     summary: `Create a new report sending the files`,
     description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
   })
+  @ApiBody({
+    description: 'Invite user to the organization',
+    required: true,
+    type: CreateKysoReportVersionDto,
+    examples: CreateKysoReportVersionDto.examples(),
+  })
   @ApiResponse({
     status: 201,
     description: `Create new version of report`,
@@ -747,6 +745,18 @@ export class ReportsController extends GenericController<Report> {
     summary: `Create a new report sending the files`,
     description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
   })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 201,
     description: `Created report`,
@@ -768,6 +778,18 @@ export class ReportsController extends GenericController<Report> {
     summary: `Update the main file of the report`,
     description: `By passing the appropiate parameters you can update the main file of report`,
   })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 201,
     description: `Update the main file of the report`,
@@ -775,7 +797,7 @@ export class ReportsController extends GenericController<Report> {
   })
   @UseInterceptors(FileInterceptor('file'))
   @Permission([ReportPermissionsEnum.EDIT])
-  async updateMainFileReport(@CurrentToken() token: Token, @Param('reportId') reportId: string, @UploadedFile() file: any): Promise<NormalizedResponseDTO<Report>> {
+  async updateMainFileReport(@CurrentToken() token: Token, @Param('reportId') reportId: string, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Report>> {
     const report: Report = await this.reportsService.updateMainFileReport(token.id, reportId, file, null, null);
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id);
     const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
@@ -883,6 +905,12 @@ export class ReportsController extends GenericController<Report> {
     status: 200,
     description: `Specified report data`,
     type: ReportDTO,
+  })
+  @ApiBody({
+    description: 'Update report data',
+    required: true,
+    type: UpdateReportRequestDTO,
+    examples: UpdateReportRequestDTO.examples(),
   })
   @ApiParam({
     name: 'reportId',
@@ -1398,6 +1426,18 @@ export class ReportsController extends GenericController<Report> {
     description: `Id of the report to fetch`,
     schema: { type: 'string' },
   })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
   @ApiNormalizedResponse({ status: 201, description: `Updated report`, type: ReportDTO })
   @Permission([ReportPermissionsEnum.EDIT])
   public async setProfilePicture(@CurrentToken() token: Token, @Param('reportId') reportId: string, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<ReportDTO>> {
@@ -1558,7 +1598,7 @@ export class ReportsController extends GenericController<Report> {
     description: 'Examples',
     required: true,
     type: DraftReport,
-    examples: DraftReport.swaggerExamples(),
+    examples: DraftReport.examples(),
   })
   @Permission([ReportPermissionsEnum.CREATE])
   async createUIDraftReport(@CurrentToken() token: Token, @Body() draftReport: DraftReport): Promise<NormalizedResponseDTO<DraftReport>> {
@@ -1581,7 +1621,6 @@ export class ReportsController extends GenericController<Report> {
     summary: `Imports from S3 bucket Office documents based on its metadata`,
     description: `By passing the appropiate parameters you can import a bunch of reports`,
   })
-  @Public()
   @Permission([ReportPermissionsEnum.CREATE])
   async importOfficeFromS3(@Body() data: any): Promise<NormalizedResponseDTO<any>> {
     const allSettings: KysoSetting[] = await this.kysoSettingsService.getAll();

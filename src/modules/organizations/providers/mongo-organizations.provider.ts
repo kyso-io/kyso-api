@@ -125,9 +125,7 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
     const cursor = await this.getCollection().find({});
     const allOrganizations: any[] = await cursor.toArray();
     for (const organization of allOrganizations) {
-      const orgNotifications: OrganizationNotifications = new OrganizationNotifications();
-      orgNotifications.centralized = false;
-      orgNotifications.emails = [];
+      const orgNotifications: OrganizationNotifications = new OrganizationNotifications(false, [], null, null);
       let data: any = null;
       if (organization.options) {
         data = {
@@ -185,7 +183,7 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
         orgAuthOptions.allow_login_with_gitlab = true;
         orgAuthOptions.otherProviders = [];
         orgOptions.auth = orgAuthOptions;
-        const orgNotifications: OrganizationNotifications = new OrganizationNotifications();
+        const orgNotifications: OrganizationNotifications = new OrganizationNotifications(false, [], null, null);
         orgNotifications.centralized = false;
         orgNotifications.emails = [];
         orgOptions.notifications = orgNotifications;

@@ -1,4 +1,3 @@
-import { S3Client } from '@aws-sdk/client-s3';
 import {
   Comment,
   CreateReportDTO,
@@ -2663,43 +2662,34 @@ export class ReportsService extends AutowiredService {
       result = reportFiles.map((file) => {
         const nameParts = file.name.split('/');
         const numParts = nameParts.length;
-        const toReturn = {
-          id: numParts === 1 /*&& file.name.includes('.')*/ ? file.id : null,
-          type: numParts === 1 /*&& file.name.includes('.')*/ ? 'file' : 'folder',
-          path: nameParts[0],
-          hash: numParts === 1 ? file.sha : null,
-          htmlUrl: null,
-          path_scs: numParts === 1 ? file.path_scs : null,
-          version: numParts === 1 ? file.version : null,
-        };
-        return toReturn;
+        return new GithubFileHash(
+          numParts === 1 /*&& file.name.includes('.')*/ ? file.id : null,
+          numParts === 1 /*&& file.name.includes('.')*/ ? 'file' : 'folder',
+          nameParts[0],
+          numParts === 1 ? file.sha : null,
+          null,
+          numParts === 1 ? file.path_scs : null,
+          numParts === 1 ? file.version : null,
+        );
       });
     } else if (pathParts.length > 0 && !sanitizedPath.includes('.')) {
       result = reportFiles.map((file) => {
         const nameParts = file.name.split('/').slice(pathParts.length);
         const numParts = nameParts.length;
-        return {
-          id: numParts === 1 && file.name.includes('.') ? file.id : null,
-          type: numParts === 1 && file.name.includes('.') ? 'file' : 'folder',
-          path: nameParts[0],
-          hash: numParts === 1 ? file.sha : null,
-          htmlUrl: null,
-          path_scs: numParts === 1 ? file.path_scs : null,
-          version: numParts === 1 ? file.version : null,
-        };
+        return new GithubFileHash(
+          numParts === 1 && file.name.includes('.') ? file.id : null,
+          numParts === 1 && file.name.includes('.') ? 'file' : 'folder',
+          nameParts[0],
+          numParts === 1 ? file.sha : null,
+          null,
+          numParts === 1 ? file.path_scs : null,
+          numParts === 1 ? file.version : null,
+        );
       });
     } else if (pathParts.length > 0 && sanitizedPath.includes('.')) {
       const file = reportFiles[0];
       const nameParts = file.name.split('/');
-      result[0] = {
-        id: file.id,
-        type: 'file',
-        path: nameParts[nameParts.length - 1],
-        hash: file.sha,
-        htmlUrl: null,
-        path_scs: file.path_scs,
-        version: file.version,
-      };
+      result[0] = new GithubFileHash(file.id, 'file', nameParts[nameParts.length - 1], file.sha, null, file.path_scs, file.version);
     }
 
     const arrayUniqueByKey = [...new Map(result.map((item) => [item['path'], item])).values()];

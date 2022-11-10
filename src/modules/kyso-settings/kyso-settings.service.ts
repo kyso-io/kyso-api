@@ -1,4 +1,4 @@
-import { KysoSetting, KysoSettingsEnum } from '@kyso-io/kyso-model';
+import { KysoSetting, KysoSettingsEnum, UpdateKysoSettingDto } from '@kyso-io/kyso-model';
 import { Injectable, Provider } from '@nestjs/common';
 import { AutowiredService } from '../../generic/autowired.generic';
 import { KysoSettingsMongoProvider } from './providers/kyso-settings-mongo.provider';
@@ -34,9 +34,9 @@ export class KysoSettingsService extends AutowiredService {
     }
   }
 
-  public async updateValue(key: KysoSettingsEnum, value: string): Promise<KysoSetting> {
-    const dataFields: any = {
-      value: value,
+  public async updateValue(key: KysoSettingsEnum, updateKysoSettingDto: UpdateKysoSettingDto): Promise<KysoSetting> {
+    const dataFields = {
+      value: updateKysoSettingDto.value,
     };
     return this.provider.update({ key: key }, { $set: dataFields });
   }

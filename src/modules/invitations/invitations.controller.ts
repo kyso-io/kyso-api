@@ -1,6 +1,6 @@
 import { CreateInvitationDto, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, Invitation, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model';
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { GenericController } from '../../generic/controller.generic';
 import { QueryParser } from '../../helpers/queryParser';
@@ -33,7 +33,7 @@ export class InvitationsController extends GenericController<Invitation> {
   @Get()
   @ApiNormalizedResponse({
     status: 200,
-    description: `Invigations of a team`,
+    description: `Invitations of a team`,
     type: Invitation,
   })
   @ApiParam({
@@ -73,6 +73,12 @@ export class InvitationsController extends GenericController<Invitation> {
   @ApiOperation({
     summary: `Create an invitation`,
     description: `Create an invitation`,
+  })
+  @ApiBody({
+    description: 'Create invitation',
+    required: true,
+    type: CreateInvitationDto,
+    examples: CreateInvitationDto.examples(),
   })
   @ApiNormalizedResponse({
     status: 201,

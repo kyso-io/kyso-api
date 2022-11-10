@@ -14,7 +14,7 @@ import {
   UpdateInlineCommentDto,
 } from '@kyso-io/kyso-model';
 import { Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { Public } from '../../decorators/is-public';
@@ -107,6 +107,12 @@ export class InlineCommentController extends GenericController<InlineComment> {
     summary: 'Create a new inline comment',
     description: 'Create a new inline comment',
   })
+  @ApiBody({
+    description: 'Create inline comment',
+    required: true,
+    type: CreateInlineCommentDto,
+    examples: CreateInlineCommentDto.examples(),
+  })
   @ApiNormalizedResponse({
     status: 200,
     description: 'Inline comment created',
@@ -124,6 +130,12 @@ export class InlineCommentController extends GenericController<InlineComment> {
   @ApiOperation({
     summary: 'Update an inline comment',
     description: 'Update an inline comment',
+  })
+  @ApiBody({
+    description: 'Update inline comment',
+    required: true,
+    type: UpdateInlineCommentDto,
+    examples: UpdateInlineCommentDto.examples(),
   })
   @ApiNormalizedResponse({
     status: 200,

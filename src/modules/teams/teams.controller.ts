@@ -35,7 +35,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { ObjectId } from 'mongodb';
 import { PlatformRole } from 'src/security/platform-roles';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
@@ -425,6 +425,12 @@ export class TeamsController extends GenericController<Team> {
     description: `Id of the team to fetch`,
     schema: { type: 'string' },
   })
+  @ApiBody({
+    description: 'Update team',
+    required: true,
+    type: UpdateTeamRequest,
+    examples: UpdateTeamRequest.examples(),
+  })
   @ApiNormalizedResponse({
     status: 200,
     description: `Specified team data`,
@@ -463,6 +469,12 @@ export class TeamsController extends GenericController<Team> {
   @ApiOperation({
     summary: `Create a new team`,
     description: `Allows creating a new team`,
+  })
+  @ApiBody({
+    description: 'Create team',
+    required: true,
+    type: Team,
+    examples: Team.examples(),
   })
   @ApiNormalizedResponse({
     status: 201,
@@ -503,6 +515,12 @@ export class TeamsController extends GenericController<Team> {
   @ApiOperation({
     summary: `Add roles to members of a team`,
     description: `Allows adding a role to a member of a team passing its id`,
+  })
+  @ApiBody({
+    description: 'Update team members',
+    required: true,
+    type: UpdateTeamMembersDTO,
+    examples: UpdateTeamMembersDTO.examples(),
   })
   @ApiParam({
     name: 'teamId',
@@ -577,6 +595,18 @@ export class TeamsController extends GenericController<Team> {
     summary: `Upload a profile picture for a team`,
     description: `Allows uploading a profile picture for a team passing its id and image`,
   })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
   @ApiParam({
     name: 'teamId',
     required: true,
@@ -640,6 +670,18 @@ export class TeamsController extends GenericController<Team> {
     required: true,
     description: `id of the team that owns the image`,
     schema: { type: 'string' },
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
   })
   @ApiNormalizedResponse({ status: 200, description: `Upload markdown image`, type: String })
   @UseInterceptors(

@@ -1,6 +1,6 @@
 import { EntityEnum, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, NormalizedResponseDTO, Tag, TagAssign, TagRequestDTO } from '@kyso-io/kyso-model';
 import { Body, Controller, Delete, Get, Param, Patch, Post, PreconditionFailedException, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { ObjectId } from 'mongodb';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { GenericController } from '../../generic/controller.generic';
@@ -120,6 +120,12 @@ export class TagsController extends GenericController<Tag> {
     description: `Id of the tag to fetch`,
     schema: { type: 'string' },
   })
+  @ApiBody({
+    description: 'Update tag',
+    required: true,
+    type: TagRequestDTO,
+    examples: TagRequestDTO.examples(),
+  })
   @ApiNormalizedResponse({
     status: 200,
     description: `Specified tag data`,
@@ -139,6 +145,12 @@ export class TagsController extends GenericController<Tag> {
   @ApiOperation({
     summary: `Create a new tag`,
     description: `Allows creating a new tag`,
+  })
+  @ApiBody({
+    description: 'Create tag',
+    required: true,
+    type: TagRequestDTO,
+    examples: TagRequestDTO.examples(),
   })
   @ApiNormalizedResponse({
     status: 201,

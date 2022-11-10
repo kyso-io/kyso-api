@@ -61,10 +61,7 @@ export class BaseLoginProvider {
           Logger.error(`Organization ${organizationSlug} not found`);
           continue;
         }
-        const addUserOrganizationDto: AddUserOrganizationDto = new AddUserOrganizationDto();
-        addUserOrganizationDto.organizationId = org.id;
-        addUserOrganizationDto.role = PlatformRole.TEAM_READER_ROLE.name;
-        addUserOrganizationDto.userId = user.id;
+        const addUserOrganizationDto: AddUserOrganizationDto = new AddUserOrganizationDto(org.id, user.id, PlatformRole.TEAM_READER_ROLE.name);
         await this.organizationsService.addMemberToOrganization(addUserOrganizationDto);
       }
     }
