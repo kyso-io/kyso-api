@@ -48,9 +48,9 @@ export class SftpService extends AutowiredService {
 
   public async uploadPublicFileFromPost(file: Express.Multer.File): Promise<string> {
     try {
-      const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH);
+      const tmpFolder: string = process.env.APP_TEMP_DIR;
       if (!tmpFolder) {
-        throw new Error('TMP_FOLDER_PATH is not defined');
+        throw new Error('APP_TEMP_DIR environment variable not defined');
       }
       const tmpFilepath = `${tmpFolder}/${file.originalname}`;
       writeFileSync(tmpFilepath, file.buffer);

@@ -784,7 +784,7 @@ export class ReportsService extends AutowiredService {
     const isGlobalAdmin: boolean = uploaderUser.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN);
     Logger.log(`is global admin?: ${isGlobalAdmin}`);
 
-    const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH);
+    const tmpFolder: string = process.env.APP_TEMP_DIR;
     const tmpDir = `${tmpFolder}/${uuidv4()}`;
     const zip: AdmZip = new AdmZip(createKysoReportDto.file.buffer);
     zip.extractAllTo(tmpDir, true);
@@ -876,7 +876,7 @@ export class ReportsService extends AutowiredService {
     const reportFiles: File[] = [];
     let version = 1;
     let report: Report = null;
-    const reportPath: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.REPORT_PATH);
+    const reportPath: string = process.env.APP_TEMP_DIR;
     let isNew = false;
 
     if (reports.length > 0) {
@@ -1026,7 +1026,7 @@ export class ReportsService extends AutowiredService {
     Logger.log(`Creating new version of report ${report.id}`);
     const uploaderUser: User = await this.usersService.getUserById(userId);
     Logger.log(`By user: ${uploaderUser.email}`);
-    const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH);
+    const tmpFolder: string = process.env.APP_TEMP_DIR;
     const tmpDir = `${tmpFolder}/${uuidv4()}`;
     const zip = new AdmZip(createKysoReportVersionDto.file.buffer);
     zip.extractAllTo(tmpDir, true);
@@ -1075,7 +1075,7 @@ export class ReportsService extends AutowiredService {
       Logger.error(`User ${uploaderUser.username} does not have permission to create report in channel ${team.sluglified_name} of the organization ${organization.sluglified_name}`);
       throw new ForbiddenException(`User ${uploaderUser.username} does not have permission to create report in channel ${team.sluglified_name} of the organization ${organization.sluglified_name}`);
     }
-    const reportPath: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.REPORT_PATH);
+    const reportPath: string = process.env.APP_TEMP_DIR;
     const lastVersion: number = await this.getLastVersionOfReport(report.id);
     if (createKysoReportVersionDto.version !== lastVersion) {
       Logger.error(`Version ${createKysoReportVersionDto.version} is not the last version of the report`, ReportsService.name);
@@ -1481,7 +1481,7 @@ export class ReportsService extends AutowiredService {
     const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN);
     Logger.log(`is global admin?: ${isGlobalAdmin}`);
 
-    const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH);
+    const tmpFolder: string = process.env.APP_TEMP_DIR;
     const tmpDir = `${tmpFolder}/${uuidv4()}`;
     const zip = new AdmZip(file.buffer);
     Logger.log(`Extracting all temporary files to ${tmpDir}`);
@@ -1554,7 +1554,7 @@ export class ReportsService extends AutowiredService {
     const reports: Report[] = await this.provider.read({ filter: { sluglified_name: name, team_id: team.id } });
     const reportFiles: File[] = [];
     let report: Report = null;
-    const reportPath: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.REPORT_PATH);
+    const reportPath: string = process.env.APP_TEMP_DIR;
     if (reports.length > 0) {
       Logger.log(`Report '${name}' already exists in team ${team.sluglified_name}`, ReportsService.name);
       throw new PreconditionFailedException(`Report '${name}' already exists in team ${team.sluglified_name}`);
@@ -1689,7 +1689,7 @@ export class ReportsService extends AutowiredService {
       throw new PreconditionFailedException(`Report '${report.id} ${report.sluglified_name}': Destination path '${ftpReportPath}' not found`);
     }
     Logger.log(`Folder '${ftpReportPath}' exists in SCS.`, ReportsService.name);
-    const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH);
+    const tmpFolder: string = process.env.APP_TEMP_DIR;
     const localReportPath: string = join(tmpFolder, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion}`);
     if (!existsSync(localReportPath)) {
       Logger.log(`LOCAL folder '${localReportPath}' not found. Creating...`, ReportsService.name);
@@ -1839,7 +1839,7 @@ export class ReportsService extends AutowiredService {
     const sha: string = commitsResponse.data[0].sha;
 
     Logger.log(`Downloading and extracting repository ${repositoryName}' commit '${sha}'`, ReportsService.name);
-    const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH);
+    const tmpFolder: string = process.env.APP_TEMP_DIR;
     const extractedDir = `${tmpFolder}/${uuidv4()}`;
     const zip: AdmZip = await this.downloadGithubFiles(sha, extractedDir, repository, userAccount.accessToken);
     if (!zip) {
@@ -1922,7 +1922,7 @@ export class ReportsService extends AutowiredService {
     Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name);
     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } });
 
-    const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH);
+    const tmpFolder: string = process.env.APP_TEMP_DIR;
     const extractedDir = `${tmpFolder}/${uuidv4()}`;
     const zip: AdmZip = await this.downloadGithubFiles(sha, extractedDir, repository, userAccount.accessToken);
     if (!zip) {
@@ -2020,7 +2020,7 @@ export class ReportsService extends AutowiredService {
     }
 
     const desiredCommit: string = branch && branch.length > 0 ? branch : bitbucketRepository.defaultBranch;
-    const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH);
+    const tmpFolder: string = process.env.APP_TEMP_DIR;
     const extractedDir = `${tmpFolder}/${uuidv4()}`;
     let zip: AdmZip;
     try {
@@ -2171,7 +2171,7 @@ export class ReportsService extends AutowiredService {
     }
 
     const desiredCommit: string = branch && branch.length > 0 ? branch : gitlabRepository.defaultBranch;
-    const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH);
+    const tmpFolder: string = process.env.APP_TEMP_DIR;
     const extractedDir = `${tmpFolder}/${uuidv4()}`;
     let zip: AdmZip = null;
     try {
@@ -2262,7 +2262,7 @@ export class ReportsService extends AutowiredService {
   public async downloadBitbucketRepo(token: Token, report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
     Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name);
     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } });
-    const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH);
+    const tmpFolder: string = process.env.APP_TEMP_DIR;
     const extractedDir = `${tmpFolder}/${uuidv4()}`;
     try {
       Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name);
@@ -2311,7 +2311,7 @@ export class ReportsService extends AutowiredService {
   public async downloadGitlabRepo(token: Token, report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
     Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name);
     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } });
-    const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH);
+    const tmpFolder: string = process.env.APP_TEMP_DIR;
     const extractedDir = `${tmpFolder}/${uuidv4()}`;
     try {
       Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name);
@@ -2462,7 +2462,7 @@ export class ReportsService extends AutowiredService {
     const lastVersion: number = await this.getLastVersionOfReport(report.id);
     const version = lastVersion + 1;
 
-    const reportPath: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.REPORT_PATH);
+    const reportPath: string = process.env.APP_TEMP_DIR;
     const extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`);
     moveSync(tmpDir, extractedDir, { overwrite: true });
 
@@ -2517,7 +2517,7 @@ export class ReportsService extends AutowiredService {
         responseType: 'arraybuffer',
       });
       const zip: AdmZip = new AdmZip(response.data);
-      const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH);
+      const tmpFolder: string = process.env.APP_TEMP_DIR;
       Logger.log('Extracting Github files to ' + tmpFolder);
       zip.extractAllTo(tmpFolder, true);
       Logger.log('Extraction finished');
@@ -2613,7 +2613,7 @@ export class ReportsService extends AutowiredService {
       Logger.log(`Directory ${destinationPath} does not exist. Creating...`, ReportsService.name);
       return;
     }
-    const tmpFolder: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.TMP_FOLDER_PATH);
+    const tmpFolder: string = process.env.APP_TEMP_DIR;
     const localPath = `${tmpFolder}/${report.id}`;
     if (!existsSync(localPath)) {
       Logger.log(`LOCAL folder '${localPath}' not found. Creating...`, ReportsService.name);
