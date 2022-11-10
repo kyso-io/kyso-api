@@ -68,13 +68,8 @@ export class GoogleLoginProvider extends BaseLoginProvider {
       }
       const index: number = user.accounts.findIndex((userAccount: UserAccount) => userAccount.type === LoginProviderEnum.GOOGLE && userAccount.username === googleUser.email);
       if (index === -1) {
-        user.accounts.push({
-          type: LoginProviderEnum.GOOGLE,
-          accountId: googleUser.email,
-          username: googleUser.email,
-          accessToken: tokens.access_token,
-          payload: tokens,
-        });
+        const userAccount: UserAccount = new UserAccount(LoginProviderEnum.GOOGLE, googleUser.email, googleUser.email, tokens.access_token, tokens);
+        user.accounts.push(userAccount);
         Logger.log(`User ${googleUser.email} is adding Google account`, GoogleLoginProvider.name);
       } else {
         user.accounts[index].accessToken = tokens.access_token;

@@ -39,7 +39,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { Public } from 'src/decorators/is-public';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
@@ -248,6 +248,12 @@ export class OrganizationsController extends GenericController<Organization> {
     summary: `Create an invitation`,
     description: `Create an invitation`,
   })
+  @ApiBody({
+    description: 'Invite user to the organization',
+    required: true,
+    type: InviteUserDto,
+    examples: InviteUserDto.examples(),
+  })
   @Permission([OrganizationPermissionsEnum.ADMIN, TeamPermissionsEnum.ADMIN])
   public async inviteNewUser(
     @CurrentToken() token: Token,
@@ -263,7 +269,12 @@ export class OrganizationsController extends GenericController<Organization> {
     summary: `Create a new organization`,
     description: `By passing the appropiate parameters you can create a new organization`,
   })
-  @Public()
+  @ApiBody({
+    description: 'Create organization',
+    required: true,
+    type: CreateOrganizationDto,
+    examples: CreateOrganizationDto.examples(),
+  })
   @ApiNormalizedResponse({ status: 201, description: `Created organization`, type: Organization })
   async createOrganization(@CurrentToken() token: Token, @Body() createOrganizationDto: CreateOrganizationDto): Promise<NormalizedResponseDTO<Organization>> {
     const slugName: string = slugify(createOrganizationDto.display_name);
@@ -281,6 +292,12 @@ export class OrganizationsController extends GenericController<Organization> {
   @ApiOperation({
     summary: `Update an organization`,
     description: `By passing the appropiate parameters you can update an organization`,
+  })
+  @ApiBody({
+    description: 'Update organization',
+    required: true,
+    type: UpdateOrganizationDTO,
+    examples: UpdateOrganizationDTO.examples(),
   })
   @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Organization })
   @Permission([OrganizationPermissionsEnum.EDIT])
@@ -301,31 +318,10 @@ export class OrganizationsController extends GenericController<Organization> {
   })
   @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Organization })
   @ApiBody({
-    description: 'Organization options',
+    description: 'Update organization',
     required: true,
     type: OrganizationOptions,
-    examples: {
-      'PingID SAML Configuration': {
-        summary: 'Adds PingID SAML Configuration and disables the rest',
-        value: {
-          auth: {
-            allow_login_with_kyso: false,
-            allow_login_with_google: false,
-            allow_login_with_github: false,
-            otherProviders: [
-              {
-                type: 'ping_id_saml',
-                options: {
-                  sso_url: 'https://auth.pingone.eu',
-                  environment_code: '0fda3448-XXXX-XXXX-XXXX-XXXXXXXXXXXX',
-                  sp_entity_id: 'kyso-api-entity-id',
-                },
-              },
-            ],
-          },
-        },
-      },
-    },
+    examples: OrganizationOptions.examples(),
   })
   @Permission([OrganizationPermissionsEnum.EDIT])
   public async updateOrganizationOptions(
@@ -342,6 +338,12 @@ export class OrganizationsController extends GenericController<Organization> {
   @ApiOperation({
     summary: `Add user to an organization`,
     description: `By passing the appropiate parameters you can add a user to an organization`,
+  })
+  @ApiBody({
+    description: 'Add user to the organization',
+    required: true,
+    type: AddUserOrganizationDto,
+    examples: AddUserOrganizationDto.examples(),
   })
   @ApiNormalizedResponse({ status: 201, description: `Added user`, type: OrganizationMember, isArray: false })
   @Permission([OrganizationPermissionsEnum.ADMIN])
@@ -409,6 +411,12 @@ export class OrganizationsController extends GenericController<Organization> {
     description: `Id of the organization to update the members of`,
     schema: { type: 'string' },
   })
+  @ApiBody({
+    description: "Update user's roles for the organization",
+    required: true,
+    type: AddUserOrganizationDto,
+    examples: AddUserOrganizationDto.examples(),
+  })
   @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: OrganizationMember, isArray: true })
   @Permission([OrganizationPermissionsEnum.ADMIN])
   public async UpdateOrganizationMembersDTORoles(@Param('organizationId') organizationId: string, @Body() data: UpdateOrganizationMembersDTO): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
@@ -463,6 +471,18 @@ export class OrganizationsController extends GenericController<Organization> {
     required: true,
     description: `Id of the organization to fetch`,
     schema: { type: 'string' },
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
   })
   @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: Organization })
   @Permission([TeamPermissionsEnum.EDIT])

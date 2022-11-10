@@ -178,15 +178,17 @@ export class AuthService extends AutowiredService {
           }
         });
 
-        response.teams.push({
-          name: team.sluglified_name,
-          display_name: team.display_name,
-          id: team.id,
-          permissions: [...new Set(computedPermissions)], // Remove duplicated permissions
-          organization_id: team.organization_id,
-          role_names: teamMembership.role_names,
-          team_visibility: team.visibility,
-        });
+        const resourcePermissions: ResourcePermissions = new ResourcePermissions(
+          team.sluglified_name,
+          team.display_name,
+          [...new Set(computedPermissions)], // Remove duplicated permissions
+          team.id,
+          false,
+          team.organization_id,
+          teamMembership.role_names,
+          team.visibility,
+        );
+        response.teams.push(resourcePermissions);
       }
     }
 
@@ -243,13 +245,17 @@ export class AuthService extends AutowiredService {
             }
           });
 
-          response.organizations.push({
-            id: organization.id,
-            name: organization.sluglified_name,
-            display_name: organization.display_name,
-            permissions: computedPermissions,
-            role_names: organizationMembership.role_names,
-          });
+          const orgResourcePermissions: ResourcePermissions = new ResourcePermissions(
+            organization.sluglified_name,
+            organization.display_name,
+            computedPermissions,
+            organization.id,
+            false,
+            organization.id,
+            organizationMembership.role_names,
+            null,
+          );
+          response.organizations.push(orgResourcePermissions);
 
           // Get all the teams that belong to that organizations (an user can belong to multiple organizations)
           // const organizationTeams: Team[] = await teamService.getTeams({ filter: { organization_id: organization.id } })
@@ -267,15 +273,17 @@ export class AuthService extends AutowiredService {
               if (orgTeam.visibility === TeamVisibilityEnum.PRIVATE) {
               }
               // If not, retrieve the roles
-              response.teams.push({
-                name: orgTeam.sluglified_name,
-                display_name: orgTeam.display_name,
-                id: orgTeam.id,
-                organization_inherited: true,
-                organization_id: orgTeam.organization_id, // Remove duplicated permissions
-                role_names: organizationMembership.role_names,
-                team_visibility: orgTeam.visibility,
-              });
+              const teamResourcePermission: ResourcePermissions = new ResourcePermissions(
+                orgTeam.sluglified_name,
+                orgTeam.display_name,
+                [],
+                orgTeam.id,
+                true,
+                orgTeam.organization_id,
+                organizationMembership.role_names,
+                orgTeam.visibility,
+              );
+              response.teams.push(teamResourcePermission);
             }
           }
         } catch (ex) {

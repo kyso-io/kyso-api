@@ -103,16 +103,7 @@ export class AuthController extends GenericController<string> {
     description: 'Login credentials and provider',
     required: true,
     type: Login,
-    examples: {
-      'Login as rey': {
-        value: {
-          email: 'lo+rey@dev.kyso.io',
-          password: 'n0tiene',
-          provider: 'kyso',
-          kysoInstallUrl: 'http://localhost:4000',
-        },
-      },
-    },
+    examples: Login.examples(),
   })
   async login(@Body() login: Login, @Res() res): Promise<void> {
     const jwt: string = await this.authService.login(login);
@@ -248,6 +239,12 @@ export class AuthController extends GenericController<string> {
     summary: `Signs up an user into Kyso`,
     description: `Allows new users to sign-up into Kyso`,
   })
+  @ApiBody({
+    description: 'User registration data',
+    required: true,
+    type: SignUpDto,
+    examples: SignUpDto.examples(),
+  })
   @ApiNormalizedResponse({ status: 201, description: `Registered user`, type: User })
   public async signUp(@Body() signUpDto: SignUpDto): Promise<NormalizedResponseDTO<User>> {
     const user: User = await this.usersService.createUser(signUpDto);
@@ -258,6 +255,12 @@ export class AuthController extends GenericController<string> {
   @ApiOperation({
     summary: `Verify an user's email address`,
     description: `Allows new users to verify their email address`,
+  })
+  @ApiBody({
+    description: 'Email verification data',
+    required: true,
+    type: VerifyEmailRequestDTO,
+    examples: VerifyEmailRequestDTO.examples(),
   })
   @ApiNormalizedResponse({ status: 200, description: `Verified user`, type: Boolean })
   public async verifyEmail(@Body() data: VerifyEmailRequestDTO): Promise<NormalizedResponseDTO<boolean>> {
@@ -426,15 +429,17 @@ export class AuthController extends GenericController<string> {
     if (publicTeams.length > 0) {
       const uniqueOrganizationIds: string[] = [];
       publicTeams.forEach((team: Team) => {
-        teamsResourcePermissions.push({
-          name: team.sluglified_name,
-          display_name: team.display_name,
-          id: team.id,
-          permissions: PlatformRole.EXTERNAL_ROLE.permissions,
-          organization_id: team.organization_id,
-          role_names: ['external'],
-          team_visibility: team.visibility,
-        });
+        const resourcePermissions: ResourcePermissions = new ResourcePermissions(
+          team.sluglified_name,
+          team.display_name,
+          PlatformRole.EXTERNAL_ROLE.permissions,
+          team.id,
+          false,
+          team.organization_id,
+          ['external'],
+          team.visibility,
+        );
+        teamsResourcePermissions.push(resourcePermissions);
       });
       publicTeams.forEach((team) => {
         if (!uniqueOrganizationIds.includes(team.organization_id)) {
@@ -447,13 +452,8 @@ export class AuthController extends GenericController<string> {
         },
       });
       publicOrganizations.forEach((organization: Organization) => {
-        organizationsResourcePermissions.push({
-          id: organization.id,
-          name: organization.sluglified_name,
-          display_name: organization.display_name,
-          permissions: [],
-          role_names: [],
-        });
+        const resourcePermissions: ResourcePermissions = new ResourcePermissions(organization.sluglified_name, organization.display_name, [], organization.id, false, organization.id, [], null);
+        organizationsResourcePermissions.push(resourcePermissions);
       });
     }
     const tokenPermissions: TokenPermissions = new TokenPermissions(globalKysoPermissions, teamsResourcePermissions, organizationsResourcePermissions);
@@ -560,6 +560,12 @@ export class AuthController extends GenericController<string> {
   }
 
   @Post('/check-permission')
+  @ApiBody({
+    description: 'Permission to check',
+    required: true,
+    type: CheckPermissionDto,
+    examples: CheckPermissionDto.examples(),
+  })
   async checkPermission(@CurrentToken() token: Token, @Body() checkPermissionDto: CheckPermissionDto): Promise<NormalizedResponseDTO<boolean>> {
     if (!token) {
       throw new UnauthorizedException('No bearer token provided');

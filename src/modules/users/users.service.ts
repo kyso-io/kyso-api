@@ -645,7 +645,8 @@ export class UsersService extends AutowiredService {
     const hCaptchaEnabled = (await this.kysoSettingsService.getValue(KysoSettingsEnum.HCAPTCHA_ENABLED)) === 'true' ? true : false;
 
     if (hCaptchaEnabled) {
-      const validCaptcha: boolean = await this.verifyCaptcha(user.id, { token: emailUserChangePasswordDTO.captchaToken });
+      const verifyCaptchaRequestDTO: VerifyCaptchaRequestDto = new VerifyCaptchaRequestDto(emailUserChangePasswordDTO.captchaToken);
+      const validCaptcha: boolean = await this.verifyCaptcha(user.id, verifyCaptchaRequestDTO);
 
       if (!validCaptcha) {
         throw new PreconditionFailedException('Invalid captcha');

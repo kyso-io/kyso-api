@@ -1,4 +1,4 @@
-import { GlobalPermissionsEnum, KysoSetting, KysoSettingsEnum, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model';
+import { GlobalPermissionsEnum, KysoSetting, KysoSettingsEnum, NormalizedResponseDTO, Token, UpdateKysoSettingDto } from '@kyso-io/kyso-model';
 import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, Patch, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
@@ -143,8 +143,8 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
     isArray: false,
   })
   @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
-  public async updateSetting(@Param('key') key: string, @Body() data: string): Promise<NormalizedResponseDTO<KysoSetting>> {
-    const updated: KysoSetting = await this.kysoSettingsService.updateValue(KysoSettingsEnum[key], (data as any).value);
+  public async updateSetting(@Param('key') key: string, @Body() updateKysoSettingDto: UpdateKysoSettingDto): Promise<NormalizedResponseDTO<KysoSetting>> {
+    const updated: KysoSetting = await this.kysoSettingsService.updateValue(KysoSettingsEnum[key], updateKysoSettingDto);
     return new NormalizedResponseDTO(updated);
   }
 }

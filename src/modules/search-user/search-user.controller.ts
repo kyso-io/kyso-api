@@ -1,6 +1,6 @@
-import { NormalizedResponseDTO, SearchUser, SearchUserDto, Token } from '@kyso-io/kyso-model';
+import { DraftReport, NormalizedResponseDTO, SearchUser, SearchUserDto, Token } from '@kyso-io/kyso-model';
 import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { GenericController } from '../../generic/controller.generic';
 import { CurrentToken } from '../auth/annotations/current-token.decorator';
@@ -47,8 +47,13 @@ export class SearchUserController extends GenericController<SearchUser> {
     description: `Creat/update user search`,
     type: SearchUser,
   })
-  public async createUserSearch(@CurrentToken() token: Token, @Body() body): Promise<NormalizedResponseDTO<SearchUser>> {
-    const searchUserDto: SearchUserDto = body;
+  @ApiBody({
+    description: 'User search',
+    required: true,
+    type: SearchUserDto,
+    examples: SearchUserDto.examples(),
+  })
+  public async createUserSearch(@CurrentToken() token: Token, @Body() searchUserDto: SearchUserDto): Promise<NormalizedResponseDTO<SearchUser>> {
     const filter: any = {
       user_id: token.id,
       organization_id: searchUserDto.organization_id,
