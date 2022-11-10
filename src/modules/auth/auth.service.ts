@@ -534,7 +534,9 @@ export class AuthService extends AutowiredService {
 
   public async refreshToken(token: Token): Promise<string> {
     const user: User = await this.usersService.getUserById(token.id);
-
+    if (!user) {
+      return null;
+    }
     const payload: Token = new Token(
       user.id.toString(),
       user.name,
@@ -555,12 +557,16 @@ export class AuthService extends AutowiredService {
       })),
     );
     const tokenExpirationTimeInHours = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN);
-    return this.jwtService.sign(
-      { payload },
-      {
-        expiresIn: `${tokenExpirationTimeInHours}h`,
-        issuer: 'kyso',
-      },
-    );
+    try {
+      return this.jwtService.sign(
+        { payload },
+        {
+          expiresIn: `${tokenExpirationTimeInHours}h`,
+          issuer: 'kyso',
+        },
+      );
+    } catch (e) {
+      return null;
+    }
   }
 }

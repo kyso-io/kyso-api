@@ -314,6 +314,9 @@ export class AuthController extends GenericController<string> {
           const decodedToken: Token = this.authService.decodeToken(splittedToken[1]);
           if (decodedToken) {
             const jwt: string = await this.authService.refreshToken(decodedToken);
+            if (!jwt) {
+              throw new ForbiddenException();
+            }
             return new NormalizedResponseDTO(jwt);
           } else {
             throw new ForbiddenException();
