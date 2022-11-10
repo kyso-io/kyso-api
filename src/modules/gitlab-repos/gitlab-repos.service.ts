@@ -79,37 +79,17 @@ export class GitlabReposService extends AutowiredService {
 
   public async getRepositoryTree(accessToken: string, repositoryId: number, branch: string, path: string, recursive: boolean): Promise<GithubFileHash[]> {
     const tree: GitlabFile[] = await this.provider.getRepositoryTree(accessToken, repositoryId, branch, path, recursive);
-    return tree.map((file: GitlabFile) => ({
-      id: file.id,
-      type: file.type === 'tree' ? 'dir' : 'file',
-      path: file.path,
-      hash: file.id,
-      htmlUrl: null,
-      path_scs: null,
-      version: null,
-    }));
+    return tree.map((file: GitlabFile) => new GithubFileHash(file.id, file.type === 'tree' ? 'dir' : 'file', file.path, file.id, null, null, null));
   }
 
   public async getBranches(accessToken: string, repositoryId: number): Promise<GithubBranch[]> {
     const branches: GitlabBranch[] = await this.provider.getBranches(accessToken, repositoryId);
-    return branches.map((branch: GitlabBranch) => ({
-      name: branch.name,
-      commit: branch.commit.id,
-    }));
+    return branches.map((branch: GitlabBranch) => new GithubBranch(branch.name, branch.commit.id));
   }
 
   public async getCommits(accessToken: string, repositoryId: number, branch: string): Promise<GithubCommit[]> {
     const commits: GitlabCommit[] = await this.provider.getCommits(accessToken, repositoryId, branch);
-    return commits.map((commit: GitlabCommit) => ({
-      sha: commit.id,
-      author: {
-        name: commit.author_name,
-        email: commit.author_email,
-      },
-      date: commit.created_at,
-      message: commit.message,
-      htmlUrl: commit.web_url,
-    }));
+    return commits.map((commit: GitlabCommit) => new GithubCommit(commit.id, { name: commit.author_name, email: commit.author_email }, commit.created_at, commit.message, commit.web_url));
   }
 
   public async getUserByAccessToken(accessToken: string): Promise<GitlabUser> {

@@ -488,13 +488,7 @@ export class TestingDataPopulatorService {
 
   private async _updateUserAccounts() {
     try {
-      const githubUserAccount: UserAccount = new UserAccount();
-      githubUserAccount.accessToken = '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';
-      githubUserAccount.accountId = '98749909';
-      githubUserAccount.payload = {};
-      githubUserAccount.type = LoginProviderEnum.GITHUB;
-      githubUserAccount.username = 'mozartmae';
-
+      const githubUserAccount: UserAccount = new UserAccount(LoginProviderEnum.GITHUB, 'mozartmae', '98749909', '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', {});
       await this.usersService.addAccount(this.Rey_TeamAdminUser.id, githubUserAccount);
       await this.usersService.addAccount(this.Kylo_TeamContributorUser.id, githubUserAccount);
       await this.usersService.addAccount(this.Chewbacca_TeamReaderUser.id, githubUserAccount);

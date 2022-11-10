@@ -1,6 +1,6 @@
-import { CommentDto, Comment, CommentPermissionsEnum, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model';
+import { Comment, CommentDto, CommentPermissionsEnum, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model';
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { GenericController } from '../../generic/controller.generic';
 import { CurrentToken } from '../auth/annotations/current-token.decorator';
@@ -62,6 +62,12 @@ export class CommentsController extends GenericController<Comment> {
     summary: `Create a comment`,
     description: `Allows creating a new comment`,
   })
+  @ApiBody({
+    description: 'New comment',
+    required: true,
+    type: CommentDto,
+    examples: CommentDto.examples(),
+  })
   @ApiNormalizedResponse({
     status: 201,
     description: `Comment created`,
@@ -90,6 +96,12 @@ export class CommentsController extends GenericController<Comment> {
     description: 'Id of the comment to fetch',
     schema: { type: 'string' },
     example: 'K1bOzHjEmN',
+  })
+  @ApiBody({
+    description: 'Comment to update',
+    required: true,
+    type: CommentDto,
+    examples: CommentDto.examples(),
   })
   @Permission([CommentPermissionsEnum.EDIT])
   public async updateComment(@CurrentToken() token: Token, @Param('commentId') commentId: string, @Body() updateCommentDto: CommentDto): Promise<NormalizedResponseDTO<Comment>> {

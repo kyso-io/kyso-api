@@ -842,15 +842,8 @@ export class OrganizationsService extends AutowiredService {
     });
     const result: OrganizationInfoDto[] = [];
     map.forEach((value: { members: number; reports: number; discussions: number; comments: number; lastChange: Date; avatar_url: string }, organizationId: string) => {
-      result.push({
-        organization_id: organizationId,
-        members: value.members,
-        reports: value.reports,
-        discussions: value.discussions,
-        comments: value.comments,
-        lastChange: value.lastChange,
-        avatar_url: value.avatar_url,
-      });
+      const organizationInfoDto: OrganizationInfoDto = new OrganizationInfoDto(organizationId, value.members, value.reports, value.discussions, value.comments, value.lastChange, value.avatar_url);
+      result.push(organizationInfoDto);
     });
     return result;
   }
@@ -885,7 +878,7 @@ export class OrganizationsService extends AutowiredService {
       throw new InternalServerErrorException(e.message);
     }
 
-    const organizationStorageDto: OrganizationStorageDto = new OrganizationStorageDto();
+    const organizationStorageDto: OrganizationStorageDto = new OrganizationStorageDto(sluglified_name, 0, 0, 0);
     organizationStorageDto.name = sluglified_name;
     for (const storageTeam of data.teams) {
       const indexTeam: number = resourcePermissionTeams.findIndex((x: ResourcePermissions) => x.name === storageTeam.name);
@@ -943,14 +936,8 @@ export class OrganizationsService extends AutowiredService {
     const totalPages: number = Math.ceil(totalItems / limit);
     const reports: Report[] = await this.reportsService.getReports(query);
     const results: ReportDTO[] = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token?.id)));
-    return {
-      currentPage: page,
-      itemCount: results.length,
-      itemsPerPage: Math.min(query.limit, results.length),
-      results,
-      totalItems,
-      totalPages,
-    };
+    const paginatedResponseDto: PaginatedResponseDto<ReportDTO> = new PaginatedResponseDto<ReportDTO>(page, results.length, Math.min(query.limit, results.length), results, totalItems, totalPages);
+    return paginatedResponseDto;
   }
 
   public async inviteNewUser(token: Token, inviteUserDto: InviteUserDto): Promise<{ organizationMembers: OrganizationMember[]; teamMembers: TeamMember[] }> {
@@ -978,11 +965,7 @@ export class OrganizationsService extends AutowiredService {
       Logger.log(`User ${inviteUserDto.email} already exists`);
       throw new BadRequestException(`User ${inviteUserDto.email} already exists`);
     }
-    const signUpDto: SignUpDto = new SignUpDto();
-    signUpDto.email = inviteUserDto.email;
-    signUpDto.username = inviteUserDto.email;
-    signUpDto.display_name = inviteUserDto.email;
-    signUpDto.password = uuidv4();
+    const signUpDto: SignUpDto = new SignUpDto(inviteUserDto.email, inviteUserDto.email, inviteUserDto.email, uuidv4());
     user = await this.usersService.createUser(signUpDto);
 
     await this.addMembersById(organization.id, [user.id], [inviteUserDto.organizationRole]);

@@ -1,6 +1,6 @@
 import { FeedbackDto, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model';
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { CurrentToken } from '../auth/annotations/current-token.decorator';
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
@@ -16,6 +16,12 @@ export class FeedbackController {
 
   @Post()
   @ApiOperation({ summary: 'Send feedback to service desk' })
+  @ApiBody({
+    description: 'Feedback message',
+    required: true,
+    type: FeedbackDto,
+    examples: FeedbackDto.examples(),
+  })
   @ApiNormalizedResponse({
     status: 201,
     description: 'Feedback sent successfully',

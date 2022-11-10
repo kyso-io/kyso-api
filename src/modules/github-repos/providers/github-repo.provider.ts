@@ -70,11 +70,7 @@ export class GithubReposProvider {
       owner: githubUsername,
       repo: repositoryName,
     });
-    return res.data.map((branch) => ({
-      name: branch.name,
-      commit: branch.commit.sha,
-      is_default: false,
-    }));
+    return res.data.map((branch) => new GithubBranch(branch.name, branch.commit.sha));
   }
 
   public async getCommits(accessToken: string, githubUsername: string, repositoryName: string, branch: string): Promise<GithubCommit[]> {
@@ -86,16 +82,19 @@ export class GithubReposProvider {
       repo: repositoryName,
       sha: branch,
     });
-    return res.data.map((elem) => ({
-      sha: elem.sha,
-      author: {
-        name: elem.commit.author.name,
-        email: elem.commit.author.email,
-      },
-      date: moment(elem.commit.author.date).toDate(),
-      message: elem.commit.message,
-      htmlUrl: elem.html_url.replace(/\/commit\//, '/tree/'),
-    }));
+    return res.data.map(
+      (elem) =>
+        new GithubCommit(
+          elem.sha,
+          {
+            name: elem.commit.author.name,
+            email: elem.commit.author.email,
+          },
+          moment(elem.commit.author.date).toDate(),
+          elem.commit.message,
+          elem.html_url.replace(/\/commit\//, '/tree/'),
+        ),
+    );
   }
 
   public async getFileHash(accessToken: string, filePath: string, owner: string, repo: string, branch: string): Promise<GithubFileHash | GithubFileHash[]> {

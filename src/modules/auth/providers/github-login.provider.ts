@@ -90,13 +90,8 @@ export class GithubLoginProvider extends BaseLoginProvider {
 
       const index: number = user.accounts.findIndex((userAccount: UserAccount) => userAccount.type === LoginProviderEnum.GITHUB && userAccount.accountId === githubUser.id);
       if (index === -1) {
-        user.accounts.push({
-          type: LoginProviderEnum.GITHUB,
-          accountId: githubUser.id,
-          username: githubUser.login,
-          accessToken,
-          payload: null,
-        });
+        const userAccount: UserAccount = new UserAccount(LoginProviderEnum.GITHUB, githubUser.id, githubUser.login, accessToken, null);
+        user.accounts.push(userAccount);
         Logger.log(`User ${githubEmail.email} is adding Github account`, GithubLoginProvider.name);
       } else {
         user.accounts[index].accessToken = accessToken;
@@ -139,13 +134,8 @@ export class GithubLoginProvider extends BaseLoginProvider {
       const user: User = await this.usersService.getUserById(token.id);
       const index: number = user.accounts.findIndex((userAccount: UserAccount) => userAccount.type === LoginProviderEnum.GITHUB && userAccount.accountId === githubUser.id);
       if (index === -1) {
-        user.accounts.push({
-          type: LoginProviderEnum.GITHUB,
-          accountId: githubUser.id,
-          username: githubUser.login,
-          accessToken,
-          payload: null,
-        });
+        const userAccount: UserAccount = new UserAccount(LoginProviderEnum.GITHUB, githubUser.id, githubUser.login, accessToken, null);
+        user.accounts.push(userAccount);
         Logger.log(`User ${user.username} is adding Github account`, GithubLoginProvider.name);
       } else {
         user.accounts[index].accessToken = accessToken;

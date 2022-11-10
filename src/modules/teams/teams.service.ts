@@ -1007,14 +1007,8 @@ export class TeamsService extends AutowiredService {
     });
     const result: TeamInfoDto[] = [];
     map.forEach((value: { members: number; reports: number; discussions: number; comments: number; lastChange: Date; avatar_url: string }, teamId: string) => {
-      result.push({
-        team_id: teamId,
-        members: value.members,
-        reports: value.reports,
-        discussions: value.discussions,
-        comments: value.comments,
-        lastChange: value.lastChange,
-      });
+      const teamInfoDto: TeamInfoDto = new TeamInfoDto(teamId, value.members, value.reports, value.discussions, value.comments, value.lastChange);
+      result.push(teamInfoDto);
     });
     return result;
   }

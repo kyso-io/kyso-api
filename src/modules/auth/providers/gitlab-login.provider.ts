@@ -56,13 +56,8 @@ export class GitlabLoginProvider extends BaseLoginProvider {
 
       const index: number = user.accounts.findIndex((userAccount: UserAccount) => userAccount.type === LoginProviderEnum.GITLAB && userAccount.accountId === gitlabUser.id.toString());
       if (index === -1) {
-        user.accounts.push({
-          type: LoginProviderEnum.GITLAB,
-          accountId: gitlabUser.id.toString(),
-          username: gitlabUser.username,
-          accessToken: accessToken.access_token,
-          payload: accessToken,
-        });
+        const userAccount: UserAccount = new UserAccount(LoginProviderEnum.GITLAB, gitlabUser.id.toString(), gitlabUser.username, accessToken.access_token, accessToken);
+        user.accounts.push(userAccount);
         Logger.log(`User ${gitlabUser.email} is adding Gitlab account`, GitlabLoginProvider.name);
       } else {
         user.accounts[index].accessToken = accessToken.access_token;
@@ -88,13 +83,8 @@ export class GitlabLoginProvider extends BaseLoginProvider {
       const user: User = await this.usersService.getUserById(token.id);
       const index: number = user.accounts.findIndex((userAccount: UserAccount) => userAccount.type === LoginProviderEnum.GITLAB && userAccount.accountId === gitlabUser.id.toString());
       if (index === -1) {
-        user.accounts.push({
-          type: LoginProviderEnum.GITLAB,
-          accountId: gitlabUser.id.toString(),
-          username: gitlabUser.username,
-          accessToken: accessToken.access_token,
-          payload: accessToken,
-        });
+        const userAccount: UserAccount = new UserAccount(LoginProviderEnum.GITLAB, gitlabUser.id.toString(), gitlabUser.username, accessToken.access_token, accessToken);
+        user.accounts.push(userAccount);
         Logger.log(`User ${user.username} is adding Gitlab account`, GitlabLoginProvider.name);
       } else {
         user.accounts[index].accessToken = accessToken.access_token;

@@ -14,7 +14,7 @@ import {
   UpdateDiscussionRequestDTO,
 } from '@kyso-io/kyso-model';
 import { Body, Controller, Delete, ForbiddenException, Get, Headers, NotFoundException, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { GenericController } from '../../generic/controller.generic';
@@ -194,6 +194,12 @@ export class DiscussionsController extends GenericController<Discussion> {
     summary: 'Create discussion',
     description: 'Create discussion',
   })
+  @ApiBody({
+    description: 'New discussion',
+    required: true,
+    type: CreateDiscussionRequestDTO,
+    examples: CreateDiscussionRequestDTO.examples(),
+  })
   @Permission([DiscussionPermissionsEnum.CREATE])
   @ApiNormalizedResponse({ status: 201, description: `Discussion`, type: Discussion })
   public async createDiscussion(@CurrentToken() token: Token, @Body() data: CreateDiscussionRequestDTO): Promise<NormalizedResponseDTO<Discussion>> {
@@ -214,6 +220,12 @@ export class DiscussionsController extends GenericController<Discussion> {
     description: 'Id of the discussion to update',
     schema: { type: 'string' },
     example: 'K1bOzHjEmN',
+  })
+  @ApiBody({
+    description: 'Update discussion',
+    required: true,
+    type: UpdateDiscussionRequestDTO,
+    examples: UpdateDiscussionRequestDTO.examples(),
   })
   @Permission([DiscussionPermissionsEnum.EDIT, DiscussionPermissionsEnum.EDIT_ONLY_MINE])
   @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
