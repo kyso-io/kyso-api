@@ -784,17 +784,15 @@ export class ReportsService extends AutowiredService {
     const isGlobalAdmin: boolean = uploaderUser.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN);
     Logger.log(`is global admin?: ${isGlobalAdmin}`);
 
-    const tmpFolder: string = process.env.APP_TEMP_DIR;
-    const tmpDir = `${tmpFolder}/${uuidv4()}`;
+    const tmpReportDir = `${process.env.APP_TEMP_DIR}/${uuidv4()}`;
     const zip: AdmZip = new AdmZip(createKysoReportDto.file.buffer);
-    zip.extractAllTo(tmpDir, true);
-
-    Logger.log(`Extracted zip file to ${tmpDir}`);
+    zip.extractAllTo(tmpReportDir, true);
+    Logger.log(`Extracted zip file to ${tmpReportDir}`);
 
     let kysoConfigFile: KysoConfigFile = null;
     for (const entry of zip.getEntries()) {
       const originalName: string = entry.entryName;
-      const localFilePath = join(tmpDir, entry.entryName);
+      const localFilePath = join(tmpReportDir, entry.entryName);
       if (originalName === 'kyso.json') {
         const data: {
           valid: boolean;
@@ -833,7 +831,7 @@ export class ReportsService extends AutowiredService {
     }
 
     if (kysoConfigFile.type === ReportType.Meta) {
-      return this.createMultipleKysoReports(kysoConfigFile, tmpDir, zip, uploaderUser, null, createKysoReportDto.message, createKysoReportDto.git_metadata);
+      return this.createMultipleKysoReports(kysoConfigFile, tmpReportDir, zip, uploaderUser, null, createKysoReportDto.message, createKysoReportDto.git_metadata);
     }
 
     const organization: Organization = await this.organizationsService.getOrganization({
@@ -869,14 +867,11 @@ export class ReportsService extends AutowiredService {
       throw new BadRequestException(`Main file ${kysoConfigFile.main} not found`);
     }
 
-    let extractedDir = null;
-
     const name: string = slugify(kysoConfigFile.title);
     const reports: Report[] = await this.provider.read({ filter: { sluglified_name: name, team_id: team.id } });
     const reportFiles: File[] = [];
     let version = 1;
     let report: Report = null;
-    const reportPath: string = process.env.APP_TEMP_DIR;
     let isNew = false;
 
     if (reports.length > 0) {
@@ -886,12 +881,10 @@ export class ReportsService extends AutowiredService {
       report = reports[0];
       const lastVersion: number = await this.getLastVersionOfReport(report.id);
       version = lastVersion + 1;
-      extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`);
-      moveSync(tmpDir, extractedDir, { overwrite: true });
       Logger.log(`Report '${report.id} ${report.sluglified_name}': Checking files...`, ReportsService.name);
       for (const entry of zip.getEntries()) {
         const originalName: string = entry.entryName;
-        const localFilePath = join(extractedDir, entry.entryName);
+        const localFilePath = join(tmpReportDir, entry.entryName);
         if (entry.isDirectory) {
           continue;
         }
@@ -953,11 +946,9 @@ export class ReportsService extends AutowiredService {
       }
       report = await this.provider.create(report);
       isNew = true;
-      extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`);
-      moveSync(tmpDir, extractedDir, { overwrite: true });
       for (const entry of zip.getEntries()) {
         const originalName: string = entry.entryName;
-        const localFilePath = join(extractedDir, entry.entryName);
+        const localFilePath: string = join(tmpReportDir, entry.entryName);
         if (entry.isDirectory) {
           continue;
         }
@@ -975,13 +966,11 @@ export class ReportsService extends AutowiredService {
     }
 
     Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name);
-    await this.uploadReportToFtp(report.id, extractedDir);
+    await this.uploadReportToFtp(report.id, tmpReportDir);
     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } });
     Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name);
 
-    let files: string[] = await this.getFilePaths(extractedDir);
-    // Remove '/reportPath' from the paths
-    files = files.map((file: string) => file.replace(reportPath, ''));
+    rmSync(tmpReportDir, { recursive: true, force: true });
 
     const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL);
     const pathToIndex = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`;
@@ -1026,15 +1015,14 @@ export class ReportsService extends AutowiredService {
     Logger.log(`Creating new version of report ${report.id}`);
     const uploaderUser: User = await this.usersService.getUserById(userId);
     Logger.log(`By user: ${uploaderUser.email}`);
-    const tmpFolder: string = process.env.APP_TEMP_DIR;
-    const tmpDir = `${tmpFolder}/${uuidv4()}`;
+    const tmpReportDir = `${process.env.APP_TEMP_DIR}/${uuidv4()}`;
     const zip = new AdmZip(createKysoReportVersionDto.file.buffer);
-    zip.extractAllTo(tmpDir, true);
-    Logger.log(`Extracted zip file to ${tmpDir}`);
+    zip.extractAllTo(tmpReportDir, true);
+    Logger.log(`Extracted zip file to ${tmpReportDir}`);
     let kysoConfigFile: KysoConfigFile = null;
     for (const entry of zip.getEntries()) {
       const originalName: string = entry.entryName;
-      const localFilePath = join(tmpDir, entry.entryName);
+      const localFilePath = join(tmpReportDir, entry.entryName);
       if (originalName === 'kyso.json') {
         const data: {
           valid: boolean;
@@ -1075,16 +1063,12 @@ export class ReportsService extends AutowiredService {
       Logger.error(`User ${uploaderUser.username} does not have permission to create report in channel ${team.sluglified_name} of the organization ${organization.sluglified_name}`);
       throw new ForbiddenException(`User ${uploaderUser.username} does not have permission to create report in channel ${team.sluglified_name} of the organization ${organization.sluglified_name}`);
     }
-    const reportPath: string = process.env.APP_TEMP_DIR;
     const lastVersion: number = await this.getLastVersionOfReport(report.id);
     if (createKysoReportVersionDto.version !== lastVersion) {
       Logger.error(`Version ${createKysoReportVersionDto.version} is not the last version of the report`, ReportsService.name);
       throw new BadRequestException(`Version ${createKysoReportVersionDto.version} is not the last version of the report`);
     }
     const version: number = lastVersion + 1;
-    const extractedDir: string = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`);
-    moveSync(tmpDir, extractedDir, { overwrite: true });
-
     const reportFiles: File[] = await this.getReportFiles(report.id, lastVersion);
     const map: Map<string, boolean> = new Map<string, boolean>();
     const files: File[] = await this.getReportFiles(reportId, lastVersion);
@@ -1122,7 +1106,7 @@ export class ReportsService extends AutowiredService {
     Logger.log(`Report '${report.id} ${report.sluglified_name}': Checking files...`, ReportsService.name);
     for (const entry of zip.getEntries()) {
       const originalName: string = entry.entryName;
-      const localFilePath = join(extractedDir, entry.entryName);
+      const localFilePath = join(tmpReportDir, entry.entryName);
       if (entry.isDirectory) {
         continue;
       }
@@ -1182,7 +1166,7 @@ export class ReportsService extends AutowiredService {
     }
 
     Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name);
-    await this.uploadReportToFtp(report.id, extractedDir);
+    await this.uploadReportToFtp(report.id, tmpReportDir);
 
     Logger.log(`Creating hard links for report '${report.id} ${report.sluglified_name}'...`, ReportsService.name);
     for (const fileId of createKysoReportVersionDto.unmodifiedFiles) {
@@ -1206,6 +1190,8 @@ export class ReportsService extends AutowiredService {
     }
     await client.end();
     Logger.log(`Report '${report.id} ${report.sluglified_name}': Files uploaded to Ftp`, ReportsService.name);
+
+    rmSync(tmpReportDir, { recursive: true, force: true });
 
     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } });
     Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name);
@@ -1350,7 +1336,7 @@ export class ReportsService extends AutowiredService {
       const reportFiles: File[] = [];
       let version = 1;
       let report: Report = null;
-      const tmpDir: string = join(baseTmpDir, reportFolderName);
+      const tmpReportDir: string = join(baseTmpDir, reportFolderName);
       let isNew = false;
       const reportFolderNameWithBasePath: string = join(basePath && basePath.length > 0 ? join(basePath, reportFolderName) : reportFolderName);
       if (reports.length > 0) {
@@ -1430,13 +1416,9 @@ export class ReportsService extends AutowiredService {
 
       new Promise<void>(async () => {
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name);
-        await this.uploadReportToFtp(report.id, tmpDir);
+        await this.uploadReportToFtp(report.id, tmpReportDir);
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } });
         Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name);
-
-        let files: string[] = await this.getFilePaths(tmpDir);
-        // Remove '/reportPath' from the paths
-        files = files.map((file: string) => file.replace(tmpDir, ''));
 
         const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL);
         const pathToIndex = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`;
@@ -1481,18 +1463,17 @@ export class ReportsService extends AutowiredService {
     const isGlobalAdmin: boolean = user.global_permissions.includes(GlobalPermissionsEnum.GLOBAL_ADMIN);
     Logger.log(`is global admin?: ${isGlobalAdmin}`);
 
-    const tmpFolder: string = process.env.APP_TEMP_DIR;
-    const tmpDir = `${tmpFolder}/${uuidv4()}`;
+    const tmpReportDir = `${process.env.APP_TEMP_DIR}/${uuidv4()}`;
     const zip = new AdmZip(file.buffer);
-    Logger.log(`Extracting all temporary files to ${tmpDir}`);
-    zip.extractAllTo(tmpDir, true);
+    Logger.log(`Extracting all temporary files to ${tmpReportDir}`);
+    zip.extractAllTo(tmpReportDir, true);
 
     let kysoConfigFile: KysoConfigFile = null;
 
     Logger.log(`Looking for kyso.json|yaml|yml file`);
     for (const entry of zip.getEntries()) {
       const originalName: string = entry.name;
-      const localFilePath = join(tmpDir, entry.entryName);
+      const localFilePath = join(tmpReportDir, entry.entryName);
 
       if (originalName.endsWith('kyso.json')) {
         const data: {
@@ -1548,13 +1529,11 @@ export class ReportsService extends AutowiredService {
       Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
       throw new ForbiddenException(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
     }
-    let extractedDir = null;
 
     const name: string = slugify(kysoConfigFile.title);
     const reports: Report[] = await this.provider.read({ filter: { sluglified_name: name, team_id: team.id } });
     const reportFiles: File[] = [];
     let report: Report = null;
-    const reportPath: string = process.env.APP_TEMP_DIR;
     if (reports.length > 0) {
       Logger.log(`Report '${name}' already exists in team ${team.sluglified_name}`, ReportsService.name);
       throw new PreconditionFailedException(`Report '${name}' already exists in team ${team.sluglified_name}`);
@@ -1606,11 +1585,9 @@ export class ReportsService extends AutowiredService {
     report = await this.provider.create(report);
     const version = 1;
 
-    extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`);
-    moveSync(tmpDir, extractedDir, { overwrite: true });
     for (const entry of zip.getEntries()) {
       const originalName: string = entry.entryName;
-      const localFilePath = join(extractedDir, entry.entryName);
+      const localFilePath = join(tmpReportDir, entry.entryName);
       if (entry.isDirectory) {
         continue;
       }
@@ -1628,9 +1605,11 @@ export class ReportsService extends AutowiredService {
     await this.checkReportTags(userId, report.id, kysoConfigFile.tags);
 
     Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name);
-    await this.uploadReportToFtp(report.id, extractedDir);
+    await this.uploadReportToFtp(report.id, tmpReportDir);
     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } });
     Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name);
+
+    rmSync(tmpReportDir, { recursive: true, force: true });
 
     const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL);
     const pathToIndex = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`;
@@ -1689,8 +1668,7 @@ export class ReportsService extends AutowiredService {
       throw new PreconditionFailedException(`Report '${report.id} ${report.sluglified_name}': Destination path '${ftpReportPath}' not found`);
     }
     Logger.log(`Folder '${ftpReportPath}' exists in SCS.`, ReportsService.name);
-    const tmpFolder: string = process.env.APP_TEMP_DIR;
-    const localReportPath: string = join(tmpFolder, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion}`);
+    const localReportPath = `${process.env.APP_TEMP_DIR}/${uuidv4()}`;
     if (!existsSync(localReportPath)) {
       Logger.log(`LOCAL folder '${localReportPath}' not found. Creating...`, ReportsService.name);
       mkdirSync(localReportPath, { recursive: true });
@@ -1720,7 +1698,7 @@ export class ReportsService extends AutowiredService {
       Logger.log(`Report '${report.id} ${report.sluglified_name}': Created new version ${lastVersion + 1} for file '${fileLastVersion.name}'`, ReportsService.name);
     }
     Logger.log(`Deleting LOCAL folder '${localReportPath}'...`, ReportsService.name);
-    rmSync(localReportPath, { recursive: true });
+    rmSync(localReportPath, { recursive: true, force: true });
     Logger.log(`LOCAL folder '${localReportPath}' deleted.`, ReportsService.name);
     const pathToIndex = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion + 1}`;
     Logger.log(`Advising ElasticSearch there is a new version of a report that has to be indexed in '${pathToIndex}'`, ReportsService.name);
@@ -1839,9 +1817,8 @@ export class ReportsService extends AutowiredService {
     const sha: string = commitsResponse.data[0].sha;
 
     Logger.log(`Downloading and extracting repository ${repositoryName}' commit '${sha}'`, ReportsService.name);
-    const tmpFolder: string = process.env.APP_TEMP_DIR;
-    const extractedDir = `${tmpFolder}/${uuidv4()}`;
-    const zip: AdmZip = await this.downloadGithubFiles(sha, extractedDir, repository, userAccount.accessToken);
+    const tmpReportDir = `${process.env.APP_TEMP_DIR}/${uuidv4()}`;
+    const zip: AdmZip = await this.downloadGithubFiles(sha, tmpReportDir, repository, userAccount.accessToken);
     if (!zip) {
       report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
       Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${sha}`, ReportsService.name);
@@ -1849,7 +1826,7 @@ export class ReportsService extends AutowiredService {
     }
     Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${sha}'`, ReportsService.name);
 
-    const filePaths: string[] = await this.getFilePaths(extractedDir);
+    const filePaths: string[] = await this.getFilePaths(tmpReportDir);
     if (filePaths.length < 1) {
       report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
       Logger.error(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name);
@@ -1871,7 +1848,7 @@ export class ReportsService extends AutowiredService {
 
     if (kysoConfigFile.type === ReportType.Meta) {
       await this.deleteReport(token, report.id);
-      return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null, null);
+      return this.createMultipleKysoReports(kysoConfigFile, tmpReportDir, zip, user, zip.getEntries()[0].entryName, null, null);
     }
 
     new Promise<void>(async () => {
@@ -1890,7 +1867,8 @@ export class ReportsService extends AutowiredService {
         return;
       }
 
-      await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, isNew, null, null);
+      await this.uploadRepositoryFilesToSCS(token.id, report, tmpReportDir, kysoConfigFile, files, isNew, null, null);
+      rmSync(tmpReportDir, { recursive: true, force: true });
 
       const team: Team = await this.teamsService.getTeamById(report.team_id);
       const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
@@ -1922,9 +1900,8 @@ export class ReportsService extends AutowiredService {
     Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name);
     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } });
 
-    const tmpFolder: string = process.env.APP_TEMP_DIR;
-    const extractedDir = `${tmpFolder}/${uuidv4()}`;
-    const zip: AdmZip = await this.downloadGithubFiles(sha, extractedDir, repository, userAccount.accessToken);
+    const tmpReportDir = `${process.env.APP_TEMP_DIR}/${uuidv4()}`;
+    const zip: AdmZip = await this.downloadGithubFiles(sha, tmpReportDir, repository, userAccount.accessToken);
     if (!zip) {
       report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
       Logger.error(`Report '${report.id} ${report.sluglified_name}': Could not download commit ${sha}`, ReportsService.name);
@@ -1933,7 +1910,7 @@ export class ReportsService extends AutowiredService {
     }
     Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${sha}'`, ReportsService.name);
 
-    const filePaths: string[] = await this.getFilePaths(extractedDir);
+    const filePaths: string[] = await this.getFilePaths(tmpReportDir);
     if (filePaths.length < 2) {
       report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
       Logger.error(`Report ${report.id} ${report.sluglified_name}: Repository does not contain any files`, ReportsService.name);
@@ -1955,7 +1932,7 @@ export class ReportsService extends AutowiredService {
     }
     Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name);
 
-    await this.uploadRepositoryFilesToSCS(token.id, report, extractedDir, kysoConfigFile, files, false, null, null);
+    await this.uploadRepositoryFilesToSCS(token.id, report, tmpReportDir, kysoConfigFile, files, false, null, null);
   }
 
   public async createReportFromBitbucketRepository(token: Token, repositoryName: string, branch: string): Promise<Report | Report[]> {
@@ -2262,8 +2239,7 @@ export class ReportsService extends AutowiredService {
   public async downloadBitbucketRepo(token: Token, report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
     Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name);
     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } });
-    const tmpFolder: string = process.env.APP_TEMP_DIR;
-    const extractedDir = `${tmpFolder}/${uuidv4()}`;
+    const extractedDir = `${process.env.APP_TEMP_DIR}/${uuidv4()}`;
     try {
       Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name);
       const buffer: Buffer = await this.bitbucketReposService.downloadRepository(userAccount.accessToken, repositoryName, desiredCommit);
@@ -2311,8 +2287,7 @@ export class ReportsService extends AutowiredService {
   public async downloadGitlabRepo(token: Token, report: Report, repositoryName: any, desiredCommit: string, userAccount: UserAccount): Promise<void> {
     Logger.log(`Downloading and extrating repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name);
     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Processing } });
-    const tmpFolder: string = process.env.APP_TEMP_DIR;
-    const extractedDir = `${tmpFolder}/${uuidv4()}`;
+    const extractedDir = `${process.env.APP_TEMP_DIR}/${uuidv4()}`;
     try {
       Logger.log(`Downloading and extrating repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name);
       const buffer: Buffer = await this.gitlabReposService.downloadRepository(userAccount.accessToken, repositoryName, desiredCommit);
@@ -2406,7 +2381,7 @@ export class ReportsService extends AutowiredService {
   private async uploadRepositoryFilesToSCS(
     userId: string,
     report: Report,
-    tmpDir: string,
+    tmpReportDir: string,
     kysoConfigFile: KysoConfigFile,
     files: { name: string; filePath: string }[],
     isNew: boolean,
@@ -2433,7 +2408,7 @@ export class ReportsService extends AutowiredService {
     }
 
     // fix kyso-ui#551-556
-    await this.preprocessHtmlFiles(tmpDir);
+    await this.preprocessHtmlFiles(tmpReportDir);
     // end fix
 
     let mainFile = null;
@@ -2462,20 +2437,15 @@ export class ReportsService extends AutowiredService {
     const lastVersion: number = await this.getLastVersionOfReport(report.id);
     const version = lastVersion + 1;
 
-    const reportPath: string = process.env.APP_TEMP_DIR;
-    const extractedDir = join(reportPath, `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`);
-    moveSync(tmpDir, extractedDir, { overwrite: true });
-
     if (isNew) {
       await this.checkReportTags(userId, report.id, kysoConfigFile.tags);
     }
 
     Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name);
-    await this.uploadReportToFtp(report.id, extractedDir);
+    await this.uploadReportToFtp(report.id, tmpReportDir);
 
     // Get all report files
     for (let i = 0; i < files.length; i++) {
-      files[i].filePath = files[i].filePath.replace(tmpDir, extractedDir);
       const originalName: string = files[i].name;
       const sha: string = sha256File(files[i].filePath);
       const size: number = statSync(files[i].filePath).size;
@@ -2487,9 +2457,7 @@ export class ReportsService extends AutowiredService {
       }
     }
 
-    let tmpFiles: string[] = await this.getFilePaths(extractedDir);
-    // Remove '/reportPath' from the paths
-    tmpFiles = tmpFiles.map((file: string) => file.replace(reportPath, ''));
+    rmSync(tmpReportDir, { recursive: true, force: true });
 
     const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL);
     const pathToIndex = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`;
@@ -2613,8 +2581,7 @@ export class ReportsService extends AutowiredService {
       Logger.log(`Directory ${destinationPath} does not exist. Creating...`, ReportsService.name);
       return;
     }
-    const tmpFolder: string = process.env.APP_TEMP_DIR;
-    const localPath = `${tmpFolder}/${report.id}`;
+    const localPath = `${process.env.APP_TEMP_DIR}/${report.id}`;
     if (!existsSync(localPath)) {
       Logger.log(`LOCAL folder '${localPath}' not found. Creating...`, ReportsService.name);
       mkdirSync(localPath, { recursive: true });
