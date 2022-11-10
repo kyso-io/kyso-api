@@ -87,8 +87,6 @@ export class KysoSettingsService extends AutowiredService {
         return 'true';
       case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_PINGID_SAML:
         return 'false';
-      case KysoSettingsEnum.TMP_FOLDER_PATH:
-        return '/app/data';
       case KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL:
         return 'http://kyso-scs:8080';
       case KysoSettingsEnum.UNAUTHORIZED_REDIRECT_URL:
@@ -97,8 +95,6 @@ export class KysoSettingsService extends AutowiredService {
         return 'https://www.gitbook.com/cdn-cgi/image/width=40,height=40,fit=contain,dpr=1,format=auto/https%3A%2F%2F4142543212-files.gitbook.io%2F~%2Ffiles%2Fv0%2Fb%2Fgitbook-legacy-files%2Fo%2Fspaces%252F-LjzfPqQ1fXmC4OMXwiD%252Favatar-1591004649776.png%3Fgeneration%3D1591004650222641%26alt%3Dmedia';
       case KysoSettingsEnum.CUSTOMIZE_LOGIN_CENTRAL_REDIRECT_URL:
         return '/login';
-      case KysoSettingsEnum.REPORT_PATH:
-        return '/data';
       case KysoSettingsEnum.KYSO_NATS_URL:
         return 'nats://nats:4222';
       case KysoSettingsEnum.ADD_NEW_USERS_AUTOMATICALLY_TO_ORG:
@@ -176,8 +172,6 @@ export class KysoSettingsService extends AutowiredService {
         return `Static content prefix`;
       case KysoSettingsEnum.STATIC_CONTENT_PUBLIC_PREFIX:
         return `Static content prefix for public content`;
-      case KysoSettingsEnum.REPORT_PATH:
-        return `Path where reports are unzipped`;
       case KysoSettingsEnum.ELASTICSEARCH_URL:
         return `Internal Kubernetes URL for Elasticsearch`;
       case KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN:
@@ -206,8 +200,6 @@ export class KysoSettingsService extends AutowiredService {
         return 'Enables globally the authorization using github provider. Settings this to false makes the button "Sign in with Github" to dissapear';
       case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_PINGID_SAML:
         return 'Enables globally the authorization using PingID SAML provider. Settings this to false makes the button "Sign in with PingID" to dissapear';
-      case KysoSettingsEnum.TMP_FOLDER_PATH:
-        return 'Path where temporary files are stored';
       case KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL:
         return 'Base URL of the kyso indexing service';
       case KysoSettingsEnum.UNAUTHORIZED_REDIRECT_URL:
