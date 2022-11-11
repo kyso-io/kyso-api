@@ -6,6 +6,7 @@ import { EmailVerifiedGuard } from './guards/email-verified.guard';
 import { PermissionsGuard } from './guards/permission.guard';
 import { SolvedCaptchaGuard } from './guards/solved-captcha.guard';
 import { createPlatformRoleProvider, PlatformRoleService } from './platform-role.service';
+import { BaseLoginProvider } from './providers/base-login.provider';
 import { BitbucketLoginProvider } from './providers/bitbucket-login.provider';
 import { GithubLoginProvider } from './providers/github-login.provider';
 import { GitlabLoginProvider } from './providers/gitlab-login.provider';
@@ -32,6 +33,7 @@ export class AuthModule {
       module: AuthModule,
       providers: [
         AuthService,
+        BaseLoginProvider,
         BitbucketLoginProvider,
         dynamicProvider,
         EmailVerifiedGuard,

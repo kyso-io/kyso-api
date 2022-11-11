@@ -29,7 +29,18 @@ import {
   VerifyCaptchaRequestDto,
   VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model';
-import { ConflictException, ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+  PreconditionFailedException,
+  Provider,
+} from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import axios from 'axios';
 import * as moment from 'moment';
@@ -562,29 +573,28 @@ export class UsersService extends AutowiredService {
     return userAccount;
   }
 
-  public async verifyEmail(data: VerifyEmailRequestDTO): Promise<boolean> {
+  public async verifyEmail(data: VerifyEmailRequestDTO): Promise<void> {
     const result: UserVerification[] = await this.userVerificationMongoProvider.read({
       filter: {
         $and: [{ email: data.email.toLowerCase() }, { token: data.token }],
       },
     });
     if (result.length === 0) {
-      throw new PreconditionFailedException('Token not found');
+      throw new NotFoundException('Token not found');
     }
     const userVerification: UserVerification = result[0];
     if (userVerification.verified_at !== null) {
-      throw new PreconditionFailedException('Verification token already used');
+      throw new BadRequestException('Verification token already used');
     }
     const user: User = await this.getUserById(userVerification.user_id);
     if (user.email_verified) {
-      throw new PreconditionFailedException('Email already verified');
+      throw new BadRequestException('Email already verified');
     }
     if (moment().isAfter(userVerification.expires_at)) {
-      throw new PreconditionFailedException('Verification token expired');
+      throw new BadRequestException('Verification token expired');
     }
     await this.provider.update({ _id: new ObjectId(user.id) }, { $set: { email_verified: true } });
     await this.userVerificationMongoProvider.updateOne({ _id: new ObjectId(userVerification.id) }, { $set: { verified_at: new Date() } });
-    return true;
   }
 
   public async verifyCaptcha(userId: string, data: VerifyCaptchaRequestDto): Promise<boolean> {
