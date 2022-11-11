@@ -2,6 +2,7 @@ import { KysoDataModelVersion } from '@kyso-io/kyso-model';
 import { Logger } from '@nestjs/common';
 import * as mongo from 'mongodb';
 import { ObjectId } from 'mongodb';
+import { KYSO_MODEL_VERSION_COLLECTION_NAME } from './constants';
 
 const FK_NAME_REGEX = /^_p_(_?[a-zA-Z]+)$/;
 const FK_VALUE_REGEX = RegExp('^_?[a-zA-Z]+\\$(\\w+)$');
@@ -13,7 +14,6 @@ const QUERY_TO_PIPELINE = {
   limit: '$limit',
 };
 
-const KYSO_MODEL_VERSION_COLLECTION_NAME = 'KysoDataModelVersion';
 export abstract class MongoProvider<T> {
   baseCollection: any;
   protected db: any;

@@ -77,7 +77,20 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
     }
     if (token) {
       if (token.id === user.id) {
-        query.filter.user_id = token.id;
+        query.filter = {
+          created_at: query.filter.created_at,
+          $or: [
+            {
+              user_id: token.id,
+            },
+            {
+              user_ids: {
+                $in: [token.id],
+              },
+            },
+          ],
+        };
+        delete query.filter.user_id;
       } else {
         const desiredUserTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(user.id);
         const userTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);

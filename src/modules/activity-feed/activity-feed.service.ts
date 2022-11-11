@@ -3,6 +3,7 @@ import { Injectable, Provider } from '@nestjs/common';
 import * as moment from 'moment';
 import { AutowiredService } from '../../generic/autowired.generic';
 import { db } from '../../main';
+import { ActivityFeedMongoProvider } from './activity-feed.provider';
 
 function factory(service: ActivityFeedService) {
   return service;
@@ -48,7 +49,9 @@ export class ActivityFeedService extends AutowiredService {
     }
     const promises: Promise<ActivityFeed[]>[] = [];
     for (const table of tables) {
-      promises.push((db.collection(table).find(query.filter).sort(query.sort) as any).toArray());
+      const activityFeedMongoProvider: ActivityFeedMongoProvider = new ActivityFeedMongoProvider(table);
+      await activityFeedMongoProvider.checkMigrations();
+      promises.push((activityFeedMongoProvider.getCollection().find(query.filter).sort(query.sort) as any).toArray());
     }
     const activityFeed: ActivityFeed[] = (await Promise.all(promises)).flat();
     return activityFeed;
