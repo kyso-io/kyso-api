@@ -742,6 +742,8 @@ export class TeamsService extends AutowiredService {
     if (!team) {
       throw new PreconditionFailedException('Team not found');
     }
+    // Get team members before deleting
+    const teamMembers: TeamMember[] = await this.getMembers(teamId);
     // Delete all reports
     const teamReports: Report[] = await this.reportsService.getReports({
       filter: {
@@ -764,8 +766,10 @@ export class TeamsService extends AutowiredService {
     // Delete team
     await this.provider.deleteOne({ _id: this.provider.toObjectId(team.id) });
     NATSHelper.safelyEmit<KysoTeamsDeleteEvent>(this.client, KysoEventEnum.TEAMS_DELETE, {
+      user: await this.usersService.getUserById(token.id),
       organization,
       team,
+      user_ids: teamMembers.map((teamMember: TeamMember) => teamMember.id),
     });
     return team;
   }

@@ -196,6 +196,8 @@ export class OrganizationsService extends AutowiredService {
     if (!organization) {
       throw new NotFoundException('Organization does not exist');
     }
+    // Get organization members before deleting
+    const organizationMembersJoin: OrganizationMemberJoin[] = await this.getMembers(organizationId);
     // Delete all teams of this organization
     await this.teamsService.deleteGivenOrganization(token, organization.id);
     // Delete all members of this organization
@@ -211,6 +213,7 @@ export class OrganizationsService extends AutowiredService {
     NATSHelper.safelyEmit<KysoOrganizationsDeleteEvent>(this.client, KysoEventEnum.ORGANIZATIONS_DELETE, {
       user: await this.usersService.getUserById(token.id),
       organization,
+      user_ids: organizationMembersJoin.map((member: OrganizationMemberJoin) => member.member_id),
     });
     return organization;
   }
