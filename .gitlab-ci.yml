@@ -35,9 +35,9 @@ dtrack-check:
   script:
   - npm --version
   - npm install -g @fjbarrena/dtrack-cli
-  - npm install -g @cyclonedx/bom
+  - npm install --global @cyclonedx/cyclonedx-npm
   - npm install
-  - cyclonedx-bom -o bom.xml
+  - cyclonedx-npm --output-file bom.xml
   - dtrack-cli --server https://dtrack.dev.kyso.io --bom-path bom.xml --api-key mhJ7ZcJylUH2WY5cFsU2zs87kH9wLABu --project-name kyso-api --project-version latest --auto-create true
 
 variables:
