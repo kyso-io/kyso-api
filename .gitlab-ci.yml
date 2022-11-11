@@ -33,7 +33,6 @@ docker-build:
 #   - !reference [.npm-config, before_script]
   
 #   script:
-#   - npm --version
 #   - npm install -g @fjbarrena/dtrack-cli
 #   - npm install --global @cyclonedx/cyclonedx-npm
 #   - npm install
