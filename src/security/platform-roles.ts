@@ -123,7 +123,6 @@ export class PlatformRole {
     'team-contributor',
     [
       CommentPermissionsEnum.CREATE,
-      CommentPermissionsEnum.DELETE,
       CommentPermissionsEnum.EDIT,
       CommentPermissionsEnum.READ,
       CommentPermissionsEnum.DELETE_ONLY_MINE,
@@ -159,7 +158,6 @@ export class PlatformRole {
     'team-reader',
     [
       CommentPermissionsEnum.CREATE,
-      CommentPermissionsEnum.DELETE,
       CommentPermissionsEnum.EDIT,
       CommentPermissionsEnum.READ,
       CommentPermissionsEnum.DELETE_ONLY_MINE,
