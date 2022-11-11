@@ -140,13 +140,7 @@ async function bootstrap() {
 
   app.setGlobalPrefix(globalPrefix);
 
-  const config = new DocumentBuilder()
-    .setTitle(`Kyso's API`)
-    .setDescription(`Spec for Kyso's API`)
-    .setVersion('v1')
-    .addBearerAuth()
-    .setLicense('Apache 2.0', 'http://www.apache.org/licenses/LICENSE-2.0.html')
-    .build();
+  const config = new DocumentBuilder().setTitle(`Kyso's API`).setDescription(`Spec for Kyso's API`).setVersion('v1').addBearerAuth().build();
 
   const document = SwaggerModule.createDocument(app, config);
 
