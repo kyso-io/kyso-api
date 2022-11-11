@@ -1,8 +1,0 @@
-{
-    "main": "multiqc_report.html",
-    "title": "MultiQC Report",
-    "organization": "lightside",
-    "team": "protected-team",
-    "description": "A modular tool to aggregate results from bioinformatics analyses across many samples into a single report.",
-    "importPath": "./"
-}
