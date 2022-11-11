@@ -3,6 +3,10 @@ include:
     ref: v0.5.0
     file: '/templates/npm-dockerfile-build.yml'
 
+sonarqube-check:
+  script:
+    - sonar-scanner -X
+
 # Update docker_build's before_script to update the public/v.html file
 docker-build:
   before_script:
