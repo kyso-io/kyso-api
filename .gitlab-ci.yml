@@ -32,6 +32,7 @@ dtrack-check:
   - !reference [.npm-config, before_script]
   
   script:
+  - npm --version
   - npm install -g @fjbarrena/dtrack-cli
   - npm install -g @cyclonedx/bom
   - npm install
