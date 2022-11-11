@@ -24,18 +24,19 @@ docker-build:
       -e "s%__GIT_REF__%$GIT_REF%g" \
       public/v.html
 
-# e2e-newman:
-#   stage: test
+dtrack-check:
+  stage: source_qa
 
-#   before_script:
-#   - !reference [.docker-config, before_script]
-#   - !reference [.npm-config, before_script]
+  before_script:
+  - !reference [.docker-config, before_script]
+  - !reference [.npm-config, before_script]
   
-#   script:
-#   - docker ps
-#   - docker-compose up
-#   - apk add nodejs npm
- 
+  script:
+  - npm install -g @fjbarrena/dtrack-cli
+  - npm install -g @cyclonedx/bom
+  - npm install
+  - cyclonedx-bom -o bom.xml
+  - dtrack-cli --server https://dtrack.dev.kyso.io --bom-path bom.xml --api-key mhJ7ZcJylUH2WY5cFsU2zs87kH9wLABu --project-name kyso-api --project-version latest --auto-create true
 
 variables:
   DOCKER_BUILDKIT: 1
