@@ -20,7 +20,23 @@ import {
   User,
   VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model';
-import { Body, Controller, ForbiddenException, Get, Headers, HttpStatus, Logger, Param, Post, PreconditionFailedException, Query, Req, Res, UnauthorizedException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Headers,
+  HttpStatus,
+  Logger,
+  NotFoundException,
+  Param,
+  Post,
+  PreconditionFailedException,
+  Query,
+  Req,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import * as moment from 'moment';
 import { ObjectId } from 'mongodb';
@@ -39,6 +55,7 @@ import { UsersService } from '../users/users.service';
 import { CurrentToken } from './annotations/current-token.decorator';
 import { AuthService } from './auth.service';
 import { PlatformRoleService } from './platform-role.service';
+import { BaseLoginProvider } from './providers/base-login.provider';
 import { UserRoleService } from './user-role.service';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const querystring = require('querystring');
@@ -66,7 +83,7 @@ export class AuthController extends GenericController<string> {
   @Autowired({ typeName: 'KysoSettingsService' })
   public readonly kysoSettingsService: KysoSettingsService;
 
-  constructor(private readonly authService: AuthService) {
+  constructor(private readonly authService: AuthService, private readonly baseLoginProvider: BaseLoginProvider) {
     super();
   }
 
@@ -262,10 +279,24 @@ export class AuthController extends GenericController<string> {
     type: VerifyEmailRequestDTO,
     examples: VerifyEmailRequestDTO.examples(),
   })
-  @ApiNormalizedResponse({ status: 200, description: `Verified user`, type: Boolean })
-  public async verifyEmail(@Body() data: VerifyEmailRequestDTO): Promise<NormalizedResponseDTO<boolean>> {
-    const result: boolean = await this.usersService.verifyEmail(data);
-    return new NormalizedResponseDTO(result);
+  @ApiNormalizedResponse({ status: 200, description: `Jwt token`, type: String })
+  public async verifyEmail(@Body() verifyEmailRequestDto: VerifyEmailRequestDTO, @Res() res): Promise<void> {
+    const user: User = await this.usersService.getUser({ filter: { email: verifyEmailRequestDto.email } });
+    if (!user) {
+      throw new NotFoundException(`User not found`);
+    }
+    await this.usersService.verifyEmail(verifyEmailRequestDto);
+    const jwt: string = await this.baseLoginProvider.createToken(user);
+    const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX);
+    const tokenExpirationTimeInHours = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN);
+    res.cookie('kyso-jwt-token', jwt, {
+      secure: process.env.NODE_ENV !== 'development',
+      httpOnly: true,
+      path: staticContentPrefix,
+      sameSite: 'strict',
+      expires: moment().add(tokenExpirationTimeInHours, 'hours').toDate(),
+    });
+    res.send(new NormalizedResponseDTO(jwt));
   }
 
   @Post('/send-verification-email')
