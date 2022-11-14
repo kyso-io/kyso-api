@@ -1,8 +1,6 @@
-import { KysoSetting, KysoSettingsEnum } from '@kyso-io/kyso-model';
 import { DynamicModule } from '@nestjs/common';
-import { ClientsModule, Transport } from '@nestjs/microservices';
 import { NestjsFormDataModule } from 'nestjs-form-data';
-import { db } from '../../main';
+import { registerNatsService } from '../../providers/nats-service-register';
 import { DraftReportsMongoProvider } from './providers/mongo-draft-reports.provider';
 import { FilesMongoProvider } from './providers/mongo-files.provider';
 import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider';
@@ -30,25 +28,7 @@ export class ReportsModule {
         StarredReportsMongoProvider,
         DraftReportsMongoProvider,
       ],
-      imports: [
-        ClientsModule.registerAsync([
-          {
-            name: 'NATS_SERVICE',
-            useFactory: async () => {
-              const kysoSettingCollection = db.collection('KysoSettings');
-              const server: KysoSetting[] = await kysoSettingCollection.find({ key: KysoSettingsEnum.KYSO_NATS_URL }).toArray();
-              return {
-                name: 'NATS_SERVICE',
-                transport: Transport.NATS,
-                options: {
-                  servers: server[0] ? [server[0].value] : [],
-                },
-              };
-            },
-          },
-        ]),
-        NestjsFormDataModule,
-      ],
+      imports: [registerNatsService(), NestjsFormDataModule],
       controllers: [ReportsController],
       exports: [reportServiceDynamicProvider],
     };
