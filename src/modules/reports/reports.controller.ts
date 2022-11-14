@@ -360,15 +360,7 @@ export class ReportsController extends GenericController<Report> {
       delete data.filter.text;
       data.filter.$or = [{ title: { $regex: `${text}`, $options: 'i' } }, { description: { $regex: `${text}`, $options: 'i' } }];
     }
-    paginatedResponseDto.totalItems = await this.reportsService.countReports({ filter: data.filter });
-    paginatedResponseDto.totalPages = Math.ceil(paginatedResponseDto.totalItems / data.limit);
-    paginatedResponseDto.currentPage = data.skip ? Math.floor(data.skip / data.limit) + 1 : 1;
-    const reports: Report[] = await this.reportsService.getReports(data);
-    paginatedResponseDto.results = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token?.id)));
-    paginatedResponseDto.itemCount = paginatedResponseDto.results.length;
-    paginatedResponseDto.itemsPerPage = data.limit;
-    const relations = await this.relationsService.getRelations(reports, 'report', { Author: 'User' });
-    return new NormalizedResponseDTO(paginatedResponseDto, relations);
+    return this.getNormalizedResponsePaginatedReports(token, data);
   }
 
   @Get('user/:user_id')
@@ -448,15 +440,7 @@ export class ReportsController extends GenericController<Report> {
         $in: userTeams.map((team: Team) => team.id),
       };
     }
-    paginatedResponseDto.totalItems = await this.reportsService.countReports({ filter: data.filter });
-    paginatedResponseDto.totalPages = Math.ceil(paginatedResponseDto.totalItems / data.limit);
-    paginatedResponseDto.currentPage = data.skip ? Math.floor(data.skip / data.limit) + 1 : 1;
-    const reports: Report[] = await this.reportsService.getReports(data);
-    paginatedResponseDto.results = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token?.id)));
-    paginatedResponseDto.itemCount = paginatedResponseDto.results.length;
-    paginatedResponseDto.itemsPerPage = data.limit;
-    const relations = await this.relationsService.getRelations(reports, 'report', { Author: 'User' });
-    return new NormalizedResponseDTO(paginatedResponseDto, relations);
+    return this.getNormalizedResponsePaginatedReports(token, data);
   }
 
   @Get('/pinned')
@@ -943,25 +927,7 @@ export class ReportsController extends GenericController<Report> {
   })
   @Permission([ReportPermissionsEnum.DELETE])
   async deleteReport(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
-    const report: Report = await this.reportsService.getReportById(reportId);
-    if (!report) {
-      throw new NotFoundException('Report not found');
-    }
-    const team: Team = await this.teamsService.getTeamById(report.team_id);
-    if (!team) {
-      throw new NotFoundException('Team not found');
-    }
-    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-    if (!organization) {
-      throw new NotFoundException('Organization not found');
-    }
-    const isOwner: boolean = await this.reportsService.isOwner(report.user_id, token.id);
-    if (!isOwner) {
-      const canExecuteAction: boolean = await this.reportsService.canExecuteAction(token, organization, team);
-      if (!canExecuteAction) {
-        throw new ForbiddenException('You can not delete this report');
-      }
-    }
+    await this.checkIfUserCanExecuteActionInReport(token, reportId);
     const deletedReport: Report = await this.reportsService.deleteReport(token, reportId, true);
     return new NormalizedResponseDTO(deletedReport);
   }
@@ -1186,18 +1152,7 @@ export class ReportsController extends GenericController<Report> {
   })
   @Public()
   async getReportFiles(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Query('version') versionStr: string): Promise<NormalizedResponseDTO<File>> {
-    const report: Report = await this.reportsService.getReportById(reportId);
-    if (!report) {
-      throw new NotFoundException('Report not found');
-    }
-    const team: Team = await this.teamsService.getTeamById(report.team_id);
-    if (!team) {
-      throw new NotFoundException('Team not found');
-    }
-    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-    if (!organization) {
-      throw new NotFoundException('Organization not found');
-    }
+    const { team, organization } = await this.getReportTeamAndOrganizationGivenReportId(reportId);
     if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
       const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team, organization);
       if (!hasPermissions) {
@@ -1441,25 +1396,7 @@ export class ReportsController extends GenericController<Report> {
   @ApiNormalizedResponse({ status: 201, description: `Updated report`, type: ReportDTO })
   @Permission([ReportPermissionsEnum.EDIT])
   public async setProfilePicture(@CurrentToken() token: Token, @Param('reportId') reportId: string, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<ReportDTO>> {
-    const report: Report = await this.reportsService.getReportById(reportId);
-    if (!report) {
-      throw new NotFoundException('Report not found');
-    }
-    const team: Team = await this.teamsService.getTeamById(report.team_id);
-    if (!team) {
-      throw new NotFoundException('Team not found');
-    }
-    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-    if (!organization) {
-      throw new NotFoundException('Organization not found');
-    }
-    const isOwner: boolean = await this.reportsService.isOwner(report.user_id, token.id);
-    if (!isOwner) {
-      const canExecuteAction: boolean = await this.reportsService.canExecuteAction(token, organization, team);
-      if (!canExecuteAction) {
-        throw new ForbiddenException('You can not update the report image');
-      }
-    }
+    await this.checkIfUserCanExecuteActionInReport(token, reportId);
     if (!file) {
       throw new BadRequestException(`Missing file`);
     }
@@ -1486,31 +1423,8 @@ export class ReportsController extends GenericController<Report> {
   })
   @Permission([ReportPermissionsEnum.EDIT])
   @ApiNormalizedResponse({ status: 200, description: `Updated report`, type: ReportDTO })
-  public async deleteBackgroundImage(
-    @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
-    @Headers(HEADER_X_KYSO_TEAM) teamName: string,
-    @CurrentToken() token: Token,
-    @Param('reportId') reportId: string,
-  ): Promise<NormalizedResponseDTO<ReportDTO>> {
-    const report: Report = await this.reportsService.getReportById(reportId);
-    if (!report) {
-      throw new NotFoundException('Report not found');
-    }
-    const team: Team = await this.teamsService.getTeamById(report.team_id);
-    if (!team) {
-      throw new NotFoundException('Team not found');
-    }
-    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-    if (!organization) {
-      throw new NotFoundException('Organization not found');
-    }
-    const isOwner: boolean = await this.reportsService.isOwner(report.user_id, token.id);
-    if (!isOwner) {
-      const canExecuteAction: boolean = await this.reportsService.canExecuteAction(token, organization, team);
-      if (!canExecuteAction) {
-        throw new ForbiddenException('You can not delete the image from the report');
-      }
-    }
+  public async deleteBackgroundImage(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
+    await this.checkIfUserCanExecuteActionInReport(token, reportId);
     const updatedReport: Report = await this.reportsService.deletePreviewPicture(reportId);
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(updatedReport, token.id);
     const relations = await this.relationsService.getRelations(updatedReport, 'report', { Author: 'User' });
@@ -1541,7 +1455,6 @@ export class ReportsController extends GenericController<Report> {
   })
   async getReportByName(
     @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
-    @Headers(HEADER_X_KYSO_TEAM) teamName: string,
     @CurrentToken() token: Token,
     @Param('reportName') reportName: string,
     @Param('teamName') teamNameParam: string,
@@ -1644,5 +1557,45 @@ export class ReportsController extends GenericController<Report> {
     } else {
       throw new PreconditionFailedException('Webhook URL not found. Review Kyso Settings');
     }
+  }
+
+  private async getNormalizedResponsePaginatedReports(token: Token, data: any): Promise<NormalizedResponseDTO<PaginatedResponseDto<ReportDTO>>> {
+    const paginatedResponseDto: PaginatedResponseDto<ReportDTO> = new PaginatedResponseDto<ReportDTO>(0, 0, 0, [], 0, 0);
+    paginatedResponseDto.totalItems = await this.reportsService.countReports({ filter: data.filter });
+    paginatedResponseDto.totalPages = Math.ceil(paginatedResponseDto.totalItems / data.limit);
+    paginatedResponseDto.currentPage = data.skip ? Math.floor(data.skip / data.limit) + 1 : 1;
+    const reports: Report[] = await this.reportsService.getReports(data);
+    paginatedResponseDto.results = await Promise.all(reports.map((report: Report) => this.reportsService.reportModelToReportDTO(report, token?.id)));
+    paginatedResponseDto.itemCount = paginatedResponseDto.results.length;
+    paginatedResponseDto.itemsPerPage = data.limit;
+    const relations = await this.relationsService.getRelations(reports, 'report', { Author: 'User' });
+    return new NormalizedResponseDTO(paginatedResponseDto, relations);
+  }
+
+  private async checkIfUserCanExecuteActionInReport(token: Token, reportId: string): Promise<void> {
+    const { report, team, organization } = await this.getReportTeamAndOrganizationGivenReportId(reportId);
+    const isOwner: boolean = await this.reportsService.isOwner(report.user_id, token.id);
+    if (!isOwner) {
+      const canExecuteAction: boolean = await this.reportsService.canExecuteAction(token, organization, team);
+      if (!canExecuteAction) {
+        throw new ForbiddenException('You can not delete this report');
+      }
+    }
+  }
+
+  private async getReportTeamAndOrganizationGivenReportId(reportId: string): Promise<{ report: Report; team: Team; organization: Organization }> {
+    const report: Report = await this.reportsService.getReportById(reportId);
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+    return { report, team, organization };
   }
 }

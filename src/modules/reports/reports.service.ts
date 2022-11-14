@@ -789,36 +789,7 @@ export class ReportsService extends AutowiredService {
     zip.extractAllTo(tmpReportDir, true);
     Logger.log(`Extracted zip file to ${tmpReportDir}`);
 
-    let kysoConfigFile: KysoConfigFile = null;
-    for (const entry of zip.getEntries()) {
-      const originalName: string = entry.entryName;
-      const localFilePath = join(tmpReportDir, entry.entryName);
-      if (originalName === 'kyso.json') {
-        const data: {
-          valid: boolean;
-          message: string | null;
-          kysoConfigFile: KysoConfigFile | null;
-        } = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString());
-        if (!data.valid) {
-          Logger.error(`An error occurred parsing kyso.json`, data.message, ReportsService.name);
-          throw new BadRequestException(`An error occurred parsing kyso.json: ${data.message}`);
-        }
-        kysoConfigFile = data.kysoConfigFile;
-        break;
-      } else if (originalName === 'kyso.yml' || originalName === 'kyso.yaml') {
-        const data: {
-          valid: boolean;
-          message: string | null;
-          kysoConfigFile: KysoConfigFile | null;
-        } = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString());
-        if (!data.valid) {
-          Logger.error(`An error occurred parsing kyso.{yml,yaml}`, data.message, ReportsService.name);
-          throw new BadRequestException(`An error occurred parsing kyso.{yml,yaml}: ${data.message}`);
-        }
-        kysoConfigFile = data.kysoConfigFile;
-        break;
-      }
-    }
+    const kysoConfigFile: KysoConfigFile | null = this.getKysoConfigFileFromZip(zip, tmpReportDir);
     if (!kysoConfigFile) {
       Logger.error(`No kyso.{yml,yaml,json} file found`, ReportsService.name);
       throw new BadRequestException(`No kyso.{yml,yaml,json} file found`);
@@ -965,24 +936,7 @@ export class ReportsService extends AutowiredService {
       await this.checkReportTags(userId, report.id, kysoConfigFile.tags);
     }
 
-    Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name);
-    await this.uploadReportToFtp(report.id, tmpReportDir);
-    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } });
-    Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name);
-
-    rmSync(tmpReportDir, { recursive: true, force: true });
-
-    const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL);
-    const pathToIndex = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`;
-
-    axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
-      () => {
-        Logger.log(`${pathToIndex} successfully indexed`);
-      },
-      (err) => {
-        Logger.warn(`${pathToIndex} was not indexed properly`, err);
-      },
-    );
+    await this.uploadReportToFtpAndIndexInElasticSearch(organization, team, report, tmpReportDir, version);
 
     const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
 
@@ -1019,36 +973,7 @@ export class ReportsService extends AutowiredService {
     const zip = new AdmZip(createKysoReportVersionDto.file.buffer);
     zip.extractAllTo(tmpReportDir, true);
     Logger.log(`Extracted zip file to ${tmpReportDir}`);
-    let kysoConfigFile: KysoConfigFile = null;
-    for (const entry of zip.getEntries()) {
-      const originalName: string = entry.entryName;
-      const localFilePath = join(tmpReportDir, entry.entryName);
-      if (originalName === 'kyso.json') {
-        const data: {
-          valid: boolean;
-          message: string | null;
-          kysoConfigFile: KysoConfigFile | null;
-        } = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString());
-        if (!data.valid) {
-          Logger.error(`An error occurred parsing kyso.json`, data.message, ReportsService.name);
-          throw new BadRequestException(`An error occurred parsing kyso.json: ${data.message}`);
-        }
-        kysoConfigFile = data.kysoConfigFile;
-        break;
-      } else if (originalName === 'kyso.yml' || originalName === 'kyso.yaml') {
-        const data: {
-          valid: boolean;
-          message: string | null;
-          kysoConfigFile: KysoConfigFile | null;
-        } = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString());
-        if (!data.valid) {
-          Logger.error(`An error occurred parsing kyso.{yml,yaml}`, data.message, ReportsService.name);
-          throw new BadRequestException(`An error occurred parsing kyso.{yml,yaml}: ${data.message}`);
-        }
-        kysoConfigFile = data.kysoConfigFile;
-        break;
-      }
-    }
+    const kysoConfigFile: KysoConfigFile | null = this.getKysoConfigFileFromZip(zip, tmpReportDir);
     if (kysoConfigFile) {
       const { valid, message } = KysoConfigFile.isValid(kysoConfigFile);
       if (!valid) {
@@ -1468,40 +1393,7 @@ export class ReportsService extends AutowiredService {
     Logger.log(`Extracting all temporary files to ${tmpReportDir}`);
     zip.extractAllTo(tmpReportDir, true);
 
-    let kysoConfigFile: KysoConfigFile = null;
-
-    Logger.log(`Looking for kyso.json|yaml|yml file`);
-    for (const entry of zip.getEntries()) {
-      const originalName: string = entry.name;
-      const localFilePath = join(tmpReportDir, entry.entryName);
-
-      if (originalName.endsWith('kyso.json')) {
-        const data: {
-          valid: boolean;
-          message: string | null;
-          kysoConfigFile: KysoConfigFile | null;
-        } = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString());
-        if (!data.valid) {
-          Logger.error(`An error occurred parsing kyso.json`, data.message, ReportsService.name);
-          throw new PreconditionFailedException(`An error occurred parsing kyso.json: ${data.message}`);
-        }
-        kysoConfigFile = data.kysoConfigFile;
-        break;
-      } else if (originalName.endsWith('kyso.yml') || originalName.endsWith('kyso.yaml')) {
-        const data: {
-          valid: boolean;
-          message: string | null;
-          kysoConfigFile: KysoConfigFile | null;
-        } = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString());
-        if (!data.valid) {
-          Logger.error(`An error occurred parsing kyso.{yml,yaml}`, data.message, ReportsService.name);
-          throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}: ${data.message}`);
-        }
-        kysoConfigFile = data.kysoConfigFile;
-        break;
-      }
-    }
-
+    const kysoConfigFile: KysoConfigFile | null = this.getKysoConfigFileFromZip(zip, tmpReportDir);
     if (!kysoConfigFile) {
       Logger.error(`No kyso.{yml,yaml,json} file found`, ReportsService.name);
       throw new PreconditionFailedException(`No kyso.{yml,yaml,json} file found`);
@@ -1604,24 +1496,7 @@ export class ReportsService extends AutowiredService {
 
     await this.checkReportTags(userId, report.id, kysoConfigFile.tags);
 
-    Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name);
-    await this.uploadReportToFtp(report.id, tmpReportDir);
-    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } });
-    Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name);
-
-    rmSync(tmpReportDir, { recursive: true, force: true });
-
-    const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL);
-    const pathToIndex = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`;
-
-    axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
-      () => {
-        Logger.log(`${pathToIndex} successfully indexed`);
-      },
-      (err) => {
-        Logger.warn(`${pathToIndex} was not indexed properly`, err);
-      },
-    );
+    await this.uploadReportToFtpAndIndexInElasticSearch(organization, team, report, tmpReportDir, version);
 
     NATSHelper.safelyEmit<KysoReportsCreateEvent>(this.client, KysoEventEnum.REPORTS_CREATE, {
       user,
@@ -3114,5 +2989,57 @@ export class ReportsService extends AutowiredService {
     } else {
       return null;
     }
+  }
+
+  private getKysoConfigFileFromZip(zip: AdmZip, tmpReportDir: string): KysoConfigFile | null {
+    let kysoConfigFile: KysoConfigFile = null;
+    for (const entry of zip.getEntries()) {
+      const originalName: string = entry.entryName;
+      const localFilePath = join(tmpReportDir, entry.entryName);
+      if (originalName === 'kyso.json') {
+        const data: {
+          valid: boolean;
+          message: string | null;
+          kysoConfigFile: KysoConfigFile | null;
+        } = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString());
+        if (!data.valid) {
+          Logger.error(`An error occurred parsing kyso.json`, data.message, ReportsService.name);
+          throw new BadRequestException(`An error occurred parsing kyso.json: ${data.message}`);
+        }
+        kysoConfigFile = data.kysoConfigFile;
+        break;
+      } else if (originalName === 'kyso.yml' || originalName === 'kyso.yaml') {
+        const data: {
+          valid: boolean;
+          message: string | null;
+          kysoConfigFile: KysoConfigFile | null;
+        } = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString());
+        if (!data.valid) {
+          Logger.error(`An error occurred parsing kyso.{yml,yaml}`, data.message, ReportsService.name);
+          throw new BadRequestException(`An error occurred parsing kyso.{yml,yaml}: ${data.message}`);
+        }
+        kysoConfigFile = data.kysoConfigFile;
+        break;
+      }
+    }
+    return kysoConfigFile;
+  }
+
+  private async uploadReportToFtpAndIndexInElasticSearch(organization: Organization, team: Team, report: Report, tmpReportDir: string, version: number): Promise<void> {
+    Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name);
+    await this.uploadReportToFtp(report.id, tmpReportDir);
+    report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } });
+    Logger.log(`Report '${report.id} ${report.sluglified_name}' imported`, ReportsService.name);
+    rmSync(tmpReportDir, { recursive: true, force: true });
+    const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL);
+    const pathToIndex = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`;
+    axios.get(`${kysoIndexerApi}/api/index?pathToIndex=${pathToIndex}`).then(
+      () => {
+        Logger.log(`${pathToIndex} successfully indexed`);
+      },
+      (err) => {
+        Logger.warn(`${pathToIndex} was not indexed properly`, err);
+      },
+    );
   }
 }
