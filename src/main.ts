@@ -114,7 +114,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Serve files in ./public from the application working directory
-  const publicPath = join(__dirname, '..', 'public');
+  const publicPath = join(process.cwd(), 'public');
   app.useStaticAssets(publicPath, { prefix: `/${app_mount_dir}` });
   Logger.log(`Serving static assets from '${publicPath} with prefix '/${app_mount_dir}'`);
   app.use(cookieParser());
