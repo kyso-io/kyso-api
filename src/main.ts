@@ -115,8 +115,8 @@ async function bootstrap() {
 
   // Serve files in ./public from the application working directory
   const publicPath = join(process.cwd(), 'public');
-  app.useStaticAssets(publicPath, { prefix: `/${app_mount_dir}` });
-  Logger.log(`Serving static assets from '${publicPath} with prefix '/${app_mount_dir}'`);
+  app.useStaticAssets(publicPath, { prefix: `${app_mount_dir}` });
+  Logger.log(`Serving static assets from '${publicPath} with prefix '${app_mount_dir}'`);
   app.use(cookieParser());
   app.use(bodyParser.json({ limit: maxFileSize }));
   app.use(bodyParser.urlencoded({ limit: maxFileSize, extended: true }));
