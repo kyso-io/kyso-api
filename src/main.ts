@@ -16,6 +16,7 @@ import { getSingletons, registerSingleton } from './decorators/autowired';
 import { TransformInterceptor } from './interceptors/exclude.interceptor';
 import { KysoSettingsService } from './modules/kyso-settings/kyso-settings.service';
 import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service';
+import { join } from 'path';
 const { NodeTracerProvider } = require('@opentelemetry/sdk-trace-node');
 const { NestInstrumentation } = require('@opentelemetry/instrumentation-nestjs-core');
 const { registerInstrumentations } = require('@opentelemetry/instrumentation');
@@ -112,8 +113,10 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Serve files in ./public on the root of the application
-  app.useStaticAssets('./public', { prefix: app_mount_dir + '/' });
+  // Serve files in ./public from the application working directory
+  const publicPath = join(__dirname, '..', 'public');
+  app.useStaticAssets(publicPath, { prefix: `/${app_mount_dir}` });
+  Logger.log(`Serving static assets from '${publicPath} with prefix '/${app_mount_dir}'`);
   app.use(cookieParser());
   app.use(bodyParser.json({ limit: maxFileSize }));
   app.use(bodyParser.urlencoded({ limit: maxFileSize, extended: true }));
