@@ -45,6 +45,7 @@ const PUBLIC_KYSO_SETTINGS: KysoSettingsEnum[] = [
   KysoSettingsEnum.CUSTOMIZE_LOGIN_BUTTON_HOVER_CSS_STYLES,
   KysoSettingsEnum.CUSTOMIZE_LOGIN_BUTTON_CSS_STYLES,
   KysoSettingsEnum.MAX_FILE_SIZE,
+  KysoSettingsEnum.DEFAULT_REDIRECT_ORGANIZATION,
 ];
 
 @ApiTags('kyso-settings')
