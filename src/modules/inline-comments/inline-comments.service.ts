@@ -44,11 +44,11 @@ export class InlineCommentsService extends AutowiredService {
   }
 
   public async getInlineComments(query: any): Promise<InlineComment[]> {
-    return await this.provider.read(query);
+    return this.provider.read(query);
   }
 
   public async deleteReportInlineComments(reportId: string): Promise<void> {
-    return this.provider.deleteMany({ report_id: reportId });
+    await this.provider.deleteMany({ report_id: reportId });
   }
 
   private async getById(id: string): Promise<InlineComment> {

@@ -26,10 +26,6 @@ export class SftpService extends AutowiredService {
   @Autowired({ typeName: 'KysoSettingsService' })
   private kysoSettingsService: KysoSettingsService;
 
-  constructor() {
-    super();
-  }
-
   public async getClient(username: string, password: string): Promise<{ client: Client; sftpWrapper: SFTPWrapper }> {
     try {
       const client: Client = new Client();

@@ -238,6 +238,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'Maximum number of teams in an organization that a user can create';
       case KysoSettingsEnum.KYSO_WEBHOOK_URL:
         return 'Webhooks URL (s3 import, du, etc.)';
+      case KysoSettingsEnum.DEFAULT_REDIRECT_ORGANIZATION:
+        return 'Default organization to redirect a non authenticated user';
       default:
         return 'No description provided';
     }

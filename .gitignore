@@ -50,3 +50,6 @@ lerna-debug.log*
 
 # bin/tsc-lint.sh file
 .tsconfig-lint.json
+
+# version file
+/public/v.html
