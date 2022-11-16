@@ -39,6 +39,7 @@ export class GenericExceptionFilter implements ExceptionFilter {
     Logger.error(`${request.method} ${request.originalUrl} ${statusCode}`, devErrorResponse);
     Logger.error(exception.stack);
 
-    response.status(statusCode).json(process.env.NODE_ENV === 'development' ? devErrorResponse : prodErrorResponse);
+    // TODO: in the future, normalize response using an error model
+    // response.status(statusCode).json(process.env.NODE_ENV === 'development' ? devErrorResponse : prodErrorResponse);
   }
 }
