@@ -19,6 +19,7 @@ NPMRC_DOCKER=".npmrc.docker"
 ENV_DOCKER=".env.docker"
 CONTAINER_VARS=""
 PUBLISH_PORTS="--publish 127.0.0.1:4000:4000"
+VERSION_UPDATE="./bin/version-update.sh"
 
 # ---------
 # FUNCTIONS
@@ -97,7 +98,6 @@ docker_build() {
   fi
   # Prepare .npmrc.docker
   cat ".npmrc" "$NPMRC_KYSO" >"$NPMRC_DOCKER"
-
   # Compute build args
   if [ -f "./.build-args" ]; then
     BUILD_ARGS="$(
@@ -115,6 +115,8 @@ docker_build() {
 EOF
     )"
   fi
+  # Update version file
+  $VERSION_UPDATE
   DOCKER_COMMAND="$(
     printf "%s" \
       "DOCKER_BUILDKIT=1 docker build${BUILD_ARGS}${BUILD_SECRETS}" \

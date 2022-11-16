@@ -235,8 +235,15 @@ export class AuthController extends GenericController<string> {
 
       const jwt = await this.authService.login(login);
       const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-
-      Logger.log(`Redirecting to ${frontendUrl}/sso/${jwt}`);
+      const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX);
+      const tokenExpirationTimeInHours = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN);
+      response.cookie('kyso-jwt-token', jwt, {
+        secure: process.env.NODE_ENV !== 'development',
+        httpOnly: true,
+        path: staticContentPrefix,
+        sameSite: 'strict',
+        expires: moment().add(tokenExpirationTimeInHours, 'hours').toDate(),
+      });
       response.redirect(`${frontendUrl}/sso/${jwt}`);
     } else {
       throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the following properties: samlSubject, email, portrait and name`);

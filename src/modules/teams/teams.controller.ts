@@ -447,6 +447,11 @@ export class TeamsController extends GenericController<Team> {
     if (!team) {
       throw new PreconditionFailedException('Team not found');
     }
+
+    delete data.id;
+    delete data.updated_at;
+    delete data.created_at;
+
     const updatedTeam: Team = await this.teamsService.updateTeam(token, { _id: new ObjectId(teamId) }, { $set: data });
 
     if (data.visibility === TeamVisibilityEnum.PRIVATE) {
