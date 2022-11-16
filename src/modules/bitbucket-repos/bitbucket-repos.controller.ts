@@ -1,5 +1,5 @@
 import { BitbucketRepoPermissionsEnum, GithubFileHash, GithubRepository, LoginProviderEnum, NormalizedResponseDTO, Repository, Token, User, UserAccount } from '@kyso-io/kyso-model';
-import { Controller, Get, Param, PreconditionFailedException, Query } from '@nestjs/common';
+import { Controller, Get, Logger, Param, PreconditionFailedException, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
@@ -67,7 +67,7 @@ export class BitbucketReposController extends GenericController<Repository> {
       const bitbucketAccount: any = await this.bitbucketReposProvider.getUser(userAccount.accessToken);
       return new NormalizedResponseDTO(bitbucketAccount);
     } catch (e) {
-      console.log(e);
+      Logger.error(e);
       return new NormalizedResponseDTO(null);
     }
   }
@@ -96,6 +96,7 @@ export class BitbucketReposController extends GenericController<Repository> {
       const repository: GithubRepository = await this.bitbucketReposProvider.getRepository(userAccount.accessToken, name);
       return new NormalizedResponseDTO(repository);
     } catch (e) {
+      Logger.error(e);
       return new NormalizedResponseDTO(null);
     }
   }
@@ -135,7 +136,7 @@ export class BitbucketReposController extends GenericController<Repository> {
       const tree: { nextPageCode: string; data: GithubFileHash[] } = await this.bitbucketReposProvider.getRootFilesAndFoldersByCommit(userAccount.accessToken, name, branch, path, null);
       return new NormalizedResponseDTO(tree);
     } catch (e) {
-      console.log(e);
+      Logger.error(e);
       return new NormalizedResponseDTO(null);
     }
   }

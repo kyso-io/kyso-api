@@ -73,6 +73,7 @@ export class SftpService extends AutowiredService {
         try {
           await client.mkdir(destinationSftpFolder, true);
         } catch (e) {
+          Logger.error(e);
           throw new Error(`Failed to create public folder ${destinationSftpFolder}`);
         }
       }
@@ -122,6 +123,7 @@ export class SftpService extends AutowiredService {
         try {
           await client.mkdir(destinationSftpFolder, true);
         } catch (e) {
+          Logger.error(e);
           throw new Error(`Failed to create public folder ${destinationSftpFolder}`);
         }
       }

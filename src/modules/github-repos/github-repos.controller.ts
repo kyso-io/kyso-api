@@ -13,7 +13,7 @@ import {
   User,
   UserAccount,
 } from '@kyso-io/kyso-model';
-import { Controller, Get, Param, PreconditionFailedException, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Logger, Param, PreconditionFailedException, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
@@ -97,7 +97,7 @@ export class GithubReposController extends GenericController<Repository> {
       const githubUser: GithubAccount = await this.githubReposService.getUser(userAccount.accessToken);
       return new NormalizedResponseDTO(githubUser);
     } catch (e) {
-      console.log(e);
+      Logger.error(e);
       return new NormalizedResponseDTO(null);
     }
   }
@@ -129,6 +129,7 @@ export class GithubReposController extends GenericController<Repository> {
       const repository: GithubRepository = await this.githubReposService.getGithubRepository(userAccount.accessToken, userAccount.username, repoName);
       return new NormalizedResponseDTO(repository);
     } catch (e) {
+      Logger.error(e);
       return new NormalizedResponseDTO(null);
     }
   }
@@ -166,7 +167,7 @@ export class GithubReposController extends GenericController<Repository> {
       const tree = await this.githubReposService.getRepoTree(userAccount.accessToken, userAccount.username, repoName, branch);
       return new NormalizedResponseDTO(tree);
     } catch (e) {
-      console.log(e);
+      Logger.error(e);
       return new NormalizedResponseDTO(null);
     }
   }

@@ -13,6 +13,7 @@ import { MongoClient } from 'mongodb';
 import { RedocModule, RedocOptions } from 'nestjs-redoc';
 import { AppModule } from './app.module';
 import { getSingletons, registerSingleton } from './decorators/autowired';
+import { GenericExceptionFilter } from './filters/generic-exception.filter';
 import { TransformInterceptor } from './interceptors/exclude.interceptor';
 import { KysoSettingsService } from './modules/kyso-settings/kyso-settings.service';
 import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service';
@@ -117,6 +118,8 @@ async function bootstrap() {
   app.use(cookieParser());
   app.use(bodyParser.json({ limit: maxFileSize }));
   app.use(bodyParser.urlencoded({ limit: maxFileSize, extended: true }));
+
+  app.useGlobalFilters(new GenericExceptionFilter());
 
   const globalPrefix = app_mount_dir + '/v1';
   // Helmet can help protect an app from some well-known web vulnerabilities by setting HTTP headers appropriately

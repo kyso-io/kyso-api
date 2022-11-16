@@ -223,11 +223,9 @@ export class AuthController extends GenericController<string> {
     const parser = new Saml2js(xmlResponse);
     const data = parser.toObject();
 
-    console.log(data);
-
     if (data && data.mail && data.givenName && data.sn) {
       // Build JWT token and redirect to frontend
-      console.log('Build JWT token and redirect to frontend');
+      Logger.log('Build JWT token and redirect to frontend');
       const login: Login = new Login(
         uuidv4(), // set a random password
         LoginProviderEnum.PING_ID_SAML,
@@ -238,7 +236,7 @@ export class AuthController extends GenericController<string> {
       const jwt = await this.authService.login(login);
       const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
 
-      console.log(`Redirecting to ${frontendUrl}/sso/${jwt}`);
+      Logger.log(`Redirecting to ${frontendUrl}/sso/${jwt}`);
       response.redirect(`${frontendUrl}/sso/${jwt}`);
     } else {
       throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the following properties: samlSubject, email, portrait and name`);

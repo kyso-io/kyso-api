@@ -70,7 +70,7 @@ export class GitlabLoginProvider extends BaseLoginProvider {
 
       return await this.createToken(user);
     } catch (e) {
-      console.log(e);
+      Logger.error(e);
       return null;
     }
   }
@@ -94,7 +94,7 @@ export class GitlabLoginProvider extends BaseLoginProvider {
       await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } });
       return true;
     } catch (e) {
-      console.log(e);
+      Logger.error(e);
       return false;
     }
   }

@@ -527,7 +527,6 @@ export class FullTextSearchService extends AutowiredService {
       return response.data;
     } catch (e: any) {
       Logger.error(`Error searching data`, e, FullTextSearchService.name);
-      console.log(e);
       return null;
     }
   }

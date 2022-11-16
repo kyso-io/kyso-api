@@ -1,5 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { PrometheusModule } from '@willsoto/nestjs-prometheus';
+import { GenericExceptionFilter } from './filters/generic-exception.filter';
 import { RequestLoggerMiddleware } from './middleware/request-logger.middleware';
 import { ActivityFeedModule } from './modules/activity-feed/activity-feed.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -45,7 +47,13 @@ import { UsersModule } from './modules/users/users.module';
     TestingDataPopulatorModule,
     UsersModule.forRoot(),
   ],
-  providers: [RequestLoggerMiddleware],
+  providers: [
+    RequestLoggerMiddleware,
+    {
+      provide: APP_FILTER,
+      useClass: GenericExceptionFilter,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
