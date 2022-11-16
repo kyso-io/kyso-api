@@ -34,8 +34,6 @@ export class GoogleLoginProvider extends BaseLoginProvider {
         },
       });
 
-      console.log(googleUser);
-
       let user = await this.usersService.getUser({
         filter: { email: googleUser.email },
       });

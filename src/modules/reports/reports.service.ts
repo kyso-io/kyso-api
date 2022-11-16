@@ -1717,6 +1717,7 @@ export class ReportsService extends AutowiredService {
       kysoConfigFile = result.kysoConfigFile;
       Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${branch}'`, ReportsService.name);
     } catch (e) {
+      Logger.error(e);
       await this.deleteReport(token, report.id);
       throw e;
     }
@@ -1802,6 +1803,7 @@ export class ReportsService extends AutowiredService {
       kysoConfigFile = result.kysoConfigFile;
       Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${sha}'`, ReportsService.name);
     } catch (e) {
+      Logger.error(e);
       await this.deleteReport(token, report.id);
       return null;
     }
@@ -1890,6 +1892,7 @@ export class ReportsService extends AutowiredService {
       moveSync(`${tmpFolder}/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true });
       Logger.log(`Extracted repository '${repositoryName}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name);
     } catch (e) {
+      Logger.error(e);
       await this.deleteReport(token, report.id);
       throw Error(`An error occurred downloading repository '${repositoryName}'`);
     }
@@ -1910,6 +1913,7 @@ export class ReportsService extends AutowiredService {
       kysoConfigFile = result.kysoConfigFile;
       Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${desiredCommit}'`, ReportsService.name);
     } catch (e) {
+      Logger.error(e);
       await this.deleteReport(token, report.id);
       throw e;
     }
@@ -1981,6 +1985,7 @@ export class ReportsService extends AutowiredService {
     try {
       gitlabRepository = await this.gitlabReposService.getRepository(userAccount.accessToken, repositoryId);
     } catch (e) {
+      Logger.error(e);
       throw new PreconditionFailedException(`User ${user.display_name} does not have a Gitlab repository '${repositoryId}'`);
     }
 
@@ -2041,6 +2046,7 @@ export class ReportsService extends AutowiredService {
       moveSync(`${tmpFolder}/${zip.getEntries()[0].entryName}`, extractedDir, { overwrite: true });
       Logger.log(`Extracted repository '${repositoryId}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name);
     } catch (e) {
+      Logger.error(e);
       await this.deleteReport(token, report.id);
       throw Error(`An error occurred downloading repository '${repositoryId}'`);
     }
@@ -2061,6 +2067,7 @@ export class ReportsService extends AutowiredService {
       kysoConfigFile = result.kysoConfigFile;
       Logger.log(`Downloaded ${files.length} files from repository ${repositoryId}' commit '${desiredCommit}'`, ReportsService.name);
     } catch (e) {
+      Logger.error(e);
       await this.deleteReport(token, report.id);
       return null;
     }
@@ -2129,6 +2136,7 @@ export class ReportsService extends AutowiredService {
       zip.extractAllTo(extractedDir, true);
       Logger.log(`Extracted repository '${repositoryName}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name);
     } catch (e) {
+      Logger.error(e);
       await this.deleteReport(token, report.id);
       throw Error(`An error occurred downloading repository '${repositoryName}'`);
     }
@@ -2151,6 +2159,7 @@ export class ReportsService extends AutowiredService {
       kysoConfigFile = result.kysoConfigFile;
       Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name);
     } catch (e) {
+      Logger.error(e);
       await this.deleteReport(token, report.id);
       return null;
     }
@@ -2177,6 +2186,7 @@ export class ReportsService extends AutowiredService {
       zip.extractAllTo(extractedDir, true);
       Logger.log(`Extracted repository '${repositoryName}' commit '${desiredCommit}' to '${extractedDir}'`, ReportsService.name);
     } catch (e) {
+      Logger.error(e);
       await this.deleteReport(token, report.id);
       throw Error(`An error occurred downloading repository '${repositoryName}'`);
     }
@@ -2199,6 +2209,7 @@ export class ReportsService extends AutowiredService {
       kysoConfigFile = result.kysoConfigFile;
       Logger.log(`Downloaded ${files.length} files from repository ${report.sluglified_name}' commit '${desiredCommit}'`, ReportsService.name);
     } catch (e) {
+      Logger.error(e);
       await this.deleteReport(token, report.id);
       return null;
     }
@@ -2641,6 +2652,7 @@ export class ReportsService extends AutowiredService {
       // If the preview file is not deleted, is not a crysis... just reflect it in the logs
       // and the life continues...
       Logger.warn(`Error deleting preview picture for report ${report.id} in remote file server`);
+      Logger.error(ex);
     }
 
     // In any case, update the preview_picture to null

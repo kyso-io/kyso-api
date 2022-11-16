@@ -78,7 +78,6 @@ export const CurrentToken = createParamDecorator(async (data: unknown, ctx: Exec
     }
   } catch (ex) {
     Logger.error('Error at CurrentToken', ex);
-    console.log(ex);
     return undefined;
   }
 });

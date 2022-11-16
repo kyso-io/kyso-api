@@ -441,7 +441,7 @@ export class TeamsService extends AutowiredService {
       }
       return newTeam;
     } catch (e) {
-      console.log(e);
+      Logger.error(e);
     }
   }
 
