@@ -38,6 +38,8 @@ import { UsersService } from '../users/users.service';
 import { faker } from '@faker-js/faker';
 import slug from 'src/helpers/slugify';
 import { DeleteCommentTDD } from './features/comments/DeleteCommentTDD';
+import { CommentTDDHelper } from './features/comments/CommentTDDHelper';
+import { cp } from 'fs';
 
 const mailPrefix = process.env.POPULATE_TEST_DATA_MAIL_PREFIX ? process.env.POPULATE_TEST_DATA_MAIL_PREFIX : 'lo';
 @Injectable()
@@ -801,16 +803,19 @@ export class TestingDataPopulatorService {
     try {
       // Legacy comments
       const testComment = new Comment('Best pokemon is Charmander', 'Best pokemon is Charmander', this.Rey_TeamAdminUser.id, this.BestPokemonReport.id, null, null, []);
-      this.TestComment = await this._createComment(testComment);
-      await this._createComment(
+      this.TestComment = await CommentTDDHelper.createComment(testComment, this.commentsService);
+
+      await CommentTDDHelper.createComment(
         new Comment('Are you mad? Obviously Pikachu', 'Are you mad? Obviously Pikachu', this.Gideon_OrganizationAdminUser.id, this.BestPokemonReport.id, null, this.TestComment.id, []),
+        this.commentsService,
       );
-      await this._createComment(
+
+      await CommentTDDHelper.createComment(
         new Comment('WTF Gideon, you deserve to be arrested', 'WTF Gideon, you deserve to be arrested', this.Rey_TeamAdminUser.id, this.BestPokemonReport.id, null, this.TestComment.id, []),
+        this.commentsService,
       );
 
       // api-tests comments for automatic testing
-
       await DeleteCommentTDD.createTestingData(
         this.commentsService,
         faker,
@@ -830,15 +835,6 @@ export class TestingDataPopulatorService {
       );
     } catch (ex) {
       Logger.error('Error at createTestingComments', ex);
-    }
-  }
-
-  private async _createComment(comment: Comment): Promise<Comment> {
-    try {
-      Logger.log(`Creating ${comment.text} comment...`);
-      return this.commentsService.createCommentWithoutNotifications(comment);
-    } catch (ex) {
-      Logger.log(`"${comment.text}" comment already exists`);
     }
   }
 
