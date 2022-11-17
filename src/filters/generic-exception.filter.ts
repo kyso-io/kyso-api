@@ -1,5 +1,4 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
-
 /**
  * Global exception filter. Every exception that is raised up in the API is catched automatically
  * by this piece of code.
@@ -13,33 +12,30 @@ export class GenericExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const request = ctx.getRequest();
     const response = ctx.getResponse();
-
     const isHttpException = exception instanceof HttpException;
-
     const statusCode = isHttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     const message = exception.message;
     const extendedMessage = isHttpException ? (exception as any).response.message : '';
-
     const devErrorResponse: any = {
+      // Don't touch to keep backwards compatibilty
       statusCode,
+      message: message,
+      error: exception?.name,
+      extendedMessage: Array.isArray(extendedMessage) ? extendedMessage : [extendedMessage],
+      // Now you can add or modify stuff
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
-      errorName: exception?.name,
-      message: message,
-      extendedMessage: Array.isArray(extendedMessage) ? extendedMessage : [extendedMessage],
     };
-
     const prodErrorResponse: any = {
+      // Don't touch to keep backwards compatibilty
       statusCode,
       message: message,
+      error: exception?.name,
       extendedMessage: Array.isArray(extendedMessage) ? extendedMessage : [extendedMessage],
     };
-
     Logger.error(`${request.method} ${request.originalUrl} ${statusCode}`, devErrorResponse);
     Logger.error(exception.stack);
-
-    // TODO: in the future, normalize response using an error model
-    // response.status(statusCode).json(process.env.NODE_ENV === 'development' ? devErrorResponse : prodErrorResponse);
+    response.status(statusCode).json(process.env.NODE_ENV === 'development' ? devErrorResponse : prodErrorResponse);
   }
 }
