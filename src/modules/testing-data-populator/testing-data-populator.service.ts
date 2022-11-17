@@ -56,9 +56,10 @@ export class TestingDataPopulatorService {
   private r2d2_TeamAdmin: User;
   private c3po_Reader: User;
 
-  private BabyYoda_Token: Token;
-  private Gideon_Token: Token;
   private Palpatine_Token: Token;
+
+  private reportPublicForCommentsFeature = '63763a6b65b1a3d5db1573d3';
+  private reportPrivateForCommentsFeature = '63763a94e3bd37623c0ed14a';
 
   private DarksideOrganization: Organization;
   private LightsideOrganization: Organization;
@@ -69,8 +70,6 @@ export class TestingDataPopulatorService {
   private BestPokemonReport: Report;
 
   private TestComment: Comment;
-  private TestChildComment1: Comment;
-  private TestChildComment2: Comment;
   private CustomTeamRole: KysoRole;
   private CustomOrganizationRole: KysoRole;
 
@@ -584,12 +583,10 @@ export class TestingDataPopulatorService {
 
       // Get the login Tokens for BabyYoda and Gideon
       const babyYodaToken: string = await this.authService.login(new Login('n0tiene', LoginProviderEnum.KYSO, `${mailPrefix}+baby_yoda@dev.kyso.io`, null));
-
-      this.BabyYoda_Token = await this.authService.evaluateAndDecodeToken(babyYodaToken);
+      await this.authService.evaluateAndDecodeToken(babyYodaToken);
 
       const gideonToken: string = await this.authService.login(new Login('n0tiene', LoginProviderEnum.KYSO, `${mailPrefix}+gideon@dev.kyso.io`, null));
-
-      this.Gideon_Token = await this.authService.evaluateAndDecodeToken(gideonToken);
+      await this.authService.evaluateAndDecodeToken(gideonToken);
 
       const palpatineToken: string = await this.authService.login(new Login('n0tiene', LoginProviderEnum.KYSO, `${mailPrefix}+palpatine@dev.kyso.io`, null));
 
@@ -732,6 +729,15 @@ export class TestingDataPopulatorService {
       /*********************/
       /* api-tests reports */
       /*********************/
+
+      // COMMENTS FEATURE BDD - DON'T TOUCH IF YOU ARE NOT SURE WHAT ARE YOU DOING !!
+      const commentsFeaturePublicReport = await this.generateRandomReport(this.APITests_PublicChannel.id, this.reportPublicForCommentsFeature);
+      await this._createReport(this.Chewbacca_TeamReaderUser, commentsFeaturePublicReport);
+
+      const commentsFeaturePrivateReport = await this.generateRandomReport(this.APITests_PrivateChannel.id, this.reportPrivateForCommentsFeature);
+      await this._createReport(this.Chewbacca_TeamReaderUser, commentsFeaturePrivateReport);
+
+      // REPORTS FEATURE BDD - DON'T TOUCH IF YOU ARE NOT SURE WHAT ARE YOU DOING!!!
       // Scenario: Delete a public report being an unauthorized user
       const rr1 = await this.generateRandomReport(this.APITests_PublicChannel.id, '63596fd9b3388dc3de683ead');
       await this._createReport(this.Chewbacca_TeamReaderUser, rr1);
@@ -792,13 +798,231 @@ export class TestingDataPopulatorService {
 
   private async createTestingComments() {
     try {
+      // Legacy comments
       const testComment = new Comment('Best pokemon is Charmander', 'Best pokemon is Charmander', this.Rey_TeamAdminUser.id, this.BestPokemonReport.id, null, null, []);
       this.TestComment = await this._createComment(testComment);
-      this.TestChildComment1 = await this._createComment(
+      await this._createComment(
         new Comment('Are you mad? Obviously Pikachu', 'Are you mad? Obviously Pikachu', this.Gideon_OrganizationAdminUser.id, this.BestPokemonReport.id, null, this.TestComment.id, []),
       );
-      this.TestChildComment2 = await this._createComment(
+      await this._createComment(
         new Comment('WTF Gideon, you deserve to be arrested', 'WTF Gideon, you deserve to be arrested', this.Rey_TeamAdminUser.id, this.BestPokemonReport.id, null, this.TestComment.id, []),
+      );
+
+      // api-tests comments for automatic testing
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.bb8_Contributor.id, // author
+          this.reportPublicForCommentsFeature, // report_id
+          null, // discussion_id
+          '63763836c4b37ed7ce2c0061', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.c3po_Reader.id, // author
+          this.reportPublicForCommentsFeature, // report_id
+          null, // discussion_id
+          '6376395f291927634fb52f76', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.Kylo_TeamContributorUser.id, // author
+          this.reportPrivateForCommentsFeature, // report_id
+          null, // discussion_id
+          '63763b6a338ab11639eec6f7', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.c3po_Reader.id, // author
+          this.reportPrivateForCommentsFeature, // report_id
+          null, // discussion_id
+          '637644f0ab4c89731504672b', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.Ahsoka_ExternalUser.id, // author
+          this.reportPublicForCommentsFeature, // report_id
+          null, // discussion_id
+          '63764520e9ba2d7b7273dcdf', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.Chewbacca_TeamReaderUser.id, // author
+          this.reportPrivateForCommentsFeature, // report_id
+          null, // discussion_id
+          '6376458476bcbff63263a18c', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.Kylo_TeamContributorUser.id, // author
+          this.reportPrivateForCommentsFeature, // report_id
+          null, // discussion_id
+          '637645cddb69a6b680019d35', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.Ahsoka_ExternalUser.id, // author
+          this.reportPrivateForCommentsFeature, // report_id
+          null, // discussion_id
+          '63764603386e2998d5a22348', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.Leia_OrgAdmin.id, // author
+          this.reportPublicForCommentsFeature, // report_id
+          null, // discussion_id
+          '63764661a393c514802adaed', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.Rey_TeamAdminUser.id, // author
+          this.reportPublicForCommentsFeature, // report_id
+          null, // discussion_id
+          '6376467d6c4e419eb53b76f5', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.Rey_TeamAdminUser.id, // author
+          this.reportPrivateForCommentsFeature, // report_id
+          null, // discussion_id
+          '637646cd78e55a49eab84b51', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.BabyYoda_OrganizationAdminUser.id, // author
+          this.reportPrivateForCommentsFeature, // report_id
+          null, // discussion_id
+          '6376471b43ed65102c61aafb', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.Amidala_Reader.id, // author
+          this.reportPrivateForCommentsFeature, // report_id
+          null, // discussion_id
+          '637647470cb8805adced23e4', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.Amidala_Reader.id, // author
+          this.reportPrivateForCommentsFeature, // report_id
+          null, // discussion_id
+          '6376479348611f2c2791797d', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.Mando_OrgAdmin.id, // author
+          this.reportPrivateForCommentsFeature, // report_id
+          null, // discussion_id
+          '63764814df4e2e0bfd911588', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.BabyYoda_OrganizationAdminUser.id, // author
+          this.reportPrivateForCommentsFeature, // report_id
+          null, // discussion_id
+          '637648709cc1777e2ab60a8f', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.bb8_Contributor.id, // author
+          this.reportPublicForCommentsFeature, // report_id
+          null, // discussion_id
+          '637648ad1c5b4cdc30ead36a', // comment_id
+          [], // mentions
+        ),
+      );
+
+      await this._createComment(
+        new Comment(
+          faker.hacker.phrase(), // text
+          faker.hacker.phrase(), // plain_text
+          this.Leia_OrgAdmin.id, // author
+          this.reportPublicForCommentsFeature, // report_id
+          null, // discussion_id
+          '637648d8aca006fbd01fded1', // comment_id
+          [], // mentions
+        ),
       );
     } catch (ex) {
       Logger.error('Error at createTestingComments', ex);
