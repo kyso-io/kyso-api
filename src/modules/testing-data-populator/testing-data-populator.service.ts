@@ -39,7 +39,8 @@ import { faker } from '@faker-js/faker';
 import slug from 'src/helpers/slugify';
 import { DeleteCommentTDD } from './features/comments/DeleteCommentTDD';
 import { CommentTDDHelper } from './features/comments/CommentTDDHelper';
-import { cp } from 'fs';
+import { ReportsTDDHelper } from './features/reports/ReportTDDHelper';
+import { DeleteReportTDD } from './features/reports/DeleteReportTDD';
 
 const mailPrefix = process.env.POPULATE_TEST_DATA_MAIL_PREFIX ? process.env.POPULATE_TEST_DATA_MAIL_PREFIX : 'lo';
 @Injectable()
@@ -632,41 +633,6 @@ export class TestingDataPopulatorService {
     }
   }
 
-  /**
-   * Creates a random report
-   * @param creator Creator of the report
-   * @param channelId Channel in which the report will be placed
-   * @param count Optional, number of reports to create
-   */
-  private async createRandomReport(creator: User, channelId: string, count?: number): Promise<any> {
-    try {
-      let numberOfReportsToCreate = 1;
-
-      if (count && count > 0) {
-        numberOfReportsToCreate = count;
-      }
-
-      for (let i = 0; i < numberOfReportsToCreate; i++) {
-        try {
-          const randomReport = await this.generateRandomReport(channelId);
-          await this._createReport(creator, randomReport);
-        } catch (ex) {
-          Logger.error('Error generating random report', ex);
-        }
-      }
-    } catch (ex) {
-      Logger.error('Error generating random report', ex);
-    }
-  }
-
-  private async generateRandomReport(channelId: string, fixedReportId?: string): Promise<any> {
-    const reportTitle = faker.company.catchPhrase();
-
-    const randomReport = new CreateReportDTO(slug(reportTitle), null, RepositoryProvider.KYSO, 'main', '.', channelId, reportTitle, faker.hacker.phrase(), null, null, fixedReportId);
-
-    return randomReport;
-  }
-
   private async createTestingReports() {
     try {
       const reportKylosThoughts = new CreateReportDTO(
@@ -682,7 +648,7 @@ export class TestingDataPopulatorService {
         null,
       );
 
-      this.KyloThoughtsReport = await this._createReport(this.Kylo_TeamContributorUser, reportKylosThoughts);
+      this.KyloThoughtsReport = await ReportsTDDHelper.createReport(this.Kylo_TeamContributorUser, reportKylosThoughts, this.reportsService);
 
       const reportMoffGideonPokemonReport = new CreateReportDTO(
         'best-pokemon-ever',
@@ -697,7 +663,7 @@ export class TestingDataPopulatorService {
         null,
       );
 
-      this.BestPokemonReport = await this._createReport(this.Kylo_TeamContributorUser, reportMoffGideonPokemonReport);
+      this.BestPokemonReport = await ReportsTDDHelper.createReport(this.Kylo_TeamContributorUser, reportMoffGideonPokemonReport, this.reportsService);
 
       const reportDeathStarEngineering = new CreateReportDTO(
         'death-star-engineering',
@@ -712,7 +678,7 @@ export class TestingDataPopulatorService {
         null,
       );
 
-      this.DeathStarEngineeringReport = await this._createReport(this.Gideon_OrganizationAdminUser, reportDeathStarEngineering);
+      this.DeathStarEngineeringReport = await ReportsTDDHelper.createReport(this.Gideon_OrganizationAdminUser, reportDeathStarEngineering, this.reportsService);
 
       const reportRebelScumCounterAttack = new CreateReportDTO(
         'rebel-scum-counterattack',
@@ -727,75 +693,37 @@ export class TestingDataPopulatorService {
         null,
       );
 
-      this.RebelScumCounterAttackReport = await this._createReport(this.Rey_TeamAdminUser, reportRebelScumCounterAttack);
+      this.RebelScumCounterAttackReport = await ReportsTDDHelper.createReport(this.Rey_TeamAdminUser, reportRebelScumCounterAttack, this.reportsService);
 
       /*********************/
       /* api-tests reports */
       /*********************/
 
       // COMMENTS FEATURE BDD - DON'T TOUCH IF YOU ARE NOT SURE WHAT ARE YOU DOING !!
-      const commentsFeaturePublicReport = await this.generateRandomReport(this.APITests_PublicChannel.id, this.reportPublicForCommentsFeature);
-      await this._createReport(this.Chewbacca_TeamReaderUser, commentsFeaturePublicReport);
-
-      const commentsFeaturePrivateReport = await this.generateRandomReport(this.APITests_PrivateChannel.id, this.reportPrivateForCommentsFeature);
-      await this._createReport(this.Chewbacca_TeamReaderUser, commentsFeaturePrivateReport);
+      DeleteCommentTDD.createReports(
+        this.reportsService,
+        this.reportPublicForCommentsFeature,
+        this.reportPrivateForCommentsFeature,
+        this.Chewbacca_TeamReaderUser,
+        this.APITests_PublicChannel,
+        this.APITests_PrivateChannel,
+      );
 
       // REPORTS FEATURE BDD - DON'T TOUCH IF YOU ARE NOT SURE WHAT ARE YOU DOING!!!
-      // Scenario: Delete a public report being an unauthorized user
-      const rr1 = await this.generateRandomReport(this.APITests_PublicChannel.id, '63596fd9b3388dc3de683ead');
-      await this._createReport(this.Chewbacca_TeamReaderUser, rr1);
-
-      // Scenario: Delete a protected report being an unauthorized user
-      const rr2 = await this.generateRandomReport(this.APITests_ProtectedChannel.id, '63597688eddfd38c1d7b44a5');
-      await this._createReport(this.Chewbacca_TeamReaderUser, rr2);
-
-      // Scenario: Delete a protected report being an unauthorized user
-      const rr3 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '635976c24de76e0e9451d8b3');
-      await this._createReport(this.Chewbacca_TeamReaderUser, rr3);
-
-      const rr4 = await this.generateRandomReport(this.APITests_PublicChannel.id, '63597c477d26f8fbbc9d8ba4');
-      await this._createReport(this.Ahsoka_ExternalUser, rr4);
-
-      const rr5 = await this.generateRandomReport(this.APITests_ProtectedChannel.id, '63597caeb00fd5b902813aa9');
-      await this._createReport(this.Ahsoka_ExternalUser, rr5);
-
-      const rr6 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '63597d243ef740bde54aad46');
-      await this._createReport(this.Kylo_TeamContributorUser, rr6);
-
-      const rr7 = await this.generateRandomReport(this.APITests_PublicChannel.id, '63597dfce86ab9f1dd20c5df');
-      await this._createReport(this.Leia_OrgAdmin, rr7);
-
-      const rr8 = await this.generateRandomReport(this.APITests_ProtectedChannel.id, '63597e77de9ddb0aa5c03059');
-      await this._createReport(this.Leia_OrgAdmin, rr8);
-
-      const rr9 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '63597f35e9f8e31a0642288c');
-      await this._createReport(this.Kylo_TeamContributorUser, rr9);
-
-      const rr10 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '63597f8a549ed03279144ead');
-      await this._createReport(this.Rey_TeamAdminUser, rr10);
-
-      const rr11 = await this.generateRandomReport(this.APITests_PublicChannel.id, '6359800d1a2d0631ffc9fe95');
-      await this._createReport(this.Amidala_Reader, rr11);
-
-      const rr12 = await this.generateRandomReport(this.APITests_ProtectedChannel.id, '635980ab77aa10746b01606e');
-      await this._createReport(this.Amidala_Reader, rr12);
-
-      const rr13 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '6359813ce4b9ea2012aea302');
-      await this._createReport(this.Kylo_TeamContributorUser, rr13);
-
-      const rr14 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '635981a574a32b3860aa6d6a');
-      await this._createReport(this.Leia_OrgAdmin, rr14);
+      DeleteReportTDD.createReports(
+        this.reportsService,
+        this.APITests_PublicChannel,
+        this.APITests_ProtectedChannel,
+        this.APITests_PrivateChannel,
+        this.Kylo_TeamContributorUser,
+        this.Ahsoka_ExternalUser,
+        this.Chewbacca_TeamReaderUser,
+        this.Leia_OrgAdmin,
+        this.Rey_TeamAdminUser,
+        this.Amidala_Reader,
+      );
     } catch (ex) {
       Logger.error('Error at createTestingReports', ex);
-    }
-  }
-
-  private async _createReport(user: User, report: CreateReportDTO) {
-    try {
-      Logger.log(`Creating ${report.name} report...`);
-      return this.reportsService.createReport(user.id, report);
-    } catch (ex) {
-      Logger.log(`${report.name} report already exists`);
     }
   }
 
@@ -816,9 +744,8 @@ export class TestingDataPopulatorService {
       );
 
       // api-tests comments for automatic testing
-      await DeleteCommentTDD.createTestingData(
+      await DeleteCommentTDD.createComments(
         this.commentsService,
-        faker,
         this.reportPublicForCommentsFeature,
         this.reportPrivateForCommentsFeature,
         this.bb8_Contributor,

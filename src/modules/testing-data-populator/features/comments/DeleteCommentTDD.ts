@@ -1,12 +1,13 @@
 import { Logger } from '@nestjs/common';
 import { CommentsService } from 'src/modules/comments/comments.service';
-import { Comment, User } from '@kyso-io/kyso-model';
+import { Comment, Team, User } from '@kyso-io/kyso-model';
 import { CommentTDDHelper } from './CommentTDDHelper';
-
+import { ReportsTDDHelper } from '../reports/ReportTDDHelper';
+import { ReportsService } from 'src/modules/reports/reports.service';
+import { faker } from '@faker-js/faker';
 export class DeleteCommentTDD {
-  public static async createTestingData(
+  public static async createComments(
     commentsService: CommentsService,
-    faker: any,
     reportPublicForCommentsFeature: string,
     reportPrivateForCommentsFeature: string,
     bb8_Contributor: User,
@@ -287,5 +288,23 @@ export class DeleteCommentTDD {
       ),
       commentsService,
     );
+  }
+
+  public static async createReports(
+    reportsService: ReportsService,
+    reportPublicForCommentsFeature: string,
+    reportPrivateForCommentsFeature: string,
+    Chewbacca_TeamReaderUser: User,
+    APITests_PublicChannel: Team,
+    APITests_PrivateChannel: Team,
+  ): Promise<void> {
+    // COMMENTS FEATURE BDD - DON'T TOUCH IF YOU ARE NOT SURE WHAT ARE YOU DOING !!
+    const commentsFeaturePublicReport = await ReportsTDDHelper.generateRandomReport(APITests_PublicChannel.id, reportPublicForCommentsFeature);
+
+    await ReportsTDDHelper.createReport(Chewbacca_TeamReaderUser, commentsFeaturePublicReport, reportsService);
+
+    const commentsFeaturePrivateReport = await ReportsTDDHelper.generateRandomReport(APITests_PrivateChannel.id, reportPrivateForCommentsFeature);
+
+    await ReportsTDDHelper.createReport(Chewbacca_TeamReaderUser, commentsFeaturePrivateReport, reportsService);
   }
 }
