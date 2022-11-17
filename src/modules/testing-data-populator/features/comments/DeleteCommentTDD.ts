@@ -19,6 +19,7 @@ export class DeleteCommentTDD {
     BabyYoda_OrganizationAdminUser: User,
     Amidala_Reader: User,
     Mando_OrgAdmin: User,
+    Gideon_OrganizationAdminUser: User,
   ): Promise<void> {
     // api-tests comments for automatic testing
     await CommentTDDHelper.createComment(
@@ -31,6 +32,20 @@ export class DeleteCommentTDD {
         null, // parent_comment_id
         [], // mentions
         '63763836c4b37ed7ce2c0061', // id
+      ),
+      commentsService,
+    );
+
+    await CommentTDDHelper.createComment(
+      new Comment(
+        faker.hacker.phrase(), // text
+        faker.hacker.phrase(), // plain_text
+        Gideon_OrganizationAdminUser.id, // author
+        reportPublicForCommentsFeature, // report_id
+        null, // discussion_id
+        null, // parent_comment_id
+        [], // mentions
+        '63763914dd0dd3a502797172', // id
       ),
       commentsService,
     );

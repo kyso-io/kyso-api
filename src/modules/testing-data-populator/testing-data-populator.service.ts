@@ -826,6 +826,7 @@ export class TestingDataPopulatorService {
         this.BabyYoda_OrganizationAdminUser,
         this.Amidala_Reader,
         this.Mando_OrgAdmin,
+        this.Gideon_OrganizationAdminUser,
       );
 
       /*
