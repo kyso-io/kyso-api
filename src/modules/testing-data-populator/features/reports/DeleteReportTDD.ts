@@ -15,6 +15,8 @@ export class DeleteReportTDD {
     Rey_TeamAdminUser: User,
     Amidala_Reader: User,
   ): Promise<void> {
+    // REPORTS FEATURE BDD - DON'T TOUCH IF YOU ARE NOT SURE WHAT ARE YOU DOING!!!
+
     const rr1 = await ReportsTDDHelper.generateRandomReport(APITests_PublicChannel.id, '63596fd9b3388dc3de683ead');
     await ReportsTDDHelper.createReport(Chewbacca_TeamReaderUser, rr1, reportsService);
 
