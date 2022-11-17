@@ -51,6 +51,10 @@ export class TestingDataPopulatorService {
   private Dooku_WithoutOrg: User;
   private Leia_OrgAdmin: User;
   private Amidala_Reader: User;
+  private Mando_OrgAdmin: User;
+  private bb8_Contributor: User;
+  private r2d2_TeamAdmin: User;
+  private c3po_Reader: User;
 
   private BabyYoda_Token: Token;
   private Gideon_Token: Token;
@@ -172,7 +176,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3okf2mg',
+        'https://handbook.kyso.io/docs/qa/images/portraits/rey.jpg',
         null,
         true,
         [],
@@ -189,7 +193,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3qfdNVo',
+        'https://handbook.kyso.io/docs/qa/images/portraits/kylo.jpeg',
         null,
         true,
         [],
@@ -206,7 +210,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3slTUyI',
+        'https://handbook.kyso.io/docs/qa/images/portraits/chewbacca.jpg',
         null,
         true,
         [],
@@ -223,7 +227,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3EWyNG6',
+        'https://handbook.kyso.io/docs/qa/images/portraits/gideon.jpg',
         null,
         true,
         [],
@@ -240,7 +244,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/34q5SxQ',
+        'https://handbook.kyso.io/docs/qa/images/portraits/palpatine.jpg',
         null,
         true,
         [GlobalPermissionsEnum.GLOBAL_ADMIN],
@@ -257,7 +261,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3IXAFki',
+        'https://handbook.kyso.io/docs/qa/images/portraits/baby_yoda.jpg',
         null,
         true,
         [],
@@ -274,7 +278,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3FeZCZO',
+        'https://handbook.kyso.io/docs/qa/images/portraits/ahsoka.jpg',
         null,
         true,
         [],
@@ -291,7 +295,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3W4adfX',
+        'https://handbook.kyso.io/docs/qa/images/portraits/dooku.jpeg',
         null,
         true,
         [],
@@ -308,7 +312,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3DxTfzj',
+        'https://handbook.kyso.io/docs/qa/images/portraits/leia.jpg',
         null,
         true,
         [],
@@ -325,7 +329,75 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3Dhh8Ku',
+        'https://handbook.kyso.io/docs/qa/images/portraits/amidala.jpg',
+        null,
+        true,
+        [],
+        'n0tiene',
+      );
+
+      const mando_orgAdmin: CreateUserRequestDTO = new CreateUserRequestDTO(
+        `${mailPrefix}+mando@dev.kyso.io`,
+        'mando',
+        'The Mandalorian',
+        'The Mandalorian',
+        LoginProviderEnum.KYSO,
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
+        'free',
+        'https://handbook.kyso.io/docs/qa/images/portraits/mando.jpg',
+        null,
+        true,
+        [],
+        'n0tiene',
+      );
+
+      const bb8_contributor: CreateUserRequestDTO = new CreateUserRequestDTO(
+        `${mailPrefix}+bb8@dev.kyso.io`,
+        'bb8',
+        'BB8',
+        'BB8',
+        LoginProviderEnum.KYSO,
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
+        'free',
+        'https://handbook.kyso.io/docs/qa/images/portraits/bb8.jpg',
+        null,
+        true,
+        [],
+        'n0tiene',
+      );
+
+      const r2d2_teamAdmin: CreateUserRequestDTO = new CreateUserRequestDTO(
+        `${mailPrefix}+r2d2@dev.kyso.io`,
+        'r2d2',
+        'R2D2',
+        'R2D2',
+        LoginProviderEnum.KYSO,
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
+        'free',
+        'https://handbook.kyso.io/docs/qa/images/portraits/r2d2.jpg',
+        null,
+        true,
+        [],
+        'n0tiene',
+      );
+
+      const c3po_reader: CreateUserRequestDTO = new CreateUserRequestDTO(
+        `${mailPrefix}+c3po@dev.kyso.io`,
+        'c3po',
+        'C3PO',
+        'C3PO',
+        LoginProviderEnum.KYSO,
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
+        'free',
+        'https://handbook.kyso.io/docs/qa/images/portraits/c3p0.jpg',
         null,
         true,
         [],
@@ -342,6 +414,10 @@ export class TestingDataPopulatorService {
       this.Dooku_WithoutOrg = await this._createUser(dooku_WithoutOrg);
       this.Leia_OrgAdmin = await this._createUser(leia_OrgAdmin);
       this.Amidala_Reader = await this._createUser(amidala_Reader);
+      this.Mando_OrgAdmin = await this._createUser(mando_orgAdmin);
+      this.bb8_Contributor = await this._createUser(bb8_contributor);
+      this.r2d2_TeamAdmin = await this._createUser(r2d2_teamAdmin);
+      this.c3po_Reader = await this._createUser(c3po_reader);
 
       await this.usersService.updateUser(
         { id: this.Rey_TeamAdminUser.id },
@@ -454,6 +530,54 @@ export class TestingDataPopulatorService {
             show_captcha: false,
             avatar_url: amidala_Reader.avatar_url,
             global_permissions: amidala_Reader.global_permissions,
+          },
+        },
+      );
+
+      await this.usersService.updateUser(
+        { id: this.Mando_OrgAdmin.id },
+        {
+          $set: {
+            email_verified: true,
+            show_captcha: false,
+            avatar_url: mando_orgAdmin.avatar_url,
+            global_permissions: mando_orgAdmin.global_permissions,
+          },
+        },
+      );
+
+      await this.usersService.updateUser(
+        { id: this.bb8_Contributor.id },
+        {
+          $set: {
+            email_verified: true,
+            show_captcha: false,
+            avatar_url: bb8_contributor.avatar_url,
+            global_permissions: bb8_contributor.global_permissions,
+          },
+        },
+      );
+
+      await this.usersService.updateUser(
+        { id: this.r2d2_TeamAdmin.id },
+        {
+          $set: {
+            email_verified: true,
+            show_captcha: false,
+            avatar_url: r2d2_teamAdmin.avatar_url,
+            global_permissions: r2d2_teamAdmin.global_permissions,
+          },
+        },
+      );
+
+      await this.usersService.updateUser(
+        { id: this.c3po_Reader.id },
+        {
+          $set: {
+            email_verified: true,
+            show_captcha: false,
+            avatar_url: c3po_reader.avatar_url,
+            global_permissions: c3po_reader.global_permissions,
           },
         },
       );
@@ -893,6 +1017,18 @@ export class TestingDataPopulatorService {
 
       Logger.log(`Adding ${this.Amidala_Reader.email} as ${PlatformRole.ORGANIZATION_ADMIN_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
       await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.Amidala_Reader.id.toString()], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name]);
+
+      Logger.log(`Adding ${this.Mando_OrgAdmin.email} as ${PlatformRole.ORGANIZATION_ADMIN_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
+      await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.Mando_OrgAdmin.id.toString()], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name]);
+
+      Logger.log(`Adding ${this.bb8_Contributor.email} as ${PlatformRole.TEAM_CONTRIBUTOR_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
+      await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.bb8_Contributor.id.toString()], [PlatformRole.TEAM_CONTRIBUTOR_ROLE.name]);
+
+      Logger.log(`Adding ${this.r2d2_TeamAdmin.email} as ${PlatformRole.TEAM_ADMIN_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
+      await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.r2d2_TeamAdmin.id.toString()], [PlatformRole.TEAM_ADMIN_ROLE.name]);
+
+      Logger.log(`Adding ${this.c3po_Reader.email} as ${PlatformRole.TEAM_CONTRIBUTOR_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
+      await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.c3po_Reader.id.toString()], [PlatformRole.TEAM_READER_ROLE.name]);
     } catch (ex) {
       Logger.error('Error at assignUsersToOrganizations', ex);
     }
@@ -918,6 +1054,9 @@ export class TestingDataPopulatorService {
 
       Logger.log(`Adding ${this.Amidala_Reader.display_name} to team ${this.APITests_PrivateChannel.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}`);
       await this.teamsService.addMembersById(this.APITests_PrivateChannel.id, [this.Amidala_Reader.id], [PlatformRole.TEAM_ADMIN_ROLE.name]);
+
+      Logger.log(`Adding ${this.Mando_OrgAdmin.display_name} to team ${this.APITests_PrivateChannel.sluglified_name} with role ${PlatformRole.TEAM_READER_ROLE.name}`);
+      await this.teamsService.addMembersById(this.APITests_PrivateChannel.id, [this.Mando_OrgAdmin.id], [PlatformRole.TEAM_READER_ROLE.name]);
     } catch (ex) {
       Logger.error('Error at assignUsersToTeams', ex);
     }
