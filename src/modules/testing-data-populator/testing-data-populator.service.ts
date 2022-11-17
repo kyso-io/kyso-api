@@ -37,6 +37,7 @@ import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
 import { faker } from '@faker-js/faker';
 import slug from 'src/helpers/slugify';
+import { DeleteCommentTDD } from './features/comments/DeleteCommentTDD';
 
 const mailPrefix = process.env.POPULATE_TEST_DATA_MAIL_PREFIX ? process.env.POPULATE_TEST_DATA_MAIL_PREFIX : 'lo';
 @Injectable()
@@ -809,6 +810,25 @@ export class TestingDataPopulatorService {
       );
 
       // api-tests comments for automatic testing
+
+      await DeleteCommentTDD.createTestingData(
+        this.commentsService,
+        faker,
+        this.reportPublicForCommentsFeature,
+        this.reportPrivateForCommentsFeature,
+        this.bb8_Contributor,
+        this.c3po_Reader,
+        this.Kylo_TeamContributorUser,
+        this.Ahsoka_ExternalUser,
+        this.Chewbacca_TeamReaderUser,
+        this.Leia_OrgAdmin,
+        this.Rey_TeamAdminUser,
+        this.BabyYoda_OrganizationAdminUser,
+        this.Amidala_Reader,
+        this.Mando_OrgAdmin,
+      );
+
+      /*
       await this._createComment(
         new Comment(
           faker.hacker.phrase(), // text
@@ -816,8 +836,9 @@ export class TestingDataPopulatorService {
           this.bb8_Contributor.id, // author
           this.reportPublicForCommentsFeature, // report_id
           null, // discussion_id
-          '63763836c4b37ed7ce2c0061', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '63763836c4b37ed7ce2c0061', // id
         ),
       );
 
@@ -828,8 +849,9 @@ export class TestingDataPopulatorService {
           this.c3po_Reader.id, // author
           this.reportPublicForCommentsFeature, // report_id
           null, // discussion_id
-          '6376395f291927634fb52f76', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '6376395f291927634fb52f76', // id
         ),
       );
 
@@ -840,8 +862,9 @@ export class TestingDataPopulatorService {
           this.Kylo_TeamContributorUser.id, // author
           this.reportPrivateForCommentsFeature, // report_id
           null, // discussion_id
-          '63763b6a338ab11639eec6f7', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '63763b6a338ab11639eec6f7', // id
         ),
       );
 
@@ -852,8 +875,9 @@ export class TestingDataPopulatorService {
           this.c3po_Reader.id, // author
           this.reportPrivateForCommentsFeature, // report_id
           null, // discussion_id
-          '637644f0ab4c89731504672b', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '637644f0ab4c89731504672b', // id
         ),
       );
 
@@ -864,8 +888,9 @@ export class TestingDataPopulatorService {
           this.Ahsoka_ExternalUser.id, // author
           this.reportPublicForCommentsFeature, // report_id
           null, // discussion_id
-          '63764520e9ba2d7b7273dcdf', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '63764520e9ba2d7b7273dcdf', // id
         ),
       );
 
@@ -876,8 +901,9 @@ export class TestingDataPopulatorService {
           this.Chewbacca_TeamReaderUser.id, // author
           this.reportPrivateForCommentsFeature, // report_id
           null, // discussion_id
-          '6376458476bcbff63263a18c', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '6376458476bcbff63263a18c', // parent_comment_id
         ),
       );
 
@@ -888,8 +914,9 @@ export class TestingDataPopulatorService {
           this.Kylo_TeamContributorUser.id, // author
           this.reportPrivateForCommentsFeature, // report_id
           null, // discussion_id
-          '637645cddb69a6b680019d35', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '637645cddb69a6b680019d35', // id
         ),
       );
 
@@ -900,8 +927,9 @@ export class TestingDataPopulatorService {
           this.Ahsoka_ExternalUser.id, // author
           this.reportPrivateForCommentsFeature, // report_id
           null, // discussion_id
-          '63764603386e2998d5a22348', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '63764603386e2998d5a22348', // id
         ),
       );
 
@@ -912,8 +940,9 @@ export class TestingDataPopulatorService {
           this.Leia_OrgAdmin.id, // author
           this.reportPublicForCommentsFeature, // report_id
           null, // discussion_id
-          '63764661a393c514802adaed', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '63764661a393c514802adaed', // id
         ),
       );
 
@@ -924,8 +953,9 @@ export class TestingDataPopulatorService {
           this.Rey_TeamAdminUser.id, // author
           this.reportPublicForCommentsFeature, // report_id
           null, // discussion_id
-          '6376467d6c4e419eb53b76f5', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '6376467d6c4e419eb53b76f5', // id
         ),
       );
 
@@ -936,8 +966,9 @@ export class TestingDataPopulatorService {
           this.Rey_TeamAdminUser.id, // author
           this.reportPrivateForCommentsFeature, // report_id
           null, // discussion_id
-          '637646cd78e55a49eab84b51', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '637646cd78e55a49eab84b51', // id
         ),
       );
 
@@ -948,8 +979,9 @@ export class TestingDataPopulatorService {
           this.BabyYoda_OrganizationAdminUser.id, // author
           this.reportPrivateForCommentsFeature, // report_id
           null, // discussion_id
-          '6376471b43ed65102c61aafb', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '6376471b43ed65102c61aafb', // id
         ),
       );
 
@@ -960,8 +992,9 @@ export class TestingDataPopulatorService {
           this.Amidala_Reader.id, // author
           this.reportPrivateForCommentsFeature, // report_id
           null, // discussion_id
-          '637647470cb8805adced23e4', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '637647470cb8805adced23e4', // id
         ),
       );
 
@@ -972,8 +1005,9 @@ export class TestingDataPopulatorService {
           this.Amidala_Reader.id, // author
           this.reportPrivateForCommentsFeature, // report_id
           null, // discussion_id
-          '6376479348611f2c2791797d', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '6376479348611f2c2791797d', // id
         ),
       );
 
@@ -984,8 +1018,9 @@ export class TestingDataPopulatorService {
           this.Mando_OrgAdmin.id, // author
           this.reportPrivateForCommentsFeature, // report_id
           null, // discussion_id
-          '63764814df4e2e0bfd911588', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '63764814df4e2e0bfd911588', // id
         ),
       );
 
@@ -996,8 +1031,9 @@ export class TestingDataPopulatorService {
           this.BabyYoda_OrganizationAdminUser.id, // author
           this.reportPrivateForCommentsFeature, // report_id
           null, // discussion_id
-          '637648709cc1777e2ab60a8f', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '637648709cc1777e2ab60a8f', // id
         ),
       );
 
@@ -1008,8 +1044,9 @@ export class TestingDataPopulatorService {
           this.bb8_Contributor.id, // author
           this.reportPublicForCommentsFeature, // report_id
           null, // discussion_id
-          '637648ad1c5b4cdc30ead36a', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '637648ad1c5b4cdc30ead36a', // id
         ),
       );
 
@@ -1020,10 +1057,11 @@ export class TestingDataPopulatorService {
           this.Leia_OrgAdmin.id, // author
           this.reportPublicForCommentsFeature, // report_id
           null, // discussion_id
-          '637648d8aca006fbd01fded1', // comment_id
+          null, // parent_comment_id
           [], // mentions
+          '637648d8aca006fbd01fded1', // id
         ),
-      );
+      );*/
     } catch (ex) {
       Logger.error('Error at createTestingComments', ex);
     }
