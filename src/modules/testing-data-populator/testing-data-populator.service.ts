@@ -37,6 +37,10 @@ import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
 import { faker } from '@faker-js/faker';
 import slug from 'src/helpers/slugify';
+import { DeleteCommentTDD } from './features/comments/DeleteCommentTDD';
+import { CommentTDDHelper } from './features/comments/CommentTDDHelper';
+import { ReportsTDDHelper } from './features/reports/ReportTDDHelper';
+import { DeleteReportTDD } from './features/reports/DeleteReportTDD';
 
 const mailPrefix = process.env.POPULATE_TEST_DATA_MAIL_PREFIX ? process.env.POPULATE_TEST_DATA_MAIL_PREFIX : 'lo';
 @Injectable()
@@ -51,10 +55,15 @@ export class TestingDataPopulatorService {
   private Dooku_WithoutOrg: User;
   private Leia_OrgAdmin: User;
   private Amidala_Reader: User;
+  private Mando_OrgAdmin: User;
+  private bb8_Contributor: User;
+  private r2d2_TeamAdmin: User;
+  private c3po_Reader: User;
 
-  private BabyYoda_Token: Token;
-  private Gideon_Token: Token;
   private Palpatine_Token: Token;
+
+  private reportPublicForCommentsFeature = '63763a6b65b1a3d5db1573d3';
+  private reportPrivateForCommentsFeature = '63763a94e3bd37623c0ed14a';
 
   private DarksideOrganization: Organization;
   private LightsideOrganization: Organization;
@@ -65,8 +74,6 @@ export class TestingDataPopulatorService {
   private BestPokemonReport: Report;
 
   private TestComment: Comment;
-  private TestChildComment1: Comment;
-  private TestChildComment2: Comment;
   private CustomTeamRole: KysoRole;
   private CustomOrganizationRole: KysoRole;
 
@@ -172,7 +179,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3okf2mg',
+        'https://handbook.kyso.io/docs/qa/images/portraits/rey.jpg',
         null,
         true,
         [],
@@ -189,7 +196,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3qfdNVo',
+        'https://handbook.kyso.io/docs/qa/images/portraits/kylo.jpeg',
         null,
         true,
         [],
@@ -206,7 +213,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3slTUyI',
+        'https://handbook.kyso.io/docs/qa/images/portraits/chewbacca.jpg',
         null,
         true,
         [],
@@ -223,7 +230,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3EWyNG6',
+        'https://handbook.kyso.io/docs/qa/images/portraits/gideon.jpg',
         null,
         true,
         [],
@@ -240,7 +247,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/34q5SxQ',
+        'https://handbook.kyso.io/docs/qa/images/portraits/palpatine.jpg',
         null,
         true,
         [GlobalPermissionsEnum.GLOBAL_ADMIN],
@@ -257,7 +264,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3IXAFki',
+        'https://handbook.kyso.io/docs/qa/images/portraits/baby_yoda.jpg',
         null,
         true,
         [],
@@ -274,7 +281,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3FeZCZO',
+        'https://handbook.kyso.io/docs/qa/images/portraits/ahsoka.jpg',
         null,
         true,
         [],
@@ -291,7 +298,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3W4adfX',
+        'https://handbook.kyso.io/docs/qa/images/portraits/dooku.jpeg',
         null,
         true,
         [],
@@ -308,7 +315,7 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3DxTfzj',
+        'https://handbook.kyso.io/docs/qa/images/portraits/leia.jpg',
         null,
         true,
         [],
@@ -325,7 +332,75 @@ export class TestingDataPopulatorService {
         faker.address.cityName(),
         faker.internet.url(),
         'free',
-        'https://bit.ly/3Dhh8Ku',
+        'https://handbook.kyso.io/docs/qa/images/portraits/amidala.jpg',
+        null,
+        true,
+        [],
+        'n0tiene',
+      );
+
+      const mando_orgAdmin: CreateUserRequestDTO = new CreateUserRequestDTO(
+        `${mailPrefix}+mando@dev.kyso.io`,
+        'mando',
+        'The Mandalorian',
+        'The Mandalorian',
+        LoginProviderEnum.KYSO,
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
+        'free',
+        'https://handbook.kyso.io/docs/qa/images/portraits/mando.jpg',
+        null,
+        true,
+        [],
+        'n0tiene',
+      );
+
+      const bb8_contributor: CreateUserRequestDTO = new CreateUserRequestDTO(
+        `${mailPrefix}+bb8@dev.kyso.io`,
+        'bb8',
+        'BB8',
+        'BB8',
+        LoginProviderEnum.KYSO,
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
+        'free',
+        'https://handbook.kyso.io/docs/qa/images/portraits/bb8.jpg',
+        null,
+        true,
+        [],
+        'n0tiene',
+      );
+
+      const r2d2_teamAdmin: CreateUserRequestDTO = new CreateUserRequestDTO(
+        `${mailPrefix}+r2d2@dev.kyso.io`,
+        'r2d2',
+        'R2D2',
+        'R2D2',
+        LoginProviderEnum.KYSO,
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
+        'free',
+        'https://handbook.kyso.io/docs/qa/images/portraits/r2d2.jpg',
+        null,
+        true,
+        [],
+        'n0tiene',
+      );
+
+      const c3po_reader: CreateUserRequestDTO = new CreateUserRequestDTO(
+        `${mailPrefix}+c3po@dev.kyso.io`,
+        'c3po',
+        'C3PO',
+        'C3PO',
+        LoginProviderEnum.KYSO,
+        faker.hacker.phrase(),
+        faker.address.cityName(),
+        faker.internet.url(),
+        'free',
+        'https://handbook.kyso.io/docs/qa/images/portraits/c3p0.jpg',
         null,
         true,
         [],
@@ -342,6 +417,10 @@ export class TestingDataPopulatorService {
       this.Dooku_WithoutOrg = await this._createUser(dooku_WithoutOrg);
       this.Leia_OrgAdmin = await this._createUser(leia_OrgAdmin);
       this.Amidala_Reader = await this._createUser(amidala_Reader);
+      this.Mando_OrgAdmin = await this._createUser(mando_orgAdmin);
+      this.bb8_Contributor = await this._createUser(bb8_contributor);
+      this.r2d2_TeamAdmin = await this._createUser(r2d2_teamAdmin);
+      this.c3po_Reader = await this._createUser(c3po_reader);
 
       await this.usersService.updateUser(
         { id: this.Rey_TeamAdminUser.id },
@@ -458,14 +537,60 @@ export class TestingDataPopulatorService {
         },
       );
 
+      await this.usersService.updateUser(
+        { id: this.Mando_OrgAdmin.id },
+        {
+          $set: {
+            email_verified: true,
+            show_captcha: false,
+            avatar_url: mando_orgAdmin.avatar_url,
+            global_permissions: mando_orgAdmin.global_permissions,
+          },
+        },
+      );
+
+      await this.usersService.updateUser(
+        { id: this.bb8_Contributor.id },
+        {
+          $set: {
+            email_verified: true,
+            show_captcha: false,
+            avatar_url: bb8_contributor.avatar_url,
+            global_permissions: bb8_contributor.global_permissions,
+          },
+        },
+      );
+
+      await this.usersService.updateUser(
+        { id: this.r2d2_TeamAdmin.id },
+        {
+          $set: {
+            email_verified: true,
+            show_captcha: false,
+            avatar_url: r2d2_teamAdmin.avatar_url,
+            global_permissions: r2d2_teamAdmin.global_permissions,
+          },
+        },
+      );
+
+      await this.usersService.updateUser(
+        { id: this.c3po_Reader.id },
+        {
+          $set: {
+            email_verified: true,
+            show_captcha: false,
+            avatar_url: c3po_reader.avatar_url,
+            global_permissions: c3po_reader.global_permissions,
+          },
+        },
+      );
+
       // Get the login Tokens for BabyYoda and Gideon
       const babyYodaToken: string = await this.authService.login(new Login('n0tiene', LoginProviderEnum.KYSO, `${mailPrefix}+baby_yoda@dev.kyso.io`, null));
-
-      this.BabyYoda_Token = await this.authService.evaluateAndDecodeToken(babyYodaToken);
+      await this.authService.evaluateAndDecodeToken(babyYodaToken);
 
       const gideonToken: string = await this.authService.login(new Login('n0tiene', LoginProviderEnum.KYSO, `${mailPrefix}+gideon@dev.kyso.io`, null));
-
-      this.Gideon_Token = await this.authService.evaluateAndDecodeToken(gideonToken);
+      await this.authService.evaluateAndDecodeToken(gideonToken);
 
       const palpatineToken: string = await this.authService.login(new Login('n0tiene', LoginProviderEnum.KYSO, `${mailPrefix}+palpatine@dev.kyso.io`, null));
 
@@ -508,41 +633,6 @@ export class TestingDataPopulatorService {
     }
   }
 
-  /**
-   * Creates a random report
-   * @param creator Creator of the report
-   * @param channelId Channel in which the report will be placed
-   * @param count Optional, number of reports to create
-   */
-  private async createRandomReport(creator: User, channelId: string, count?: number): Promise<any> {
-    try {
-      let numberOfReportsToCreate = 1;
-
-      if (count && count > 0) {
-        numberOfReportsToCreate = count;
-      }
-
-      for (let i = 0; i < numberOfReportsToCreate; i++) {
-        try {
-          const randomReport = await this.generateRandomReport(channelId);
-          await this._createReport(creator, randomReport);
-        } catch (ex) {
-          Logger.error('Error generating random report', ex);
-        }
-      }
-    } catch (ex) {
-      Logger.error('Error generating random report', ex);
-    }
-  }
-
-  private async generateRandomReport(channelId: string, fixedReportId?: string): Promise<any> {
-    const reportTitle = faker.company.catchPhrase();
-
-    const randomReport = new CreateReportDTO(slug(reportTitle), null, RepositoryProvider.KYSO, 'main', '.', channelId, reportTitle, faker.hacker.phrase(), null, null, fixedReportId);
-
-    return randomReport;
-  }
-
   private async createTestingReports() {
     try {
       const reportKylosThoughts = new CreateReportDTO(
@@ -558,7 +648,7 @@ export class TestingDataPopulatorService {
         null,
       );
 
-      this.KyloThoughtsReport = await this._createReport(this.Kylo_TeamContributorUser, reportKylosThoughts);
+      this.KyloThoughtsReport = await ReportsTDDHelper.createReport(this.Kylo_TeamContributorUser, reportKylosThoughts, this.reportsService);
 
       const reportMoffGideonPokemonReport = new CreateReportDTO(
         'best-pokemon-ever',
@@ -573,7 +663,7 @@ export class TestingDataPopulatorService {
         null,
       );
 
-      this.BestPokemonReport = await this._createReport(this.Kylo_TeamContributorUser, reportMoffGideonPokemonReport);
+      this.BestPokemonReport = await ReportsTDDHelper.createReport(this.Kylo_TeamContributorUser, reportMoffGideonPokemonReport, this.reportsService);
 
       const reportDeathStarEngineering = new CreateReportDTO(
         'death-star-engineering',
@@ -588,7 +678,7 @@ export class TestingDataPopulatorService {
         null,
       );
 
-      this.DeathStarEngineeringReport = await this._createReport(this.Gideon_OrganizationAdminUser, reportDeathStarEngineering);
+      this.DeathStarEngineeringReport = await ReportsTDDHelper.createReport(this.Gideon_OrganizationAdminUser, reportDeathStarEngineering, this.reportsService);
 
       const reportRebelScumCounterAttack = new CreateReportDTO(
         'rebel-scum-counterattack',
@@ -603,90 +693,75 @@ export class TestingDataPopulatorService {
         null,
       );
 
-      this.RebelScumCounterAttackReport = await this._createReport(this.Rey_TeamAdminUser, reportRebelScumCounterAttack);
+      this.RebelScumCounterAttackReport = await ReportsTDDHelper.createReport(this.Rey_TeamAdminUser, reportRebelScumCounterAttack, this.reportsService);
 
       /*********************/
       /* api-tests reports */
       /*********************/
-      // Scenario: Delete a public report being an unauthorized user
-      const rr1 = await this.generateRandomReport(this.APITests_PublicChannel.id, '63596fd9b3388dc3de683ead');
-      await this._createReport(this.Chewbacca_TeamReaderUser, rr1);
 
-      // Scenario: Delete a protected report being an unauthorized user
-      const rr2 = await this.generateRandomReport(this.APITests_ProtectedChannel.id, '63597688eddfd38c1d7b44a5');
-      await this._createReport(this.Chewbacca_TeamReaderUser, rr2);
+      // COMMENTS FEATURE BDD - DON'T TOUCH IF YOU ARE NOT SURE WHAT ARE YOU DOING !!
+      DeleteCommentTDD.createReports(
+        this.reportsService,
+        this.reportPublicForCommentsFeature,
+        this.reportPrivateForCommentsFeature,
+        this.Chewbacca_TeamReaderUser,
+        this.APITests_PublicChannel,
+        this.APITests_PrivateChannel,
+      );
 
-      // Scenario: Delete a protected report being an unauthorized user
-      const rr3 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '635976c24de76e0e9451d8b3');
-      await this._createReport(this.Chewbacca_TeamReaderUser, rr3);
-
-      const rr4 = await this.generateRandomReport(this.APITests_PublicChannel.id, '63597c477d26f8fbbc9d8ba4');
-      await this._createReport(this.Ahsoka_ExternalUser, rr4);
-
-      const rr5 = await this.generateRandomReport(this.APITests_ProtectedChannel.id, '63597caeb00fd5b902813aa9');
-      await this._createReport(this.Ahsoka_ExternalUser, rr5);
-
-      const rr6 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '63597d243ef740bde54aad46');
-      await this._createReport(this.Kylo_TeamContributorUser, rr6);
-
-      const rr7 = await this.generateRandomReport(this.APITests_PublicChannel.id, '63597dfce86ab9f1dd20c5df');
-      await this._createReport(this.Leia_OrgAdmin, rr7);
-
-      const rr8 = await this.generateRandomReport(this.APITests_ProtectedChannel.id, '63597e77de9ddb0aa5c03059');
-      await this._createReport(this.Leia_OrgAdmin, rr8);
-
-      const rr9 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '63597f35e9f8e31a0642288c');
-      await this._createReport(this.Kylo_TeamContributorUser, rr9);
-
-      const rr10 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '63597f8a549ed03279144ead');
-      await this._createReport(this.Rey_TeamAdminUser, rr10);
-
-      const rr11 = await this.generateRandomReport(this.APITests_PublicChannel.id, '6359800d1a2d0631ffc9fe95');
-      await this._createReport(this.Amidala_Reader, rr11);
-
-      const rr12 = await this.generateRandomReport(this.APITests_ProtectedChannel.id, '635980ab77aa10746b01606e');
-      await this._createReport(this.Amidala_Reader, rr12);
-
-      const rr13 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '6359813ce4b9ea2012aea302');
-      await this._createReport(this.Kylo_TeamContributorUser, rr13);
-
-      const rr14 = await this.generateRandomReport(this.APITests_PrivateChannel.id, '635981a574a32b3860aa6d6a');
-      await this._createReport(this.Leia_OrgAdmin, rr14);
+      // REPORTS FEATURE BDD - DON'T TOUCH IF YOU ARE NOT SURE WHAT ARE YOU DOING!!!
+      DeleteReportTDD.createReports(
+        this.reportsService,
+        this.APITests_PublicChannel,
+        this.APITests_ProtectedChannel,
+        this.APITests_PrivateChannel,
+        this.Kylo_TeamContributorUser,
+        this.Ahsoka_ExternalUser,
+        this.Chewbacca_TeamReaderUser,
+        this.Leia_OrgAdmin,
+        this.Rey_TeamAdminUser,
+        this.Amidala_Reader,
+      );
     } catch (ex) {
       Logger.error('Error at createTestingReports', ex);
     }
   }
 
-  private async _createReport(user: User, report: CreateReportDTO) {
-    try {
-      Logger.log(`Creating ${report.name} report...`);
-      return this.reportsService.createReport(user.id, report);
-    } catch (ex) {
-      Logger.log(`${report.name} report already exists`);
-    }
-  }
-
   private async createTestingComments() {
     try {
+      // Legacy comments
       const testComment = new Comment('Best pokemon is Charmander', 'Best pokemon is Charmander', this.Rey_TeamAdminUser.id, this.BestPokemonReport.id, null, null, []);
-      this.TestComment = await this._createComment(testComment);
-      this.TestChildComment1 = await this._createComment(
+      this.TestComment = await CommentTDDHelper.createComment(testComment, this.commentsService);
+
+      await CommentTDDHelper.createComment(
         new Comment('Are you mad? Obviously Pikachu', 'Are you mad? Obviously Pikachu', this.Gideon_OrganizationAdminUser.id, this.BestPokemonReport.id, null, this.TestComment.id, []),
+        this.commentsService,
       );
-      this.TestChildComment2 = await this._createComment(
+
+      await CommentTDDHelper.createComment(
         new Comment('WTF Gideon, you deserve to be arrested', 'WTF Gideon, you deserve to be arrested', this.Rey_TeamAdminUser.id, this.BestPokemonReport.id, null, this.TestComment.id, []),
+        this.commentsService,
+      );
+
+      // api-tests comments for automatic testing
+      await DeleteCommentTDD.createComments(
+        this.commentsService,
+        this.reportPublicForCommentsFeature,
+        this.reportPrivateForCommentsFeature,
+        this.bb8_Contributor,
+        this.c3po_Reader,
+        this.Kylo_TeamContributorUser,
+        this.Ahsoka_ExternalUser,
+        this.Chewbacca_TeamReaderUser,
+        this.Leia_OrgAdmin,
+        this.Rey_TeamAdminUser,
+        this.BabyYoda_OrganizationAdminUser,
+        this.Amidala_Reader,
+        this.Mando_OrgAdmin,
+        this.Gideon_OrganizationAdminUser,
       );
     } catch (ex) {
       Logger.error('Error at createTestingComments', ex);
-    }
-  }
-
-  private async _createComment(comment: Comment): Promise<Comment> {
-    try {
-      Logger.log(`Creating ${comment.text} comment...`);
-      return this.commentsService.createCommentWithoutNotifications(comment);
-    } catch (ex) {
-      Logger.log(`"${comment.text}" comment already exists`);
     }
   }
 
@@ -893,6 +968,18 @@ export class TestingDataPopulatorService {
 
       Logger.log(`Adding ${this.Amidala_Reader.email} as ${PlatformRole.ORGANIZATION_ADMIN_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
       await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.Amidala_Reader.id.toString()], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name]);
+
+      Logger.log(`Adding ${this.Mando_OrgAdmin.email} as ${PlatformRole.ORGANIZATION_ADMIN_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
+      await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.Mando_OrgAdmin.id.toString()], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name]);
+
+      Logger.log(`Adding ${this.bb8_Contributor.email} as ${PlatformRole.TEAM_CONTRIBUTOR_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
+      await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.bb8_Contributor.id.toString()], [PlatformRole.TEAM_CONTRIBUTOR_ROLE.name]);
+
+      Logger.log(`Adding ${this.r2d2_TeamAdmin.email} as ${PlatformRole.TEAM_ADMIN_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
+      await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.r2d2_TeamAdmin.id.toString()], [PlatformRole.TEAM_ADMIN_ROLE.name]);
+
+      Logger.log(`Adding ${this.c3po_Reader.email} as ${PlatformRole.TEAM_CONTRIBUTOR_ROLE.name} to ${this.APITests_Organization.sluglified_name}`);
+      await this.organizationsService.addMembersById(this.APITests_Organization.id, [this.c3po_Reader.id.toString()], [PlatformRole.TEAM_READER_ROLE.name]);
     } catch (ex) {
       Logger.error('Error at assignUsersToOrganizations', ex);
     }
@@ -918,6 +1005,9 @@ export class TestingDataPopulatorService {
 
       Logger.log(`Adding ${this.Amidala_Reader.display_name} to team ${this.APITests_PrivateChannel.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}`);
       await this.teamsService.addMembersById(this.APITests_PrivateChannel.id, [this.Amidala_Reader.id], [PlatformRole.TEAM_ADMIN_ROLE.name]);
+
+      Logger.log(`Adding ${this.Mando_OrgAdmin.display_name} to team ${this.APITests_PrivateChannel.sluglified_name} with role ${PlatformRole.TEAM_READER_ROLE.name}`);
+      await this.teamsService.addMembersById(this.APITests_PrivateChannel.id, [this.Mando_OrgAdmin.id], [PlatformRole.TEAM_READER_ROLE.name]);
     } catch (ex) {
       Logger.error('Error at assignUsersToTeams', ex);
     }
