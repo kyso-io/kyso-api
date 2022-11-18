@@ -1,4 +1,5 @@
-import { KysoUserAccessToken } from '@kyso-io/kyso-model';
+import * as moment from 'moment';
+import { KysoUserAccessToken, KysoUserAccessTokenStatus } from '@kyso-io/kyso-model';
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Autowired } from '../../../decorators/autowired';
@@ -53,8 +54,16 @@ export class KysoLoginProvider extends BaseLoginProvider {
     const dbAccessToken: KysoUserAccessToken = await this.usersService.searchAccessToken(user.id, access_token);
     if (!dbAccessToken) {
       throw new UnauthorizedException('Invalid credentials');
-    } else {
-      return await this.createToken(user);
     }
+    if (dbAccessToken.status === KysoUserAccessTokenStatus.REVOKED) {
+      throw new UnauthorizedException('Access token has been revoked');
+    }
+    if (dbAccessToken.status === KysoUserAccessTokenStatus.EXPIRED) {
+      throw new UnauthorizedException('Access token has expired');
+    }
+    if (dbAccessToken.expiration_date && moment(dbAccessToken.expiration_date).isBefore(moment())) {
+      throw new UnauthorizedException('Access token has expired');
+    }
+    return this.createToken(user);
   }
 }
