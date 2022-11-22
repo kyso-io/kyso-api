@@ -19,7 +19,7 @@ export class PlatformRole {
   public static PLATFORM_ADMIN_ROLE = new KysoRole(
     'platform-admin',
     [
-      GlobalPermissionsEnum.GLOBAL_ADMIN,
+      ,
       StoragePermissionsEnum.READ,
       CommentPermissionsEnum.ADMIN,
       CommentPermissionsEnum.CREATE,

@@ -22,6 +22,7 @@ import { SearchUserModule } from './modules/search-user/search-user.module';
 import { TagsModule } from './modules/tags/tags.module';
 import { TeamsModule } from './modules/teams/teams.module';
 import { TestingDataPopulatorModule } from './modules/testing-data-populator/testing-data-populator.module';
+import { ThemesModule } from './modules/themes/themes.module';
 import { UsersModule } from './modules/users/users.module';
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { UsersModule } from './modules/users/users.module';
     TagsModule.forRoot(),
     TeamsModule.forRoot(),
     TestingDataPopulatorModule,
+    ThemesModule,
     UsersModule.forRoot(),
   ],
   providers: [

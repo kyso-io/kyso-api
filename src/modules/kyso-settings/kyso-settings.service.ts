@@ -91,10 +91,6 @@ export class KysoSettingsService extends AutowiredService {
         return 'http://kyso-scs:8080';
       case KysoSettingsEnum.UNAUTHORIZED_REDIRECT_URL:
         return '/login';
-      case KysoSettingsEnum.CUSTOMIZE_LOGIN_CENTRAL_LOGO_URL:
-        return 'https://www.gitbook.com/cdn-cgi/image/width=40,height=40,fit=contain,dpr=1,format=auto/https%3A%2F%2F4142543212-files.gitbook.io%2F~%2Ffiles%2Fv0%2Fb%2Fgitbook-legacy-files%2Fo%2Fspaces%252F-LjzfPqQ1fXmC4OMXwiD%252Favatar-1591004649776.png%3Fgeneration%3D1591004650222641%26alt%3Dmedia';
-      case KysoSettingsEnum.CUSTOMIZE_LOGIN_CENTRAL_REDIRECT_URL:
-        return '/login';
       case KysoSettingsEnum.KYSO_NATS_URL:
         return 'nats://nats:4222';
       case KysoSettingsEnum.ADD_NEW_USERS_AUTOMATICALLY_TO_ORG:
@@ -107,6 +103,8 @@ export class KysoSettingsService extends AutowiredService {
         return '20';
       case KysoSettingsEnum.KYSO_WEBHOOK_URL:
         return '';
+      case KysoSettingsEnum.THEME:
+        return 'default';
       default:
         return '';
     }
@@ -204,30 +202,6 @@ export class KysoSettingsService extends AutowiredService {
         return 'Base URL of the kyso indexing service';
       case KysoSettingsEnum.UNAUTHORIZED_REDIRECT_URL:
         return 'Redirection URL to which an unauthorized user is redirected';
-      case KysoSettingsEnum.CUSTOMIZE_LOGIN_CENTRAL_LOGO_URL:
-        return 'URL of the center image';
-      case KysoSettingsEnum.CUSTOMIZE_LOGIN_CENTRAL_REDIRECT_URL:
-        return 'URL to redirect when someone clicks on center image';
-      case KysoSettingsEnum.CUSTOMIZE_LOGIN_LEFT_LOGO_URL:
-        return 'URL of the left image';
-      case KysoSettingsEnum.CUSTOMIZE_LOGIN_LEFT_REDIRECT_URL:
-        return 'URL to redirect when someone clicks on left image';
-      case KysoSettingsEnum.CUSTOMIZE_LOGIN_RIGHT_LOGO_URL:
-        return 'URL of the right image';
-      case KysoSettingsEnum.CUSTOMIZE_LOGIN_RIGHT_REDIRECT_URL:
-        return 'URL to redirect when someone clicks on right image';
-      case KysoSettingsEnum.CUSTOMIZE_LOGIN_CSS_STYLES:
-        return 'Specific css styles to apply globally in the login page';
-      case KysoSettingsEnum.CUSTOMIZE_LOGIN_LINK_CSS_STYLES:
-        return 'Specific css styles to apply only in the login link';
-      case KysoSettingsEnum.CUSTOMIZE_LOGIN_HEADER_CSS_STYLES:
-        return 'Specific css styles to apply only in the header';
-      case KysoSettingsEnum.CUSTOMIZE_LOGIN_SHOWDIV_CSS_STYLES:
-        return 'Specific css styles to apply only in showdiv';
-      case KysoSettingsEnum.CUSTOMIZE_LOGIN_HIDDENDIV_CSS_STYLES:
-        return 'Specific css styles to apply only in hiddendiv';
-      case KysoSettingsEnum.CUSTOMIZE_LOGIN_BUTTON_HOVER_CSS_STYLES:
-        return 'Specific css styles to apply only in the login button';
       case KysoSettingsEnum.ADD_NEW_USERS_AUTOMATICALLY_TO_ORG:
         return 'If empty, has no effect. If has a value, adds any new user in the platform to the organizations set in this property (comma separated) with TEAM_READER role';
       case KysoSettingsEnum.MAX_FILE_SIZE:
@@ -240,6 +214,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'Webhooks URL (s3 import, du, etc.)';
       case KysoSettingsEnum.DEFAULT_REDIRECT_ORGANIZATION:
         return 'Default organization to redirect a non authenticated user';
+      case KysoSettingsEnum.THEME:
+        return 'Theme of the platform';
       default:
         return 'No description provided';
     }
