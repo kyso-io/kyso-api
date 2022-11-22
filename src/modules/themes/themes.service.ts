@@ -61,8 +61,9 @@ export class ThemesService {
     const destinationPath = join(sftpDestinationFolder, 'themes', createThemeDto.name);
     const existsPath: boolean | string = await client.exists(destinationPath);
     if (existsPath) {
-      Logger.error(`Theme ${createThemeDto.name} already exists`, ThemesService.name);
-      throw new ConflictException(`Theme ${createThemeDto.name} already exists`);
+      Logger.log(`Theme ${createThemeDto.name} already exists`, ThemesService.name);
+      const result: string = await client.rmdir(destinationPath, true);
+      Logger.log(result, ThemesService.name);
     }
     const localPath = `${process.env.APP_TEMP_DIR}/${uuidv4()}`;
     const zip: AdmZip = new AdmZip(createThemeDto.file.buffer);
