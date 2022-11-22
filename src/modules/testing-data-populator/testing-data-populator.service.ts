@@ -782,6 +782,7 @@ export class TestingDataPopulatorService {
         faker.image.animals(), // avatar_url
         uuidv4(),
         null,
+        '637cc317dc9348e2f476dac0',
       );
 
       this.DarksideOrganization = await this._createOrganization(darksideOrganization);
@@ -803,6 +804,7 @@ export class TestingDataPopulatorService {
         faker.image.animals(), // avatar_url
         uuidv4(),
         null,
+        '637cc33dbb45cb84781f1aeb',
       );
 
       this.LightsideOrganization = await this._createOrganization(lightsideOrganization);
@@ -822,6 +824,7 @@ export class TestingDataPopulatorService {
         faker.image.animals(), // avatar_url
         uuidv4(),
         null,
+        '637cc345d0539d42537b8f99',
       );
 
       this.APITests_Organization = await this._createOrganization(apiTestOrganization);
