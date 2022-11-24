@@ -14,6 +14,7 @@ import {
   Token,
   UpdateTeamMembersDTO,
   UpdateTeamRequest,
+  User,
 } from '@kyso-io/kyso-model';
 import {
   BadRequestException,
@@ -30,12 +31,15 @@ import {
   PreconditionFailedException,
   Query,
   Req,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
+import { Parser } from 'json2csv';
 import { ObjectId } from 'mongodb';
 import { PlatformRole } from 'src/security/platform-roles';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
@@ -51,6 +55,7 @@ import { PermissionsGuard } from '../auth/guards/permission.guard';
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { RelationsService } from '../relations/relations.service';
+import { UsersService } from '../users/users.service';
 import { TeamsService } from './teams.service';
 
 @ApiTags('teams')
@@ -74,6 +79,9 @@ export class TeamsController extends GenericController<Team> {
 
   @Autowired({ typeName: 'OrganizationsService' })
   private organizationsService: OrganizationsService;
+
+  @Autowired({ typeName: 'UsersService' })
+  private usersService: UsersService;
 
   constructor(private readonly teamsService: TeamsService) {
     super();
@@ -215,6 +223,59 @@ export class TeamsController extends GenericController<Team> {
     }
     const data: TeamMember[] = await this.teamsService.getMembers(id);
     return new NormalizedResponseDTO(data);
+  }
+
+  @Get('/:id/members/export')
+  @ApiOperation({
+    summary: `Get the member's team`,
+    description: `Allows fetching content of a specific team passing its name`,
+  })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    description: `Id of the team to fetch`,
+    schema: { type: 'string' },
+  })
+  @Permission([OrganizationPermissionsEnum.ADMIN, TeamPermissionsEnum.ADMIN])
+  async exportTeamMembers(@CurrentToken() token: Token, @Param('id') id: string, @Res() response: Response): Promise<void> {
+    const team: Team = await this.teamsService.getTeamById(id);
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+    const organizationResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find(
+      (resourcePermissions: ResourcePermissions) => resourcePermissions.id === team.organization_id,
+    );
+    const isOrgAdmin: boolean = organizationResourcePermissions ? organizationResourcePermissions.permissions.includes(OrganizationPermissionsEnum.ADMIN) : false;
+    const teamResourcePermissions: ResourcePermissions | undefined = token.permissions.teams.find((resourcePermissions: ResourcePermissions) => resourcePermissions.id === team.id);
+    const isTeamAdmin: boolean = teamResourcePermissions ? teamResourcePermissions.permissions.includes(TeamPermissionsEnum.ADMIN) : false;
+    if (!isOrgAdmin && !isTeamAdmin) {
+      throw new ForbiddenException('You are not allowed to access this resource');
+    }
+    const teamMembers: TeamMember[] = await this.teamsService.getMembers(id);
+    const data: { display_name: string; email: string; created_at: string; last_login: string }[] = [];
+    for (const teamMember of teamMembers) {
+      const user: User = await this.usersService.getUserById(teamMember.id);
+      if (!user) {
+        continue;
+      }
+      data.push({
+        display_name: user.display_name,
+        email: user.email,
+        created_at: user.created_at.toISOString(),
+        last_login: user.last_login ? user.last_login.toISOString() : '',
+      });
+    }
+    // Sort by display_name
+    data.sort((a, b) => {
+      const display_name_a: string = a.display_name.toLowerCase();
+      const display_name_b: string = b.display_name.toLowerCase();
+      return display_name_b > display_name_a ? -1 : display_name_b < display_name_a ? 1 : 0;
+    });
+    const parser = new Parser();
+    const csv: string = parser.parse(data);
+    response.setHeader('Content-Type', 'text/csv');
+    response.setHeader('Content-Disposition', `attachment; filename=${team.sluglified_name}-members.csv`);
+    response.send(csv);
   }
 
   @Get('/:teamId/assignees')

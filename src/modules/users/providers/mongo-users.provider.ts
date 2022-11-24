@@ -27,7 +27,7 @@ const DEFAULT_GLOBAL_ADMIN_USER = new User(
 @Injectable()
 export class UsersMongoProvider extends MongoProvider<User> {
   provider: any;
-  version = 4;
+  version = 5;
 
   constructor() {
     super('User', db, [
@@ -129,5 +129,16 @@ export class UsersMongoProvider extends MongoProvider<User> {
         },
       );
     }
+  }
+
+  async migrate_from_4_to_5() {
+    await this.updateMany(
+      {},
+      {
+        $set: {
+          last_login: new Date(),
+        },
+      },
+    );
   }
 }

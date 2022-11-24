@@ -1,17 +1,12 @@
-import * as moment from 'moment';
 import { KysoUserAccessToken, KysoUserAccessTokenStatus } from '@kyso-io/kyso-model';
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Autowired } from '../../../decorators/autowired';
-import { UsersService } from '../../users/users.service';
+import * as moment from 'moment';
 import { AuthService } from '../auth.service';
 import { BaseLoginProvider } from './base-login.provider';
 
 @Injectable()
 export class KysoLoginProvider extends BaseLoginProvider {
-  @Autowired({ typeName: 'UsersService' })
-  private usersService: UsersService;
-
   constructor(protected readonly jwtService: JwtService) {
     super(jwtService);
   }

@@ -1,10 +1,12 @@
 import { AddUserOrganizationDto, KysoSettingsEnum, Organization, Token, User, UserAccount } from '@kyso-io/kyso-model';
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ObjectId } from 'mongodb';
 import { OrganizationsService } from 'src/modules/organizations/organizations.service';
 import { PlatformRole } from 'src/security/platform-roles';
 import { Autowired } from '../../../decorators/autowired';
 import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service';
+import { UsersService } from '../../users/users.service';
 
 @Injectable()
 export class BaseLoginProvider {
@@ -13,6 +15,9 @@ export class BaseLoginProvider {
 
   @Autowired({ typeName: 'KysoSettingsService' })
   protected kysoSettingsService: KysoSettingsService;
+
+  @Autowired({ typeName: 'UsersService' })
+  protected usersService: UsersService;
 
   constructor(protected readonly jwtService: JwtService) {}
 
@@ -36,6 +41,7 @@ export class BaseLoginProvider {
         username: userAccount.username,
       })),
     );
+    await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { last_login: new Date() } });
     const tokenExpirationTimeInHours: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN);
     return this.jwtService.sign(
       { payload },

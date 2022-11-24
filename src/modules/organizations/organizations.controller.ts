@@ -7,6 +7,7 @@ import {
   Organization,
   OrganizationInfoDto,
   OrganizationMember,
+  OrganizationMemberJoin,
   OrganizationOptions,
   OrganizationPermissionsEnum,
   OrganizationStorageDto,
@@ -20,12 +21,14 @@ import {
   Token,
   UpdateOrganizationDTO,
   UpdateOrganizationMembersDTO,
+  User,
 } from '@kyso-io/kyso-model';
 import {
   BadRequestException,
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   NotFoundException,
   Param,
@@ -34,12 +37,15 @@ import {
   PreconditionFailedException,
   Query,
   Req,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
+import { Parser } from 'json2csv';
 import { Public } from 'src/decorators/is-public';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
@@ -52,6 +58,7 @@ import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { PermissionsGuard } from '../auth/guards/permission.guard';
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard';
 import { RelationsService } from '../relations/relations.service';
+import { UsersService } from '../users/users.service';
 import { OrganizationsService } from './organizations.service';
 
 @ApiTags('organizations')
@@ -62,6 +69,9 @@ import { OrganizationsService } from './organizations.service';
 export class OrganizationsController extends GenericController<Organization> {
   @Autowired({ typeName: 'RelationsService' })
   private relationsService: RelationsService;
+
+  @Autowired({ typeName: 'UsersService' })
+  private usersService: UsersService;
 
   constructor(private readonly organizationService: OrganizationsService) {
     super();
@@ -240,6 +250,56 @@ export class OrganizationsController extends GenericController<Organization> {
   async getOrganizationMembers(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
     const data: OrganizationMember[] = await this.organizationService.getOrganizationMembers(organizationId);
     return new NormalizedResponseDTO(data);
+  }
+
+  @Get('/:organizationId/members/export')
+  @ApiOperation({
+    summary: `Export members of an organization in csv`,
+    description: `Allows exporting members of an organization in csv`,
+  })
+  @ApiParam({
+    name: 'organizationId',
+    required: true,
+    description: `Id of the organization to fetch`,
+    schema: { type: 'string' },
+  })
+  @Permission([OrganizationPermissionsEnum.ADMIN])
+  async exportOrganizationMembers(@CurrentToken() token: Token, @Param('organizationId') organizationId: string, @Res() response: Response): Promise<void> {
+    const organization: Organization = await this.organizationService.getOrganizationById(organizationId);
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+    const organizationResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find(
+      (resourcePermissions: ResourcePermissions) => resourcePermissions.id === organizationId,
+    );
+    if (!organizationResourcePermissions || !organizationResourcePermissions.permissions.includes(OrganizationPermissionsEnum.ADMIN)) {
+      throw new ForbiddenException('You are not allowed to access this resource');
+    }
+    const organizationMembersJoin: OrganizationMemberJoin[] = await this.organizationService.getMembers(organizationId);
+    const data: { display_name: string; email: string; created_at: string; last_login: string }[] = [];
+    for (const organizationMemberJoin of organizationMembersJoin) {
+      const user: User = await this.usersService.getUserById(organizationMemberJoin.member_id);
+      if (!user) {
+        continue;
+      }
+      data.push({
+        display_name: user.display_name,
+        email: user.email,
+        created_at: user.created_at.toISOString(),
+        last_login: user.last_login ? user.last_login.toISOString() : '',
+      });
+    }
+    // Sort by display_name
+    data.sort((a, b) => {
+      const display_name_a: string = a.display_name.toLowerCase();
+      const display_name_b: string = b.display_name.toLowerCase();
+      return display_name_b > display_name_a ? -1 : display_name_b < display_name_a ? 1 : 0;
+    });
+    const parser = new Parser();
+    const csv: string = parser.parse(data);
+    response.setHeader('Content-Type', 'text/csv');
+    response.setHeader('Content-Disposition', `attachment; filename=${organization.sluglified_name}-members.csv`);
+    response.send(csv);
   }
 
   @Post('invitation')

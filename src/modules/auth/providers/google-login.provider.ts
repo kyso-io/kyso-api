@@ -5,16 +5,11 @@ import axios from 'axios';
 import { google } from 'googleapis';
 import { ObjectId } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
-import { Autowired } from '../../../decorators/autowired';
 import slugify from '../../../helpers/slugify';
-import { UsersService } from '../../users/users.service';
 import { BaseLoginProvider } from './base-login.provider';
 
 @Injectable()
 export class GoogleLoginProvider extends BaseLoginProvider {
-  @Autowired({ typeName: 'UsersService' })
-  private usersService: UsersService;
-
   constructor(protected readonly jwtService: JwtService) {
     super(jwtService);
   }
@@ -79,7 +74,7 @@ export class GoogleLoginProvider extends BaseLoginProvider {
 
       await this.addUserToOrganizationsAutomatically(user);
 
-      return await this.createToken(user);
+      return this.createToken(user);
     } catch (e) {
       Logger.error('Error login with google provider', e);
       throw new UnauthorizedException('Invalid credentials');

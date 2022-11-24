@@ -1,16 +1,11 @@
 import { CreateUserRequestDTO, Login, LoginProviderEnum } from '@kyso-io/kyso-model';
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Autowired } from '../../../decorators/autowired';
 import slugify from '../../../helpers/slugify';
-import { UsersService } from '../../users/users.service';
 import { BaseLoginProvider } from './base-login.provider';
 
 @Injectable()
 export class PingIdLoginProvider extends BaseLoginProvider {
-  @Autowired({ typeName: 'UsersService' })
-  private usersService: UsersService;
-
   constructor(protected readonly jwtService: JwtService) {
     super(jwtService);
   }

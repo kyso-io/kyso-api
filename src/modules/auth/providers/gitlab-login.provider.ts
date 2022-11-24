@@ -8,14 +8,10 @@ import slugify from '../../../helpers/slugify';
 import { GitlabReposService } from '../../gitlab-repos/gitlab-repos.service';
 import { GitlabAccessToken } from '../../gitlab-repos/interfaces/gitlab-access-token';
 import { GitlabUser } from '../../gitlab-repos/interfaces/gitlab-user';
-import { UsersService } from '../../users/users.service';
 import { BaseLoginProvider } from './base-login.provider';
 
 @Injectable()
 export class GitlabLoginProvider extends BaseLoginProvider {
-  @Autowired({ typeName: 'UsersService' })
-  private usersService: UsersService;
-
   @Autowired({ typeName: 'GitlabReposService' })
   private gitlabReposService: GitlabReposService;
 
@@ -68,7 +64,7 @@ export class GitlabLoginProvider extends BaseLoginProvider {
 
       await this.addUserToOrganizationsAutomatically(user);
 
-      return await this.createToken(user);
+      return this.createToken(user);
     } catch (e) {
       Logger.error(e);
       return null;
