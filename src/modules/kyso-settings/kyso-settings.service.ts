@@ -105,6 +105,8 @@ export class KysoSettingsService extends AutowiredService {
         return '';
       case KysoSettingsEnum.THEME:
         return 'default';
+      case KysoSettingsEnum.ENABLE_INVITATION_LINKS_GLOBALLY:
+        return 'false';
       default:
         return '';
     }
@@ -216,6 +218,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'Default organization to redirect a non authenticated user';
       case KysoSettingsEnum.THEME:
         return 'Theme of the platform';
+      case KysoSettingsEnum.ENABLE_INVITATION_LINKS_GLOBALLY:
+        return 'If true, enables the invitation links for all organizations';
       default:
         return 'No description provided';
     }

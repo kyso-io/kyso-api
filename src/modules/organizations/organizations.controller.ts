@@ -3,6 +3,7 @@ import {
   CreateOrganizationDto,
   GlobalPermissionsEnum,
   InviteUserDto,
+  JoinCodes,
   NormalizedResponseDTO,
   Organization,
   OrganizationInfoDto,
@@ -19,6 +20,7 @@ import {
   TeamMember,
   TeamPermissionsEnum,
   Token,
+  UpdateJoinCodesDto,
   UpdateOrganizationDTO,
   UpdateOrganizationMembersDTO,
   User,
@@ -35,6 +37,7 @@ import {
   Patch,
   Post,
   PreconditionFailedException,
+  Put,
   Query,
   Req,
   Res,
@@ -174,7 +177,6 @@ export class OrganizationsController extends GenericController<Organization> {
       delete organization?.billingEmail;
       delete organization?.stripe_subscription_id;
       delete organization?.tax_identifier;
-      delete organization?.invitation_code;
       delete organization.options?.notifications;
     }
     return new NormalizedResponseDTO(organization);
@@ -209,7 +211,6 @@ export class OrganizationsController extends GenericController<Organization> {
       delete organization?.billingEmail;
       delete organization?.stripe_subscription_id;
       delete organization?.tax_identifier;
-      delete organization?.invitation_code;
       delete organization.options?.notifications;
     }
     return new NormalizedResponseDTO(organization);
@@ -300,6 +301,54 @@ export class OrganizationsController extends GenericController<Organization> {
     response.setHeader('Content-Type', 'text/csv');
     response.setHeader('Content-Disposition', `attachment; filename=${organization.sluglified_name}-members.csv`);
     response.send(csv);
+  }
+
+  @Post('/:organizationId/join-codes')
+  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiOperation({
+    summary: `Create a join codes for an organization`,
+    description: `Allows creating a join codes for an organization`,
+  })
+  @ApiBody({
+    type: UpdateJoinCodesDto,
+    description: `Generate join codes for an organization`,
+  })
+  @Permission([OrganizationPermissionsEnum.ADMIN])
+  async createJoinCodes(@CurrentToken() token: Token, @Param('organizationId') organizationId: string, @Body() updateJoinCodesDto: UpdateJoinCodesDto): Promise<NormalizedResponseDTO<JoinCodes>> {
+    const organizationResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find(
+      (resourcePermissions: ResourcePermissions) => resourcePermissions.id === organizationId,
+    );
+    const isGlobalAdmin: boolean = token.permissions.global.includes(GlobalPermissionsEnum.GLOBAL_ADMIN);
+    const isOrgAdmin: boolean = organizationResourcePermissions ? organizationResourcePermissions.permissions.includes(OrganizationPermissionsEnum.ADMIN) : false;
+    if (!isGlobalAdmin && !isOrgAdmin) {
+      throw new ForbiddenException('You are not allowed generate join codes for this organization');
+    }
+    const joinCodes: JoinCodes = await this.organizationService.createJoinCodes(organizationId, updateJoinCodesDto);
+    return new NormalizedResponseDTO(joinCodes);
+  }
+
+  @Patch('/:organizationId/join-codes')
+  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiOperation({
+    summary: `Update a join codes for an organization`,
+    description: `Allows updating a join codes for an organization`,
+  })
+  @ApiBody({
+    type: UpdateJoinCodesDto,
+    description: `Update join codes for an organization`,
+  })
+  @Permission([OrganizationPermissionsEnum.ADMIN])
+  async updateJoinCodes(@CurrentToken() token: Token, @Param('organizationId') organizationId: string, @Body() updateJoinCodesDto: UpdateJoinCodesDto): Promise<NormalizedResponseDTO<JoinCodes>> {
+    const organizationResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find(
+      (resourcePermissions: ResourcePermissions) => resourcePermissions.id === organizationId,
+    );
+    const isGlobalAdmin: boolean = token.permissions.global.includes(GlobalPermissionsEnum.GLOBAL_ADMIN);
+    const isOrgAdmin: boolean = organizationResourcePermissions ? organizationResourcePermissions.permissions.includes(OrganizationPermissionsEnum.ADMIN) : false;
+    if (!isGlobalAdmin && !isOrgAdmin) {
+      throw new ForbiddenException('You are not allowed update join codes for this organization');
+    }
+    const joinCodes: JoinCodes = await this.organizationService.updateJoinCodes(organizationId, updateJoinCodesDto);
+    return new NormalizedResponseDTO(joinCodes);
   }
 
   @Post('invitation')

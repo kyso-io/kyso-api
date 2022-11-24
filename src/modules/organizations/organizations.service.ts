@@ -5,6 +5,7 @@ import {
   Discussion,
   InlineComment,
   InviteUserDto,
+  JoinCodes,
   KysoEventEnum,
   KysoOrganizationsAddMemberEvent,
   KysoOrganizationsCreateEvent,
@@ -30,6 +31,7 @@ import {
   TeamMember,
   TeamVisibilityEnum,
   Token,
+  UpdateJoinCodesDto,
   UpdateOrganizationDTO,
   UpdateOrganizationMembersDTO,
   User,
@@ -434,6 +436,11 @@ export class OrganizationsService extends AutowiredService {
   }
 
   public async addUserToOrganization(userId: string, organizationName: string, invitationCode: string): Promise<boolean> {
+    const kysoSettingsValue: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ENABLE_INVITATION_LINKS_GLOBALLY);
+    const enableInvitationLinksGlobally: boolean = kysoSettingsValue === 'true';
+    if (!enableInvitationLinksGlobally) {
+      throw new ForbiddenException('Invitation links are not enabled');
+    }
     const organization: Organization = await this.getOrganization({
       filter: {
         sluglified_name: organizationName,
@@ -442,21 +449,31 @@ export class OrganizationsService extends AutowiredService {
     if (!organization) {
       throw new NotFoundException('Organization does not exist');
     }
-    if (organization.invitation_code !== invitationCode) {
+    if (!organization.join_codes) {
+      throw new ForbiddenException('The organization does not have defined join codes');
+    }
+    if (!organization.join_codes.enabled) {
+      throw new ForbiddenException('The organization does not have join codes enabled');
+    }
+    let role: string;
+    if (organization.join_codes.reader === invitationCode) {
+      role = PlatformRole.TEAM_READER_ROLE.name;
+    } else if (organization.join_codes.contributor === invitationCode) {
+      role = PlatformRole.TEAM_CONTRIBUTOR_ROLE.name;
+    } else {
       throw new BadRequestException('Invalid invitation code');
     }
     const user: User = await this.usersService.getUserById(userId);
     if (!user) {
       throw new NotFoundException('User does not exist');
     }
-    const role: string = PlatformRole.TEAM_READER_ROLE.name;
     const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id);
-    const member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id);
-    if (!member) {
-      const newMember: OrganizationMemberJoin = new OrganizationMemberJoin(organization.id, user.id, [role], true);
-      await this.organizationMemberProvider.create(newMember);
+    let member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id);
+    if (member) {
+      throw new BadRequestException('User is already a member of the organization');
     }
-
+    member = new OrganizationMemberJoin(organization.id, user.id, [role], true);
+    await this.organizationMemberProvider.create(member);
     // SEND NOTIFICATIONS
     const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
     const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
@@ -471,7 +488,6 @@ export class OrganizationsService extends AutowiredService {
       role,
       frontendUrl,
     });
-
     return true;
   }
 
@@ -989,5 +1005,40 @@ export class OrganizationsService extends AutowiredService {
     }
 
     return result;
+  }
+
+  public async createJoinCodes(organizationId: string, updateJoinCodesDto: UpdateJoinCodesDto): Promise<JoinCodes> {
+    const kysoSettingsValue: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ENABLE_INVITATION_LINKS_GLOBALLY);
+    const enableInvitationLinksGlobally: boolean = kysoSettingsValue === 'true';
+    if (!enableInvitationLinksGlobally) {
+      throw new ForbiddenException('Invitation links are not enabled');
+    }
+    const organization: Organization = await this.getOrganizationById(organizationId);
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+    const joinCodes: JoinCodes = new JoinCodes(uuidv4(), uuidv4(), updateJoinCodesDto.enabled, moment(updateJoinCodesDto.valid_until).toDate());
+    await this.provider.updateOne({ _id: this.provider.toObjectId(organizationId) }, { $set: { join_codes: joinCodes } });
+    return joinCodes;
+  }
+
+  public async updateJoinCodes(organizationId: string, updateJoinCodesDto: UpdateJoinCodesDto): Promise<JoinCodes> {
+    const kysoSettingsValue: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ENABLE_INVITATION_LINKS_GLOBALLY);
+    const enableInvitationLinksGlobally: boolean = kysoSettingsValue === 'true';
+    if (!enableInvitationLinksGlobally) {
+      throw new ForbiddenException('Invitation links are not enabled');
+    }
+    const organization: Organization = await this.getOrganizationById(organizationId);
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+    if (!organization.join_codes) {
+      throw new NotFoundException(`Organization ${organization.sluglified_name} has not defined join codes`);
+    }
+    const joinCodes: JoinCodes = organization.join_codes;
+    joinCodes.enabled = updateJoinCodesDto.enabled;
+    joinCodes.valid_until = moment(updateJoinCodesDto.valid_until).toDate();
+    await this.provider.updateOne({ _id: this.provider.toObjectId(organizationId) }, { $set: { join_codes: joinCodes } });
+    return joinCodes;
   }
 }

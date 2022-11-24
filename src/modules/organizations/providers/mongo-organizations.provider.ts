@@ -7,7 +7,7 @@ import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class OrganizationsMongoProvider extends MongoProvider<Organization> {
-  version = 8;
+  version = 9;
 
   constructor() {
     super('Organization', db);
@@ -235,5 +235,16 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
         },
       );
     }
+  }
+
+  public async migrate_from_8_to_9(): Promise<void> {
+    await this.updateMany(
+      {},
+      {
+        $set: {
+          join_codes: null,
+        },
+      },
+    );
   }
 }
