@@ -7,14 +7,10 @@ import { Autowired } from '../../../decorators/autowired';
 import { BitbucketReposService } from '../../bitbucket-repos/bitbucket-repos.service';
 import { BitbucketEmail } from '../../bitbucket-repos/classes/bitbucket-email';
 import { BitbucketPaginatedResponse } from '../../bitbucket-repos/classes/bitbucket-paginated-response';
-import { UsersService } from '../../users/users.service';
 import { BaseLoginProvider } from './base-login.provider';
 
 @Injectable()
 export class BitbucketLoginProvider extends BaseLoginProvider {
-  @Autowired({ typeName: 'UsersService' })
-  private usersService: UsersService;
-
   @Autowired({ typeName: 'BitbucketReposService' })
   private bitbucketReposService: BitbucketReposService;
 
@@ -75,7 +71,7 @@ export class BitbucketLoginProvider extends BaseLoginProvider {
       await this.usersService.updateUser({ _id: new ObjectId(user.id) }, { $set: { accounts: user.accounts } });
 
       await this.addUserToOrganizationsAutomatically(user);
-      return await this.createToken(user);
+      return this.createToken(user);
     } catch (e) {
       Logger.error(`An error occurred loging a user in Bitbucket`, e, BitbucketLoginProvider.name);
       return null;

@@ -7,14 +7,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { Autowired } from '../../../decorators/autowired';
 import { UnauthorizedError } from '../../../helpers/errorHandling';
 import { GithubReposService } from '../../github-repos/github-repos.service';
-import { UsersService } from '../../users/users.service';
 import { BaseLoginProvider } from './base-login.provider';
 
 @Injectable()
 export class GithubLoginProvider extends BaseLoginProvider {
-  @Autowired({ typeName: 'UsersService' })
-  private usersService: UsersService;
-
   @Autowired({ typeName: 'GithubReposService' })
   private githubReposService: GithubReposService;
 
