@@ -467,6 +467,12 @@ export class OrganizationsService extends AutowiredService {
     if (!user) {
       throw new NotFoundException('User does not exist');
     }
+    if (Array.isArray(organization.allowed_access_domains) && organization.allowed_access_domains.length > 0) {
+      const domain: string = user.email.split('@')[1];
+      if (!organization.allowed_access_domains.includes(domain)) {
+        throw new ForbiddenException('The user does not belong to the allowed domains');
+      }
+    }
     const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id);
     let member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id);
     if (member) {
@@ -1013,11 +1019,15 @@ export class OrganizationsService extends AutowiredService {
     if (!enableInvitationLinksGlobally) {
       throw new ForbiddenException('Invitation links are not enabled');
     }
+    const validUntil: moment.Moment = moment(updateJoinCodesDto.valid_until).startOf('day');
+    if (validUntil.isAfter(moment().add(2, 'months').startOf('day'))) {
+      throw new BadRequestException('Expiration date can not be higher than 3 months');
+    }
     const organization: Organization = await this.getOrganizationById(organizationId);
     if (!organization) {
       throw new NotFoundException('Organization not found');
     }
-    const joinCodes: JoinCodes = new JoinCodes(uuidv4(), uuidv4(), updateJoinCodesDto.enabled, moment(updateJoinCodesDto.valid_until).toDate());
+    const joinCodes: JoinCodes = new JoinCodes(uuidv4(), uuidv4(), updateJoinCodesDto.enabled, validUntil.toDate());
     await this.provider.updateOne({ _id: this.provider.toObjectId(organizationId) }, { $set: { join_codes: joinCodes } });
     return joinCodes;
   }
@@ -1027,6 +1037,10 @@ export class OrganizationsService extends AutowiredService {
     const enableInvitationLinksGlobally: boolean = kysoSettingsValue === 'true';
     if (!enableInvitationLinksGlobally) {
       throw new ForbiddenException('Invitation links are not enabled');
+    }
+    const validUntil: moment.Moment = moment(updateJoinCodesDto.valid_until).startOf('day');
+    if (validUntil.isAfter(moment().add(2, 'months').startOf('day'))) {
+      throw new BadRequestException('Expiration date can not be higher than 3 months');
     }
     const organization: Organization = await this.getOrganizationById(organizationId);
     if (!organization) {
