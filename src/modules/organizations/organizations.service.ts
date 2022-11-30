@@ -439,7 +439,7 @@ export class OrganizationsService extends AutowiredService {
     const kysoSettingsValue: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ENABLE_INVITATION_LINKS_GLOBALLY);
     const enableInvitationLinksGlobally: boolean = kysoSettingsValue === 'true';
     if (!enableInvitationLinksGlobally) {
-      throw new ForbiddenException('Invitation links are not enabled');
+      throw new ForbiddenException('Invitation links are disabled globally');
     }
     const organization: Organization = await this.getOrganization({
       filter: {
@@ -450,10 +450,13 @@ export class OrganizationsService extends AutowiredService {
       throw new NotFoundException('Organization does not exist');
     }
     if (!organization.join_codes) {
-      throw new ForbiddenException('The organization does not have defined join codes');
+      throw new ForbiddenException('The organization does not have defined invitatino links');
     }
     if (!organization.join_codes.enabled) {
-      throw new ForbiddenException('The organization does not have join codes enabled');
+      throw new ForbiddenException('The organization does not have invitation links activated');
+    }
+    if (moment().isAfter(organization.join_codes.valid_until)) {
+      throw new ForbiddenException('Invitation link is expired');
     }
     let role: string;
     if (organization.join_codes.reader === invitationCode) {
@@ -470,13 +473,13 @@ export class OrganizationsService extends AutowiredService {
     if (Array.isArray(organization.allowed_access_domains) && organization.allowed_access_domains.length > 0) {
       const domain: string = user.email.split('@')[1];
       if (!organization.allowed_access_domains.includes(domain)) {
-        throw new ForbiddenException('The user does not belong to the allowed domains');
+        throw new ForbiddenException('Cannot add user to organization due to domain access restrictions');
       }
     }
     const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id);
     let member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id);
     if (member) {
-      throw new BadRequestException('User is already a member of the organization');
+      return true;
     }
     member = new OrganizationMemberJoin(organization.id, user.id, [role], true);
     await this.organizationMemberProvider.create(member);

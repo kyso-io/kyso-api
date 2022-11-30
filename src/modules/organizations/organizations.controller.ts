@@ -178,6 +178,7 @@ export class OrganizationsController extends GenericController<Organization> {
       delete organization?.stripe_subscription_id;
       delete organization?.tax_identifier;
       delete organization.options?.notifications;
+      delete organization.join_codes;
     }
     return new NormalizedResponseDTO(organization);
   }
@@ -212,6 +213,7 @@ export class OrganizationsController extends GenericController<Organization> {
       delete organization?.stripe_subscription_id;
       delete organization?.tax_identifier;
       delete organization.options?.notifications;
+      delete organization.join_codes;
     }
     return new NormalizedResponseDTO(organization);
   }
@@ -462,7 +464,7 @@ export class OrganizationsController extends GenericController<Organization> {
   }
 
   @Post('/:organizationName/join/:invitationCode')
-  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  // @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Add user to an organization`,
     description: `By passing the appropiate parameters you can add a user to an organization`,
