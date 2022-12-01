@@ -34,6 +34,7 @@ const PUBLIC_KYSO_SETTINGS: KysoSettingsEnum[] = [
   KysoSettingsEnum.MAX_FILE_SIZE,
   KysoSettingsEnum.DEFAULT_REDIRECT_ORGANIZATION,
   KysoSettingsEnum.THEME,
+  KysoSettingsEnum.ENABLE_INVITATION_LINKS_GLOBALLY,
 ];
 
 @ApiTags('kyso-settings')
