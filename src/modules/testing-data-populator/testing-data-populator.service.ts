@@ -1,3 +1,4 @@
+import { faker } from '@faker-js/faker';
 import {
   Comment,
   CreateDiscussionRequestDTO,
@@ -35,12 +36,10 @@ import { ReportsService } from '../reports/reports.service';
 import { TagsService } from '../tags/tags.service';
 import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
-import { faker } from '@faker-js/faker';
-import slug from 'src/helpers/slugify';
-import { DeleteCommentTDD } from './features/comments/DeleteCommentTDD';
 import { CommentTDDHelper } from './features/comments/CommentTDDHelper';
-import { ReportsTDDHelper } from './features/reports/ReportTDDHelper';
+import { DeleteCommentTDD } from './features/comments/DeleteCommentTDD';
 import { DeleteReportTDD } from './features/reports/DeleteReportTDD';
+import { ReportsTDDHelper } from './features/reports/ReportTDDHelper';
 
 const mailPrefix = process.env.POPULATE_TEST_DATA_MAIL_PREFIX ? process.env.POPULATE_TEST_DATA_MAIL_PREFIX : 'lo';
 @Injectable()
@@ -646,6 +645,7 @@ export class TestingDataPopulatorService {
         'Sometimes the anger flows through me and I want to be at the darkside. But on the other hand, when I see Rey I get doubts and want to be in the lightside!',
         null,
         null,
+        [],
       );
 
       this.KyloThoughtsReport = await ReportsTDDHelper.createReport(this.Kylo_TeamContributorUser, reportKylosThoughts, this.reportsService);
@@ -661,6 +661,7 @@ export class TestingDataPopulatorService {
         `Do you think Pokemon is not suitable for Lord Siths? You're wrong! See my report to know who is the best pokemon ever!`,
         null,
         null,
+        [],
       );
 
       this.BestPokemonReport = await ReportsTDDHelper.createReport(this.Kylo_TeamContributorUser, reportMoffGideonPokemonReport, this.reportsService);
@@ -676,6 +677,7 @@ export class TestingDataPopulatorService {
         'Make sure that this details dont get leaked as the lightside can really fuck us with that information',
         null,
         null,
+        [],
       );
 
       this.DeathStarEngineeringReport = await ReportsTDDHelper.createReport(this.Gideon_OrganizationAdminUser, reportDeathStarEngineering, this.reportsService);
@@ -691,6 +693,7 @@ export class TestingDataPopulatorService {
         `Using the information that Moff Gideon leaked absurdly, in this report we detail how we're going to destroy the Empire`,
         null,
         null,
+        [],
       );
 
       this.RebelScumCounterAttackReport = await ReportsTDDHelper.createReport(this.Rey_TeamAdminUser, reportRebelScumCounterAttack, this.reportsService);
