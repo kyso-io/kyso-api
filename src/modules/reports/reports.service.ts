@@ -32,6 +32,7 @@ import {
   RepositoryProvider,
   ResourcePermissions,
   StarredReport,
+  TableOfContentEntryDto,
   Tag,
   Team,
   TeamVisibilityEnum,
@@ -280,6 +281,7 @@ export class ReportsService extends AutowiredService {
       false,
       false,
       kysoConfigFile && kysoConfigFile.main ? kysoConfigFile.main : null,
+      createReportDto?.toc || [],
     );
 
     if (createReportDto.id) {
@@ -685,6 +687,7 @@ export class ReportsService extends AutowiredService {
       lastVersion,
       organization?.sluglified_name,
       team?.sluglified_name,
+      report.toc,
     );
   }
 
@@ -862,7 +865,8 @@ export class ReportsService extends AutowiredService {
         const sha: string = sha256File(localFilePath);
         const size: number = statSync(localFilePath).size;
         const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`;
-        let reportFile = new File(report.id, originalName, path_scs, size, sha, version, createKysoReportDto.message, createKysoReportDto.git_metadata);
+        const toc: TableOfContentEntryDto[] = this.getTableOfContents(localFilePath);
+        let reportFile = new File(report.id, originalName, path_scs, size, sha, version, createKysoReportDto.message, createKysoReportDto.git_metadata, toc);
         reportFile = await this.filesMongoProvider.create(reportFile);
         reportFiles.push(reportFile);
         if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
@@ -880,6 +884,7 @@ export class ReportsService extends AutowiredService {
             description: kysoConfigFile?.description || null,
             type: kysoConfigFile?.type || null,
             author_ids: authors,
+            tock: kysoConfigFile?.toc || [],
           },
         },
       );
@@ -911,6 +916,7 @@ export class ReportsService extends AutowiredService {
         false,
         false,
         kysoConfigFile?.main,
+        kysoConfigFile?.toc || [],
       );
       if (kysoConfigFile?.type && kysoConfigFile.type.length > 0) {
         report.report_type = kysoConfigFile.type;
@@ -926,7 +932,8 @@ export class ReportsService extends AutowiredService {
         const sha: string = sha256File(localFilePath);
         const size: number = statSync(localFilePath).size;
         const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`;
-        let file: File = new File(report.id, originalName, path_scs, size, sha, 1, createKysoReportDto.message, createKysoReportDto.git_metadata);
+        const toc: TableOfContentEntryDto[] = this.getTableOfContents(localFilePath);
+        let file: File = new File(report.id, originalName, path_scs, size, sha, 1, createKysoReportDto.message, createKysoReportDto.git_metadata, toc);
         file = await this.filesMongoProvider.create(file);
         reportFiles.push(file);
         if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
@@ -1038,7 +1045,8 @@ export class ReportsService extends AutowiredService {
       const sha: string = sha256File(localFilePath);
       const size: number = statSync(localFilePath).size;
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`;
-      let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version, createKysoReportVersionDto.message, createKysoReportVersionDto.git_metadata);
+      const toc: TableOfContentEntryDto[] = this.getTableOfContents(localFilePath);
+      let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version, createKysoReportVersionDto.message, createKysoReportVersionDto.git_metadata, toc);
       reportFile = await this.filesMongoProvider.create(reportFile);
       if (kysoConfigFile && originalName === kysoConfigFile?.preview) {
         let preview_picture: string;
@@ -1084,6 +1092,7 @@ export class ReportsService extends AutowiredService {
             description: kysoConfigFile?.description || null,
             type: kysoConfigFile?.type || null,
             author_ids: authors,
+            tock: kysoConfigFile?.toc || [],
           },
         },
       );
@@ -1099,7 +1108,7 @@ export class ReportsService extends AutowiredService {
       if (index !== -1) {
         const file: File = reportFiles[index];
         const newPathScs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${file.name}`;
-        let hardLinkFile: File = new File(report.id, file.name, newPathScs, file.size, file.sha, version, createKysoReportVersionDto.message, createKysoReportVersionDto.git_metadata);
+        let hardLinkFile: File = new File(report.id, file.name, newPathScs, file.size, file.sha, version, createKysoReportVersionDto.message, createKysoReportVersionDto.git_metadata, file.toc);
         hardLinkFile = await this.filesMongoProvider.create(hardLinkFile);
         const source: string = join(sftpDestinationFolder, file.path_scs);
         const target: string = join(sftpDestinationFolder, hardLinkFile.path_scs);
@@ -1282,7 +1291,8 @@ export class ReportsService extends AutowiredService {
           const sha: string = sha256File(localFilePath);
           const size: number = statSync(localFilePath).size;
           const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`;
-          let reportFile = new File(report.id, originalName, path_scs, size, sha, version, message, git_metadata);
+          const toc: TableOfContentEntryDto[] = this.getTableOfContents(localFilePath);
+          let reportFile = new File(report.id, originalName, path_scs, size, sha, version, message, git_metadata, toc);
           reportFile = await this.filesMongoProvider.create(reportFile);
           reportFiles.push(reportFile);
         }
@@ -1309,6 +1319,7 @@ export class ReportsService extends AutowiredService {
           false,
           false,
           kysoConfigFile?.main,
+          kysoConfigFile?.toc || [],
         );
         if (kysoConfigFile?.type && kysoConfigFile.type.length > 0) {
           report.report_type = kysoConfigFile.type;
@@ -1327,7 +1338,8 @@ export class ReportsService extends AutowiredService {
           const sha: string = sha256File(localFilePath);
           const size: number = statSync(localFilePath).size;
           const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`;
-          let file: File = new File(report.id, originalName, path_scs, size, sha, 1, message, git_metadata);
+          const toc: TableOfContentEntryDto[] = this.getTableOfContents(localFilePath);
+          let file: File = new File(report.id, originalName, path_scs, size, sha, 1, message, git_metadata, toc);
           file = await this.filesMongoProvider.create(file);
           reportFiles.push(file);
           if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
@@ -1470,6 +1482,7 @@ export class ReportsService extends AutowiredService {
       false,
       false,
       kysoConfigFile.main,
+      kysoConfigFile?.toc || [],
     );
     if (kysoConfigFile?.type && kysoConfigFile.type.length > 0) {
       report.report_type = kysoConfigFile.type;
@@ -1486,7 +1499,8 @@ export class ReportsService extends AutowiredService {
       const sha: string = sha256File(localFilePath);
       const size: number = statSync(localFilePath).size;
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`;
-      let file: File = new File(report.id, originalName, path_scs, size, sha, version, message, git_metadata);
+      const toc: TableOfContentEntryDto[] = this.getTableOfContents(localFilePath);
+      let file: File = new File(report.id, originalName, path_scs, size, sha, version, message, git_metadata, toc);
       file = await this.filesMongoProvider.create(file);
       reportFiles.push(file);
       if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
@@ -1568,7 +1582,7 @@ export class ReportsService extends AutowiredService {
         size = statSync(mainFileReportLocalPath).size;
       }
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion + 1}/${fileLastVersion.name}`;
-      let fileNewVersion: File = new File(report.id, fileLastVersion.name, path_scs, size, sha, lastVersion + 1, message, git_metadata);
+      let fileNewVersion: File = new File(report.id, fileLastVersion.name, path_scs, size, sha, lastVersion + 1, message, git_metadata, fileLastVersion.toc);
       fileNewVersion = await this.filesMongoProvider.create(fileNewVersion);
       Logger.log(`Report '${report.id} ${report.sluglified_name}': Created new version ${lastVersion + 1} for file '${fileLastVersion.name}'`, ReportsService.name);
     }
@@ -1667,6 +1681,7 @@ export class ReportsService extends AutowiredService {
         false,
         false,
         null,
+        [],
       );
       report = await this.provider.create(report);
       Logger.log(`New report '${report.id} ${report.sluglified_name}'`, ReportsService.name);
@@ -1867,6 +1882,7 @@ export class ReportsService extends AutowiredService {
         false,
         false,
         null,
+        [],
       );
       report = await this.provider.create(report);
       Logger.log(`New report '${report.id} ${report.sluglified_name}'`, ReportsService.name);
@@ -2021,6 +2037,7 @@ export class ReportsService extends AutowiredService {
         false,
         false,
         null,
+        [],
       );
       report = await this.provider.create(report);
       Logger.log(`New report '${report.id} ${report.sluglified_name}'`, ReportsService.name);
@@ -2336,7 +2353,8 @@ export class ReportsService extends AutowiredService {
       const sha: string = sha256File(files[i].filePath);
       const size: number = statSync(files[i].filePath).size;
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`;
-      let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version, message, git_metadata);
+      const toc: TableOfContentEntryDto[] = this.getTableOfContents(files[i].filePath);
+      let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version, message, git_metadata, toc);
       reportFile = await this.filesMongoProvider.create(reportFile);
       if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
         report = await this.updateReportPreviewPicture(report, files[i].filePath);
@@ -2770,7 +2788,7 @@ export class ReportsService extends AutowiredService {
                 <!-- KYSO PREPROCESS START -->
                 <meta charset="utf-8" />
                   
-                  <link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Roboto+Mono:400,500&amp;amp;display=swap' />
+                  <link rel='stylesheet' link='https://fonts.googleapis.com/css?family=Roboto+Mono:400,500&amp;amp;display=swap' />
         
                   <style>
                     .mqc_table .wrapper {
@@ -3053,5 +3071,78 @@ export class ReportsService extends AutowiredService {
         Logger.warn(`${pathToIndex} was not indexed properly`, err);
       },
     );
+  }
+
+  private getSectionsTableOfContents(fileContent: string): { level: number; href: string; title: string }[] {
+    const regXHeader = /(?<flag>#{1,6})\s+(?<content>.+)/g;
+    return Array.from(fileContent.matchAll(regXHeader)).map(({ groups: { flag, content } }) => {
+      return {
+        level: flag.length,
+        // The link is generated from the content according to the following rules:
+        //    All text is converted to lowercase.
+        //    All non-word text (e.g., punctuation, HTML) is removed.
+        //    All spaces are converted to hyphens.
+        //    Two or more hyphens in a row are converted to one.
+        //    If a header with the same ID has already been generated, a unique incrementing number is appended, starting at 1.
+        href: `#${content
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')}`,
+        title: content,
+      };
+    });
+  }
+
+  private getTableOfContentsGivenMarkdownContent(markdownContent: string): TableOfContentEntryDto[] {
+    const toc: TableOfContentEntryDto[] = [];
+    const data: { level: number; href: string; title: string }[] = this.getSectionsTableOfContents(markdownContent);
+    let parent: TableOfContentEntryDto | null = null;
+    let validPreviousIndex: number | null = null;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i].level === 1) {
+        const tableOfContentEntryDto: TableOfContentEntryDto = new TableOfContentEntryDto(data[i].title, data[i].href);
+        toc.push(tableOfContentEntryDto);
+        parent = toc[toc.length - 1];
+        validPreviousIndex = i;
+      } else {
+        if (data[validPreviousIndex].level + 1 < data[i].level) {
+          continue;
+        }
+        if (!parent.hasOwnProperty('children')) {
+          parent.children = [];
+        }
+        const tableOfContentEntryDto: TableOfContentEntryDto = new TableOfContentEntryDto(data[i].title, data[i].href);
+        parent.children.push(tableOfContentEntryDto);
+        if (i + 1 < data.length && data[i + 1].level > data[i].level) {
+          parent = parent.children[parent.children.length - 1];
+          validPreviousIndex = i;
+        }
+      }
+    }
+    return toc;
+  }
+
+  private getTableOfContents(filePath: string): TableOfContentEntryDto[] {
+    if (filePath.endsWith('.md')) {
+      const fileContent: string = readFileSync(filePath).toString();
+      return this.getTableOfContentsGivenMarkdownContent(fileContent);
+    }
+    if (filePath.endsWith('.ipynb')) {
+      const fileContent: string = readFileSync(filePath).toString();
+      let toc: TableOfContentEntryDto[] = [];
+      try {
+        const jsonContent: any = JSON.parse(fileContent);
+        jsonContent.cells.forEach((cell: any) => {
+          if (cell.cell_type === 'markdown') {
+            const cellToc: TableOfContentEntryDto[] = this.getTableOfContentsGivenMarkdownContent(cell.source.join(''));
+            toc = toc.concat(cellToc);
+          }
+        });
+      } catch (e) {
+        console.log(e);
+      }
+      return toc;
+    }
+    return [];
   }
 }

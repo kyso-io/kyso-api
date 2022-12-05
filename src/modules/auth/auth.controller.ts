@@ -611,7 +611,6 @@ export class AuthController extends GenericController<string> {
     }
 
     const objects: { organization: Organization; team: Team } = await this.authService.retrieveOrgAndTeamFromSlug(checkPermissionDto.organization, checkPermissionDto.team);
-
     const userHasPermission: boolean = AuthService.hasPermissions(token, [checkPermissionDto.permission as KysoPermissions], objects.team, objects.organization);
     return new NormalizedResponseDTO(userHasPermission);
   }

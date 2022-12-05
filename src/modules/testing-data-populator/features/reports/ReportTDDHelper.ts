@@ -1,9 +1,8 @@
-import { Logger } from '@nestjs/common';
-import { CommentsService } from 'src/modules/comments/comments.service';
-import { Comment, CreateReportDTO, RepositoryProvider, User } from '@kyso-io/kyso-model';
-import { ReportsService } from 'src/modules/reports/reports.service';
-import slug from 'src/helpers/slugify';
 import { faker } from '@faker-js/faker';
+import { CreateReportDTO, RepositoryProvider, User } from '@kyso-io/kyso-model';
+import { Logger } from '@nestjs/common';
+import slug from 'src/helpers/slugify';
+import { ReportsService } from 'src/modules/reports/reports.service';
 
 export class ReportsTDDHelper {
   public static async createReport(author: User, report: CreateReportDTO, reportsService: ReportsService) {
@@ -18,7 +17,7 @@ export class ReportsTDDHelper {
   public static async generateRandomReport(channelId: string, fixedReportId?: string): Promise<any> {
     const reportTitle = faker.company.catchPhrase();
 
-    const randomReport = new CreateReportDTO(slug(reportTitle), null, RepositoryProvider.KYSO, 'main', '.', channelId, reportTitle, faker.hacker.phrase(), null, null, fixedReportId);
+    const randomReport = new CreateReportDTO(slug(reportTitle), null, RepositoryProvider.KYSO, 'main', '.', channelId, reportTitle, faker.hacker.phrase(), null, null, [], fixedReportId);
 
     return randomReport;
   }

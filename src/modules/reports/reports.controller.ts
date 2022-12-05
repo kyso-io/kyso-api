@@ -1268,7 +1268,7 @@ export class ReportsController extends GenericController<Report> {
     return new NormalizedResponseDTO(hash);
   }
 
-  @Get('/file/:id')
+  @Get('/file-content/:id')
   @Public()
   @ApiOperation({
     summary: `Get content of a file`,
@@ -1302,6 +1302,47 @@ export class ReportsController extends GenericController<Report> {
       }
     }
     return this.reportsService.getReportFileContent(file);
+  }
+
+  @Get('/file/:id')
+  @Public()
+  @ApiOperation({
+    summary: `Get file info`,
+    description: `By passing the id a file, get its metadata.`,
+  })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    description: 'Id of the file to fetch',
+    schema: { type: 'string' },
+  })
+  @ApiNormalizedResponse({
+    status: 200,
+    description: `Report`,
+    type: File,
+  })
+  async getReportFile(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<File>> {
+    const file: File = await this.reportsService.getFileById(id);
+    if (!file) {
+      throw new PreconditionFailedException('File not found');
+    }
+    const report: Report = await this.reportsService.getReportById(file.report_id);
+    if (!report) {
+      throw new PreconditionFailedException('Report not found');
+    }
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!token) {
+      if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+        throw new PreconditionFailedException(`Report is not public`);
+      }
+    } else {
+      const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
+      const index: number = teams.findIndex((t: Team) => t.id === team.id);
+      if (index === -1) {
+        throw new ForbiddenException('You do not have permissions to access this report');
+      }
+    }
+    return new NormalizedResponseDTO(file);
   }
 
   @Get('/:teamId/:reportSlug')
