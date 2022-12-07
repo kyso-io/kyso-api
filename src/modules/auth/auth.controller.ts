@@ -425,7 +425,10 @@ export class AuthController extends GenericController<string> {
       throw new UnauthorizedException(`The requester user has no rights to access other user permissions`);
     }
 
-    const finalPermissions: TokenPermissions = requesterUser.permissions;
+    const finalPermissions: TokenPermissions =
+      username === requesterUser.username
+        ? requesterUser.permissions
+        : await AuthService.buildFinalPermissionsForUser(username, this.usersService, this.teamsService, this.organizationsService, this.platformRoleService, this.userRoleService);
     const { data: publicTokenPermissions } = await this.getPublicPermissions();
     // Global permissions
     for (const kysoPermission of publicTokenPermissions.global) {
