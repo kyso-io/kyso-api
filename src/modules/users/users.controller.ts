@@ -273,9 +273,9 @@ export class UsersController extends GenericController<User> {
       throw new NotFoundException(`User with username ${username} not found`);
     }
     const userDto: UserDTO = UserDTO.fromUser(user);
-    delete user.accounts;
-    delete user.email_verified;
-    delete user.show_captcha;
+    delete userDto.accounts;
+    delete userDto.email_verified;
+    delete userDto.show_captcha;
     return new NormalizedResponseDTO(userDto);
   }
 
@@ -324,10 +324,10 @@ export class UsersController extends GenericController<User> {
     if (!user) {
       throw new NotFoundException(`User with id ${userId} not found`);
     }
-    delete user.accounts;
-    delete user.email_verified;
-    delete user.show_captcha;
     const userDto: UserDTO = UserDTO.fromUser(user);
+    delete userDto.accounts;
+    delete userDto.email_verified;
+    delete userDto.show_captcha;
     return new NormalizedResponseDTO(userDto);
   }
 

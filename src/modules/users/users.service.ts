@@ -340,19 +340,31 @@ export class UsersService extends AutowiredService {
     return true;
   }
 
-  public async updateUserData(token: Token, id: string, data: UpdateUserRequestDTO): Promise<User> {
+  public async updateUserData(token: Token, id: string, updateUserRequestDto: UpdateUserRequestDTO): Promise<User> {
     let user: User = await this.getUserById(id);
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    const data: any = {};
+    if (updateUserRequestDto.name) {
+      data.name = updateUserRequestDto.name;
+    }
+    if (updateUserRequestDto.display_name) {
+      data.display_name = updateUserRequestDto.display_name;
+    }
+    if (updateUserRequestDto.location) {
+      data.location = updateUserRequestDto.location;
+    }
+    if (updateUserRequestDto.bio) {
+      data.bio = updateUserRequestDto.bio;
+    }
+    if (updateUserRequestDto.link) {
+      data.link = updateUserRequestDto.link;
+    }
     user = await this.updateUser(
       { _id: this.provider.toObjectId(id) },
       {
-        $set: {
-          location: data.location,
-          link: data.link,
-          bio: data.bio,
-        },
+        $set: data,
       },
     );
     Logger.log(`Updating user '${user.id} ${user.display_name}' in Elasticsearch...`, UsersService.name);
