@@ -596,7 +596,7 @@ export class OrganizationsController extends GenericController<Organization> {
     },
   })
   @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: Organization })
-  @Permission([TeamPermissionsEnum.EDIT])
+  @Permission([OrganizationPermissionsEnum.ADMIN, OrganizationPermissionsEnum.EDIT])
   public async setProfilePicture(@Param('organizationId') organizationId: string, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Organization>> {
     if (!file) {
       throw new BadRequestException(`Missing file`);
@@ -621,7 +621,7 @@ export class OrganizationsController extends GenericController<Organization> {
     schema: { type: 'string' },
   })
   @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Organization })
-  public async deleteBackgroundImage(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
+  public async deleteBackground(@Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<Organization>> {
     const organization: Organization = await this.organizationService.deleteProfilePicture(organizationId);
     return new NormalizedResponseDTO(organization);
   }

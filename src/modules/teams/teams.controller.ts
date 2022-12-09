@@ -594,7 +594,7 @@ export class TeamsController extends GenericController<Team> {
     description: `Id of the team to set user roles`,
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: TeamMember })
+  @ApiNormalizedResponse({ status: 201, description: `Updated team`, type: TeamMember })
   @Permission([TeamPermissionsEnum.EDIT])
   public async UpdateTeamMembersDTORoles(@Param('teamId') teamId: string, @Body() data: UpdateTeamMembersDTO): Promise<NormalizedResponseDTO<TeamMember[]>> {
     const teamMembers: TeamMember[] = await this.teamsService.updateTeamMembersDTORoles(teamId, data);
@@ -704,7 +704,7 @@ export class TeamsController extends GenericController<Team> {
     description: `Id of the team to fetch`,
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({ status: 200, description: `Updated organization`, type: Team })
+  @ApiNormalizedResponse({ status: 200, description: `Updated team`, type: Team })
   public async deleteBackgroundImage(@CurrentToken() token: Token, @Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Team>> {
     const team: Team = await this.teamsService.deleteProfilePicture(token, teamId);
     return new NormalizedResponseDTO(team);
