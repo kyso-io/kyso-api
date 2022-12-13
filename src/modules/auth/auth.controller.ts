@@ -517,11 +517,6 @@ export class AuthController extends GenericController<string> {
   async checkPermissions(@Headers('x-original-uri') originalUri, @Res() response: any, @Cookies() cookies: any, @Query('token') queryToken?: string) {
     Logger.log(`Checking permissions for ${originalUri}`);
 
-    if (process.env.NODE_ENV === 'development') {
-      response.status(HttpStatus.OK).send();
-      return;
-    }
-
     if (!originalUri || originalUri.length === 0) {
       response.status(HttpStatus.FORBIDDEN).send();
       return;
