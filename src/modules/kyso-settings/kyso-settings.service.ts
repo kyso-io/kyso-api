@@ -107,6 +107,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'default';
       case KysoSettingsEnum.ENABLE_INVITATION_LINKS_GLOBALLY:
         return 'false';
+      case KysoSettingsEnum.GLOBAL_PRIVACY_SHOW_EMAIL:
+        return 'true';
       default:
         return '';
     }
@@ -220,6 +222,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'Theme of the platform';
       case KysoSettingsEnum.ENABLE_INVITATION_LINKS_GLOBALLY:
         return 'If true, enables the invitation links for all organizations';
+      case KysoSettingsEnum.GLOBAL_PRIVACY_SHOW_EMAIL:
+        return 'If true, shows the email of the user globally in the application';
       default:
         return 'No description provided';
     }

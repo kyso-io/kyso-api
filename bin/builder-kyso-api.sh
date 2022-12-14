@@ -149,8 +149,8 @@ docker_sh() {
 }
 
 docker_status() {
-  docker ps -a -f name="${CONTAINER_NAME}" --format '{{.Status}}' 2>/dev/null ||
-    true
+  docker ps -a -f name="^${CONTAINER_NAME}$" --format '{{.Status}}' \
+    2>/dev/null || true
 }
 
 docker_stop() {
