@@ -506,12 +506,18 @@ export class TeamsController extends GenericController<Team> {
   async updateTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string, @Body() data: UpdateTeamRequest): Promise<NormalizedResponseDTO<Team>> {
     const team: Team = await this.teamsService.getTeamById(teamId);
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Team not found');
     }
 
     delete data.id;
     delete data.updated_at;
     delete data.created_at;
+    delete data.links;
+    for (const key in data) {
+      if (data[key] === undefined) {
+        delete data[key];
+      }
+    }
 
     const updatedTeam: Team = await this.teamsService.updateTeam(token, { _id: new ObjectId(teamId) }, { $set: data });
 

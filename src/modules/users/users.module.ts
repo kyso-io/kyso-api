@@ -1,4 +1,5 @@
 import { DynamicModule, Global } from '@nestjs/common';
+import { NestjsFormDataModule } from 'nestjs-form-data';
 import { registerNatsService } from '../../providers/nats-service-register';
 import { KysoUserAccessTokensMongoProvider } from './providers/mongo-kyso-user-access-token.provider';
 import { UsersMongoProvider } from './providers/mongo-users.provider';
@@ -18,7 +19,7 @@ export class UsersModule {
       providers: [dynamicProvider, KysoUserAccessTokensMongoProvider, UsersMongoProvider, UsersService, UserChangePasswordMongoProvider, UserVerificationMongoProvider],
       controllers: [UserController, UsersController],
       exports: [dynamicProvider],
-      imports: [registerNatsService()],
+      imports: [registerNatsService(), NestjsFormDataModule],
     };
   }
 }

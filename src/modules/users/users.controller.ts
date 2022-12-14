@@ -15,29 +15,14 @@ import {
   UserPermissionsEnum,
   VerifyCaptchaRequestDto,
 } from '@kyso-io/kyso-model';
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Delete,
-  ForbiddenException,
-  Get,
-  Headers,
-  NotFoundException,
-  Param,
-  Patch,
-  Post,
-  Query,
-  Req,
-  UploadedFile,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Headers, NotFoundException, Param, Patch, Post, Query, Req, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { FormDataRequest } from 'nestjs-form-data';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { Public } from '../../decorators/is-public';
+import { UploadImageDto } from '../../dtos/upload-image.dto';
 import { GenericController } from '../../generic/controller.generic';
 import { QueryParser } from '../../helpers/queryParser';
 import { Validators } from '../../helpers/validators';
@@ -126,6 +111,7 @@ export class UsersController extends GenericController<User> {
       if (!query.filter.hasOwnProperty('$or')) {
         query.filter.$or = [];
       }
+      query.filter.$or.push({ email: query.filter.$text.$search });
       query.filter.$or.push({ email: { $regex: query.filter.$text.$search, $options: 'i' } });
       query.filter.$or.push({ username: { $regex: query.filter.$text.$search, $options: 'i' } });
       query.filter.$or.push({ display_name: { $regex: query.filter.$text.$search, $options: 'i' } });
@@ -352,7 +338,7 @@ export class UsersController extends GenericController<User> {
     if (!Validators.isValidObjectId(userId)) {
       throw new BadRequestException(`Invalid user id ${userId}`);
     }
-    if (token.id !== userId) {
+    if (token.id !== userId && !token.isGlobalAdmin()) {
       throw new ForbiddenException(`You are not allowed to update this user`);
     }
     const user: User = await this.usersService.updateUserData(token, userId, data);
@@ -437,7 +423,6 @@ export class UsersController extends GenericController<User> {
     return new NormalizedResponseDTO(result);
   }
 
-  @UseInterceptors(FileInterceptor('file'))
   @Post('/profile-picture')
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
@@ -445,18 +430,21 @@ export class UsersController extends GenericController<User> {
     description: `Allows uploading a profile picture for a user the image`,
   })
   @ApiNormalizedResponse({ status: 201, description: `Updated user`, type: UserDTO })
-  public async setProfilePicture(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<UserDTO>> {
-    if (!file) {
+  @FormDataRequest()
+  public async setProfilePicture(@CurrentToken() token: Token, @Body() uploadImageDto: UploadImageDto): Promise<NormalizedResponseDTO<UserDTO>> {
+    if (!uploadImageDto.file) {
       throw new BadRequestException(`Missing file`);
     }
-    if (file.mimetype.split('/')[0] !== 'image') {
+    if (uploadImageDto.file.mimetype.split('/')[0] !== 'image') {
       throw new BadRequestException(`Only image files are allowed`);
     }
-    const user: User = await this.usersService.setProfilePicture(token, file);
+    if (token.id !== uploadImageDto.userId && !token.isGlobalAdmin()) {
+      throw new ForbiddenException(`You are not allowed to update the photo of this user`);
+    }
+    const user: User = await this.usersService.setProfilePicture(uploadImageDto);
     return new NormalizedResponseDTO(UserDTO.fromUser(user));
   }
 
-  @UseInterceptors(FileInterceptor('file'))
   @Post('/background-image')
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
@@ -464,14 +452,18 @@ export class UsersController extends GenericController<User> {
     description: `Allows uploading a profile picture for a user the image`,
   })
   @ApiNormalizedResponse({ status: 201, description: `Updated user`, type: UserDTO })
-  public async setBackgroundImage(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<UserDTO>> {
-    if (!file) {
+  @FormDataRequest()
+  public async setBackgroundImage(@CurrentToken() token: Token, @Body() uploadImageDto: UploadImageDto): Promise<NormalizedResponseDTO<UserDTO>> {
+    if (!uploadImageDto.file) {
       throw new BadRequestException(`Missing file`);
     }
-    if (file.mimetype.split('/')[0] !== 'image') {
+    if (uploadImageDto.file.mimetype.split('/')[0] !== 'image') {
       throw new BadRequestException(`Only image files are allowed`);
     }
-    const user: User = await this.usersService.setBackgroundImage(token, file);
+    if (token.id !== uploadImageDto.userId && !token.isGlobalAdmin()) {
+      throw new ForbiddenException(`You are not allowed to update the photo of this user`);
+    }
+    const user: User = await this.usersService.setBackgroundImage(uploadImageDto);
     return new NormalizedResponseDTO(UserDTO.fromUser(user));
   }
 
