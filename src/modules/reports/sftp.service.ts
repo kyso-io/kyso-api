@@ -42,19 +42,20 @@ export class SftpService extends AutowiredService {
     }
   }
 
-  public async uploadPublicFileFromPost(file: Express.Multer.File): Promise<string> {
+  public async uploadPublicFileFromPost(file: any): Promise<string> {
+    const originalName = file.originalname || file.originalName;
     try {
       const tmpFolder: string = process.env.APP_TEMP_DIR;
       if (!tmpFolder) {
         throw new Error('APP_TEMP_DIR environment variable not defined');
       }
-      const tmpFilepath = `${tmpFolder}/${file.originalname}`;
+      const tmpFilepath = `${tmpFolder}/${originalName}`;
       writeFileSync(tmpFilepath, file.buffer);
       const sha256: string = sha256File(tmpFilepath);
       const firstFolder: string = sha256.substring(0, 2);
       const secondFolder: string = sha256.substring(2, 4);
       const destinationSftpFolder = `${firstFolder}/${secondFolder}`;
-      const fileName = `${sha256}${extname(file.originalname)}`;
+      const fileName = `${sha256}${extname(originalName)}`;
       const fullFilePathSftp = `${destinationSftpFolder}/${fileName}`;
       const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PUBLIC_USERNAME);
       if (!username) {
@@ -79,13 +80,13 @@ export class SftpService extends AutowiredService {
       }
       const existsFile = await client.exists(fullFilePathSftp);
       if (!existsFile) {
-        Logger.log(`Uploading file ${file.originalname} to ${fullFilePathSftp} in SFTP`, SftpService.name);
+        Logger.log(`Uploading file ${originalName} to ${fullFilePathSftp} in SFTP`, SftpService.name);
         try {
           await client.put(tmpFilepath, fullFilePathSftp);
         } catch (e) {
-          Logger.error(`Failed to upload file ${file.originalname} to ${fullFilePathSftp} in SFTP`, e, SftpService.name);
+          Logger.error(`Failed to upload file ${originalName} to ${fullFilePathSftp} in SFTP`, e, SftpService.name);
         }
-        Logger.log(`Uploaded file ${file.originalname} in ${fullFilePathSftp} in SFTP`, SftpService.name);
+        Logger.log(`Uploaded file ${originalName} in ${fullFilePathSftp} in SFTP`, SftpService.name);
       }
       await client.end();
       // Remove file from tmp

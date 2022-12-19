@@ -329,26 +329,51 @@ export class OrganizationsService extends AutowiredService {
     return organization;
   }
 
-  public async updateOrganization(token: Token, organizationId: string, updateOrganizationDTO: UpdateOrganizationDTO): Promise<Organization> {
-    let organizationDb: Organization = await this.getOrganizationById(organizationId);
-    if (!organizationDb) {
+  public async updateOrganization(token: Token, organizationId: string, updateOrganizationDto: UpdateOrganizationDTO): Promise<Organization> {
+    let organization: Organization = await this.getOrganizationById(organizationId);
+    if (!organization) {
       throw new PreconditionFailedException('Organization does not exist');
     }
+    for (const key in updateOrganizationDto) {
+      if (updateOrganizationDto[key] === undefined) {
+        delete updateOrganizationDto[key];
+      }
+    }
     const data: any = {};
-    if (updateOrganizationDTO.hasOwnProperty('location')) {
-      data.location = updateOrganizationDTO.location;
+    if (updateOrganizationDto?.display_name) {
+      data.display_name = updateOrganizationDto.display_name;
     }
-    if (updateOrganizationDTO.hasOwnProperty('link')) {
-      data.link = updateOrganizationDTO.link;
+    if (updateOrganizationDto.hasOwnProperty('location') && updateOrganizationDto.location !== null) {
+      data.location = updateOrganizationDto.location;
     }
-    if (updateOrganizationDTO.hasOwnProperty('bio')) {
-      data.bio = updateOrganizationDTO.bio;
+    if (updateOrganizationDto.hasOwnProperty('link') && updateOrganizationDto.link !== null) {
+      data.link = updateOrganizationDto.link;
     }
-    if (updateOrganizationDTO.hasOwnProperty('allowed_access_domains')) {
-      data.allowed_access_domains = updateOrganizationDTO.allowed_access_domains;
+    if (updateOrganizationDto.hasOwnProperty('bio') && updateOrganizationDto.bio !== null) {
+      data.bio = updateOrganizationDto.bio;
     }
-    organizationDb = await this.provider.update(
-      { _id: this.provider.toObjectId(organizationDb.id) },
+    if (updateOrganizationDto?.allowed_access_domains) {
+      data.allowed_access_domains = updateOrganizationDto.allowed_access_domains || [];
+    }
+    if (updateOrganizationDto?.options && Object.keys(updateOrganizationDto.options).length > 0) {
+      let orgNotifications: any = {};
+      if (organization?.options?.notifications) {
+        orgNotifications = { ...organization.options.notifications };
+      }
+      let orgAuth: any = {};
+      if (organization?.options?.auth) {
+        orgAuth = { ...organization.options.auth };
+      }
+      data.options = {};
+      if (updateOrganizationDto?.options?.notifications && Object.keys(updateOrganizationDto.options.notifications).length > 0) {
+        data.options.notifications = { ...orgNotifications, ...updateOrganizationDto.options.notifications };
+      }
+      if (updateOrganizationDto?.options?.auth && Object.keys(updateOrganizationDto.options.auth).length > 0) {
+        data.options.auth = { ...orgAuth, ...updateOrganizationDto.options.auth };
+      }
+    }
+    organization = await this.provider.update(
+      { _id: this.provider.toObjectId(organization.id) },
       {
         $set: data,
       },
@@ -356,10 +381,10 @@ export class OrganizationsService extends AutowiredService {
 
     NATSHelper.safelyEmit<KysoOrganizationsUpdateEvent>(this.client, KysoEventEnum.ORGANIZATIONS_UPDATE, {
       user: await this.usersService.getUserById(token.id),
-      organization: organizationDb,
+      organization,
     });
 
-    return organizationDb;
+    return organization;
   }
 
   public async getMembers(organizationId: string): Promise<OrganizationMemberJoin[]> {

@@ -49,6 +49,7 @@ import { NATSHelper } from 'src/helpers/natsHelper';
 import { URLSearchParams } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { Autowired } from '../../decorators/autowired';
+import { UploadImageDto } from '../../dtos/upload-image.dto';
 import { AutowiredService } from '../../generic/autowired.generic';
 import slugify from '../../helpers/slugify';
 import { PlatformRole } from '../../security/platform-roles';
@@ -340,19 +341,31 @@ export class UsersService extends AutowiredService {
     return true;
   }
 
-  public async updateUserData(token: Token, id: string, data: UpdateUserRequestDTO): Promise<User> {
+  public async updateUserData(token: Token, id: string, updateUserRequestDto: UpdateUserRequestDTO): Promise<User> {
     let user: User = await this.getUserById(id);
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    const data: any = {};
+    if (updateUserRequestDto.name) {
+      data.name = updateUserRequestDto.name;
+    }
+    if (updateUserRequestDto.display_name) {
+      data.display_name = updateUserRequestDto.display_name;
+    }
+    if (updateUserRequestDto.location) {
+      data.location = updateUserRequestDto.location;
+    }
+    if (updateUserRequestDto.bio) {
+      data.bio = updateUserRequestDto.bio;
+    }
+    if (updateUserRequestDto.link) {
+      data.link = updateUserRequestDto.link;
+    }
     user = await this.updateUser(
       { _id: this.provider.toObjectId(id) },
       {
-        $set: {
-          location: data.location,
-          link: data.link,
-          bio: data.bio,
-        },
+        $set: data,
       },
     );
     Logger.log(`Updating user '${user.id} ${user.display_name}' in Elasticsearch...`, UsersService.name);
@@ -367,14 +380,14 @@ export class UsersService extends AutowiredService {
     return user;
   }
 
-  public async setProfilePicture(token: Token, file: Express.Multer.File): Promise<User> {
-    const user: User = await this.getUserById(token.id);
+  public async setProfilePicture(uploadImageDto: UploadImageDto): Promise<User> {
+    const user: User = await this.getUserById(uploadImageDto.userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
     let avatar_url: string;
     try {
-      avatar_url = await this.sftpService.uploadPublicFileFromPost(file);
+      avatar_url = await this.sftpService.uploadPublicFileFromPost(uploadImageDto.file);
     } catch (e) {
       Logger.error(`An error occurred while uploading the user image`, e, UsersService.name);
       throw new InternalServerErrorException('Error uploading the user image');
@@ -403,17 +416,17 @@ export class UsersService extends AutowiredService {
       }
     }
     await this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { avatar_url } });
-    return this.getUserById(token.id);
+    return this.getUserById(uploadImageDto.userId);
   }
 
-  public async setBackgroundImage(token: Token, file: any): Promise<User> {
-    const user: User = await this.getUserById(token.id);
+  public async setBackgroundImage(uploadImageDto: UploadImageDto): Promise<User> {
+    const user: User = await this.getUserById(uploadImageDto.userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
     let background_image_url: string;
     try {
-      background_image_url = await this.sftpService.uploadPublicFileFromPost(file);
+      background_image_url = await this.sftpService.uploadPublicFileFromPost(uploadImageDto.file);
     } catch (e) {
       Logger.error(`An error occurred while uploading the background image`, e, UsersService.name);
       throw new InternalServerErrorException('Error uploading the background image');
@@ -442,7 +455,7 @@ export class UsersService extends AutowiredService {
       }
     }
     await this.provider.update({ _id: this.provider.toObjectId(user.id) }, { $set: { background_image_url } });
-    return this.getUserById(token.id);
+    return this.getUserById(uploadImageDto.userId);
   }
 
   public async deleteProfilePicture(token: Token): Promise<User> {
