@@ -113,9 +113,6 @@ export class ReportsController extends GenericController<Report> {
   @Autowired({ typeName: 'KysoSettingsService' })
   private kysoSettingsService: KysoSettingsService;
 
-  @Autowired({ typeName: 'AuthService' })
-  private authService: AuthService;
-
   constructor(
     private readonly emailVerifiedGuard: EmailVerifiedGuard,
     private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider,
@@ -468,6 +465,52 @@ export class ReportsController extends GenericController<Report> {
     return new NormalizedResponseDTO(reportsDtos, relations);
   }
 
+  @Get('/diff/:reportId')
+  @ApiOperation({
+    summary: `Get diff between two files`,
+    description: `By passing the appropiate parameters you can get the diff between two files`,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Diff between two files`,
+  })
+  @ApiResponse({
+    status: 404,
+    description: `File not found`,
+  })
+  @ApiResponse({
+    status: 500,
+    description: `Internal server error`,
+  })
+  @Public()
+  public async getDiffBetweenFiles(
+    @CurrentToken() token: Token,
+    @Param('reportId') reportId: string,
+    @Query('sourceFileId') sourceFileId: string,
+    @Query('targetFileId') targetFileId: string,
+  ): Promise<NormalizedResponseDTO<any>> {
+    const report: Report = await this.reportsService.getReportById(reportId);
+    if (!report) {
+      throw new PreconditionFailedException('Report not found');
+    }
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!team) {
+      throw new PreconditionFailedException('Team not found');
+    }
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
+    if (!organization) {
+      throw new NotFoundException(`Organization with id ${team.organization_id} not found`);
+    }
+    if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+      const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team, organization);
+      if (!hasPermissions) {
+        throw new ForbiddenException('You do not have permissions to access get file differences');
+      }
+    }
+    const result: any = await this.reportsService.getDiffBetweenFiles(sourceFileId, targetFileId);
+    return new NormalizedResponseDTO(result);
+  }
+
   @Get('/:reportId')
   @ApiOperation({
     summary: `Get a report`,
@@ -488,11 +531,11 @@ export class ReportsController extends GenericController<Report> {
     await this.reportsService.increaseViews({ _id: new ObjectId(reportId) });
     const report: Report = await this.reportsService.getReportById(reportId);
     if (!report) {
-      throw new PreconditionFailedException('Report not found');
+      throw new NotFoundException('Report not found');
     }
     const team: Team = await this.teamsService.getTeamById(report.team_id);
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Team not found');
     }
 
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);

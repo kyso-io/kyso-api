@@ -27,6 +27,11 @@ export class FilesMongoProvider extends MongoProvider<File> {
     return files[0];
   }
 
+  public async getFileById(id: string): Promise<File> {
+    const files: File[] = await this.read({ filter: { _id: this.toObjectId(id) } });
+    return files.length === 1 ? files[0] : null;
+  }
+
   public async migrate_from_1_to_2() {
     const cursor = await this.getCollection().find({});
     const files: File[] = await cursor.toArray();

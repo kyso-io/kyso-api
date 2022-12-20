@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@faker-js/faker": "^7.6.0",
-    "@kyso-io/kyso-model": "1.2.15",
+    "@kyso-io/kyso-model": "1.2.16",
     "@nestjs/common": "^8.0.0",
     "@nestjs/core": "^8.0.0",
     "@nestjs/jwt": "^8.0.0",
@@ -51,6 +51,7 @@
     "crypto-js": "^4.1.1",
     "dotenv": "^10.0.0",
     "fast-glob": "^3.2.7",
+    "form-data": "^4.0.0",
     "fs-extra": "^10.0.1",
     "glob": "^7.2.3",
     "googleapis": "^95.0.0",

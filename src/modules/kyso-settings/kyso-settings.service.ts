@@ -109,6 +109,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'false';
       case KysoSettingsEnum.GLOBAL_PRIVACY_SHOW_EMAIL:
         return 'true';
+      case KysoSettingsEnum.KYSO_NBDIME_URL:
+        return 'http://kyso-nbdime';
       default:
         return '';
     }
@@ -224,6 +226,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'If true, enables the invitation links for all organizations';
       case KysoSettingsEnum.GLOBAL_PRIVACY_SHOW_EMAIL:
         return 'If true, shows the email of the user globally in the application';
+      case KysoSettingsEnum.KYSO_NBDIME_URL:
+        return 'URL of the nbdime service';
       default:
         return 'No description provided';
     }
