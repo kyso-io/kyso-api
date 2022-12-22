@@ -47,6 +47,7 @@ import { ClientProxy } from '@nestjs/microservices';
 import { Octokit } from '@octokit/rest';
 import * as AdmZip from 'adm-zip';
 import axios, { AxiosResponse } from 'axios';
+import * as FormData from 'form-data';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs';
 import { moveSync } from 'fs-extra';
 import * as glob from 'glob';
@@ -488,7 +489,7 @@ export class ReportsService extends AutowiredService {
         Logger.error(`File ${destinationPath} does not exists`, ReportsService.name);
         return null;
       }
-      return (await client.get(destinationPath)) as Buffer;
+      return client.get(destinationPath) as Promise<Buffer>;
     } catch (e) {
       Logger.error(`An error occurred while downloading file '${file.name}' from SCS`, e, ReportsService.name);
       return null;
@@ -3144,5 +3145,41 @@ export class ReportsService extends AutowiredService {
       return toc;
     }
     return [];
+  }
+
+  public async getDiffBetweenFiles(sourceFileId: string, targetFileId: string): Promise<any> {
+    const sourceFile: File = await this.filesMongoProvider.getFileById(sourceFileId);
+    if (!sourceFile) {
+      throw new NotFoundException(`Source file with id ${sourceFileId} not found`);
+    }
+    const targetFile: File = await this.filesMongoProvider.getFileById(targetFileId);
+    if (!targetFile) {
+      throw new NotFoundException(`Target file with id ${targetFileId} not found`);
+    }
+    if (sourceFile.name !== targetFile.name) {
+      throw new BadRequestException('Source and target are not the same file');
+    }
+    const sourceFileContent: Buffer = await this.getReportFileContent(sourceFile);
+    if (!sourceFileContent) {
+      throw new NotFoundException(`Source file with id ${sourceFileId} not found`);
+    }
+    const targetFileContent: Buffer = await this.getReportFileContent(targetFile);
+    if (!targetFileContent) {
+      throw new NotFoundException(`Target file with id ${targetFileId} not found`);
+    }
+    const formData = new FormData();
+    formData.append('source', sourceFileContent, { filename: sourceFile.name });
+    formData.append('target', targetFileContent, { filename: targetFile.name });
+    try {
+      const url: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_NBDIME_URL);
+      const result = await axios.post(`${url}/diff`, formData, {
+        headers: {
+          ...formData.getHeaders(),
+        },
+      });
+      return result.data;
+    } catch (e) {
+      throw new InternalServerErrorException('Error while getting diff');
+    }
   }
 }
