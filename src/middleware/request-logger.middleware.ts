@@ -2,7 +2,6 @@ import { Token } from '@kyso-io/kyso-model';
 import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
 
 import { Request, Response, NextFunction } from 'express';
-import { performance } from 'perf_hooks';
 import { Autowired } from 'src/decorators/autowired';
 import { AuthService } from 'src/modules/auth/auth.service';
 
@@ -41,6 +40,7 @@ export class RequestLoggerMiddleware implements NestMiddleware {
       const loggingLine = {
         timestamp: Date.now(),
         method: method,
+        protocol: protocol,
         host: host,
         baseUrl: baseUrl,
         statusCode: statusCode,
