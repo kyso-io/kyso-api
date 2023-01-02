@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 export class NATSHelper {
   static safelyEmit<T>(client: ClientProxy, event: KysoEventEnum, payload: any) {
     try {
+      Logger.log(`Sending ${event} to NATS`);
       client.emit<T>(event, { uuid: uuidv4(), date: new Date(), ...payload });
     } catch (ex) {
       Logger.warn(`Event ${event} not sent to NATS`);
