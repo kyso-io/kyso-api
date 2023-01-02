@@ -14,11 +14,21 @@ export class RequestLoggerMiddleware implements NestMiddleware {
 
   use(request: Request, response: Response, next: NextFunction): void {
     const startTime = process.hrtime();
-    const { ip, method, baseUrl } = request;
+    const { method, baseUrl } = request;
+    let ip = '';
     const userAgent = request.get('user-agent') || '';
     const host = request.get('host') || '';
     const authHeader = request.get('authorization') || null;
     const protocol = request.protocol || '';
+
+    const remoteAddress = request.socket.remoteAddress;
+    const xForwardedFor = request.get('x-forwarded-for') || null;
+
+    if (xForwardedFor) {
+      ip = xForwardedFor;
+    } else {
+      ip = remoteAddress;
+    }
 
     response.on('close', () => {
       const totalTime = process.hrtime(startTime);
