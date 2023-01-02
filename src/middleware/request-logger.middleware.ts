@@ -51,6 +51,7 @@ export class RequestLoggerMiddleware implements NestMiddleware {
         invoker: invoker,
       };
 
+      // Using console.log here for better processing for 3rd party tools
       console.log(JSON.stringify(loggingLine));
       this.logger.log(`${method} ${baseUrl} ${statusCode} ${contentLength} - ${userAgent} ${ip}`);
     });
