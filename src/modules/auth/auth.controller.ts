@@ -124,12 +124,10 @@ export class AuthController extends GenericController<string> {
   })
   async login(@Body() login: Login, @Res() res): Promise<void> {
     const jwt: string = await this.authService.login(login);
-    const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX);
     const tokenExpirationTimeInHours = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN);
     res.cookie('kyso-jwt-token', jwt, {
       secure: process.env.NODE_ENV !== 'development',
       httpOnly: true,
-      path: staticContentPrefix,
       sameSite: 'strict',
       expires: moment().add(tokenExpirationTimeInHours, 'hours').toDate(),
     });
