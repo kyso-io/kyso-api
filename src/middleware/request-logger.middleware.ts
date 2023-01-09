@@ -41,10 +41,13 @@ export class RequestLoggerMiddleware implements NestMiddleware {
 
       if (authHeader) {
         const token: Token = this.authService.evaluateAndDecodeTokenFromHeader(authHeader);
-        invoker = {
-          userId: token.id,
-          username: token.username,
-        };
+
+        if (token) {
+          invoker = {
+            userId: token.id,
+            username: token.username,
+          };
+        }
       }
 
       const loggingLine = {
