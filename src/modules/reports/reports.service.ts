@@ -3099,13 +3099,17 @@ export class ReportsService extends AutowiredService {
     const data: { level: number; href: string; title: string }[] = this.getSectionsTableOfContents(markdownContent);
     let parent: TableOfContentEntryDto | null = null;
     let validPreviousIndex: number | null = null;
-    for (let i = 0; i < data.length; i++) {
-      if (data[i].level === 1) {
+    const dataLength: number = data.length;
+    for (let i = 0; i < dataLength; i++) {
+      if (data[i].level === 1 || dataLength === 1) {
         const tableOfContentEntryDto: TableOfContentEntryDto = new TableOfContentEntryDto(data[i].title, data[i].href);
         toc.push(tableOfContentEntryDto);
         parent = toc[toc.length - 1];
         validPreviousIndex = i;
       } else {
+        if (validPreviousIndex === null) {
+          continue;
+        }
         if (data[validPreviousIndex].level + 1 < data[i].level) {
           continue;
         }
@@ -3114,7 +3118,7 @@ export class ReportsService extends AutowiredService {
         }
         const tableOfContentEntryDto: TableOfContentEntryDto = new TableOfContentEntryDto(data[i].title, data[i].href);
         parent.children.push(tableOfContentEntryDto);
-        if (i + 1 < data.length && data[i + 1].level > data[i].level) {
+        if (i + 1 < dataLength && data[i + 1].level > data[i].level) {
           parent = parent.children[parent.children.length - 1];
           validPreviousIndex = i;
         }
