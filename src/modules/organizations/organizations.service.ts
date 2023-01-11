@@ -387,7 +387,7 @@ export class OrganizationsService extends AutowiredService {
     }
     if (updateOrganizationDto?.allow_download && updateOrganizationDto.allow_download !== null) {
       if (updateOrganizationDto.allow_download === AllowDownload.INHERITED) {
-        throw new BadRequestException('Invalid value for allow_download');
+        throw new BadRequestException('Inherited value is invalid for allow_download property at organization level');
       }
       data.allow_download = updateOrganizationDto.allow_download;
     }
