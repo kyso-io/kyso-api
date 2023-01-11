@@ -87,7 +87,7 @@ export class TeamsMongoProvider extends MongoProvider<Team> {
       {},
       {
         $set: {
-          allow_download: AllowDownload.ALL,
+          allow_download: AllowDownload.INHERITED,
         },
       },
     );
