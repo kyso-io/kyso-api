@@ -1078,6 +1078,7 @@ export class ReportsController extends GenericController<Report> {
     @Param('reportName') reportName: string,
     @Param('teamName') teamNameParam: string,
     @Query('version') versionStr: string,
+    @Req() request: any,
     @Res() response: any,
   ) {
     Logger.log('Pulling report');
@@ -1104,10 +1105,18 @@ export class ReportsController extends GenericController<Report> {
         if (!hasPermissions) {
           throw new ForbiddenException('You do not have permissions to access this report');
         }
+        await this.emailVerifiedGuard.validate(request);
+        await this.solvedCaptchaGuard.validate(request);
       } else {
         throw new ForbiddenException('You do not have permissions to access this report');
       }
     }
+
+    const downloadable: boolean = await this.reportsService.isReportDownloadable(token, organization, team);
+    if (!downloadable) {
+      throw new ForbiddenException('The report cannot be downloaded');
+    }
+
     let version: number | null = null;
     if (versionStr) {
       try {
@@ -1166,6 +1175,12 @@ export class ReportsController extends GenericController<Report> {
         throw new ForbiddenException('You do not have permissions to access this report');
       }
     }
+
+    const downloadable: boolean = await this.reportsService.isReportDownloadable(token, organization, team);
+    if (!downloadable) {
+      throw new ForbiddenException('The report cannot be downloaded');
+    }
+
     let version: number | null = null;
     if (versionStr) {
       try {

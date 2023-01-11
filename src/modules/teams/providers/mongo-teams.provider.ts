@@ -1,4 +1,4 @@
-import { Team } from '@kyso-io/kyso-model';
+import { AllowDownload, Team } from '@kyso-io/kyso-model';
 import { Injectable, Logger } from '@nestjs/common';
 import slug from '../../../helpers/slugify';
 import { db } from '../../../main';
@@ -6,7 +6,7 @@ import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class TeamsMongoProvider extends MongoProvider<Team> {
-  version = 4;
+  version = 5;
 
   constructor() {
     super('Team', db);
@@ -80,5 +80,16 @@ export class TeamsMongoProvider extends MongoProvider<Team> {
         },
       );
     }
+  }
+
+  async migrate_from_4_to_5() {
+    await this.updateMany(
+      {},
+      {
+        $set: {
+          allow_download: AllowDownload.ALL,
+        },
+      },
+    );
   }
 }

@@ -1,4 +1,5 @@
 import {
+  AllowDownload,
   Comment,
   CreateReportDTO,
   DraftReport,
@@ -3184,6 +3185,38 @@ export class ReportsService extends AutowiredService {
       return result.data;
     } catch (e) {
       throw new InternalServerErrorException('Error while getting diff');
+    }
+  }
+
+  public async isReportDownloadable(token: Token, organization: Organization, team: Team): Promise<boolean> {
+    if (team.allow_download === AllowDownload.INHERITED) {
+      switch (organization.allow_download) {
+        case AllowDownload.ALL:
+          return true;
+        case AllowDownload.ONLY_MEMBERS:
+          if (!token) {
+            return false;
+          }
+          return true;
+        case AllowDownload.NONE:
+          return false;
+        default:
+          return false;
+      }
+    } else {
+      switch (team.allow_download) {
+        case AllowDownload.ALL:
+          return true;
+        case AllowDownload.ONLY_MEMBERS:
+          if (!token) {
+            return false;
+          }
+          return true;
+        case AllowDownload.NONE:
+          return false;
+        default:
+          return false;
+      }
     }
   }
 }

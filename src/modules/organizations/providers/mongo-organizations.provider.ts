@@ -1,4 +1,4 @@
-import { Organization, OrganizationAuthOptions, OrganizationNotifications, OrganizationOptions } from '@kyso-io/kyso-model';
+import { AllowDownload, Organization, OrganizationAuthOptions, OrganizationNotifications, OrganizationOptions } from '@kyso-io/kyso-model';
 import { Injectable, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import slug from '../../../helpers/slugify';
@@ -7,7 +7,7 @@ import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class OrganizationsMongoProvider extends MongoProvider<Organization> {
-  version = 9;
+  version = 10;
 
   constructor() {
     super('Organization', db);
@@ -243,6 +243,17 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
       {
         $set: {
           join_codes: null,
+        },
+      },
+    );
+  }
+
+  public async migrate_from_9_to_10(): Promise<void> {
+    await this.updateMany(
+      {},
+      {
+        $set: {
+          allow_download: AllowDownload.ALL,
         },
       },
     );

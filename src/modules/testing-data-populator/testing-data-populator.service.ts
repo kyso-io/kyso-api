@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker';
 import {
+  AllowDownload,
   Comment,
   CreateDiscussionRequestDTO,
   CreateReportDTO,
@@ -785,6 +786,7 @@ export class TestingDataPopulatorService {
         faker.image.animals(), // avatar_url
         uuidv4(),
         null,
+        AllowDownload.ALL,
         '637cc317dc9348e2f476dac0',
       );
 
@@ -807,6 +809,7 @@ export class TestingDataPopulatorService {
         faker.image.animals(), // avatar_url
         uuidv4(),
         null,
+        AllowDownload.ALL,
         '637cc33dbb45cb84781f1aeb',
       );
 
@@ -827,6 +830,7 @@ export class TestingDataPopulatorService {
         faker.image.animals(), // avatar_url
         uuidv4(),
         null,
+        AllowDownload.ALL,
         '637cc345d0539d42537b8f99',
       );
 
@@ -847,7 +851,7 @@ export class TestingDataPopulatorService {
 
   private async createTeams() {
     try {
-      const publicTeam = new Team('Public Team', 'https://bit.ly/3J49GUO', 'A public team', '', 'Cleveland', [], this.DarksideOrganization.id, TeamVisibilityEnum.PUBLIC, null);
+      const publicTeam = new Team('Public Team', 'https://bit.ly/3J49GUO', 'A public team', '', 'Cleveland', [], this.DarksideOrganization.id, TeamVisibilityEnum.PUBLIC, null, AllowDownload.ALL);
 
       this.CustomTeamRole = new KysoRole('custom-team-random-role', [ReportPermissionsEnum.READ]);
 
@@ -861,6 +865,7 @@ export class TestingDataPopulatorService {
         this.LightsideOrganization.id,
         TeamVisibilityEnum.PROTECTED,
         null,
+        AllowDownload.ALL,
       );
 
       const privateTeam = new Team(
@@ -873,6 +878,7 @@ export class TestingDataPopulatorService {
         this.DarksideOrganization.id,
         TeamVisibilityEnum.PRIVATE,
         null,
+        AllowDownload.ALL,
       );
 
       this.PublicTeam = await this._createTeam(publicTeam);
@@ -890,6 +896,7 @@ export class TestingDataPopulatorService {
         this.APITests_Organization.id,
         TeamVisibilityEnum.PUBLIC,
         null,
+        AllowDownload.ALL,
       );
 
       const apiTests_protectedChannel = new Team(
@@ -902,6 +909,7 @@ export class TestingDataPopulatorService {
         this.APITests_Organization.id,
         TeamVisibilityEnum.PROTECTED,
         null,
+        AllowDownload.ALL,
       );
 
       const apiTests_privateChannel = new Team(
@@ -914,6 +922,7 @@ export class TestingDataPopulatorService {
         this.APITests_Organization.id,
         TeamVisibilityEnum.PRIVATE,
         null,
+        AllowDownload.ALL,
       );
 
       this.APITests_PublicChannel = await this._createTeam(apiTests_publicChannel);

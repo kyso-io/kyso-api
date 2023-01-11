@@ -1,4 +1,5 @@
 import {
+  AllowDownload,
   ElasticSearchIndex,
   EmailUserChangePasswordDTO,
   KysoEventEnum,
@@ -209,14 +210,14 @@ export class UsersService extends AutowiredService {
     const token: Token = this.authService.evaluateAndDecodeToken(tokenStr);
     // Create user organization
     const organizationName: string = user.display_name.charAt(0).toUpperCase() + user.display_name.slice(1);
-    const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], user.email, '', '', true, '', '', '', '', uuidv4(), user.id);
+    const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], user.email, '', '', true, '', '', '', '', uuidv4(), user.id, AllowDownload.ALL);
     Logger.log(`Creating new organization ${newOrganization.sluglified_name}`);
 
     const organizationDb: Organization = await this.organizationsService.createOrganization(token, newOrganization);
 
     // Create user team
     const teamName = 'Private';
-    const newUserTeam: Team = new Team(teamName, '', '', '', '', [], organizationDb.id, TeamVisibilityEnum.PRIVATE, user.id);
+    const newUserTeam: Team = new Team(teamName, '', '', '', '', [], organizationDb.id, TeamVisibilityEnum.PRIVATE, user.id, AllowDownload.ALL);
     Logger.log(`Creating new team ${newUserTeam.sluglified_name}...`);
     const userTeamDb: Team = await this.teamsService.createTeam(token, newUserTeam);
 

@@ -1,5 +1,6 @@
 import {
   AddUserOrganizationDto,
+  AllowDownload,
   Comment,
   CreateOrganizationDto,
   Discussion,
@@ -154,6 +155,7 @@ export class OrganizationsService extends AutowiredService {
       '',
       uuidv4(),
       token.id,
+      createOrganizationDto.allow_download,
     );
 
     // The name of this organization exists?
@@ -187,7 +189,18 @@ export class OrganizationsService extends AutowiredService {
     await this.addMembersById(newOrganization.id, [token.id], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name]);
 
     // Now, create the default teams for that organization
-    const generalTeam = new Team('General', '', 'A general team to share information and discuss', '', '', [], newOrganization.id, TeamVisibilityEnum.PROTECTED, token.id);
+    const generalTeam = new Team(
+      'General',
+      '',
+      'A general team to share information and discuss',
+      '',
+      '',
+      [],
+      newOrganization.id,
+      TeamVisibilityEnum.PROTECTED,
+      token.id,
+      createOrganizationDto.allow_download,
+    );
     await this.teamsService.createTeam(token, generalTeam);
 
     return newOrganization;
@@ -371,6 +384,12 @@ export class OrganizationsService extends AutowiredService {
       if (updateOrganizationDto?.options?.auth && Object.keys(updateOrganizationDto.options.auth).length > 0) {
         data.options.auth = { ...orgAuth, ...updateOrganizationDto.options.auth };
       }
+    }
+    if (updateOrganizationDto?.allow_download && updateOrganizationDto.allow_download !== null) {
+      if (updateOrganizationDto.allow_download === AllowDownload.INHERITED) {
+        throw new BadRequestException('Invalid value for allow_download');
+      }
+      data.allow_download = updateOrganizationDto.allow_download;
     }
     organization = await this.provider.update(
       { _id: this.provider.toObjectId(organization.id) },
