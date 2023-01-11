@@ -392,7 +392,7 @@ export class TeamsService extends AutowiredService {
     return team;
   }
 
-  async createTeam(token: Token, team: Team) {
+  async createTeam(token: Token, team: Team): Promise<Team> {
     const numTeamsCreatedByUser: number = await this.provider.count({ filter: { user_id: token.id } });
     const value: number = parseInt(await this.kysoSettingsService.getValue(KysoSettingsEnum.MAX_TEAMS_PER_USER), 10);
     if (numTeamsCreatedByUser >= value) {
