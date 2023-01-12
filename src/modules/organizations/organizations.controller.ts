@@ -37,7 +37,6 @@ import {
   Patch,
   Post,
   PreconditionFailedException,
-  Put,
   Query,
   Req,
   Res,
@@ -179,6 +178,8 @@ export class OrganizationsController extends GenericController<Organization> {
       delete organization?.tax_identifier;
       delete organization.options?.notifications;
       delete organization.join_codes;
+      delete organization.options?.notifications?.slackToken;
+      delete organization.options?.notifications?.slackChannel;
     }
     return new NormalizedResponseDTO(organization);
   }
@@ -214,6 +215,8 @@ export class OrganizationsController extends GenericController<Organization> {
       delete organization?.tax_identifier;
       delete organization.options?.notifications;
       delete organization.join_codes;
+      delete organization.options?.notifications?.slackToken;
+      delete organization.options?.notifications?.slackChannel;
     }
     return new NormalizedResponseDTO(organization);
   }
