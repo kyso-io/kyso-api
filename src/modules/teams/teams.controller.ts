@@ -1,6 +1,7 @@
 import {
   HEADER_X_KYSO_ORGANIZATION,
   HEADER_X_KYSO_TEAM,
+  KysoSettingsEnum,
   NormalizedResponseDTO,
   Organization,
   OrganizationPermissionsEnum,
@@ -53,6 +54,7 @@ import { Permission } from '../auth/annotations/permission.decorator';
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { PermissionsGuard } from '../auth/guards/permission.guard';
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard';
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { RelationsService } from '../relations/relations.service';
 import { UsersService } from '../users/users.service';
@@ -82,6 +84,9 @@ export class TeamsController extends GenericController<Team> {
 
   @Autowired({ typeName: 'UsersService' })
   private usersService: UsersService;
+
+  @Autowired({ typeName: 'KysoSettingsService' })
+  private kysoSettingsService: KysoSettingsService;
 
   constructor(private readonly teamsService: TeamsService) {
     super();
@@ -507,6 +512,14 @@ export class TeamsController extends GenericController<Team> {
     const team: Team = await this.teamsService.getTeamById(teamId);
     if (!team) {
       throw new NotFoundException('Team not found');
+    }
+
+    if (team.visibility !== data.visibility && data.visibility === TeamVisibilityEnum.PUBLIC) {
+      // The visibility has changed to public, that means that the team will be available to everyone
+      const allowPublicChannels: boolean = (await this.kysoSettingsService.getValue(KysoSettingsEnum.ALLOW_PUBLIC_CHANNELS)) === 'true';
+      if (!allowPublicChannels) {
+        throw new ForbiddenException('This instance of Kyso does not allow public channels');
+      }
     }
 
     delete data.id;

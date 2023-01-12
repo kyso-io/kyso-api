@@ -36,6 +36,7 @@ const PUBLIC_KYSO_SETTINGS: KysoSettingsEnum[] = [
   KysoSettingsEnum.THEME,
   KysoSettingsEnum.ENABLE_INVITATION_LINKS_GLOBALLY,
   KysoSettingsEnum.GLOBAL_PRIVACY_SHOW_EMAIL,
+  KysoSettingsEnum.ALLOW_PUBLIC_CHANNELS,
 ];
 
 @ApiTags('kyso-settings')

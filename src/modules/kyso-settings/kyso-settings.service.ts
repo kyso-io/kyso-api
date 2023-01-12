@@ -111,6 +111,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'true';
       case KysoSettingsEnum.KYSO_NBDIME_URL:
         return 'http://kyso-nbdime';
+      case KysoSettingsEnum.ALLOW_PUBLIC_CHANNELS:
+        return 'true';
       default:
         return '';
     }
@@ -228,6 +230,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'If true, shows the email of the user globally in the application';
       case KysoSettingsEnum.KYSO_NBDIME_URL:
         return 'URL of the nbdime service';
+      case KysoSettingsEnum.ALLOW_PUBLIC_CHANNELS:
+        return 'If true, allows public channels';
       default:
         return 'No description provided';
     }
