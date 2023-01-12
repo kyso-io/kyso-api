@@ -396,7 +396,7 @@ export class TeamsService extends AutowiredService {
     if (team.visibility === TeamVisibilityEnum.PUBLIC) {
       const allowPublicChannels: boolean = (await this.kysoSettingsService.getValue(KysoSettingsEnum.ALLOW_PUBLIC_CHANNELS)) === 'true';
       if (!allowPublicChannels) {
-        throw new ForbiddenException('It is not allowed to create public channels');
+        throw new ForbiddenException('This instance of Kyso does not allow public channels');
       }
     }
     const numTeamsCreatedByUser: number = await this.provider.count({ filter: { user_id: token.id } });
