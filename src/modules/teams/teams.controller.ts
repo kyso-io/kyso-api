@@ -163,8 +163,22 @@ export class TeamsController extends GenericController<Team> {
         throw new ForbiddenException('You are not allowed to access this team');
       }
     }
-    delete team.roles;
-    delete team.slackChannel;
+    let deleteSensitiveData = true;
+    if (token) {
+      const indexOrg: number = token.permissions.organizations.findIndex((o: ResourcePermissions) => o.id === team.organization_id);
+      if (indexOrg !== -1) {
+        deleteSensitiveData = !token.permissions.organizations[indexOrg].permissions.includes(OrganizationPermissionsEnum.ADMIN);
+      } else {
+        const indexTeam: number = token.permissions.teams.findIndex((resourcePermissions: ResourcePermissions) => resourcePermissions.id === team.id);
+        if (indexTeam !== -1) {
+          deleteSensitiveData = !token.permissions.teams[indexTeam].permissions.includes(TeamPermissionsEnum.ADMIN);
+        }
+      }
+    }
+    if (deleteSensitiveData) {
+      delete team.roles;
+      delete team.slackChannel;
+    }
     return new NormalizedResponseDTO(team);
   }
 
@@ -424,8 +438,22 @@ export class TeamsController extends GenericController<Team> {
         throw new ForbiddenException('You are not allowed to access this team');
       }
     }
-    delete team.roles;
-    delete team.slackChannel;
+    let deleteSensitiveData = true;
+    if (token) {
+      const indexOrg: number = token.permissions.organizations.findIndex((o: ResourcePermissions) => o.id === organizationId);
+      if (indexOrg !== -1) {
+        deleteSensitiveData = !token.permissions.organizations[indexOrg].permissions.includes(OrganizationPermissionsEnum.ADMIN);
+      } else {
+        const indexTeam: number = token.permissions.teams.findIndex((resourcePermissions: ResourcePermissions) => resourcePermissions.id === team.id);
+        if (indexTeam !== -1) {
+          deleteSensitiveData = !token.permissions.teams[indexTeam].permissions.includes(TeamPermissionsEnum.ADMIN);
+        }
+      }
+    }
+    if (deleteSensitiveData) {
+      delete team.roles;
+      delete team.slackChannel;
+    }
     return new NormalizedResponseDTO(team);
   }
 
@@ -508,13 +536,14 @@ export class TeamsController extends GenericController<Team> {
     required: true,
   })
   @Permission([TeamPermissionsEnum.EDIT])
-  async updateTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string, @Body() data: UpdateTeamRequest): Promise<NormalizedResponseDTO<Team>> {
+  async updateTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string, @Body() updateTeamRequest: UpdateTeamRequest): Promise<NormalizedResponseDTO<Team>> {
+    console.log(updateTeamRequest);
     const team: Team = await this.teamsService.getTeamById(teamId);
     if (!team) {
       throw new NotFoundException('Team not found');
     }
 
-    if (team.visibility !== data.visibility && data.visibility === TeamVisibilityEnum.PUBLIC) {
+    if (team.visibility !== updateTeamRequest.visibility && updateTeamRequest.visibility === TeamVisibilityEnum.PUBLIC) {
       // The visibility has changed to public, that means that the team will be available to everyone
       const allowPublicChannels: boolean = (await this.kysoSettingsService.getValue(KysoSettingsEnum.ALLOW_PUBLIC_CHANNELS)) === 'true';
       if (!allowPublicChannels) {
@@ -522,19 +551,19 @@ export class TeamsController extends GenericController<Team> {
       }
     }
 
-    delete data.id;
-    delete data.updated_at;
-    delete data.created_at;
-    delete data.links;
-    for (const key in data) {
-      if (data[key] === undefined) {
-        delete data[key];
+    delete updateTeamRequest.id;
+    delete updateTeamRequest.updated_at;
+    delete updateTeamRequest.created_at;
+    delete updateTeamRequest.links;
+    for (const key in updateTeamRequest) {
+      if (updateTeamRequest[key] === undefined) {
+        delete updateTeamRequest[key];
       }
     }
 
-    const updatedTeam: Team = await this.teamsService.updateTeam(token, { _id: new ObjectId(teamId) }, { $set: data });
+    const updatedTeam: Team = await this.teamsService.updateTeam(token, { _id: new ObjectId(teamId) }, { $set: updateTeamRequest });
 
-    if (data.visibility === TeamVisibilityEnum.PRIVATE) {
+    if (updateTeamRequest.visibility === TeamVisibilityEnum.PRIVATE) {
       try {
         // The visibility has changed to private, that means no-one will have access to that team
         // For that reason, we will add automatically the requested user as a TEAM_ADMIN of that
