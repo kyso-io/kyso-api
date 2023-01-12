@@ -518,7 +518,7 @@ export class TeamsController extends GenericController<Team> {
       // The visibility has changed to public, that means that the team will be available to everyone
       const allowPublicChannels: boolean = (await this.kysoSettingsService.getValue(KysoSettingsEnum.ALLOW_PUBLIC_CHANNELS)) === 'true';
       if (!allowPublicChannels) {
-        throw new ForbiddenException('It is not allowed to change the visibility of channel to public');
+        throw new ForbiddenException('This instance of Kyso does not allow public channels');
       }
     }
 
