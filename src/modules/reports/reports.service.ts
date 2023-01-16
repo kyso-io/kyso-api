@@ -2819,6 +2819,10 @@ export class ReportsService extends AutowiredService {
                       text-align: left!important;
                     }
         
+                    .summary_card {
+                      overflow-x: auto;
+                    }
+
                     table {
                       min-width: 100%;
                       box-sizing: border-box;
