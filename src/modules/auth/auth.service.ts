@@ -550,6 +550,7 @@ export class AuthService extends AutowiredService {
       user.bio,
       user.email_verified,
       user.show_captcha,
+      user.show_onboarding,
       user.accounts.map((userAccount: UserAccount) => ({
         type: userAccount.type,
         accountId: userAccount.accountId,
