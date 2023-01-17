@@ -6,7 +6,7 @@ import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class TeamsMongoProvider extends MongoProvider<Team> {
-  version = 5;
+  version = 6;
 
   constructor() {
     super('Team', db);
@@ -88,6 +88,17 @@ export class TeamsMongoProvider extends MongoProvider<Team> {
       {
         $set: {
           allow_download: AllowDownload.INHERITED,
+        },
+      },
+    );
+  }
+
+  async migrate_from_5_to_6() {
+    await this.updateMany(
+      {},
+      {
+        $set: {
+          teamsIncomingWebhookUrl: null,
         },
       },
     );

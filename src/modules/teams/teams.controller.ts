@@ -178,6 +178,7 @@ export class TeamsController extends GenericController<Team> {
     if (deleteSensitiveData) {
       delete team.roles;
       delete team.slackChannel;
+      delete team.teamsIncomingWebhookUrl;
     }
     return new NormalizedResponseDTO(team);
   }
@@ -453,6 +454,7 @@ export class TeamsController extends GenericController<Team> {
     if (deleteSensitiveData) {
       delete team.roles;
       delete team.slackChannel;
+      delete team.teamsIncomingWebhookUrl;
     }
     return new NormalizedResponseDTO(team);
   }

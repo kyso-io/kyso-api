@@ -7,7 +7,7 @@ import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class OrganizationsMongoProvider extends MongoProvider<Organization> {
-  version = 10;
+  version = 11;
 
   constructor() {
     super('Organization', db);
@@ -125,7 +125,7 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
     const cursor = await this.getCollection().find({});
     const allOrganizations: any[] = await cursor.toArray();
     for (const organization of allOrganizations) {
-      const orgNotifications: OrganizationNotifications = new OrganizationNotifications(false, [], null, null);
+      const orgNotifications: OrganizationNotifications = new OrganizationNotifications(false, [], null, null, null);
       let data: any = null;
       if (organization.options) {
         data = {
@@ -183,7 +183,7 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
         orgAuthOptions.allow_login_with_gitlab = true;
         orgAuthOptions.otherProviders = [];
         orgOptions.auth = orgAuthOptions;
-        const orgNotifications: OrganizationNotifications = new OrganizationNotifications(false, [], null, null);
+        const orgNotifications: OrganizationNotifications = new OrganizationNotifications(false, [], null, null, null);
         orgNotifications.centralized = false;
         orgNotifications.emails = [];
         orgOptions.notifications = orgNotifications;
@@ -257,5 +257,40 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
         },
       },
     );
+  }
+
+  public async migrate_from_10_to_11(): Promise<void> {
+    const cursor = await this.getCollection().find({});
+    const allOrganizations: any[] = await cursor.toArray();
+    for (const organization of allOrganizations) {
+      const orgNotifications: OrganizationNotifications = new OrganizationNotifications(false, [], null, null, null);
+      let data: any = null;
+      if (organization.options) {
+        data = {
+          options: {
+            ...organization.options,
+            notifications: orgNotifications !== null ? { ...organization.options.notifications, teamsIncomingWebhookUrl: null } : orgNotifications,
+          },
+        };
+      } else {
+        const orgOptions: OrganizationOptions = new OrganizationOptions();
+        const orgAuthOptions: OrganizationAuthOptions = new OrganizationAuthOptions();
+        orgAuthOptions.allow_login_with_github = true;
+        orgAuthOptions.allow_login_with_kyso = true;
+        orgAuthOptions.allow_login_with_google = true;
+        orgAuthOptions.otherProviders = [];
+        orgOptions.auth = orgAuthOptions;
+        orgOptions.notifications = orgNotifications;
+        data = {
+          options: orgOptions,
+        };
+      }
+      await this.update(
+        { _id: this.toObjectId(organization.id) },
+        {
+          $set: data,
+        },
+      );
+    }
   }
 }

@@ -157,6 +157,7 @@ export class OrganizationsService extends AutowiredService {
       token.id,
       createOrganizationDto.allow_download,
     );
+    organization.options = new OrganizationOptions();
 
     // The name of this organization exists?
     const organizations: Organization[] = await this.provider.read({ filter: { display_name: organization.display_name } });
