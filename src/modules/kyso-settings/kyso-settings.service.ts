@@ -113,6 +113,10 @@ export class KysoSettingsService extends AutowiredService {
         return 'http://kyso-nbdime';
       case KysoSettingsEnum.ALLOW_PUBLIC_CHANNELS:
         return 'true';
+      case KysoSettingsEnum.ONBOARDING_MESSAGES:
+        return `{
+          welcome_message: "This is a welcome message"
+        }`;
       default:
         return '';
     }
@@ -232,6 +236,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'URL of the nbdime service';
       case KysoSettingsEnum.ALLOW_PUBLIC_CHANNELS:
         return 'If true, allows public channels';
+      case KysoSettingsEnum.ONBOARDING_MESSAGES:
+        return 'Text shown up in the onboarding process';
       default:
         return 'No description provided';
     }
