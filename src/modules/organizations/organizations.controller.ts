@@ -180,6 +180,7 @@ export class OrganizationsController extends GenericController<Organization> {
       delete organization.join_codes;
       delete organization.options?.notifications?.slackToken;
       delete organization.options?.notifications?.slackChannel;
+      delete organization.options?.notifications?.teamsIncomingWebhookUrl;
     }
     return new NormalizedResponseDTO(organization);
   }
@@ -217,6 +218,7 @@ export class OrganizationsController extends GenericController<Organization> {
       delete organization.join_codes;
       delete organization.options?.notifications?.slackToken;
       delete organization.options?.notifications?.slackChannel;
+      delete organization.options?.notifications?.teamsIncomingWebhookUrl;
     }
     return new NormalizedResponseDTO(organization);
   }
