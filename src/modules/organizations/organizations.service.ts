@@ -446,11 +446,13 @@ export class OrganizationsService extends AutowiredService {
           if (isCentralized) {
             emailsCentralized = organization.options.notifications.emails;
           }
+          const friendlyRoleName = PlatformRole.getFriendlyName(addUserOrganizationDto.role);
+
           NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_UPDATE_MEMBER_ROLE, {
             user,
             organization,
             emailsCentralized,
-            role: addUserOrganizationDto.role,
+            role: friendlyRoleName,
             frontendUrl,
           });
         } catch (ex) {
@@ -616,11 +618,13 @@ export class OrganizationsService extends AutowiredService {
         throw new PreconditionFailedException(`Role ${element.role} is not valid`);
       }
       if (!member.role_names.includes(element.role)) {
+        const friendlyRoleName = PlatformRole.getFriendlyName(element.role);
+
         NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_UPDATE_MEMBER_ROLE, {
           user,
           organization,
           emailsCentralized,
-          role: element.role,
+          role: friendlyRoleName,
           frontendUrl,
         });
       }

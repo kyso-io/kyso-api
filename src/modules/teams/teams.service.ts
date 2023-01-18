@@ -627,6 +627,8 @@ export class TeamsService extends AutowiredService {
         });
       } else {
         await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } });
+        const friendlyRoleName = PlatformRole.getFriendlyName(element.role);
+
         NATSHelper.safelyEmit<KysoTeamsUpdateMemberRolesEvent>(this.client, KysoEventEnum.TEAMS_UPDATE_MEMBER_ROLES, {
           user,
           organization,
@@ -634,7 +636,7 @@ export class TeamsService extends AutowiredService {
           emailsCentralized,
           frontendUrl,
           previousRoles: member.role_names,
-          currentRoles: [element.role],
+          currentRoles: [friendlyRoleName],
         });
       }
     }
