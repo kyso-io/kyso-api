@@ -22,12 +22,13 @@ const DEFAULT_GLOBAL_ADMIN_USER = new User(
   [GlobalPermissionsEnum.GLOBAL_ADMIN],
   '',
   '',
+  false, // show_onboarding
   new mongo.ObjectId('61a8ae8f9c2bc3c5a2144000').toString(),
 );
 @Injectable()
 export class UsersMongoProvider extends MongoProvider<User> {
   provider: any;
-  version = 5;
+  version = 6;
 
   constructor() {
     super('User', db, [
@@ -131,12 +132,30 @@ export class UsersMongoProvider extends MongoProvider<User> {
     }
   }
 
+  /**
+   * Added last_login property. In migration, set current date (in which migration was executed)
+   */
   async migrate_from_4_to_5() {
     await this.updateMany(
       {},
       {
         $set: {
           last_login: new Date(),
+        },
+      },
+    );
+  }
+
+  /**
+   * Added a new property to user object "show_onboarding" if set a true, the onboarding process will be
+   * shown, or hidden if false. In the migration, mark every user as true
+   */
+  async migrate_from_5_to_6() {
+    await this.updateMany(
+      {},
+      {
+        $set: {
+          show_onboarding: true,
         },
       },
     );
