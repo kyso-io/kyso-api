@@ -9,6 +9,7 @@ import {
   Organization,
   OrganizationAuthOptions,
   PingIdSAMLSpec,
+  Report,
   ReportPermissionsEnum,
   ResourcePermissions,
   SignUpDto,
@@ -50,6 +51,7 @@ import { db } from '../../main';
 import { PlatformRole } from '../../security/platform-roles';
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service';
 import { OrganizationsService } from '../organizations/organizations.service';
+import { ReportsService } from '../reports/reports.service';
 import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
 import { CurrentToken } from './annotations/current-token.decorator';
@@ -67,6 +69,9 @@ const Saml2js = require('saml2js');
 export class AuthController extends GenericController<string> {
   @Autowired({ typeName: 'UsersService' })
   private readonly usersService: UsersService;
+
+  @Autowired({ typeName: 'ReportsService' })
+  private readonly reportsService: ReportsService;
 
   @Autowired({ typeName: 'OrganizationsService' })
   private readonly organizationsService: OrganizationsService;
@@ -125,11 +130,15 @@ export class AuthController extends GenericController<string> {
   async login(@Body() login: Login, @Res() res): Promise<void> {
     const jwt: string = await this.authService.login(login);
     const tokenExpirationTimeInHours = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN);
+    const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL);
+    const urlObject = new URL(baseUrl);
+    const domain = `.${urlObject.hostname}`;
     res.cookie('kyso-jwt-token', jwt, {
       secure: process.env.NODE_ENV !== 'development',
       httpOnly: true,
       sameSite: 'strict',
       expires: moment().add(tokenExpirationTimeInHours, 'hours').toDate(),
+      domain: domain,
     });
     res.send(new NormalizedResponseDTO(jwt));
   }
@@ -145,13 +154,15 @@ export class AuthController extends GenericController<string> {
     type: String,
   })
   async logout(@Res() res): Promise<void> {
-    const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX);
+    const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL);
+    const urlObject = new URL(baseUrl);
+    const domain = `.${urlObject.hostname}`;
     res.cookie('kyso-jwt-token', '', {
       secure: process.env.NODE_ENV !== 'development',
       httpOnly: true,
-      path: staticContentPrefix,
       sameSite: 'strict',
       expires: new Date(0),
+      domain: domain,
     });
     res.status(HttpStatus.OK).send();
   }
@@ -609,5 +620,78 @@ export class AuthController extends GenericController<string> {
     const objects: { organization: Organization; team: Team } = await this.authService.retrieveOrgAndTeamFromSlug(checkPermissionDto.organization, checkPermissionDto.team);
     const userHasPermission: boolean = AuthService.hasPermissions(token, [checkPermissionDto.permission as KysoPermissions], objects.team, objects.organization);
     return new NormalizedResponseDTO(userHasPermission);
+  }
+
+  @Get('/check-app-permissions')
+  @Post('/check-app-permissions')
+  @ApiHeader({
+    name: 'X-Original-URL',
+    description: 'Original app URL (sent by the ingress controller)',
+    required: true,
+  })
+  async checkAppPermissions(@Headers('X-Original-URL') originalUrl, @Res() response: any, @Cookies() cookies: any) {
+    Logger.log(`Checking permissions for ${originalUrl}`);
+    if (!originalUrl || originalUrl.length === 0) {
+      response.status(HttpStatus.FORBIDDEN).send();
+      return;
+    }
+    // Get the reportId from the originalUrl removing the appDomainSuffix from it
+    const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL);
+    const urlObject = new URL(baseUrl);
+    // FIXME: hardcoded 'app' subdomain, should we add a setting for that?
+    const appDomainSuffix = `.app.${urlObject.hostname}`;
+    const originalUrlObject = new URL(originalUrl);
+    const originalUrlHostname = originalUrlObject.hostname;
+    const reportId = originalUrlHostname.replace(`.${appDomainSuffix}`, '');
+    // Find report and get organization and team from it
+    let report: Report = null;
+    try {
+      report = await this.reportsService.getReportById(reportId);
+      if (!report) {
+        Logger.log(`Report '${reportId}' not found, forbidden!'`);
+        response.status(HttpStatus.FORBIDDEN).send();
+        return;
+      }
+    } catch (error) {
+      Logger.log(`Error looking for report '${reportId}': ${error}`);
+      response.status(HttpStatus.FORBIDDEN).send();
+      return;
+    }
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!team) {
+      throw new PreconditionFailedException('Team not found');
+    }
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
+    if (!organization) {
+      throw new PreconditionFailedException('Organization not found');
+    }
+    Logger.log(`Report '${report.title}' is in team '${team.sluglified_name}' and org '${organization.sluglified_name}'`);
+    if (team.visibility === TeamVisibilityEnum.PUBLIC) {
+      response.status(HttpStatus.OK).send();
+      return;
+    }
+    // Read token from cookie
+    if (!cookies || !cookies['kyso-jwt-token'] || cookies['kyso-jwt-token'].length === 0) {
+      Logger.log('No cookies set. Forbidden');
+      response.status(HttpStatus.FORBIDDEN).send();
+      return;
+    }
+    // Logger.log(`Received token: ${cookies['kyso-jwt-token']}`);
+    const token: Token = this.authService.evaluateAndDecodeToken(cookies['kyso-jwt-token']);
+    if (!token) {
+      Logger.log("Didn't received any token. Forbidden");
+      response.status(HttpStatus.FORBIDDEN).send();
+      return;
+    }
+    Logger.log(`Checking permissions for user ${token.username}`);
+    token.permissions = await AuthService.buildFinalPermissionsForUser(token.username, this.usersService, this.teamsService, this.organizationsService, this.platformRoleService, this.userRoleService);
+
+    const userHasPermission: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team, organization);
+
+    if (userHasPermission) {
+      response.status(HttpStatus.OK).send();
+    } else {
+      response.status(HttpStatus.FORBIDDEN).send();
+    }
   }
 }
