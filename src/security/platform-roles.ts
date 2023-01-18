@@ -16,6 +16,32 @@ import {
 import * as mongo from 'mongodb';
 
 export class PlatformRole {
+  public static getFriendlyNameFromArray = (key: string[]): string[] => {
+    return key.map((k: string) => PlatformRole.getFriendlyName(k));
+  };
+
+  public static getFriendlyName = (key: string): string => {
+    if (!key) {
+      return 'User';
+    }
+
+    switch (key.toLowerCase()) {
+      case 'platform-admin':
+        return 'Global administrator';
+      case 'team-admin':
+        return 'Channel administrator';
+      case 'team-contributor':
+        return 'Contributor';
+      case 'team-reader':
+        return 'Reader';
+      case 'organization-admin':
+        return 'Organization administrator';
+      case 'external':
+        return 'External user';
+      default:
+        return 'User';
+    }
+  };
   public static PLATFORM_ADMIN_ROLE = new KysoRole(
     'platform-admin',
     [

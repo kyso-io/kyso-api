@@ -465,11 +465,12 @@ export class OrganizationsService extends AutowiredService {
         if (isCentralized) {
           emailsCentralized = organization.options.notifications.emails;
         }
+        const friendlyRoleName = PlatformRole.getFriendlyName(addUserOrganizationDto.role);
         NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_ADD_MEMBER, {
           user,
           organization,
           emailsCentralized,
-          role: addUserOrganizationDto.role,
+          role: friendlyRoleName,
           frontendUrl,
         });
       } catch (ex) {
@@ -535,11 +536,12 @@ export class OrganizationsService extends AutowiredService {
     if (isCentralized) {
       emailsCentralized = organization.options.notifications.emails;
     }
+    const friendlyRoleName = PlatformRole.getFriendlyName(role);
     NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_ADD_MEMBER, {
       user,
       organization,
       emailsCentralized,
-      role,
+      role: friendlyRoleName,
       frontendUrl,
     });
     return true;

@@ -238,13 +238,15 @@ export class TeamsService extends AutowiredService {
       const member: TeamMemberJoin = new TeamMemberJoin(teamId, userId, rolesToApply, true);
       await this.teamMemberProvider.create(member);
       const user: User = await this.usersService.getUserById(userId);
+      const friendlyRolesNames = PlatformRole.getFriendlyNameFromArray(rolesToApply);
+
       NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
         user,
         organization,
         team,
         emailsCentralized,
         frontendUrl,
-        roles: rolesToApply,
+        roles: friendlyRolesNames,
       });
     }
   }
@@ -614,13 +616,14 @@ export class TeamsService extends AutowiredService {
       if (!member) {
         const member: TeamMemberJoin = new TeamMemberJoin(teamId, user.id, [element.role], true);
         await this.teamMemberProvider.create(member);
+        const friendlyRoleName = PlatformRole.getFriendlyName(element.role);
         NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
           user,
           organization,
           team,
           emailsCentralized,
           frontendUrl,
-          roles: [element.role],
+          roles: [friendlyRoleName],
         });
       } else {
         await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } });
