@@ -851,7 +851,18 @@ export class TestingDataPopulatorService {
 
   private async createTeams() {
     try {
-      const publicTeam = new Team('Public Team', 'https://bit.ly/3J49GUO', 'A public team', '', 'Cleveland', [], this.DarksideOrganization.id, TeamVisibilityEnum.PUBLIC, null, AllowDownload.ALL);
+      const publicTeam = new Team(
+        'Public Team',
+        'https://bit.ly/3J49GUO',
+        'A public team',
+        '',
+        'Cleveland',
+        [],
+        this.DarksideOrganization.id,
+        TeamVisibilityEnum.PUBLIC,
+        null,
+        AllowDownload.INHERITED,
+      );
 
       this.CustomTeamRole = new KysoRole('custom-team-random-role', [ReportPermissionsEnum.READ]);
 
@@ -865,7 +876,7 @@ export class TestingDataPopulatorService {
         this.LightsideOrganization.id,
         TeamVisibilityEnum.PROTECTED,
         null,
-        AllowDownload.ALL,
+        AllowDownload.INHERITED,
       );
 
       const privateTeam = new Team(
@@ -878,7 +889,7 @@ export class TestingDataPopulatorService {
         this.DarksideOrganization.id,
         TeamVisibilityEnum.PRIVATE,
         null,
-        AllowDownload.ALL,
+        AllowDownload.INHERITED,
       );
 
       this.PublicTeam = await this._createTeam(publicTeam);
@@ -896,7 +907,7 @@ export class TestingDataPopulatorService {
         this.APITests_Organization.id,
         TeamVisibilityEnum.PUBLIC,
         null,
-        AllowDownload.ALL,
+        AllowDownload.INHERITED,
       );
 
       const apiTests_protectedChannel = new Team(
@@ -909,7 +920,7 @@ export class TestingDataPopulatorService {
         this.APITests_Organization.id,
         TeamVisibilityEnum.PROTECTED,
         null,
-        AllowDownload.ALL,
+        AllowDownload.INHERITED,
       );
 
       const apiTests_privateChannel = new Team(
@@ -922,7 +933,7 @@ export class TestingDataPopulatorService {
         this.APITests_Organization.id,
         TeamVisibilityEnum.PRIVATE,
         null,
-        AllowDownload.ALL,
+        AllowDownload.INHERITED,
       );
 
       this.APITests_PublicChannel = await this._createTeam(apiTests_publicChannel);
