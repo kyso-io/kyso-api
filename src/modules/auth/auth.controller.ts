@@ -639,7 +639,7 @@ export class AuthController extends GenericController<string> {
     const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL);
     const urlObject = new URL(baseUrl);
     // FIXME: hardcoded 'app' subdomain, should we add a setting for that?
-    const appDomainSuffix = `.app.${urlObject.hostname}`;
+    const appDomainSuffix = `app.${urlObject.hostname}`;
     const originalUrlObject = new URL(originalUrl);
     const originalUrlHostname = originalUrlObject.hostname;
     const reportId = originalUrlHostname.replace(`.${appDomainSuffix}`, '');
