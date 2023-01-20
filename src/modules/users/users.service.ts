@@ -366,6 +366,12 @@ export class UsersService extends AutowiredService {
     if (updateUserRequestDto.link) {
       data.link = updateUserRequestDto.link;
     }
+    if (updateUserRequestDto.show_onboarding) {
+      data.show_onboarding = updateUserRequestDto.show_onboarding;
+    }
+    if (updateUserRequestDto.onboarding_progress) {
+      data.show_onboarding = updateUserRequestDto.onboarding_progress;
+    }
     user = await this.updateUser(
       { _id: this.provider.toObjectId(id) },
       {

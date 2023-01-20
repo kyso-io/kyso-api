@@ -115,7 +115,23 @@ export class KysoSettingsService extends AutowiredService {
         return 'true';
       case KysoSettingsEnum.ONBOARDING_MESSAGES:
         return `{
-          welcome_message: "This is a welcome message"
+          "welcome_message": "A place to publish, organise & discover presentation-ready research: Jupyter notebooks, HTML, Office files, SVS images, Markdown, Data Apps & much, much more!",
+          "demo_url": "https://www.loom.com/embed/fa23c122402243539909f038ddef590b",
+          "first_cta": {
+            "title": "Publish your work.",
+            "text": "Upload existing research - no matter the format - to be indexed & shared with colleagues.",
+            "url": "/"
+          },
+          "second_cta": {
+            "title": "Read a report.",
+            "text": "Read through a report, interact with & comment on the results.",
+            "url": "/"
+          },
+          "third_cta": {
+            "title": "Search & discover.",
+            "text": "Find the research you're interested in from colleagues across the organisation.",
+            "url": "/"
+          }
         }`;
       default:
         return '';
