@@ -318,7 +318,7 @@ export class UsersController extends GenericController<User> {
   }
 
   @Patch('/:userId')
-  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @UseGuards()
   @ApiOperation({
     summary: `Update an user`,
     description: `Allows updating an user passing its id`,
