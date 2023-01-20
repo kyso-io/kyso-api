@@ -30,6 +30,7 @@ import {
   VerifyCaptchaRequestDto,
   VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model';
+import { OnboardingProgress } from '@kyso-io/kyso-model/dist/models/onboarding-progress.model';
 import {
   BadRequestException,
   ConflictException,
@@ -204,6 +205,7 @@ export class UsersService extends AutowiredService {
       AuthService.hashPassword(signUpDto.password),
       null,
       true,
+      new OnboardingProgress(true, false, false, false, false),
     );
     Logger.log(`Creating new user ${signUpDto.display_name} with email ${signUpDto.email} and username ${signUpDto.username}...`, UsersService.name);
     const user: User = await this.provider.create(newUser);

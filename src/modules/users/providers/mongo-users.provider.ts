@@ -1,4 +1,5 @@
 import { GlobalPermissionsEnum, LoginProviderEnum, User } from '@kyso-io/kyso-model';
+import { OnboardingProgress } from '@kyso-io/kyso-model/dist/models/onboarding-progress.model';
 import { Injectable, Logger } from '@nestjs/common';
 import * as mongo from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
@@ -23,12 +24,13 @@ const DEFAULT_GLOBAL_ADMIN_USER = new User(
   '',
   '',
   false, // show_onboarding
+  new OnboardingProgress(true, true, true, true, true),
   new mongo.ObjectId('61a8ae8f9c2bc3c5a2144000').toString(),
 );
 @Injectable()
 export class UsersMongoProvider extends MongoProvider<User> {
   provider: any;
-  version = 6;
+  version = 7;
 
   constructor() {
     super('User', db, [
@@ -156,6 +158,28 @@ export class UsersMongoProvider extends MongoProvider<User> {
       {
         $set: {
           show_onboarding: true,
+        },
+      },
+    );
+  }
+
+  /**
+   * Added a new property to user object "onboarding_progress" to track progress of new users
+   * For existing users, we will update them with the first step completed and the rest pending
+   * just to show to them the onboarding steps
+   */
+  async migrate_from_6_to_7() {
+    await this.updateMany(
+      {},
+      {
+        $set: {
+          onboarding_progress: {
+            step_1: true,
+            step_2: false,
+            step_3: false,
+            step_4: false,
+            step_5: false,
+          },
         },
       },
     );
