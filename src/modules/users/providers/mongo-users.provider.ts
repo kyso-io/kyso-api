@@ -30,7 +30,7 @@ const DEFAULT_GLOBAL_ADMIN_USER = new User(
 @Injectable()
 export class UsersMongoProvider extends MongoProvider<User> {
   provider: any;
-  version = 7;
+  version = 8;
 
   constructor() {
     super('User', db, [
@@ -179,6 +179,28 @@ export class UsersMongoProvider extends MongoProvider<User> {
             step_3: false,
             step_4: false,
             step_5: false,
+          },
+        },
+      },
+    );
+  }
+
+  /**
+   * Added a new property "finish_and_remove" to user object "onboarding_progress" to track progress of new users
+   * The notification bell will only disappear when finish_and_remove it's true
+   */
+  async migrate_from_7_to_8() {
+    await this.updateMany(
+      {},
+      {
+        $set: {
+          onboarding_progress: {
+            step_1: false,
+            step_2: false,
+            step_3: false,
+            step_4: false,
+            step_5: false,
+            finish_and_remove: false,
           },
         },
       },
