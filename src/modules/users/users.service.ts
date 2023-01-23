@@ -205,7 +205,7 @@ export class UsersService extends AutowiredService {
       AuthService.hashPassword(signUpDto.password),
       null,
       true,
-      new OnboardingProgress(false, false, false, false, false),
+      OnboardingProgress.createEmpty(),
     );
     Logger.log(`Creating new user ${signUpDto.display_name} with email ${signUpDto.email} and username ${signUpDto.username}...`, UsersService.name);
     const user: User = await this.provider.create(newUser);

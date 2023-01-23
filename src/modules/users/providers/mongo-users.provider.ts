@@ -24,7 +24,7 @@ const DEFAULT_GLOBAL_ADMIN_USER = new User(
   '',
   '',
   false, // show_onboarding
-  new OnboardingProgress(true, true, true, true, true),
+  new OnboardingProgress(true, true, true, true, true, true),
   new mongo.ObjectId('61a8ae8f9c2bc3c5a2144000').toString(),
 );
 @Injectable()
@@ -194,14 +194,7 @@ export class UsersMongoProvider extends MongoProvider<User> {
       {},
       {
         $set: {
-          onboarding_progress: {
-            step_1: false,
-            step_2: false,
-            step_3: false,
-            step_4: false,
-            step_5: false,
-            finish_and_remove: false,
-          },
+          onboarding_progress: OnboardingProgress.createEmpty(),
         },
       },
     );
