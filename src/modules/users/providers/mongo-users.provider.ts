@@ -174,7 +174,7 @@ export class UsersMongoProvider extends MongoProvider<User> {
       {
         $set: {
           onboarding_progress: {
-            step_1: true,
+            step_1: false,
             step_2: false,
             step_3: false,
             step_4: false,
