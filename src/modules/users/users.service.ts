@@ -172,7 +172,11 @@ export class UsersService extends AutowiredService {
       const usernameParts: string[] = signUpDto.username.split('@');
       signUpDto.username = slugify(usernameParts[0]);
     }
-    signUpDto.username = slugify(signUpDto.username.toLowerCase());
+
+    if (!signUpDto.username) {
+      signUpDto.username = slugify(signUpDto.username.toLowerCase());
+    }
+
     const isUsernameAvailable: boolean = await this.checkUsernameAvailability(signUpDto.username);
     // Check if the provided username is in use and or add a number suffix until one is available
     if (!isUsernameAvailable) {
