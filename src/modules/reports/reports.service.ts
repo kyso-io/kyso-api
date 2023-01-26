@@ -55,6 +55,7 @@ import * as glob from 'glob';
 import { join } from 'path';
 import * as sha256File from 'sha256-file';
 import { NATSHelper } from 'src/helpers/natsHelper';
+import { FileInfo } from 'ssh2-sftp-client';
 import { replaceStringInFilesSync } from 'tiny-replace-files';
 import { v4 as uuidv4 } from 'uuid';
 import { Autowired } from '../../decorators/autowired';
@@ -1124,8 +1125,55 @@ export class ReportsService extends AutowiredService {
         await createHardLinkInSftp();
       }
     }
-    await client.end();
     Logger.log(`Report '${report.id} ${report.sluglified_name}': Files uploaded to Ftp`, ReportsService.name);
+
+    // Check if there are some files not hard linked
+    new Promise<void>(async () => {
+      const readDirectoryRecursively = async (directory: string): Promise<string[]> => {
+        let filePaths: string[] = [];
+        try {
+          const result: FileInfo[] = await client.list(directory);
+          for (const sub of result) {
+            if (sub.type === 'd') {
+              const dirPaths: string[] = await readDirectoryRecursively(join(directory, sub.name));
+              filePaths = [...filePaths, ...dirPaths];
+            } else {
+              filePaths = [...filePaths, join(directory, sub['name'])];
+            }
+          }
+        } catch (e) {
+          Logger.error(`An error occurred while reading directory '${directory}' in SFTP`, e, ReportsService.name);
+        }
+        return filePaths;
+      };
+      try {
+        const reportBasePath = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`;
+        const reportVersionPathSftp: string = join(sftpDestinationFolder, reportBasePath);
+        const filePaths: string[] = await readDirectoryRecursively(reportVersionPathSftp);
+        for (const fileId of createKysoReportVersionDto.unmodifiedFiles) {
+          const index: number = reportFiles.findIndex((file: File) => file.id === fileId);
+          if (index !== -1) {
+            const file: File = reportFiles[index];
+            const newFilePathScs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${file.name}`;
+            const indexFile: number = filePaths.findIndex((filePath: string) => filePath === newFilePathScs);
+            if (indexFile === -1) {
+              Logger.warn(`File '${newFilePathScs}' not found in SFTP. Creating a copy...`, ReportsService.name);
+              const source: string = join(sftpDestinationFolder, file.path_scs);
+              const target: string = join(sftpDestinationFolder, newFilePathScs);
+              try {
+                const copyResult: string = await client.rcopy(source, target);
+                Logger.log(`File from '${source}' copied to '${copyResult}'`, ReportsService.name);
+              } catch (e) {
+                Logger.error(`Report '${report.id}': Error while copying file '${source}' to '${target}'`, e, ReportsService.name);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        Logger.error(`Report '${report.id}': Error while reading files from SFTP`, ReportsService.name);
+      }
+      await client.end();
+    });
 
     rmSync(tmpReportDir, { recursive: true, force: true });
 
