@@ -416,10 +416,15 @@ export class OrganizationsService extends AutowiredService {
     if (!organization) {
       throw new PreconditionFailedException('Organization does not exist');
     }
+
     const user: User = await this.usersService.getUserById(addUserOrganizationDto.userId);
     if (!user) {
       throw new PreconditionFailedException('User does not exist');
     }
+
+    // Throws an exception if exists a domain restriction
+    this.checkDomainRestrictionInOrganization(user.email, organization);
+
     const validRoles: string[] = [
       PlatformRole.TEAM_ADMIN_ROLE.name,
       PlatformRole.TEAM_CONTRIBUTOR_ROLE.name,
@@ -518,12 +523,10 @@ export class OrganizationsService extends AutowiredService {
     if (!user) {
       throw new NotFoundException('User does not exist');
     }
-    if (Array.isArray(organization.allowed_access_domains) && organization.allowed_access_domains.length > 0) {
-      const domain: string = user.email.split('@')[1];
-      if (!organization.allowed_access_domains.includes(domain)) {
-        throw new ForbiddenException('Cannot add user to organization due to domain access restrictions');
-      }
-    }
+
+    // Throws an exception if there is a restriction
+    this.checkDomainRestrictionInOrganization(user.email, organization);
+
     const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id);
     let member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id);
     if (member) {
@@ -1039,6 +1042,9 @@ export class OrganizationsService extends AutowiredService {
       }
     }
 
+    // Throws a exception if there is a domain restriction
+    this.checkDomainRestrictionInOrganization(inviteUserDto.email, organization);
+
     let user: User = await this.usersService.getUser({ filter: { email: inviteUserDto.email } });
     if (user) {
       Logger.log(`User ${inviteUserDto.email} already exists`);
@@ -1108,5 +1114,28 @@ export class OrganizationsService extends AutowiredService {
     joinCodes.valid_until = moment(updateJoinCodesDto.valid_until).toDate();
     await this.provider.updateOne({ _id: this.provider.toObjectId(organizationId) }, { $set: { join_codes: joinCodes } });
     return joinCodes;
+  }
+
+  public checkDomainRestriction(userEmail: string, allowedAccessDomains: string[]) {
+    if (allowedAccessDomains && Array.isArray(allowedAccessDomains) && allowedAccessDomains.length > 0) {
+      // There is a restriction based on domain
+      const splittedEmail: string[] = userEmail.split('@');
+      const domain = splittedEmail && splittedEmail.length >= 2 ? splittedEmail[1] : null;
+
+      if (domain) {
+        const found: string[] = allowedAccessDomains.filter((x) => domain.toLowerCase().endsWith(x.toLowerCase()));
+
+        if (!found) {
+          // The invitation don't have an allowed domain
+          throw new BadRequestException(`${userEmail} is an invalid domain. Allowed domains are ${allowedAccessDomains}`);
+        }
+      } else {
+        throw new BadRequestException(`Can't extract the domain of ${userEmail}`);
+      }
+    }
+  }
+
+  public checkDomainRestrictionInOrganization(userEmail: string, organization: Organization) {
+    return this.checkDomainRestriction(userEmail, organization.allowed_access_domains);
   }
 }
