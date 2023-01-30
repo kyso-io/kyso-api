@@ -445,6 +445,7 @@ export class TeamsService extends AutowiredService {
           user: await this.usersService.getUserById(token.id),
           organization,
           team: newTeam,
+          frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
         });
       }
       return newTeam;
@@ -781,6 +782,7 @@ export class TeamsService extends AutowiredService {
       organization,
       team,
       user_ids: teamMembers.map((teamMember: TeamMember) => teamMember.id),
+      frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
     });
     return team;
   }
