@@ -41,6 +41,9 @@ export class UserController extends GenericController<User> {
       throw new ForbiddenException();
     }
     const user: User = await this.usersService.getUserById(token.id);
+    if (!user) {
+      throw new ForbiddenException(`User not found with this token`);
+    }
     return new NormalizedResponseDTO(UserDTO.fromUser(user));
   }
 }

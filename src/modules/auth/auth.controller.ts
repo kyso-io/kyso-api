@@ -10,6 +10,7 @@ import {
   OrganizationAuthOptions,
   PingIdSAMLSpec,
   Report,
+  ReportDTO,
   ReportPermissionsEnum,
   ResourcePermissions,
   SignUpDto,
@@ -24,6 +25,7 @@ import {
 import {
   Body,
   Controller,
+  ConflictException,
   ForbiddenException,
   Get,
   Headers,
@@ -51,6 +53,7 @@ import { db } from '../../main';
 import { PlatformRole } from '../../security/platform-roles';
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service';
 import { OrganizationsService } from '../organizations/organizations.service';
+import { RelationsService } from '../relations/relations.service';
 import { ReportsService } from '../reports/reports.service';
 import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
@@ -69,6 +72,9 @@ const Saml2js = require('saml2js');
 export class AuthController extends GenericController<string> {
   @Autowired({ typeName: 'UsersService' })
   private readonly usersService: UsersService;
+
+  @Autowired({ typeName: 'RelationsService' })
+  private readonly relationsService: RelationsService;
 
   @Autowired({ typeName: 'ReportsService' })
   private readonly reportsService: ReportsService;
@@ -635,11 +641,21 @@ export class AuthController extends GenericController<string> {
     description: 'Original app URL (sent by the ingress controller)',
     required: true,
   })
-  async checkAppPermissions(@Headers('X-Original-URL') originalUrl, @Res() response: any, @Cookies() cookies: any) {
+  @ApiQuery({
+    name: 'data',
+    type: Boolean,
+    description: 'Send Report Data on Response. Optional, defaults to false',
+    required: false,
+  })
+  @ApiNormalizedResponse({
+    status: 200,
+    description: `App Report Data`,
+    type: Report,
+  })
+  async checkAppPermissions(@Headers('X-Original-URL') originalUrl, @Cookies() cookies: any, @Query('data') sendData = false): Promise<NormalizedResponseDTO<ReportDTO>> {
     Logger.log(`Checking permissions for ${originalUrl}`);
     if (!originalUrl || originalUrl.length === 0) {
-      response.status(HttpStatus.FORBIDDEN).send();
-      return;
+      throw new ForbiddenException('You do not have permissions to access this report');
     }
     // Get the reportId from the originalUrl removing the appDomainSuffix from it
     const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL);
@@ -654,14 +670,10 @@ export class AuthController extends GenericController<string> {
     try {
       report = await this.reportsService.getReportById(reportId);
       if (!report) {
-        Logger.log(`Report '${reportId}' not found, forbidden!'`);
-        response.status(HttpStatus.FORBIDDEN).send();
-        return;
+        throw new ForbiddenException(`Report '${reportId}' not found`);
       }
     } catch (error) {
-      Logger.log(`Error looking for report '${reportId}': ${error}`);
-      response.status(HttpStatus.FORBIDDEN).send();
-      return;
+      throw new ForbiddenException(`Error looking for report '${reportId}': ${error}`);
     }
     const team: Team = await this.teamsService.getTeamById(report.team_id);
     if (!team) {
@@ -672,32 +684,53 @@ export class AuthController extends GenericController<string> {
       throw new PreconditionFailedException('Organization not found');
     }
     Logger.log(`Report '${report.title}' is in team '${team.sluglified_name}' and org '${organization.sluglified_name}'`);
+    let userHasPermission: boolean;
+    let userId: string | null;
     if (team.visibility === TeamVisibilityEnum.PUBLIC) {
-      response.status(HttpStatus.OK).send();
-      return;
-    }
-    // Read token from cookie
-    if (!cookies || !cookies['kyso-jwt-token'] || cookies['kyso-jwt-token'].length === 0) {
-      Logger.log('No cookies set. Forbidden');
-      response.status(HttpStatus.FORBIDDEN).send();
-      return;
-    }
-    // Logger.log(`Received token: ${cookies['kyso-jwt-token']}`);
-    const token: Token = this.authService.evaluateAndDecodeToken(cookies['kyso-jwt-token']);
-    if (!token) {
-      Logger.log("Didn't received any token. Forbidden");
-      response.status(HttpStatus.FORBIDDEN).send();
-      return;
-    }
-    Logger.log(`Checking permissions for user ${token.username}`);
-    token.permissions = await AuthService.buildFinalPermissionsForUser(token.username, this.usersService, this.teamsService, this.organizationsService, this.platformRoleService, this.userRoleService);
-
-    const userHasPermission: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team, organization);
-
-    if (userHasPermission) {
-      response.status(HttpStatus.OK).send();
+      userHasPermission = true;
+      userId = null;
     } else {
-      response.status(HttpStatus.FORBIDDEN).send();
+      // Read token from cookie
+      if (!cookies || !cookies['kyso-jwt-token'] || cookies['kyso-jwt-token'].length === 0) {
+        throw new ForbiddenException('No cookies set. Forbidden');
+      }
+      // Logger.log(`Received token: ${cookies['kyso-jwt-token']}`);
+      const token: Token = this.authService.evaluateAndDecodeToken(cookies['kyso-jwt-token']);
+      if (!token) {
+        throw new ForbiddenException('No token in cookies. Forbidden');
+      }
+      Logger.log(`Checking permissions for user ${token.username}`);
+      token.permissions = await AuthService.buildFinalPermissionsForUser(
+        token.username,
+        this.usersService,
+        this.teamsService,
+        this.organizationsService,
+        this.platformRoleService,
+        this.userRoleService,
+      );
+      userHasPermission = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team, organization);
+      userId = token.id;
+    }
+    if (userHasPermission) {
+      // FIXME: For now convert the report_type to a string, we should use the Enum
+      const report_type: string = report.report_type || '';
+      // If the report is not an application return a 409 code when we have
+      // been asked to send data, if not return a 403, if not the ingress
+      // controller shows a 500 error.
+      if (report_type != 'app' && !report_type.startsWith('app.')) {
+        if (sendData) {
+          throw new ConflictException('The report is not application. Forbidden');
+        } else {
+          throw new ForbiddenException('The report is not application. Forbidden');
+        }
+      } else if (sendData) {
+        const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, userId);
+        return new NormalizedResponseDTO(reportDto);
+      } else {
+        return;
+      }
+    } else {
+      throw new ForbiddenException('The user can see this report. Forbidden');
     }
   }
 }
