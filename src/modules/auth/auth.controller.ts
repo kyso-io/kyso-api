@@ -167,6 +167,7 @@ export class AuthController extends GenericController<string> {
     res.status(HttpStatus.OK).send();
   }
 
+  /* DEPRECATED
   @Get('/login/sso/ping-saml/:organizationSlug')
   @ApiOperation({
     summary: `Logs an user into Kyso with PingID`,
@@ -195,11 +196,13 @@ export class AuthController extends GenericController<string> {
 
       let pingSamlConfiguration: AuthProviderSpec;
 
+      /* DEPRECATED
       if (organization.options && organization.options.auth && organization.options.auth.otherProviders && organization.options.auth.otherProviders.length > 0) {
         pingSamlConfiguration = organization.options.auth.otherProviders.find((x) => x.type === LoginProviderEnum.PING_ID_SAML);
       } else {
         return 'Your organization has not configured PingSAML as auth provider';
       }
+      
 
       // Set variables to organizationConfiguration
       let authPingIdSamlSsoUrl;
@@ -220,6 +223,7 @@ export class AuthController extends GenericController<string> {
       return 'Your organization has not properly configured PingSAML as auth provider';
     }
   }
+  */
 
   @Post('/login/sso/ping-saml/callback')
   @ApiOperation({
@@ -380,6 +384,7 @@ export class AuthController extends GenericController<string> {
     }
   }
 
+  /* DEPRECATED
   @Get('/organization/:organizationSlug/options')
   @ApiParam({
     name: 'organizationSlug',
@@ -401,6 +406,7 @@ export class AuthController extends GenericController<string> {
     }
     return new NormalizedResponseDTO(organization.options?.auth ? organization.options.auth : null);
   }
+  */
 
   @Get('/username-available/:username')
   @ApiParam({
