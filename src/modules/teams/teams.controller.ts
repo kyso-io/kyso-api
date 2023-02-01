@@ -116,7 +116,15 @@ export class TeamsController extends GenericController<Team> {
       userId = query.filter.user_id;
       delete query.filter.user_id;
     }
-    const teams: Team[] = await this.teamsService.getTeamsForController(userId, query);
+
+    let teams: Team[] = [];
+
+    if (token.isGlobalAdmin()) {
+      teams = await this.teamsService.getTeams(query);
+    } else {
+      teams = await this.teamsService.getTeamsForController(userId, query);
+    }
+
     return new NormalizedResponseDTO(teams);
   }
 
