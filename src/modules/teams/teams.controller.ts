@@ -435,18 +435,22 @@ export class TeamsController extends GenericController<Team> {
     if (!team) {
       throw new NotFoundException('Team not found');
     }
-    if (token) {
-      const index: number = token.permissions.teams.findIndex((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === team.id);
-      if (index === -1) {
+
+    if (!token.isGlobalAdmin()) {
+      if (token) {
+        const index: number = token.permissions.teams.findIndex((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === team.id);
+        if (index === -1) {
+          if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            throw new ForbiddenException('You are not allowed to access this team');
+          }
+        }
+      } else {
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
           throw new ForbiddenException('You are not allowed to access this team');
         }
       }
-    } else {
-      if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-        throw new ForbiddenException('You are not allowed to access this team');
-      }
     }
+
     let deleteSensitiveData = true;
     if (token) {
       const indexOrg: number = token.permissions.organizations.findIndex((o: ResourcePermissions) => o.id === organizationId);
@@ -459,11 +463,13 @@ export class TeamsController extends GenericController<Team> {
         }
       }
     }
+
     if (deleteSensitiveData) {
       delete team.roles;
       delete team.slackChannel;
       delete team.teamsIncomingWebhookUrl;
     }
+
     return new NormalizedResponseDTO(team);
   }
 
