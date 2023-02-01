@@ -374,17 +374,21 @@ export class OrganizationsService extends AutowiredService {
       if (organization?.options?.notifications) {
         orgNotifications = { ...organization.options.notifications };
       }
+      /* DEPRECATED
       let orgAuth: any = {};
       if (organization?.options?.auth) {
         orgAuth = { ...organization.options.auth };
       }
+      */
       data.options = {};
       if (updateOrganizationDto?.options?.notifications && Object.keys(updateOrganizationDto.options.notifications).length > 0) {
         data.options.notifications = { ...orgNotifications, ...updateOrganizationDto.options.notifications };
       }
+      /* DEPRECATED
       if (updateOrganizationDto?.options?.auth && Object.keys(updateOrganizationDto.options.auth).length > 0) {
         data.options.auth = { ...orgAuth, ...updateOrganizationDto.options.auth };
       }
+      */
     }
     if (updateOrganizationDto?.allow_download && updateOrganizationDto.allow_download !== null) {
       if (updateOrganizationDto.allow_download === AllowDownload.INHERITED) {
