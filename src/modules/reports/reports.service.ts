@@ -3106,6 +3106,18 @@ export class ReportsService extends AutowiredService {
         break;
       }
     }
+
+    // Slug the organization, channel/team. As is idempotent, if it's already slugified, should work anyways
+    if (kysoConfigFile.organization) {
+      kysoConfigFile.organization = slugify(kysoConfigFile.organization);
+    }
+    if (kysoConfigFile.team) {
+      kysoConfigFile.team = slugify(kysoConfigFile.team);
+    }
+    if (kysoConfigFile.channel) {
+      kysoConfigFile.channel = slugify(kysoConfigFile.channel);
+    }
+
     return kysoConfigFile;
   }
 
