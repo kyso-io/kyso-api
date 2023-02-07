@@ -139,6 +139,7 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       transform: true,
+      forbidUnknownValues: false,
     }),
   );
   app.useGlobalInterceptors(new TransformInterceptor());

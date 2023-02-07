@@ -39,6 +39,7 @@
     "@opentelemetry/instrumentation-nestjs-core": "^0.28.2",
     "@opentelemetry/sdk-trace-node": "^1.0.1",
     "@willsoto/nestjs-prometheus": "^4.4.0",
+    "@xmldom/xmldom": "^0.8.6",
     "adm-zip": "^0.5.9",
     "api-query-params": "^5.3.0",
     "axios": "^0.24.0",
