@@ -37,6 +37,7 @@ import { KysoLoginProvider } from './providers/kyso-login.provider';
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider';
 import { PingIdLoginProvider } from './providers/ping-id-login.provider';
 import { UserRoleService } from './user-role.service';
+import * as crypto from 'crypto';
 
 function factory(service: AuthService) {
   return service;
@@ -530,6 +531,17 @@ export class AuthService extends AutowiredService {
     } catch (ex) {
       return ex.message as TokenStatusEnum;
     }
+  }
+
+  public static generateRandomPassword(): string {
+    const wishlist = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    const length = 30;
+
+    const randomPassword = Array.from(crypto.randomFillSync(new Uint32Array(length)))
+      .map((x) => wishlist[x % wishlist.length])
+      .join('');
+
+    return randomPassword;
   }
 
   public async refreshToken(token: Token): Promise<string> {

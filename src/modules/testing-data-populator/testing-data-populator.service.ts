@@ -15,6 +15,7 @@ import {
   Report,
   ReportPermissionsEnum,
   RepositoryProvider,
+  SignUpDto,
   Tag,
   TagRequestDTO,
   Team,
@@ -169,243 +170,33 @@ export class TestingDataPopulatorService {
 
   private async createTestingUsers() {
     try {
-      const rey_TestTeamAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-        `${mailPrefix}+rey@dev.kyso.io`,
-        'skywalker',
-        'Rey Skywalker',
-        'Rey',
-        LoginProviderEnum.KYSO,
-        faker.hacker.phrase(),
-        faker.address.cityName(),
-        faker.internet.url(),
-        'free',
-        'https://handbook.kyso.io/docs/qa/images/portraits/rey.jpg',
-        null,
-        true,
-        [],
-        'n0tiene',
-      );
+      const rey_TestTeamAdminUser: SignUpDto = new SignUpDto(`${mailPrefix}+rey@dev.kyso.io`, 'skywalker', 'Rey Skywalker', 'n0tiene', true);
 
-      const kylo_TestTeamContributorUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-        `${mailPrefix}+kylo@dev.kyso.io`,
-        'kyloren',
-        'Ben Solo',
-        'Kylo Ren',
-        LoginProviderEnum.KYSO,
-        faker.hacker.phrase(),
-        faker.address.cityName(),
-        faker.internet.url(),
-        'free',
-        'https://handbook.kyso.io/docs/qa/images/portraits/kylo.jpeg',
-        null,
-        true,
-        [],
-        'n0tiene',
-      );
+      const kylo_TestTeamContributorUser: SignUpDto = new SignUpDto(`${mailPrefix}+kylo@dev.kyso.io`, 'kyloren', 'Ben Solo', 'n0tiene', true);
 
-      const chewbacca_TestTeamReaderUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-        `${mailPrefix}+chewbacca@dev.kyso.io`,
-        'chewie',
-        'GRWAAAAAAWWLLL Chewbacca',
-        'Chewbacca',
-        LoginProviderEnum.KYSO,
-        faker.hacker.phrase(),
-        faker.address.cityName(),
-        faker.internet.url(),
-        'free',
-        'https://handbook.kyso.io/docs/qa/images/portraits/chewbacca.jpg',
-        null,
-        true,
-        [],
-        'n0tiene',
-      );
+      const chewbacca_TestTeamReaderUser: SignUpDto = new SignUpDto(`${mailPrefix}+chewbacca@dev.kyso.io`, 'chewie', 'GRWAAAAAAWWLLL Chewbacca', 'n0tiene', true);
 
-      const gideon_TestOrganizationAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-        `${mailPrefix}+gideon@dev.kyso.io`,
-        'gideon',
-        'The Greatest Moff Giddeon',
-        'Moff Gideon',
-        LoginProviderEnum.KYSO,
-        faker.hacker.phrase(),
-        faker.address.cityName(),
-        faker.internet.url(),
-        'free',
-        'https://handbook.kyso.io/docs/qa/images/portraits/gideon.jpg',
-        null,
-        true,
-        [],
-        'n0tiene',
-      );
+      const gideon_TestOrganizationAdminUser: SignUpDto = new SignUpDto(`${mailPrefix}+gideon@dev.kyso.io`, 'gideon', 'The Greatest Moff Giddeon', 'n0tiene', true);
 
-      const palpatine_TestPlatformAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-        `${mailPrefix}+palpatine@dev.kyso.io`,
-        `palpatine`,
-        'Lord Palpatine',
-        'palpatine',
-        LoginProviderEnum.KYSO,
-        faker.hacker.phrase(),
-        faker.address.cityName(),
-        faker.internet.url(),
-        'free',
-        'https://handbook.kyso.io/docs/qa/images/portraits/palpatine.jpg',
-        null,
-        true,
-        [GlobalPermissionsEnum.GLOBAL_ADMIN],
-        'n0tiene',
-      );
+      const palpatine_TestPlatformAdminUser: SignUpDto = new SignUpDto(`${mailPrefix}+palpatine@dev.kyso.io`, `palpatine`, 'Lord Palpatine', 'n0tiene', true);
 
-      const babyYoda_TestOrganizationAdminUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-        `${mailPrefix}+baby_yoda@dev.kyso.io`,
-        'the-real-baby-yoda',
-        'Grogu aka Baby Yoda',
-        'Baby Yoda',
-        LoginProviderEnum.KYSO,
-        faker.hacker.phrase(),
-        faker.address.cityName(),
-        faker.internet.url(),
-        'free',
-        'https://handbook.kyso.io/docs/qa/images/portraits/baby_yoda.jpg',
-        null,
-        true,
-        [],
-        'n0tiene',
-      );
+      const babyYoda_TestOrganizationAdminUser: SignUpDto = new SignUpDto(`${mailPrefix}+baby_yoda@dev.kyso.io`, 'the-real-baby-yoda', 'Grogu aka Baby Yoda', 'n0tiene', true);
 
-      const ahsoka_ExternalUser: CreateUserRequestDTO = new CreateUserRequestDTO(
-        `${mailPrefix}+ahsoka@dev.kyso.io`,
-        'ahsoka',
-        'Ahsoka Tano',
-        'Ahsoka Tano',
-        LoginProviderEnum.KYSO,
-        faker.hacker.phrase(),
-        faker.address.cityName(),
-        faker.internet.url(),
-        'free',
-        'https://handbook.kyso.io/docs/qa/images/portraits/ahsoka.jpg',
-        null,
-        true,
-        [],
-        'n0tiene',
-      );
+      const ahsoka_ExternalUser: SignUpDto = new SignUpDto(`${mailPrefix}+ahsoka@dev.kyso.io`, 'ahsoka', 'Ahsoka Tano', 'n0tiene', true);
 
-      const dooku_WithoutOrg: CreateUserRequestDTO = new CreateUserRequestDTO(
-        `${mailPrefix}+dooku@dev.kyso.io`,
-        'dooku',
-        'Count Dooku',
-        'Count Dooku',
-        LoginProviderEnum.KYSO,
-        faker.hacker.phrase(),
-        faker.address.cityName(),
-        faker.internet.url(),
-        'free',
-        'https://handbook.kyso.io/docs/qa/images/portraits/dooku.jpeg',
-        null,
-        true,
-        [],
-        'n0tiene',
-      );
+      const dooku_WithoutOrg: SignUpDto = new SignUpDto(`${mailPrefix}+dooku@dev.kyso.io`, 'dooku', 'Count Dooku', 'n0tiene', true);
 
-      const leia_OrgAdmin: CreateUserRequestDTO = new CreateUserRequestDTO(
-        `${mailPrefix}+leia@dev.kyso.io`,
-        'leia',
-        'Leia Organa',
-        'Leia Organa',
-        LoginProviderEnum.KYSO,
-        faker.hacker.phrase(),
-        faker.address.cityName(),
-        faker.internet.url(),
-        'free',
-        'https://handbook.kyso.io/docs/qa/images/portraits/leia.jpg',
-        null,
-        true,
-        [],
-        'n0tiene',
-      );
+      const leia_OrgAdmin: SignUpDto = new SignUpDto(`${mailPrefix}+leia@dev.kyso.io`, 'leia', 'Leia Organa', 'n0tiene', true);
 
-      const amidala_Reader: CreateUserRequestDTO = new CreateUserRequestDTO(
-        `${mailPrefix}+amidala@dev.kyso.io`,
-        'amidala',
-        'Padmé Amidala',
-        'Amidala',
-        LoginProviderEnum.KYSO,
-        faker.hacker.phrase(),
-        faker.address.cityName(),
-        faker.internet.url(),
-        'free',
-        'https://handbook.kyso.io/docs/qa/images/portraits/amidala.jpg',
-        null,
-        true,
-        [],
-        'n0tiene',
-      );
+      const amidala_Reader: SignUpDto = new SignUpDto(`${mailPrefix}+amidala@dev.kyso.io`, 'amidala', 'Padmé Amidala', 'n0tiene', true);
 
-      const mando_orgAdmin: CreateUserRequestDTO = new CreateUserRequestDTO(
-        `${mailPrefix}+mando@dev.kyso.io`,
-        'mando',
-        'The Mandalorian',
-        'The Mandalorian',
-        LoginProviderEnum.KYSO,
-        faker.hacker.phrase(),
-        faker.address.cityName(),
-        faker.internet.url(),
-        'free',
-        'https://handbook.kyso.io/docs/qa/images/portraits/mando.jpg',
-        null,
-        true,
-        [],
-        'n0tiene',
-      );
+      const mando_orgAdmin: SignUpDto = new SignUpDto(`${mailPrefix}+mando@dev.kyso.io`, 'mando', 'The Mandalorian', 'n0tiene', true);
 
-      const bb8_contributor: CreateUserRequestDTO = new CreateUserRequestDTO(
-        `${mailPrefix}+bb8@dev.kyso.io`,
-        'bb8',
-        'BB8',
-        'BB8',
-        LoginProviderEnum.KYSO,
-        faker.hacker.phrase(),
-        faker.address.cityName(),
-        faker.internet.url(),
-        'free',
-        'https://handbook.kyso.io/docs/qa/images/portraits/bb8.jpg',
-        null,
-        true,
-        [],
-        'n0tiene',
-      );
+      const bb8_contributor: SignUpDto = new SignUpDto(`${mailPrefix}+bb8@dev.kyso.io`, 'bb8', 'BB8', 'n0tiene', true);
 
-      const r2d2_teamAdmin: CreateUserRequestDTO = new CreateUserRequestDTO(
-        `${mailPrefix}+r2d2@dev.kyso.io`,
-        'r2d2',
-        'R2D2',
-        'R2D2',
-        LoginProviderEnum.KYSO,
-        faker.hacker.phrase(),
-        faker.address.cityName(),
-        faker.internet.url(),
-        'free',
-        'https://handbook.kyso.io/docs/qa/images/portraits/r2d2.jpg',
-        null,
-        true,
-        [],
-        'n0tiene',
-      );
+      const r2d2_teamAdmin: SignUpDto = new SignUpDto(`${mailPrefix}+r2d2@dev.kyso.io`, 'r2d2', 'R2D2', 'n0tiene', true);
 
-      const c3po_reader: CreateUserRequestDTO = new CreateUserRequestDTO(
-        `${mailPrefix}+c3po@dev.kyso.io`,
-        'c3po',
-        'C3PO',
-        'C3PO',
-        LoginProviderEnum.KYSO,
-        faker.hacker.phrase(),
-        faker.address.cityName(),
-        faker.internet.url(),
-        'free',
-        'https://handbook.kyso.io/docs/qa/images/portraits/c3p0.jpg',
-        null,
-        true,
-        [],
-        'n0tiene',
-      );
+      const c3po_reader: SignUpDto = new SignUpDto(`${mailPrefix}+c3po@dev.kyso.io`, 'c3po', 'C3PO', 'n0tiene', true);
 
       this.Rey_TeamAdminUser = await this._createUser(rey_TestTeamAdminUser);
       this.Kylo_TeamContributorUser = await this._createUser(kylo_TestTeamContributorUser);
@@ -428,8 +219,11 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: rey_TestTeamAdminUser.avatar_url,
-            global_permissions: rey_TestTeamAdminUser.global_permissions,
+            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/rey.jpg',
+            global_permissions: [],
+            location: faker.address.cityName(),
+            bio: faker.hacker.phrase(),
+            link: faker.internet.url(),
           },
         },
       );
@@ -439,8 +233,11 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: kylo_TestTeamContributorUser.avatar_url,
-            global_permissions: kylo_TestTeamContributorUser.global_permissions,
+            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/kylo.jpeg',
+            global_permissions: [],
+            location: faker.address.cityName(),
+            bio: faker.hacker.phrase(),
+            link: faker.internet.url(),
           },
         },
       );
@@ -450,8 +247,11 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: chewbacca_TestTeamReaderUser.avatar_url,
-            global_permissions: chewbacca_TestTeamReaderUser.global_permissions,
+            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/chewbacca.jpg',
+            global_permissions: [],
+            location: faker.address.cityName(),
+            bio: faker.hacker.phrase(),
+            link: faker.internet.url(),
           },
         },
       );
@@ -461,8 +261,11 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: gideon_TestOrganizationAdminUser.avatar_url,
-            global_permissions: gideon_TestOrganizationAdminUser.global_permissions,
+            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/gideon.jpg',
+            global_permissions: [],
+            location: faker.address.cityName(),
+            bio: faker.hacker.phrase(),
+            link: faker.internet.url(),
           },
         },
       );
@@ -472,8 +275,11 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: palpatine_TestPlatformAdminUser.avatar_url,
-            global_permissions: palpatine_TestPlatformAdminUser.global_permissions,
+            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/baby_yoda.jpg',
+            global_permissions: [],
+            location: faker.address.cityName(),
+            bio: faker.hacker.phrase(),
+            link: faker.internet.url(),
           },
         },
       );
@@ -483,8 +289,11 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: babyYoda_TestOrganizationAdminUser.avatar_url,
-            global_permissions: babyYoda_TestOrganizationAdminUser.global_permissions,
+            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/palpatine.jpg',
+            global_permissions: [GlobalPermissionsEnum.GLOBAL_ADMIN],
+            location: faker.address.cityName(),
+            bio: faker.hacker.phrase(),
+            link: faker.internet.url(),
           },
         },
       );
@@ -495,8 +304,11 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: ahsoka_ExternalUser.avatar_url,
-            global_permissions: ahsoka_ExternalUser.global_permissions,
+            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/ahsoka.jpg',
+            global_permissions: [],
+            location: faker.address.cityName(),
+            bio: faker.hacker.phrase(),
+            link: faker.internet.url(),
           },
         },
       );
@@ -507,8 +319,11 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: false,
             show_captcha: true,
-            avatar_url: dooku_WithoutOrg.avatar_url,
-            global_permissions: dooku_WithoutOrg.global_permissions,
+            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/dooku.jpeg',
+            global_permissions: [],
+            location: faker.address.cityName(),
+            bio: faker.hacker.phrase(),
+            link: faker.internet.url(),
           },
         },
       );
@@ -519,8 +334,11 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: leia_OrgAdmin.avatar_url,
-            global_permissions: leia_OrgAdmin.global_permissions,
+            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/leia.jpg',
+            global_permissions: [],
+            location: faker.address.cityName(),
+            bio: faker.hacker.phrase(),
+            link: faker.internet.url(),
           },
         },
       );
@@ -531,8 +349,11 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: amidala_Reader.avatar_url,
-            global_permissions: amidala_Reader.global_permissions,
+            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/amidala.jpg',
+            global_permissions: [],
+            location: faker.address.cityName(),
+            bio: faker.hacker.phrase(),
+            link: faker.internet.url(),
           },
         },
       );
@@ -543,8 +364,11 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: mando_orgAdmin.avatar_url,
-            global_permissions: mando_orgAdmin.global_permissions,
+            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/mando.jpg',
+            global_permissions: [],
+            location: faker.address.cityName(),
+            bio: faker.hacker.phrase(),
+            link: faker.internet.url(),
           },
         },
       );
@@ -555,8 +379,11 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: bb8_contributor.avatar_url,
-            global_permissions: bb8_contributor.global_permissions,
+            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/bb8.jpg',
+            global_permissions: [],
+            location: faker.address.cityName(),
+            bio: faker.hacker.phrase(),
+            link: faker.internet.url(),
           },
         },
       );
@@ -567,8 +394,11 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: r2d2_teamAdmin.avatar_url,
-            global_permissions: r2d2_teamAdmin.global_permissions,
+            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/r2d2.jpg',
+            global_permissions: [],
+            location: faker.address.cityName(),
+            bio: faker.hacker.phrase(),
+            link: faker.internet.url(),
           },
         },
       );
@@ -579,8 +409,11 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: c3po_reader.avatar_url,
-            global_permissions: c3po_reader.global_permissions,
+            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/c3p0.jpg',
+            global_permissions: [],
+            location: faker.address.cityName(),
+            bio: faker.hacker.phrase(),
+            link: faker.internet.url(),
           },
         },
       );
@@ -623,7 +456,7 @@ export class TestingDataPopulatorService {
     }
   }
 
-  private async _createUser(user: CreateUserRequestDTO) {
+  private async _createUser(user: SignUpDto) {
     try {
       Logger.log(`Creating ${user.display_name} user...`);
       return await this.usersService.createUser(user);

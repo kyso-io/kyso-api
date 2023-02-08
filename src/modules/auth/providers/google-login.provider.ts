@@ -1,4 +1,4 @@
-import { CreateUserRequestDTO, KysoSettingsEnum, Login, LoginProviderEnum, UserAccount } from '@kyso-io/kyso-model';
+import { CreateUserRequestDTO, KysoSettingsEnum, Login, LoginProviderEnum, SignUpDto, UserAccount } from '@kyso-io/kyso-model';
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import axios from 'axios';
@@ -6,6 +6,7 @@ import { google } from 'googleapis';
 import { ObjectId } from 'mongodb';
 import { v4 as uuidv4 } from 'uuid';
 import slugify from '../../../helpers/slugify';
+import { AuthService } from '../auth.service';
 import { BaseLoginProvider } from './base-login.provider';
 
 @Injectable()
@@ -41,7 +42,9 @@ export class GoogleLoginProvider extends BaseLoginProvider {
         }
         Logger.log(`User ${googleUser.email} is a new user`, GoogleLoginProvider.name);
 
-        const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
+        const signup: SignUpDto = new SignUpDto(googleUser.email, slugify(googleUser.email), name, AuthService.generateRandomPassword());
+
+        /*const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
           googleUser.email,
           slugify(googleUser.email),
           name,
@@ -57,7 +60,18 @@ export class GoogleLoginProvider extends BaseLoginProvider {
           [],
           uuidv4(),
         );
-        user = await this.usersService.createUser(createUserRequestDto);
+
+        user = await this.usersService.createUser(createUserRequestDto);*/
+
+        user = await this.usersService.createUser(signup);
+        user = await this.usersService.updateUser(
+          { id: user.id },
+          {
+            $set: {
+              avatar_url: googleUser.picture,
+            },
+          },
+        );
       }
       const index: number = user.accounts.findIndex((userAccount: UserAccount) => userAccount.type === LoginProviderEnum.GOOGLE && userAccount.username === googleUser.email);
       if (index === -1) {

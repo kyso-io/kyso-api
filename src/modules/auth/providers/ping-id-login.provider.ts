@@ -1,6 +1,7 @@
-import { CreateUserRequestDTO, Login, LoginProviderEnum } from '@kyso-io/kyso-model';
+import { CreateUserRequestDTO, Login, LoginProviderEnum, SignUpDto } from '@kyso-io/kyso-model';
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { UploadImageDto } from 'src/dtos/upload-image.dto';
 import slugify from '../../../helpers/slugify';
 import { BaseLoginProvider } from './base-login.provider';
 
@@ -23,6 +24,11 @@ export class PingIdLoginProvider extends BaseLoginProvider {
         const name = `${login.payload.givenName} ${login.payload.sn}`;
         const portrait = login.payload.profilePicture ? login.payload.profilePicture : '';
         Logger.log(`User ${login.email} is a new user`);
+
+        // User does not exists, create it
+        const signup = new SignUpDto(login.email, slugify(login.email), name, login.password);
+
+        /*
         const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
           login.email,
           slugify(login.email),
@@ -39,7 +45,17 @@ export class PingIdLoginProvider extends BaseLoginProvider {
           [],
           login.password,
         );
-        user = await this.usersService.createUser(createUserRequestDto);
+        */
+
+        user = await this.usersService.createUser(signup);
+        user = await this.usersService.updateUser(
+          { id: user.id },
+          {
+            $set: {
+              avatar_url: portrait,
+            },
+          },
+        );
       }
 
       return await this.createToken(user);

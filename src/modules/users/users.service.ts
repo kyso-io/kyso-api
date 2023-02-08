@@ -234,11 +234,13 @@ export class UsersService extends AutowiredService {
 
     Logger.log(`Sending email to ${user.email}`);
 
-    NATSHelper.safelyEmit<KysoUsersCreateEvent>(this.client, KysoEventEnum.USERS_CREATE, {
-      user,
-    });
+    if (!signUpDto.silent) {
+      NATSHelper.safelyEmit<KysoUsersCreateEvent>(this.client, KysoEventEnum.USERS_CREATE, {
+        user,
+      });
 
-    await this.sendVerificationEmail(user);
+      await this.sendVerificationEmail(user);
+    }
 
     this.indexUser(user);
 

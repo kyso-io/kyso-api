@@ -1,4 +1,4 @@
-import { AddUserAccountDTO, CreateUserRequestDTO, Login, LoginProviderEnum, Token, User, UserAccount } from '@kyso-io/kyso-model';
+import { AddUserAccountDTO, CreateUserRequestDTO, Login, LoginProviderEnum, SignUpDto, Token, User, UserAccount } from '@kyso-io/kyso-model';
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ObjectId } from 'mongodb';
@@ -8,6 +8,7 @@ import slugify from '../../../helpers/slugify';
 import { GitlabReposService } from '../../gitlab-repos/gitlab-repos.service';
 import { GitlabAccessToken } from '../../gitlab-repos/interfaces/gitlab-access-token';
 import { GitlabUser } from '../../gitlab-repos/interfaces/gitlab-user';
+import { AuthService } from '../auth.service';
 import { BaseLoginProvider } from './base-login.provider';
 
 @Injectable()
@@ -31,7 +32,9 @@ export class GitlabLoginProvider extends BaseLoginProvider {
       });
       if (!user) {
         // User does not exists, create it
-        const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
+        const signup = new SignUpDto(gitlabUser.email, slugify(gitlabUser.username), gitlabUser.name, AuthService.generateRandomPassword());
+
+        /*const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
           gitlabUser.email,
           slugify(gitlabUser.username),
           gitlabUser.name,
@@ -47,7 +50,16 @@ export class GitlabLoginProvider extends BaseLoginProvider {
           [],
           uuidv4(),
         );
-        user = await this.usersService.createUser(createUserRequestDto);
+        user = await this.usersService.createUser(createUserRequestDto);*/
+        user = await this.usersService.createUser(signup);
+        user = await this.usersService.updateUser(
+          { id: user.id },
+          {
+            $set: {
+              avatar_url: gitlabUser.avatar_url,
+            },
+          },
+        );
       }
 
       const index: number = user.accounts.findIndex((userAccount: UserAccount) => userAccount.type === LoginProviderEnum.GITLAB && userAccount.accountId === gitlabUser.id.toString());

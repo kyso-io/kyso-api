@@ -1,4 +1,4 @@
-import { AddUserAccountDTO, CreateUserRequestDTO, Login, LoginProviderEnum, Token, User, UserAccount } from '@kyso-io/kyso-model';
+import { AddUserAccountDTO, CreateUserRequestDTO, Login, LoginProviderEnum, SignUpDto, Token, User, UserAccount } from '@kyso-io/kyso-model';
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ObjectId } from 'mongodb';
@@ -7,6 +7,7 @@ import { Autowired } from '../../../decorators/autowired';
 import { BitbucketReposService } from '../../bitbucket-repos/bitbucket-repos.service';
 import { BitbucketEmail } from '../../bitbucket-repos/classes/bitbucket-email';
 import { BitbucketPaginatedResponse } from '../../bitbucket-repos/classes/bitbucket-paginated-response';
+import { AuthService } from '../auth.service';
 import { BaseLoginProvider } from './base-login.provider';
 
 @Injectable()
@@ -39,7 +40,9 @@ export class BitbucketLoginProvider extends BaseLoginProvider {
       });
       if (!user) {
         // User does not exists, create it
-        const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
+        const signup = new SignUpDto(email ? email : bitbucketUser.username, bitbucketUser.username, bitbucketUser.display_name, AuthService.generateRandomPassword());
+
+        /*const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
           email ? email : bitbucketUser.username,
           bitbucketUser.username,
           bitbucketUser.display_name,
@@ -54,8 +57,17 @@ export class BitbucketLoginProvider extends BaseLoginProvider {
           false,
           [],
           uuidv4(),
+        );*/
+
+        user = await this.usersService.createUser(signup);
+        user = await this.usersService.updateUser(
+          { id: user.id },
+          {
+            $set: {
+              avatar_url: bitbucketUser.links?.avatar?.href,
+            },
+          },
         );
-        user = await this.usersService.createUser(createUserRequestDto);
       }
 
       const index: number = user.accounts.findIndex((userAccount: UserAccount) => userAccount.type === LoginProviderEnum.BITBUCKET && userAccount.accountId === bitbucketUser.account_id);
