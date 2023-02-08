@@ -227,7 +227,7 @@ export class UsersService extends AutowiredService {
     const teamName = 'Private';
     const newUserTeam: Team = new Team(teamName, '', '', '', '', [], organizationDb.id, TeamVisibilityEnum.PRIVATE, user.id, AllowDownload.INHERITED);
     Logger.log(`Creating new team ${newUserTeam.sluglified_name}...`);
-    const userTeamDb: Team = await this.teamsService.createTeam(token, newUserTeam);
+    const userTeamDb: Team = await this.teamsService.createTeam(token, newUserTeam, signUpDto.silent);
 
     // Add user to team as admin
     Logger.log(`Adding ${user.display_name} to team ${userTeamDb.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}...`);

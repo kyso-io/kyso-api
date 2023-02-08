@@ -396,7 +396,7 @@ export class TeamsService extends AutowiredService {
     return team;
   }
 
-  async createTeam(token: Token, team: Team): Promise<Team> {
+  async createTeam(token: Token, team: Team, silent?: boolean): Promise<Team> {
     if (team.visibility === TeamVisibilityEnum.PUBLIC) {
       const allowPublicChannels: boolean = (await this.kysoSettingsService.getValue(KysoSettingsEnum.ALLOW_PUBLIC_CHANNELS)) === 'true';
       if (!allowPublicChannels) {
@@ -441,14 +441,16 @@ export class TeamsService extends AutowiredService {
       const newTeam: Team = await this.provider.create(team);
 
       if (token) {
-        await this.addMembersById(newTeam.id, [token.id], [PlatformRole.TEAM_ADMIN_ROLE.name]);
+        await this.addMembersById(newTeam.id, [token.id], [PlatformRole.TEAM_ADMIN_ROLE.name], silent);
 
-        NATSHelper.safelyEmit<KysoTeamsCreateEvent>(this.client, KysoEventEnum.TEAMS_CREATE, {
-          user: await this.usersService.getUserById(token.id),
-          organization,
-          team: newTeam,
-          frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-        });
+        if (!silent) {
+          NATSHelper.safelyEmit<KysoTeamsCreateEvent>(this.client, KysoEventEnum.TEAMS_CREATE, {
+            user: await this.usersService.getUserById(token.id),
+            organization,
+            team: newTeam,
+            frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+          });
+        }
       }
       return newTeam;
     } catch (e) {
