@@ -1,3 +1,6 @@
+![Vulnerabilities](https://dtrack.dev.kyso.io/api/v1/badge/vulns/project/65224de0-11be-47c2-a319-d25373034b60)
+![Policy violations](https://dtrack.dev.kyso.io/api/v1/badge/violations/project/65224de0-11be-47c2-a319-d25373034b60)
+
 # Kyso API
 
 ## .env
