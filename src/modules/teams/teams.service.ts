@@ -221,7 +221,7 @@ export class TeamsService extends AutowiredService {
     await this.addMembersById(team.id, memberIds, rolesToApply);
   }
 
-  async addMembersById(teamId: string, memberIds: string[], rolesToApply: string[]): Promise<void> {
+  async addMembersById(teamId: string, memberIds: string[], rolesToApply: string[], silent?: boolean): Promise<void> {
     const team: Team = await this.getTeamById(teamId);
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
@@ -240,14 +240,16 @@ export class TeamsService extends AutowiredService {
       const user: User = await this.usersService.getUserById(userId);
       const friendlyRolesNames = PlatformRole.getFriendlyNameFromArray(rolesToApply);
 
-      NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
-        user,
-        organization,
-        team,
-        emailsCentralized,
-        frontendUrl,
-        roles: friendlyRolesNames,
-      });
+      if (!silent) {
+        NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
+          user,
+          organization,
+          team,
+          emailsCentralized,
+          frontendUrl,
+          roles: friendlyRolesNames,
+        });
+      }
     }
   }
 

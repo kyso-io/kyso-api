@@ -215,12 +215,13 @@ export class UsersService extends AutowiredService {
     const user: User = await this.provider.create(newUser);
     const tokenStr: string = await this.authService.login(new Login(signUpDto.password, LoginProviderEnum.KYSO, signUpDto.email, null));
     const token: Token = this.authService.evaluateAndDecodeToken(tokenStr);
+
     // Create user organization
     const organizationName: string = user.display_name.charAt(0).toUpperCase() + user.display_name.slice(1);
     const newOrganization: Organization = new Organization(organizationName, organizationName, [], [], user.email, '', '', true, '', '', '', '', uuidv4(), user.id, AllowDownload.INHERITED);
     Logger.log(`Creating new organization ${newOrganization.sluglified_name}`);
 
-    const organizationDb: Organization = await this.organizationsService.createOrganization(token, newOrganization);
+    const organizationDb: Organization = await this.organizationsService.createOrganization(token, newOrganization, signUpDto.silent);
 
     // Create user team
     const teamName = 'Private';
@@ -230,11 +231,11 @@ export class UsersService extends AutowiredService {
 
     // Add user to team as admin
     Logger.log(`Adding ${user.display_name} to team ${userTeamDb.sluglified_name} with role ${PlatformRole.TEAM_ADMIN_ROLE.name}...`);
-    await this.teamsService.addMembersById(userTeamDb.id, [user.id], [PlatformRole.TEAM_ADMIN_ROLE.name]);
-
-    Logger.log(`Sending email to ${user.email}`);
+    await this.teamsService.addMembersById(userTeamDb.id, [user.id], [PlatformRole.TEAM_ADMIN_ROLE.name], signUpDto.silent);
 
     if (!signUpDto.silent) {
+      Logger.log(`Sending email to ${user.email}`);
+
       NATSHelper.safelyEmit<KysoUsersCreateEvent>(this.client, KysoEventEnum.USERS_CREATE, {
         user,
       });

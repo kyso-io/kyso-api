@@ -133,7 +133,7 @@ export class OrganizationsService extends AutowiredService {
     });
   }
 
-  public async createOrganization(token: Token, createOrganizationDto: CreateOrganizationDto): Promise<Organization> {
+  public async createOrganization(token: Token, createOrganizationDto: CreateOrganizationDto, silent?: boolean): Promise<Organization> {
     const numOrganizationsCreatedByUser: number = await this.provider.count({ filter: { user_id: token.id } });
     const value: number = parseInt(await this.kysoSettingsService.getValue(KysoSettingsEnum.MAX_ORGANIZATIONS_PER_USER), 10);
     if (numOrganizationsCreatedByUser >= value) {
@@ -181,10 +181,12 @@ export class OrganizationsService extends AutowiredService {
     organization.user_id = token.id;
     const newOrganization: Organization = await this.provider.create(organization);
 
-    NATSHelper.safelyEmit<KysoOrganizationsCreateEvent>(this.client, KysoEventEnum.ORGANIZATIONS_CREATE, {
-      user: await this.usersService.getUserById(token.id),
-      organization: newOrganization,
-    });
+    if (!silent) {
+      NATSHelper.safelyEmit<KysoOrganizationsCreateEvent>(this.client, KysoEventEnum.ORGANIZATIONS_CREATE, {
+        user: await this.usersService.getUserById(token.id),
+        organization: newOrganization,
+      });
+    }
 
     // Add user to his organization
     await this.addMembersById(newOrganization.id, [token.id], [PlatformRole.ORGANIZATION_ADMIN_ROLE.name]);
