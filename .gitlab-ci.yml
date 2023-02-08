@@ -33,21 +33,7 @@ dtrack-check:
   - !reference [.docker-config, before_script]
   - !reference [.npm-config, before_script]
   
-  script:user = await this.usersService.updateUser(
-          { id: user.id },
-          {
-            $set: {
-              avatar_url: gitlabUser.avatar_url,
-            },
-          },
-        );user = await this.usersService.updateUser(
-          { id: user.id },
-          {
-            $set: {
-              avatar_url: gitlabUser.avatar_url,
-            },
-          },
-        );
+  script:
   - npm install -g @fjbarrena/dtrack-cli
   - npm install --global @cyclonedx/cyclonedx-npm
   - npm install
