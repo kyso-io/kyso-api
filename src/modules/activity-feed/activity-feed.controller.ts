@@ -1,4 +1,4 @@
-import { ActivityFeed, Comment, Discussion, EntityEnum, NormalizedResponseDTO, Organization, Relations, Report, Tag, Team, TeamVisibilityEnum, Token, User } from '@kyso-io/kyso-model';
+import { ActionEnum, ActivityFeed, Comment, Discussion, EntityEnum, NormalizedResponseDTO, Organization, Relations, Report, Tag, Team, TeamVisibilityEnum, Token, User } from '@kyso-io/kyso-model';
 import { Controller, Get, NotFoundException, Param, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ObjectId } from 'mongodb';
@@ -69,6 +69,8 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
         created_at: -1,
       };
     }
+    const mapOrgs: { [key: string]: Organization } = {};
+    let whereCondition: any[] = [];
     const user: User = await this.usersService.getUser({
       filter: { username },
     });
@@ -94,57 +96,81 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
       } else {
         const desiredUserTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(user.id);
         const userTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
-        const teamSlugs: string[] = [];
         for (const team of desiredUserTeams) {
+          if (!mapOrgs[team.organization_id]) {
+            mapOrgs[team.organization_id] = await this.organizationsService.getOrganizationById(team.organization_id);
+          }
           if (team.visibility === TeamVisibilityEnum.PUBLIC) {
-            teamSlugs.push(team.sluglified_name);
+            whereCondition.push({
+              organization: mapOrgs[team.organization_id].sluglified_name,
+              team: team.sluglified_name,
+            });
           } else {
             const index: number = userTeams.findIndex((t: Team) => t.id === team.id);
             if (index !== -1) {
-              teamSlugs.push(team.sluglified_name);
+              whereCondition.push({
+                organization: mapOrgs[team.organization_id].sluglified_name,
+                team: team.sluglified_name,
+              });
             }
           }
         }
         if (query.filter.team) {
           if (query.filter.team.$in) {
-            query.filter.team.$in = query.filter.team.$in.filter((slug: string) => teamSlugs.indexOf(slug) !== -1);
+            whereCondition = whereCondition.filter((condition: { organization: string; team: string }) => {
+              return query.filter.team.$in.indexOf(condition.team) !== -1;
+            });
           } else {
-            const index: number = query.filter.team.filter((slug: string) => teamSlugs.indexOf(slug) !== -1);
-            if (index === -1) {
+            whereCondition = whereCondition.filter((condition: { organization: string; team: string }) => {
+              return query.filter.team === condition.team;
+            });
+            if (whereCondition.length === 0) {
               const activityFeed: ActivityFeed[] = [];
               return new NormalizedResponseDTO(activityFeed);
             }
           }
-        } else {
-          if (!query.filter.team) {
-            query.filter.team = {};
-          }
-          query.filter.team.$in = teamSlugs;
+          delete query.filter.team;
         }
+        query.filter.$or = whereCondition;
       }
     } else {
       const desiredUserTeams: Team[] = await this.teamsService.getTeamsVisibleForUser(user.id);
-      const teamSlugs: string[] = [];
       for (const team of desiredUserTeams) {
         if (team.visibility === TeamVisibilityEnum.PUBLIC) {
-          teamSlugs.push(team.sluglified_name);
+          if (!mapOrgs[team.organization_id]) {
+            mapOrgs[team.organization_id] = await this.organizationsService.getOrganizationById(team.organization_id);
+          }
+          whereCondition.push({
+            organization: mapOrgs[team.organization_id].sluglified_name,
+            team: team.sluglified_name,
+          });
         }
       }
       if (query.filter.team) {
         if (query.filter.team.$in) {
-          query.filter.team.$in = query.filter.team.$in.filter((slug: string) => teamSlugs.indexOf(slug) !== -1);
+          whereCondition = whereCondition.filter((condition: { organization: string; team: string }) => {
+            return query.filter.team.$in.indexOf(condition.team) !== -1;
+          });
         } else {
-          const index: number = query.filter.team.filter((slug: string) => teamSlugs.indexOf(slug) !== -1);
-          if (index === -1) {
+          whereCondition = whereCondition.filter((condition: { organization: string; team: string }) => {
+            return query.filter.team === condition.team;
+          });
+          if (whereCondition.length === 0) {
             const activityFeed: ActivityFeed[] = [];
             return new NormalizedResponseDTO(activityFeed);
           }
         }
-      } else {
-        query.filter.team = {
-          $in: teamSlugs,
-        };
+        delete query.filter.team;
       }
+      // Show create organization activity
+      whereCondition.push({
+        action: ActionEnum.CREATE,
+        organization: {
+          $ne: null,
+        },
+        team: null,
+      });
+      query.filter.$or = whereCondition;
     }
     const activityFeed: ActivityFeed[] = await this.activityFeedService.getActivityFeed(query);
     const relations: Relations = await this.getRelations(activityFeed);
@@ -171,16 +197,22 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
     if (!query.filter) {
       query.filter = {};
     }
-    query.filter.organization = organization.sluglified_name;
     if (!query.sort) {
       query.sort = {
         created_at: -1,
       };
     }
-    let teamSlugs: string[] = [];
+    let whereCondition: { organization: string; team: string }[] = [];
     if (token) {
       const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
-      teamSlugs = teams.filter((team: Team) => team.organization_id === organization.id).map((team: Team) => team.sluglified_name);
+      for (const team of teams) {
+        if (team.organization_id === organization.id) {
+          whereCondition.push({
+            organization: organization.sluglified_name,
+            team: team.sluglified_name,
+          });
+        }
+      }
     } else {
       const teams: Team[] = await this.teamsService.getTeams({
         filter: {
@@ -188,36 +220,38 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
           visibility: TeamVisibilityEnum.PUBLIC,
         },
       });
-      teamSlugs = teams.map((team: Team) => team.sluglified_name);
+      for (const team of teams) {
+        whereCondition.push({
+          organization: organization.sluglified_name,
+          team: team.sluglified_name,
+        });
+      }
     }
-    if (teamSlugs.length === 0) {
+    if (whereCondition.length === 0) {
       const activityFeed: ActivityFeed[] = [];
       return new NormalizedResponseDTO(activityFeed);
     }
     if (query.filter.team) {
       if (query.filter.team.$in) {
-        query.filter.team.$in = query.filter.team.$in.filter((slug: string) => teamSlugs.indexOf(slug) !== -1);
+        whereCondition = whereCondition.filter((condition: { organization: string; team: string }) => {
+          return query.filter.team.$in.indexOf(condition.team) !== -1;
+        });
       } else {
-        const index: number = query.filter.team.filter((slug: string) => teamSlugs.indexOf(slug) !== -1);
-        if (index === -1) {
+        whereCondition = whereCondition.filter((condition: { organization: string; team: string }) => {
+          return query.filter.team === condition.team;
+        });
+        if (whereCondition.length === 0) {
           const activityFeed: ActivityFeed[] = [];
           return new NormalizedResponseDTO(activityFeed);
         }
       }
-    } else {
-      query.filter.$or = [
-        {
-          team: {
-            $in: teamSlugs,
-          },
-        },
-        {
-          team: {
-            $eq: null,
-          },
-        },
-      ];
+      delete query.filter.team;
     }
+    whereCondition.push({
+      organization: organization.sluglified_name,
+      team: null,
+    });
+    query.filter.$or = whereCondition;
     const activityFeed: ActivityFeed[] = await this.activityFeedService.getActivityFeed(query);
     const relations: Relations = await this.getRelations(activityFeed);
     return new NormalizedResponseDTO(activityFeed, relations);
@@ -258,6 +292,7 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
       };
     }
     query.filter.organization = organization.sluglified_name;
+    query.filter.team = team.sluglified_name;
     if (token) {
       if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
         const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
@@ -273,16 +308,6 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
         return new NormalizedResponseDTO(activityFeed);
       }
     }
-    query.filter.$or = [
-      {
-        team: team.sluglified_name,
-      },
-      {
-        team: {
-          $eq: null,
-        },
-      },
-    ];
     const activityFeed: ActivityFeed[] = await this.activityFeedService.getActivityFeed(query);
     const relations: Relations = await this.getRelations(activityFeed);
     return new NormalizedResponseDTO(activityFeed, relations);
