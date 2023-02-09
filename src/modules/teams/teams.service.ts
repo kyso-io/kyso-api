@@ -841,11 +841,7 @@ export class TeamsService extends AutowiredService {
         }
         if (!map.has(teamResourcePermission.id)) {
           const team: Team = await this.getTeamById(teamResourcePermission.id);
-          const teamMembers: TeamMemberJoin[] = await this.teamMemberProvider.read({
-            filter: {
-              team_id: team.id,
-            },
-          });
+          const teamMembers: TeamMember[] = await this.getMembers(team.id);
           map.set(team.id, {
             members: teamMembers.length,
             reports: 0,
@@ -866,11 +862,7 @@ export class TeamsService extends AutowiredService {
           continue;
         }
         if (!map.has(team.id)) {
-          const teamMembers: TeamMemberJoin[] = await this.teamMemberProvider.read({
-            filter: {
-              team_id: team.id,
-            },
-          });
+          const teamMembers: TeamMember[] = await this.getMembers(team.id);
           map.set(team.id, {
             members: teamMembers.length,
             reports: 0,
