@@ -17,6 +17,16 @@ import { ThemesService } from './themes.service';
 export class ThemesController {
   constructor(private themesService: ThemesService) {}
 
+  @Get()
+  @ApiOperation({
+    summary: 'Get theme in a zip file',
+    description: 'Get theme in a zip file',
+  })
+  public async getAvailableThemes(): Promise<NormalizedResponseDTO<string[]>> {
+    const list: string[] = await this.themesService.getAvailableThemes();
+    return new NormalizedResponseDTO<string[]>(list);
+  }
+
   @Get(':name')
   @ApiOperation({
     summary: 'Get theme in a zip file',
