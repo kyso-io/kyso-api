@@ -1,17 +1,6 @@
-import {
-  ElasticSearchIndex,
-  FullTextSearchDTO,
-  FullTextSearchMetadata,
-  FullTextSearchResultType,
-  GlobalPermissionsEnum,
-  KysoSettingsEnum,
-  NormalizedResponseDTO,
-  Tag,
-  Token,
-} from '@kyso-io/kyso-model';
-import { BadRequestException, Controller, Get, Logger, Query, UseGuards } from '@nestjs/common';
+import { ElasticSearchIndex, FullTextSearchDTO, FullTextSearchMetadata, FullTextSearchResultType, GlobalPermissionsEnum, NormalizedResponseDTO, Tag, Token } from '@kyso-io/kyso-model';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import axios, { AxiosResponse } from 'axios';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { Public } from '../../decorators/is-public';
@@ -21,6 +10,7 @@ import { PermissionsGuard } from '../auth/guards/permission.guard';
 import { CommentsService } from '../comments/comments.service';
 import { DiscussionsService } from '../discussions/discussions.service';
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service';
+import { ReportsService } from '../reports/reports.service';
 import { UsersService } from '../users/users.service';
 import { FullTextSearchService } from './full-text-search.service';
 
@@ -43,6 +33,9 @@ export class FullTextSearchController {
 
   @Autowired({ typeName: 'CommentsService' })
   private commentsService: CommentsService;
+
+  @Autowired({ typeName: 'ReportsService' })
+  private reportsService: ReportsService;
 
   @Get()
   @Public()
@@ -87,10 +80,11 @@ export class FullTextSearchController {
   @ApiNormalizedResponse({ status: 200, description: `Search results`, type: Tag, isArray: true })
   @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
   public async reindex(@Query('pathToIndex') pathToIndex: string) {
-    this.reindexReports(pathToIndex);
-    this.reindexUsers();
-    this.reindexDiscussions();
-    this.reindexComments();
+    await this.reportsService.reindexReports(pathToIndex);
+    this.usersService.reindexUsers();
+    this.discussionsService.reindexDiscussions();
+    this.commentsService.reindexComments();
+    return { status: 'indexing' };
   }
 
   @Get('/reindex-reports')
@@ -102,17 +96,7 @@ export class FullTextSearchController {
   @ApiNormalizedResponse({ status: 200, description: `Search results`, type: Tag, isArray: true })
   @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
   public async reindexReports(@Query('pathToIndex') pathToIndex: string) {
-    if (!pathToIndex) {
-      throw new BadRequestException('pathToIndex is required');
-    }
-    try {
-      const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL);
-      const axiosResponse: AxiosResponse<any> = await axios.get(`${kysoIndexerApi}/api/reindex?pathToIndex=${pathToIndex}`);
-      return axiosResponse.data;
-    } catch (e) {
-      Logger.warn(`${pathToIndex} was not indexed properly`, e, FullTextSearchService.name);
-      return { status: 'error' };
-    }
+    return this.reportsService.reindexReports(pathToIndex);
   }
 
   @Get('/reindex-users')
