@@ -3283,4 +3283,18 @@ export class ReportsService extends AutowiredService {
       }
     }
   }
+
+  public async reindexReports(pathToIndex: string): Promise<any> {
+    if (!pathToIndex) {
+      throw new BadRequestException('pathToIndex is required');
+    }
+    try {
+      const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL);
+      const axiosResponse: AxiosResponse<any> = await axios.get(`${kysoIndexerApi}/api/reindex?pathToIndex=${pathToIndex}`);
+      return axiosResponse.data;
+    } catch (e) {
+      Logger.warn(`${pathToIndex} was not indexed properly`, e, FullTextSearchService.name);
+      return { status: 'error' };
+    }
+  }
 }
