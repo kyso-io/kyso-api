@@ -21,8 +21,8 @@ import {
 } from '@kyso-io/kyso-model';
 import {
   Body,
-  Controller,
   ConflictException,
+  Controller,
   ForbiddenException,
   Get,
   Headers,
@@ -298,6 +298,7 @@ export class AuthController extends GenericController<string> {
   }
 
   @Post('/verify-email')
+  @Public()
   @ApiOperation({
     summary: `Verify an user's email address`,
     description: `Allows new users to verify their email address`,
@@ -309,6 +310,11 @@ export class AuthController extends GenericController<string> {
     examples: VerifyEmailRequestDTO.examples(),
   })
   @ApiNormalizedResponse({ status: 200, description: `Jwt token`, type: String })
+  @ApiResponse({
+    status: 403,
+    description: `Verification token has expired`,
+    type: String,
+  })
   public async verifyEmail(@Body() verifyEmailRequestDto: VerifyEmailRequestDTO, @Res() res): Promise<void> {
     const user: User = await this.usersService.getUser({ filter: { email: verifyEmailRequestDto.email } });
     if (!user) {

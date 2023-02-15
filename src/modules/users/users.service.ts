@@ -613,15 +613,15 @@ export class UsersService extends AutowiredService {
       throw new NotFoundException('Token not found');
     }
     const userVerification: UserVerification = result[0];
-    if (userVerification.verified_at !== null) {
-      throw new BadRequestException('Verification token already used');
-    }
     const user: User = await this.getUserById(userVerification.user_id);
     if (user.email_verified) {
-      throw new BadRequestException('Email already verified');
+      return;
+    }
+    if (userVerification.verified_at !== null) {
+      return;
     }
     if (moment().isAfter(userVerification.expires_at)) {
-      throw new BadRequestException('Verification token expired');
+      throw new ForbiddenException('Verification token has expired');
     }
     await this.provider.update({ _id: new ObjectId(user.id) }, { $set: { email_verified: true } });
     await this.userVerificationMongoProvider.updateOne({ _id: new ObjectId(userVerification.id) }, { $set: { verified_at: new Date() } });

@@ -436,8 +436,8 @@ export class TeamsController extends GenericController<Team> {
       throw new NotFoundException('Team not found');
     }
 
-    if (!token.isGlobalAdmin()) {
-      if (token) {
+    if (token) {
+      if (!token.isGlobalAdmin()) {
         const index: number = token.permissions.teams.findIndex((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === team.id);
         if (index === -1) {
           if (team.visibility !== TeamVisibilityEnum.PUBLIC) {

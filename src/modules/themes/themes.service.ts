@@ -53,6 +53,23 @@ export class ThemesService {
     });
   }
 
+  public async getAvailableThemes(): Promise<string[]> {
+    const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PUBLIC_USERNAME);
+    const password: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PUBLIC_PASSWORD);
+    const { client } = await this.sftpService.getClient(username, password);
+    const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER);
+    const destinationPath = join(sftpDestinationFolder, 'themes');
+    const existsPath: boolean | string = await client.exists(destinationPath);
+    if (!existsPath) {
+      Logger.error(`Folder 'themes' does not exists in SCS`, ThemesService.name);
+      const notFoundException: NotFoundException = new NotFoundException(`Folder 'themes' does not exist`);
+      throw notFoundException;
+    }
+    const list = await client.list(destinationPath);
+    await client.end();
+    return list.map((item) => item.name);
+  }
+
   public async uploadTheme(createThemeDto: CreateThemeDto): Promise<boolean> {
     const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PUBLIC_USERNAME);
     const password: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PUBLIC_PASSWORD);

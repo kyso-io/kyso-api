@@ -238,7 +238,6 @@ export class TeamsService extends AutowiredService {
       const member: TeamMemberJoin = new TeamMemberJoin(teamId, userId, rolesToApply, true);
       await this.teamMemberProvider.create(member);
       const user: User = await this.usersService.getUserById(userId);
-      const friendlyRolesNames = PlatformRole.getFriendlyNameFromArray(rolesToApply);
 
       if (!silent) {
         NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
@@ -247,7 +246,7 @@ export class TeamsService extends AutowiredService {
           team,
           emailsCentralized,
           frontendUrl,
-          roles: friendlyRolesNames,
+          roles: rolesToApply,
         });
       }
     }
@@ -621,18 +620,16 @@ export class TeamsService extends AutowiredService {
       if (!member) {
         const member: TeamMemberJoin = new TeamMemberJoin(teamId, user.id, [element.role], true);
         await this.teamMemberProvider.create(member);
-        const friendlyRoleName = PlatformRole.getFriendlyName(element.role);
         NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
           user,
           organization,
           team,
           emailsCentralized,
           frontendUrl,
-          roles: [friendlyRoleName],
+          roles: [element.role],
         });
       } else {
         await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } });
-        const friendlyRoleName = PlatformRole.getFriendlyName(element.role);
 
         NATSHelper.safelyEmit<KysoTeamsUpdateMemberRolesEvent>(this.client, KysoEventEnum.TEAMS_UPDATE_MEMBER_ROLES, {
           user,
@@ -641,7 +638,7 @@ export class TeamsService extends AutowiredService {
           emailsCentralized,
           frontendUrl,
           previousRoles: member.role_names,
-          currentRoles: [friendlyRoleName],
+          currentRoles: [element.role],
         });
       }
     }
@@ -841,11 +838,7 @@ export class TeamsService extends AutowiredService {
         }
         if (!map.has(teamResourcePermission.id)) {
           const team: Team = await this.getTeamById(teamResourcePermission.id);
-          const teamMembers: TeamMemberJoin[] = await this.teamMemberProvider.read({
-            filter: {
-              team_id: team.id,
-            },
-          });
+          const teamMembers: TeamMember[] = await this.getMembers(team.id);
           map.set(team.id, {
             members: teamMembers.length,
             reports: 0,
@@ -866,11 +859,7 @@ export class TeamsService extends AutowiredService {
           continue;
         }
         if (!map.has(team.id)) {
-          const teamMembers: TeamMemberJoin[] = await this.teamMemberProvider.read({
-            filter: {
-              team_id: team.id,
-            },
-          });
+          const teamMembers: TeamMember[] = await this.getMembers(team.id);
           map.set(team.id, {
             members: teamMembers.length,
             reports: 0,
