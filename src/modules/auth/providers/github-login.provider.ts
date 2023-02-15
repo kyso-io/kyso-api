@@ -84,7 +84,7 @@ export class GithubLoginProvider extends BaseLoginProvider {
           uuidv4(),
         );
         user = await this.usersService.createUser(createUserRequestDto);*/
-        user = await this.usersService.createUser(signup);
+        user = await this.usersService.createUser(signup, LoginProviderEnum.GITHUB);
         user = await this.usersService.updateUser(
           { id: user.id },
           {

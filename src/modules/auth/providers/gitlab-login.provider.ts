@@ -51,7 +51,7 @@ export class GitlabLoginProvider extends BaseLoginProvider {
           uuidv4(),
         );
         user = await this.usersService.createUser(createUserRequestDto);*/
-        user = await this.usersService.createUser(signup);
+        user = await this.usersService.createUser(signup, LoginProviderEnum.GITLAB);
         user = await this.usersService.updateUser(
           { id: user.id },
           {

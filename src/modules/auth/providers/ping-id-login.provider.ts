@@ -47,7 +47,7 @@ export class PingIdLoginProvider extends BaseLoginProvider {
         );
         */
 
-        user = await this.usersService.createUser(signup);
+        user = await this.usersService.createUser(signup, LoginProviderEnum.PING_ID_SAML);
         user = await this.usersService.updateUser(
           { id: user.id },
           {

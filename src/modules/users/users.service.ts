@@ -161,7 +161,7 @@ export class UsersService extends AutowiredService {
     return true;
   }
 
-  async createUser(signUpDto: SignUpDto): Promise<User> {
+  async createUser(signUpDto: SignUpDto, loginProvider?: LoginProviderEnum): Promise<User> {
     // exists a prev user with same email?
     const userWithEmail: User = await this.getUser({ filter: { email: signUpDto.email.toLowerCase() } });
     if (userWithEmail) {
@@ -197,7 +197,7 @@ export class UsersService extends AutowiredService {
       signUpDto.username,
       signUpDto.display_name,
       signUpDto.display_name,
-      LoginProviderEnum.KYSO,
+      loginProvider ? loginProvider : LoginProviderEnum.KYSO,
       null,
       null,
       null,

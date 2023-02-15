@@ -63,7 +63,7 @@ export class GoogleLoginProvider extends BaseLoginProvider {
 
         user = await this.usersService.createUser(createUserRequestDto);*/
 
-        user = await this.usersService.createUser(signup);
+        user = await this.usersService.createUser(signup, LoginProviderEnum.GOOGLE);
         user = await this.usersService.updateUser(
           { id: user.id },
           {
