@@ -62,7 +62,6 @@ import { UserRoleService } from './user-role.service';
 const querystring = require('querystring');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Saml2js = require('saml2js');
-import * as crypto from 'crypto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -243,15 +242,8 @@ export class AuthController extends GenericController<string> {
       // Build JWT token and redirect to frontend
       Logger.log('Build JWT token and redirect to frontend');
 
-      const wishlist = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-      const length = 30;
-
-      const randomPassword = Array.from(crypto.randomFillSync(new Uint32Array(length)))
-        .map((x) => wishlist[x % wishlist.length])
-        .join('');
-
       const login: Login = new Login(
-        randomPassword, // set a random secure password
+        AuthService.generateRandomPassword(), // set a random secure password
         LoginProviderEnum.PING_ID_SAML,
         data.mail,
         data,
