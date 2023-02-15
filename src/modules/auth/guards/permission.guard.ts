@@ -58,7 +58,7 @@ export class PermissionsGuard implements CanActivate {
 
       // Get permissions of the requester user
       const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
-        tokenPayload.username,
+        tokenPayload.email,
         this.usersService,
         this.teamsService,
         this.organizationsService,
@@ -90,7 +90,7 @@ export class PermissionsGuard implements CanActivate {
       }
 
       const permissionToActivateEndpoint = this.reflector.getAllAndOverride<any>(PERMISSION_KEY, [context.getHandler(), context.getClass()]);
-      Logger.debug(`Permissions to activate endpoint are ${permissionToActivateEndpoint.isArray() ? permissionToActivateEndpoint.join(',') : permissionToActivateEndpoint}`);
+      Logger.debug(`Permissions to activate endpoint are ${permissionToActivateEndpoint}`);
       Logger.debug(`User's permission are`);
       console.log(JSON.stringify(tokenPayload.permissions));
 

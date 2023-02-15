@@ -119,7 +119,7 @@ export class AuthService extends AutowiredService {
   }
 
   static async buildFinalPermissionsForUser(
-    username: string,
+    email: string,
     userService: UsersService,
     teamService: TeamsService,
     organizationService: OrganizationsService,
@@ -133,7 +133,7 @@ export class AuthService extends AutowiredService {
     } as TokenPermissions;
 
     // Retrieve user object
-    const user: User = await userService.getUser({ filter: { username: username } });
+    const user: User = await userService.getUser({ filter: { email: email } });
 
     response.global = user.global_permissions;
 

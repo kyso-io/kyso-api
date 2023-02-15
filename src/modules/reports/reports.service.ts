@@ -2779,7 +2779,7 @@ export class ReportsService extends AutowiredService {
     const user: User = await this.usersService.getUserById(userId);
 
     const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
-      user.username,
+      user.email,
       this.usersService,
       this.teamsService,
       this.organizationsService,

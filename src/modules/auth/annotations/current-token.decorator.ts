@@ -47,7 +47,7 @@ export const CurrentToken = createParamDecorator(async (data: unknown, ctx: Exec
       const decodedToken = parseJwt(splittedToken[1]);
 
       const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
-        decodedToken.payload.username,
+        decodedToken.payload.email,
         aux.usersService,
         aux.teamsService /*this.teamsService*/,
         aux.organizationsService /*this.organizationsService*/,

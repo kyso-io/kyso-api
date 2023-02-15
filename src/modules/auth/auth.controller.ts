@@ -452,7 +452,7 @@ export class AuthController extends GenericController<string> {
     const finalPermissions: TokenPermissions =
       username === requesterUser.username
         ? requesterUser.permissions
-        : await AuthService.buildFinalPermissionsForUser(username, this.usersService, this.teamsService, this.organizationsService, this.platformRoleService, this.userRoleService);
+        : await AuthService.buildFinalPermissionsForUser(requesterUser.email, this.usersService, this.teamsService, this.organizationsService, this.platformRoleService, this.userRoleService);
     const { data: publicTokenPermissions } = await this.getPublicPermissions();
     // Global permissions
     for (const kysoPermission of publicTokenPermissions.global) {
@@ -609,7 +609,7 @@ export class AuthController extends GenericController<string> {
       return;
     }
 
-    token.permissions = await AuthService.buildFinalPermissionsForUser(token.username, this.usersService, this.teamsService, this.organizationsService, this.platformRoleService, this.userRoleService);
+    token.permissions = await AuthService.buildFinalPermissionsForUser(token.email, this.usersService, this.teamsService, this.organizationsService, this.platformRoleService, this.userRoleService);
 
     const userHasPermission: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team, organization);
 
@@ -703,14 +703,7 @@ export class AuthController extends GenericController<string> {
         throw new ForbiddenException('No token in cookies. Forbidden');
       }
       Logger.log(`Checking permissions for user ${token.username}`);
-      token.permissions = await AuthService.buildFinalPermissionsForUser(
-        token.username,
-        this.usersService,
-        this.teamsService,
-        this.organizationsService,
-        this.platformRoleService,
-        this.userRoleService,
-      );
+      token.permissions = await AuthService.buildFinalPermissionsForUser(token.email, this.usersService, this.teamsService, this.organizationsService, this.platformRoleService, this.userRoleService);
       userHasPermission = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team, organization);
       userId = token.id;
     }
