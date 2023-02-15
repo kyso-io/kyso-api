@@ -1461,6 +1461,8 @@ export class ReportsService extends AutowiredService {
       throw new PreconditionFailedException(`No kyso.{yml,yaml,json} file found`);
     }
 
+    console.log(kysoConfigFile);
+
     const organization: Organization = await this.organizationsService.getOrganization({
       filter: {
         sluglified_name: kysoConfigFile.organization,
