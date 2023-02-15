@@ -618,8 +618,16 @@ export class TeamsService extends AutowiredService {
       }
       const member: TeamMemberJoin = members.find((x: TeamMemberJoin) => x.member_id === user.id);
       if (!member) {
-        const member: TeamMemberJoin = new TeamMemberJoin(teamId, user.id, [element.role], true);
-        await this.teamMemberProvider.create(member);
+        const teamMemberJoin: TeamMemberJoin = new TeamMemberJoin(teamId, user.id, [element.role], true);
+        await this.teamMemberProvider.create(teamMemberJoin);
+      } else {
+        await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } });
+      }
+
+      // Check if user belongs to the organization
+      const organizationMembers: OrganizationMemberJoin[] = await this.organizationsService.searchMembersJoin({ filter: { organization_id: organization.id, member_id: user.id } });
+      if (organizationMembers.length === 0) {
+        // If the user does not belong to the organization, we notify him that he has been added to the team
         NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
           user,
           organization,
@@ -629,17 +637,43 @@ export class TeamsService extends AutowiredService {
           roles: [element.role],
         });
       } else {
-        await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } });
-
-        NATSHelper.safelyEmit<KysoTeamsUpdateMemberRolesEvent>(this.client, KysoEventEnum.TEAMS_UPDATE_MEMBER_ROLES, {
-          user,
-          organization,
-          team,
-          emailsCentralized,
-          frontendUrl,
-          previousRoles: member.role_names,
-          currentRoles: [element.role],
-        });
+        // If the user already beonged to the organization...
+        if (team.visibility === TeamVisibilityEnum.PRIVATE) {
+          // and if the team is private...
+          if (member) {
+            // It means his roles have been updated!
+            NATSHelper.safelyEmit<KysoTeamsUpdateMemberRolesEvent>(this.client, KysoEventEnum.TEAMS_UPDATE_MEMBER_ROLES, {
+              user,
+              organization,
+              team,
+              emailsCentralized,
+              frontendUrl,
+              previousRoles: member.role_names,
+              currentRoles: [element.role],
+            });
+          } else {
+            // we notify him that he has been added to the team
+            NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
+              user,
+              organization,
+              team,
+              emailsCentralized,
+              frontendUrl,
+              roles: [element.role],
+            });
+          }
+        } else {
+          // Otherwise (protected and public teams) he is a member of the organization and he already had access to the rest of the teams, in practice it is an update of his role
+          NATSHelper.safelyEmit<KysoTeamsUpdateMemberRolesEvent>(this.client, KysoEventEnum.TEAMS_UPDATE_MEMBER_ROLES, {
+            user,
+            organization,
+            team,
+            emailsCentralized,
+            frontendUrl,
+            previousRoles: member ? member.role_names : [],
+            currentRoles: [element.role],
+          });
+        }
       }
     }
     return this.getMembers(team.id);
