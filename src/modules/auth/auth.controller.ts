@@ -1,5 +1,4 @@
 import {
-  AuthProviderSpec,
   CheckPermissionDto,
   KysoPermissions,
   KysoSettingsEnum,
@@ -7,8 +6,6 @@ import {
   LoginProviderEnum,
   NormalizedResponseDTO,
   Organization,
-  OrganizationAuthOptions,
-  PingIdSAMLSpec,
   Report,
   ReportDTO,
   ReportPermissionsEnum,
@@ -43,7 +40,6 @@ import {
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import * as moment from 'moment';
 import { ObjectId } from 'mongodb';
-import { v4 as uuidv4 } from 'uuid';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { Cookies } from '../../decorators/cookies';
@@ -66,6 +62,7 @@ import { UserRoleService } from './user-role.service';
 const querystring = require('querystring');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Saml2js = require('saml2js');
+import * as crypto from 'crypto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -245,8 +242,16 @@ export class AuthController extends GenericController<string> {
     if (data && data.mail && data.givenName && data.sn) {
       // Build JWT token and redirect to frontend
       Logger.log('Build JWT token and redirect to frontend');
+
+      const wishlist = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+      const length = 30;
+
+      const randomPassword = Array.from(crypto.randomFillSync(new Uint32Array(length)))
+        .map((x) => wishlist[x % wishlist.length])
+        .join('');
+
       const login: Login = new Login(
-        uuidv4(), // set a random password
+        randomPassword, // set a random secure password
         LoginProviderEnum.PING_ID_SAML,
         data.mail,
         data,
