@@ -54,6 +54,8 @@ export class PermissionsGuard implements CanActivate {
         return false;
       }
 
+      Logger.debug(`Building final permissions for user ${tokenPayload.username}`);
+
       // Get permissions of the requester user
       const permissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
         tokenPayload.username,
