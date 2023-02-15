@@ -162,6 +162,9 @@ export class UsersService extends AutowiredService {
   }
 
   async createUser(signUpDto: SignUpDto, loginProvider?: LoginProviderEnum): Promise<User> {
+    const effectiveLoginProvider: LoginProviderEnum = loginProvider ? loginProvider : LoginProviderEnum.KYSO;
+    Logger.log(`Effective login provider ${effectiveLoginProvider}`);
+
     // exists a prev user with same email?
     const userWithEmail: User = await this.getUser({ filter: { email: signUpDto.email.toLowerCase() } });
     if (userWithEmail) {
@@ -197,7 +200,7 @@ export class UsersService extends AutowiredService {
       signUpDto.username,
       signUpDto.display_name,
       signUpDto.display_name,
-      loginProvider ? loginProvider : LoginProviderEnum.KYSO,
+      effectiveLoginProvider,
       null,
       null,
       null,
@@ -213,7 +216,7 @@ export class UsersService extends AutowiredService {
     );
     Logger.log(`Creating new user ${signUpDto.display_name} with email ${signUpDto.email} and username ${signUpDto.username}...`, UsersService.name);
     const user: User = await this.provider.create(newUser);
-    const tokenStr: string = await this.authService.login(new Login(signUpDto.password, LoginProviderEnum.KYSO, signUpDto.email, null));
+    const tokenStr: string = await this.authService.login(new Login(signUpDto.password, effectiveLoginProvider, signUpDto.email, null));
     const token: Token = this.authService.evaluateAndDecodeToken(tokenStr);
 
     // Create user organization
