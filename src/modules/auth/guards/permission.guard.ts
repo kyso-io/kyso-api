@@ -89,7 +89,8 @@ export class PermissionsGuard implements CanActivate {
 
       const permissionToActivateEndpoint = this.reflector.getAllAndOverride<any>(PERMISSION_KEY, [context.getHandler(), context.getClass()]);
       Logger.debug(`Permissions to activate endpoint are ${permissionToActivateEndpoint.isArray() ? permissionToActivateEndpoint.join(',') : permissionToActivateEndpoint}`);
-      Logger.debug(`User's permission are ${JSON.stringify(tokenPayload.permissions)}`);
+      Logger.debug(`User's permission are`);
+      console.log(JSON.stringify(tokenPayload.permissions));
 
       return AuthService.hasPermissions(tokenPayload, permissionToActivateEndpoint, teamObject ? teamObject : null, organizationObject ? organizationObject : null);
     } catch (ex) {
