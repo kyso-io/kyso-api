@@ -40,7 +40,6 @@ import {
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import * as moment from 'moment';
 import { ObjectId } from 'mongodb';
-import { v4 as uuidv4 } from 'uuid';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { Cookies } from '../../decorators/cookies';
@@ -242,8 +241,9 @@ export class AuthController extends GenericController<string> {
     if (data && data.mail && data.givenName && data.sn) {
       // Build JWT token and redirect to frontend
       Logger.log('Build JWT token and redirect to frontend');
+
       const login: Login = new Login(
-        uuidv4(), // set a random password
+        AuthService.generateRandomPassword(), // set a random secure password
         LoginProviderEnum.PING_ID_SAML,
         data.mail,
         data,
