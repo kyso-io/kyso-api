@@ -87,6 +87,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'true';
       case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_PINGID_SAML:
         return 'false';
+      case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_OKTA_SAML:
+        return 'false';
       case KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL:
         return 'http://kyso-scs:8080';
       case KysoSettingsEnum.UNAUTHORIZED_REDIRECT_URL:
@@ -229,6 +231,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'Redirect URI used for OAUTH2 authentication using Gitlab provider';
       case KysoSettingsEnum.AUTH_PINGID_SAML_SSO_URL:
         return 'Initiate Single Sign-On (SSO) URL';
+      case KysoSettingsEnum.AUTH_OKTA_SAML_SSO_URL:
+        return 'Initiate Single Sign-On (SSO) URL';
       case KysoSettingsEnum.KYSO_FILES_CLOUDFRONT_URL:
         return 'https://d1kser01wv8mbw.cloudfront.net';
       case KysoSettingsEnum.BASE_URL:
@@ -285,6 +289,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'Enables globally the authorization using github provider. Settings this to false makes the button "Sign in with Github" to dissapear';
       case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_PINGID_SAML:
         return 'Enables globally the authorization using PingID SAML provider. Settings this to false makes the button "Sign in with PingID" to dissapear';
+      case KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_OKTA_SAML:
+        return 'Enables globally the authorization using Okta SAML provider. Settings this to false makes the button "Sign in with Okta" to dissapear';
       case KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL:
         return 'Base URL of the kyso indexing service';
       case KysoSettingsEnum.UNAUTHORIZED_REDIRECT_URL:

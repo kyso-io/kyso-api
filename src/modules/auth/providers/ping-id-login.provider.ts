@@ -1,7 +1,6 @@
-import { CreateUserRequestDTO, Login, LoginProviderEnum, SignUpDto } from '@kyso-io/kyso-model';
+import { Login, LoginProviderEnum, SignUpDto } from '@kyso-io/kyso-model';
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UploadImageDto } from 'src/dtos/upload-image.dto';
 import slugify from '../../../helpers/slugify';
 import { BaseLoginProvider } from './base-login.provider';
 
