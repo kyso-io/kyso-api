@@ -38,6 +38,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { XMLParser } from 'fast-xml-parser';
+import { readFileSync, writeFileSync } from 'fs';
 import * as moment from 'moment';
 import { ObjectId } from 'mongodb';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
@@ -49,7 +51,6 @@ import { db } from '../../main';
 import { PlatformRole } from '../../security/platform-roles';
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service';
 import { OrganizationsService } from '../organizations/organizations.service';
-import { RelationsService } from '../relations/relations.service';
 import { ReportsService } from '../reports/reports.service';
 import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
@@ -68,9 +69,6 @@ const Saml2js = require('saml2js');
 export class AuthController extends GenericController<string> {
   @Autowired({ typeName: 'UsersService' })
   private readonly usersService: UsersService;
-
-  @Autowired({ typeName: 'RelationsService' })
-  private readonly relationsService: RelationsService;
 
   @Autowired({ typeName: 'ReportsService' })
   private readonly reportsService: ReportsService;
@@ -92,6 +90,7 @@ export class AuthController extends GenericController<string> {
 
   constructor(private readonly authService: AuthService, private readonly baseLoginProvider: BaseLoginProvider) {
     super();
+    // setTimeout(() => this.hola(), 1000);
   }
 
   @Get('/version')
@@ -169,64 +168,6 @@ export class AuthController extends GenericController<string> {
     res.status(HttpStatus.OK).send();
   }
 
-  /* DEPRECATED
-  @Get('/login/sso/ping-saml/:organizationSlug')
-  @ApiOperation({
-    summary: `Logs an user into Kyso with PingID`,
-    description: `Logs an user into Kyso with PingID`,
-  })
-  @ApiResponse({
-    status: 302,
-    description: `Redirect to the configured SSO instance of PingID`,
-    type: String,
-  })
-  @ApiParam({
-    name: 'organizationSlug',
-    required: true,
-    description: `Slugified name of kyso's organization to login`,
-    schema: { type: 'string' },
-    example: 'JANSSEN-RANDD',
-  })
-  async loginSSO(@Param('organizationSlug') organizationSlug: string) {
-    try {
-      // Fetch organizationSlug configuration
-      const organization: Organization = await this.organizationsService.getOrganization({
-        filter: {
-          name: organizationSlug,
-        },
-      });
-
-      let pingSamlConfiguration: AuthProviderSpec;
-
-      /* DEPRECATED
-      if (organization.options && organization.options.auth && organization.options.auth.otherProviders && organization.options.auth.otherProviders.length > 0) {
-        pingSamlConfiguration = organization.options.auth.otherProviders.find((x) => x.type === LoginProviderEnum.PING_ID_SAML);
-      } else {
-        return 'Your organization has not configured PingSAML as auth provider';
-      }
-      
-
-      // Set variables to organizationConfiguration
-      let authPingIdSamlSsoUrl;
-      let authPingIdSamlEnvironmentCode;
-      let authPingIdSPEntityId;
-
-      if (pingSamlConfiguration) {
-        const options = pingSamlConfiguration.options as PingIdSAMLSpec;
-
-        authPingIdSamlSsoUrl = options.sso_url;
-        authPingIdSamlEnvironmentCode = options.environment_code;
-        authPingIdSPEntityId = options.sp_entity_id;
-      } else {
-        return 'Your organization has not configured PingSAML as auth provider';
-      }
-    } catch (ex) {
-      Logger.error('Error using ping saml auth sso', ex);
-      return 'Your organization has not properly configured PingSAML as auth provider';
-    }
-  }
-  */
-
   @Post('/login/sso/ping-saml/callback')
   @ApiOperation({
     summary: `Callback URL for pingID`,
@@ -263,6 +204,68 @@ export class AuthController extends GenericController<string> {
       response.redirect(`${frontendUrl}/sso/${jwt}`);
     } else {
       throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the following properties: samlSubject, email, portrait and name`);
+    }
+  }
+
+  @Post('/login/sso/okta-saml/callback')
+  @ApiOperation({
+    summary: `Callback URL for okta`,
+    description: `Callback URL. Expects an object with the properties: mail, givenName (name) and sn (surname)`,
+  })
+  async loginOktaCallback(@Body() body: { SAMLResponse: string; RelayState: string }, @Res() response) {
+    try {
+      // Decode body.SAMLResponse in base64
+      const xmlResponse = Buffer.from(body.SAMLResponse, 'base64').toString('utf8');
+      const parser = new XMLParser({
+        ignoreAttributes: false,
+      });
+      const data = parser.parse(xmlResponse);
+      if (!data.hasOwnProperty('saml2p:Response')) {
+        throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response'] property`);
+      }
+      if (!data['saml2p:Response'].hasOwnProperty('saml2:Assertion')) {
+        throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion'] property`);
+      }
+      if (!data['saml2p:Response']['saml2:Assertion'].hasOwnProperty('saml2:Subject')) {
+        throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion']['saml2:Subject'] property`);
+      }
+      if (!data['saml2p:Response']['saml2:Assertion']['saml2:Subject'].hasOwnProperty('saml2:NameID')) {
+        throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID'] property`);
+      }
+      if (!data['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID'].hasOwnProperty('#text')) {
+        throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID']['#text'] property`);
+      }
+      const email: string = data['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID']['#text'];
+
+      if (email) {
+        // Build JWT token and redirect to frontend
+        Logger.log('Build JWT token and redirect to frontend');
+        const login: Login = new Login(
+          AuthService.generateRandomPassword(), // set a random secure password
+          LoginProviderEnum.OKTA_SAML,
+          email,
+          data,
+        );
+        Logger.log(`Loging into Kyso with email ${email}`);
+        const jwt = await this.authService.login(login);
+        Logger.log(`JWT token generated ${jwt} for email ${email}`);
+        const frontendUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
+        const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX);
+        const tokenExpirationTimeInHours = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN);
+        response.cookie('kyso-jwt-token', jwt, {
+          secure: process.env.NODE_ENV !== 'development',
+          httpOnly: true,
+          path: staticContentPrefix,
+          sameSite: 'strict',
+          expires: moment().add(tokenExpirationTimeInHours, 'hours').toDate(),
+        });
+        response.redirect(`${frontendUrl}/sso/${jwt}`);
+      } else {
+        throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the saml2:NameID property`);
+      }
+    } catch (e) {
+      console.log(e);
+      throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the saml2:NameID property`);
     }
   }
 

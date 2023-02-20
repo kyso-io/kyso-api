@@ -21,6 +21,7 @@ import {
 import { ForbiddenException, Injectable, Logger, Provider } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import * as mongo from 'mongodb';
 import { Autowired } from '../../decorators/autowired';
 import { AutowiredService } from '../../generic/autowired.generic';
@@ -35,9 +36,9 @@ import { GitlabLoginProvider } from './providers/gitlab-login.provider';
 import { GoogleLoginProvider } from './providers/google-login.provider';
 import { KysoLoginProvider } from './providers/kyso-login.provider';
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider';
+import { OktaLoginProvider } from './providers/okta-login.provider';
 import { PingIdLoginProvider } from './providers/ping-id-login.provider';
 import { UserRoleService } from './user-role.service';
-import * as crypto from 'crypto';
 
 function factory(service: AuthService) {
   return service;
@@ -72,6 +73,7 @@ export class AuthService extends AutowiredService {
     private readonly googleLoginProvider: GoogleLoginProvider,
     private readonly jwtService: JwtService,
     private readonly kysoLoginProvider: KysoLoginProvider,
+    private readonly oktaLoginProvider: OktaLoginProvider,
     private readonly pingIdLoginProvider: PingIdLoginProvider,
     private readonly platformRoleProvider: PlatformRoleMongoProvider,
   ) {
@@ -464,6 +466,9 @@ export class AuthService extends AutowiredService {
 
       case LoginProviderEnum.PING_ID_SAML:
         return this.pingIdLoginProvider.login(login);
+
+      case LoginProviderEnum.OKTA_SAML:
+        return this.oktaLoginProvider.login(login);
     }
   }
 
