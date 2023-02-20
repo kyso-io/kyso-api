@@ -169,64 +169,6 @@ export class AuthController extends GenericController<string> {
     res.status(HttpStatus.OK).send();
   }
 
-  /* DEPRECATED
-  @Get('/login/sso/ping-saml/:organizationSlug')
-  @ApiOperation({
-    summary: `Logs an user into Kyso with PingID`,
-    description: `Logs an user into Kyso with PingID`,
-  })
-  @ApiResponse({
-    status: 302,
-    description: `Redirect to the configured SSO instance of PingID`,
-    type: String,
-  })
-  @ApiParam({
-    name: 'organizationSlug',
-    required: true,
-    description: `Slugified name of kyso's organization to login`,
-    schema: { type: 'string' },
-    example: 'JANSSEN-RANDD',
-  })
-  async loginSSO(@Param('organizationSlug') organizationSlug: string) {
-    try {
-      // Fetch organizationSlug configuration
-      const organization: Organization = await this.organizationsService.getOrganization({
-        filter: {
-          name: organizationSlug,
-        },
-      });
-
-      let pingSamlConfiguration: AuthProviderSpec;
-
-      /* DEPRECATED
-      if (organization.options && organization.options.auth && organization.options.auth.otherProviders && organization.options.auth.otherProviders.length > 0) {
-        pingSamlConfiguration = organization.options.auth.otherProviders.find((x) => x.type === LoginProviderEnum.PING_ID_SAML);
-      } else {
-        return 'Your organization has not configured PingSAML as auth provider';
-      }
-      
-
-      // Set variables to organizationConfiguration
-      let authPingIdSamlSsoUrl;
-      let authPingIdSamlEnvironmentCode;
-      let authPingIdSPEntityId;
-
-      if (pingSamlConfiguration) {
-        const options = pingSamlConfiguration.options as PingIdSAMLSpec;
-
-        authPingIdSamlSsoUrl = options.sso_url;
-        authPingIdSamlEnvironmentCode = options.environment_code;
-        authPingIdSPEntityId = options.sp_entity_id;
-      } else {
-        return 'Your organization has not configured PingSAML as auth provider';
-      }
-    } catch (ex) {
-      Logger.error('Error using ping saml auth sso', ex);
-      return 'Your organization has not properly configured PingSAML as auth provider';
-    }
-  }
-  */
-
   @Post('/login/sso/ping-saml/callback')
   @ApiOperation({
     summary: `Callback URL for pingID`,
