@@ -14,6 +14,7 @@ import { GoogleLoginProvider } from './providers/google-login.provider';
 import { KysoLoginProvider } from './providers/kyso-login.provider';
 import { PlatformRoleMongoProvider } from './providers/mongo-platform-role.provider';
 import { UserRoleMongoProvider } from './providers/mongo-user-role.provider';
+import { OktaLoginProvider } from './providers/okta-login.provider';
 import { PingIdLoginProvider } from './providers/ping-id-login.provider';
 import { createUserRoleProvider, UserRoleService } from './user-role.service';
 
@@ -41,6 +42,7 @@ export class AuthModule {
         GitlabLoginProvider,
         GoogleLoginProvider,
         KysoLoginProvider,
+        OktaLoginProvider,
         PermissionsGuard,
         PingIdLoginProvider,
         platformRoleDynamicProvider,
