@@ -74,7 +74,7 @@ export class RequestAccessService extends AutowiredService {
     console.log(onlyAdmins);
 
     if (onlyAdmins && onlyAdmins.length > 0) {
-      const allAdmins = [];
+      const allAdmins: User[] = [];
 
       // Process admins
       for (const orgAdmin of onlyAdmins) {
@@ -89,7 +89,7 @@ export class RequestAccessService extends AutowiredService {
 
       if (allAdmins.length > 0) {
         const requestAccess: RequestAccess = new RequestAccess(requester_user_id, organization_id, null, RequestAccessStatusEnum.PENDING, null, null);
-        const result = this.provider.create(requestAccess);
+        const result = await this.provider.create(requestAccess);
 
         NATSHelper.safelyEmit<any>(this.client, KysoEventEnum.ORGANIZATION_REQUEST_ACCESS_CREATED, {
           request: result,
