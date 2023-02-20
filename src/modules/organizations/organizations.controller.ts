@@ -1,5 +1,6 @@
 import {
   AddUserOrganizationDto,
+  ChangeRequestAccessDTO,
   CreateOrganizationDto,
   GlobalPermissionsEnum,
   InviteUserDto,
@@ -15,6 +16,8 @@ import {
   PaginatedResponseDto,
   Relations,
   ReportDTO,
+  RequestAccess,
+  RequestAccessStatusEnum,
   ResourcePermissions,
   StoragePermissionsEnum,
   TeamMember,
@@ -60,6 +63,7 @@ import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { PermissionsGuard } from '../auth/guards/permission.guard';
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard';
 import { RelationsService } from '../relations/relations.service';
+import { RequestAccessService } from '../request-access/request-access.service';
 import { UsersService } from '../users/users.service';
 import { OrganizationsService } from './organizations.service';
 
@@ -74,6 +78,9 @@ export class OrganizationsController extends GenericController<Organization> {
 
   @Autowired({ typeName: 'UsersService' })
   private usersService: UsersService;
+
+  @Autowired({ typeName: 'RequestAccessService' })
+  private requestAccessService: RequestAccessService;
 
   constructor(private readonly organizationService: OrganizationsService) {
     super();
@@ -657,5 +664,47 @@ export class OrganizationsController extends GenericController<Organization> {
     const paginatedResponseDto: PaginatedResponseDto<ReportDTO> = await this.organizationService.getOrganizationReports(token, organizationSlug, page, limit, sort);
     const relations: Relations = await this.relationsService.getRelations(paginatedResponseDto.results, 'report', { Author: 'User' });
     return new NormalizedResponseDTO(paginatedResponseDto, relations);
+  }
+
+  @Patch('/:organizationId/request-access')
+  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiOperation({
+    summary: `Request access to an organization`,
+    description: `By passing the appropiate parameters you request access to an organization`,
+  })
+  @ApiNormalizedResponse({ status: 200, description: `Request created successfully`, type: RequestAccess })
+  public async requestAccessToAnOrganization(@CurrentToken() token: Token, @Param('organizationId') organizationId: string) {
+    return this.requestAccessService.requestAccessToOrganization(token.id, organizationId);
+  }
+
+  @Patch('/:organizationId/request-access/:requestAccessId')
+  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiOperation({
+    summary: `Request access to an organization`,
+    description: `By passing the appropiate parameters you request access to an organization`,
+  })
+  @ApiBody({
+    description: 'Change status of an access request related to an organization',
+    required: true,
+    type: ChangeRequestAccessDTO,
+    examples: ChangeRequestAccessDTO.examples(),
+  })
+  @ApiNormalizedResponse({ status: 200, description: `Request changed successfully`, type: RequestAccess })
+  @Permission([OrganizationPermissionsEnum.ADMIN])
+  public async changeRequestAccessStatus(
+    @CurrentToken() token: Token,
+    @Param('organizationId') organizationId: string,
+    @Param('requestAccessId') requestAccessId: string,
+    @Body() changeRequest: ChangeRequestAccessDTO,
+  ) {
+    switch (changeRequest.new_status) {
+      case RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR:
+      case RequestAccessStatusEnum.ACCEPTED_AS_READER:
+        return this.requestAccessService.acceptOrganizationRequest(organizationId, requestAccessId, changeRequest.role, changeRequest.secret, token.id);
+      case RequestAccessStatusEnum.REJECTED:
+        return this.requestAccessService.rejectOrganizationRequest(organizationId, requestAccessId, changeRequest.secret, token.id);
+      default:
+        throw new BadRequestException(`Status provided is invalid`);
+    }
   }
 }

@@ -1,4 +1,5 @@
 import {
+  ChangeRequestAccessDTO,
   HEADER_X_KYSO_ORGANIZATION,
   HEADER_X_KYSO_TEAM,
   KysoSettingsEnum,
@@ -6,6 +7,8 @@ import {
   Organization,
   OrganizationPermissionsEnum,
   Report,
+  RequestAccess,
+  RequestAccessStatusEnum,
   ResourcePermissions,
   Team,
   TeamInfoDto,
@@ -57,6 +60,7 @@ import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard';
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { RelationsService } from '../relations/relations.service';
+import { RequestAccessService } from '../request-access/request-access.service';
 import { UsersService } from '../users/users.service';
 import { TeamsService } from './teams.service';
 
@@ -87,6 +91,9 @@ export class TeamsController extends GenericController<Team> {
 
   @Autowired({ typeName: 'KysoSettingsService' })
   private kysoSettingsService: KysoSettingsService;
+
+  @Autowired({ typeName: 'RequestAccessService' })
+  private requestAccessService: RequestAccessService;
 
   constructor(private readonly teamsService: TeamsService) {
     super();
@@ -830,5 +837,47 @@ export class TeamsController extends GenericController<Team> {
     }
     const scsImagePath: string = await this.teamsService.uploadMarkdownImage(token.id, teamId, file);
     return new NormalizedResponseDTO(scsImagePath);
+  }
+
+  @Patch('/:teamId/request-access')
+  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiOperation({
+    summary: `Request access to a team`,
+    description: `By passing the appropiate parameters you request access to a team`,
+  })
+  @ApiNormalizedResponse({ status: 200, description: `Request created successfully`, type: RequestAccess })
+  public async requestAccessToAnOrganization(@CurrentToken() token: Token, @Param('teamId') teamId: string) {
+    return this.requestAccessService.requestAccessToTeam(token.id, teamId);
+  }
+
+  @Patch('/:teamId/request-access/:requestAccessId')
+  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiOperation({
+    summary: `Request access to an organization`,
+    description: `By passing the appropiate parameters you request access to an organization`,
+  })
+  @ApiBody({
+    description: 'Change status of an access request related to a team',
+    required: true,
+    type: ChangeRequestAccessDTO,
+    examples: ChangeRequestAccessDTO.examples(),
+  })
+  @ApiNormalizedResponse({ status: 200, description: `Request changed successfully`, type: RequestAccess })
+  @Permission([OrganizationPermissionsEnum.ADMIN, TeamPermissionsEnum.ADMIN])
+  public async changeRequestAccessStatus(
+    @CurrentToken() token: Token,
+    @Param('teamId') teamId: string,
+    @Param('requestAccessId') requestAccessId: string,
+    @Body() changeRequest: ChangeRequestAccessDTO,
+  ) {
+    switch (changeRequest.new_status) {
+      case RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR:
+      case RequestAccessStatusEnum.ACCEPTED_AS_READER:
+        return this.requestAccessService.acceptTeamRequest(teamId, requestAccessId, changeRequest.role, changeRequest.secret, token.id);
+      case RequestAccessStatusEnum.REJECTED:
+        return this.requestAccessService.rejectTeamRequest(teamId, requestAccessId, changeRequest.secret, token.id);
+      default:
+        throw new BadRequestException(`Status provided is invalid`);
+    }
   }
 }

@@ -18,6 +18,7 @@ import { KysoSettingsModule } from './modules/kyso-settings/kyso-settings.module
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { RelationsModule } from './modules/relations/relations.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { RequestAccessModule } from './modules/request-access/request-access.module';
 import { SearchUserModule } from './modules/search-user/search-user.module';
 import { TagsModule } from './modules/tags/tags.module';
 import { TeamsModule } from './modules/teams/teams.module';
@@ -42,6 +43,7 @@ import { UsersModule } from './modules/users/users.module';
     PrometheusModule.register(),
     RelationsModule.forRoot(),
     ReportsModule.forRoot(),
+    RequestAccessModule.forRoot(),
     SearchUserModule.forRoot(),
     TagsModule.forRoot(),
     TeamsModule.forRoot(),
