@@ -850,32 +850,46 @@ export class TeamsController extends GenericController<Team> {
     return this.requestAccessService.requestAccessToTeam(token.id, teamId);
   }
 
-  @Patch('/:teamId/request-access/:requestAccessId')
-  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @Public()
+  @Get('/:teamId/request-access/:requestAccessId/:secret/:changerId/:newStatus')
   @ApiOperation({
     summary: `Request access to an organization`,
     description: `By passing the appropiate parameters you request access to an organization`,
   })
-  @ApiBody({
-    description: 'Change status of an access request related to a team',
-    required: true,
-    type: ChangeRequestAccessDTO,
-    examples: ChangeRequestAccessDTO.examples(),
-  })
   @ApiNormalizedResponse({ status: 200, description: `Request changed successfully`, type: RequestAccess })
-  @Permission([OrganizationPermissionsEnum.ADMIN, TeamPermissionsEnum.ADMIN])
   public async changeRequestAccessStatus(
-    @CurrentToken() token: Token,
-    @Param('teamId') teamId: string,
+    @Param(':teamId') teamId: string,
     @Param('requestAccessId') requestAccessId: string,
-    @Body() changeRequest: ChangeRequestAccessDTO,
+    @Param('secret') secret: string,
+    @Param('changerId') changerId: string,
+    @Param('newStatus') newStatus: RequestAccessStatusEnum,
   ) {
+    let role;
+
+    switch (newStatus) {
+      case RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR:
+        role = PlatformRole.TEAM_CONTRIBUTOR_ROLE.name;
+        break;
+      case RequestAccessStatusEnum.ACCEPTED_AS_READER:
+        role = PlatformRole.TEAM_READER_ROLE.name;
+        break;
+      default:
+        role = null;
+        break;
+    }
+
+    if (!role) {
+      throw new BadRequestException(`Invalid newStatus. Valid values are ${PlatformRole.TEAM_READER_ROLE.name} and ${PlatformRole.TEAM_CONTRIBUTOR_ROLE.name}`);
+    }
+
+    const changeRequest: ChangeRequestAccessDTO = new ChangeRequestAccessDTO(secret, role, newStatus);
+
     switch (changeRequest.new_status) {
       case RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR:
       case RequestAccessStatusEnum.ACCEPTED_AS_READER:
-        return this.requestAccessService.acceptTeamRequest(teamId, requestAccessId, changeRequest.role, changeRequest.secret, token.id);
+        return this.requestAccessService.acceptTeamRequest(teamId, requestAccessId, changeRequest.role, changeRequest.secret, changerId);
       case RequestAccessStatusEnum.REJECTED:
-        return this.requestAccessService.rejectTeamRequest(teamId, requestAccessId, changeRequest.secret, token.id);
+        return this.requestAccessService.rejectTeamRequest(teamId, requestAccessId, changeRequest.secret, changerId);
       default:
         throw new BadRequestException(`Status provided is invalid`);
     }

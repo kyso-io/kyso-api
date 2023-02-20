@@ -1,4 +1,5 @@
 import { DynamicModule } from '@nestjs/common';
+import { registerNatsService } from 'src/providers/nats-service-register';
 import { RequestAccessMongoProvider } from './providers/request-access.provider';
 import { createProvider, RequestAccessService } from './request-access.service';
 
@@ -15,6 +16,7 @@ export class RequestAccessModule {
       providers: [RequestAccessService, RequestAccessMongoProvider, dynamicProvider],
       controllers: [],
       exports: [dynamicProvider],
+      imports: [registerNatsService()],
     };
   }
 }

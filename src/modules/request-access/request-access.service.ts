@@ -1,9 +1,24 @@
-import { AddUserOrganizationDto, KysoRole, Organization, OrganizationMember, RequestAccess, RequestAccessStatusEnum, Team, User } from '@kyso-io/kyso-model';
-import { BadRequestException, ForbiddenException, Injectable, Logger, Provider } from '@nestjs/common';
+import {
+  AddUserOrganizationDto,
+  KysoEventEnum,
+  KysoRole,
+  KysoSettingsEnum,
+  Organization,
+  OrganizationMember,
+  OrganizationMemberJoin,
+  RequestAccess,
+  RequestAccessStatusEnum,
+  Team,
+  User,
+} from '@kyso-io/kyso-model';
+import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
 import { isArray } from 'class-validator';
 import { Autowired } from 'src/decorators/autowired';
+import { NATSHelper } from 'src/helpers/natsHelper';
 import { PlatformRole } from 'src/security/platform-roles';
 import { AutowiredService } from '../../generic/autowired.generic';
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
@@ -32,7 +47,10 @@ export class RequestAccessService extends AutowiredService {
   @Autowired({ typeName: 'OrganizationsService' })
   private organizationsService: OrganizationsService;
 
-  constructor(private readonly provider: RequestAccessMongoProvider) {
+  @Autowired({ typeName: 'KysoSettingsService' })
+  private kysoSettingsService: KysoSettingsService;
+
+  constructor(private readonly provider: RequestAccessMongoProvider, @Inject('NATS_SERVICE') private client: ClientProxy) {
     super();
   }
 
@@ -49,9 +67,45 @@ export class RequestAccessService extends AutowiredService {
       throw new BadRequestException(`Invalid organization provided`);
     }
 
-    const requestAccess: RequestAccess = new RequestAccess(requester_user_id, organization_id, null, RequestAccessStatusEnum.PENDING, null, null);
+    const allMembers: OrganizationMemberJoin[] = await this.organizationsService.getMembers(organization.id);
 
-    return this.provider.create(requestAccess);
+    const onlyAdmins = allMembers.filter((x) => x.role_names.includes(PlatformRole.ORGANIZATION_ADMIN_ROLE.name));
+
+    console.log(onlyAdmins);
+
+    if (onlyAdmins && onlyAdmins.length > 0) {
+      const allAdmins = [];
+
+      // Process admins
+      for (const orgAdmin of onlyAdmins) {
+        try {
+          const user: User = await this.usersService.getUserById(orgAdmin.member_id);
+
+          allAdmins.push(user);
+        } catch (ex) {
+          Logger.warn(`Cant retrieve data from user ${orgAdmin.member_id}`);
+        }
+      }
+
+      if (allAdmins.length > 0) {
+        const requestAccess: RequestAccess = new RequestAccess(requester_user_id, organization_id, null, RequestAccessStatusEnum.PENDING, null, null);
+        const result = this.provider.create(requestAccess);
+
+        NATSHelper.safelyEmit<any>(this.client, KysoEventEnum.ORGANIZATION_REQUEST_ACCESS_CREATED, {
+          request: result,
+          organization,
+          requesterUser,
+          organizationAdmins: allAdmins,
+          frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+        });
+
+        return result;
+      } else {
+        throw new PreconditionFailedException('No administrator admins found for this organization');
+      }
+    } else {
+      throw new PreconditionFailedException('No administrator admins defined for this organization');
+    }
   }
 
   public async requestAccessToTeam(requester_user_id: string, team_id: string): Promise<RequestAccess> {
@@ -232,7 +286,7 @@ export class RequestAccessService extends AutowiredService {
   }
 
   private async rejectRequest(request: RequestAccess, secret: string, rejecterUser: User): Promise<RequestAccess> {
-    if (request[0].secret !== secret) {
+    if (request.secret !== secret) {
       throw new ForbiddenException(`Secrets missmatch`);
     }
 

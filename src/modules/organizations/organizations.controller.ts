@@ -52,6 +52,7 @@ import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiOperation, ApiP
 import { Response } from 'express';
 import { Parser } from 'json2csv';
 import { Public } from 'src/decorators/is-public';
+import { PlatformRole } from 'src/security/platform-roles';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { GenericController } from '../../generic/controller.generic';
@@ -677,32 +678,51 @@ export class OrganizationsController extends GenericController<Organization> {
     return this.requestAccessService.requestAccessToOrganization(token.id, organizationId);
   }
 
-  @Patch('/:organizationId/request-access/:requestAccessId')
-  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @Public()
+  @Get('/:organizationId/request-access/:requestAccessId/:secret/:changerId/:newStatus')
   @ApiOperation({
     summary: `Request access to an organization`,
     description: `By passing the appropiate parameters you request access to an organization`,
   })
-  @ApiBody({
-    description: 'Change status of an access request related to an organization',
-    required: true,
-    type: ChangeRequestAccessDTO,
-    examples: ChangeRequestAccessDTO.examples(),
-  })
   @ApiNormalizedResponse({ status: 200, description: `Request changed successfully`, type: RequestAccess })
-  @Permission([OrganizationPermissionsEnum.ADMIN])
   public async changeRequestAccessStatus(
-    @CurrentToken() token: Token,
     @Param('organizationId') organizationId: string,
     @Param('requestAccessId') requestAccessId: string,
-    @Body() changeRequest: ChangeRequestAccessDTO,
+    @Param('secret') secret: string,
+    @Param('changerId') changerId: string,
+    @Param('newStatus') newStatus: RequestAccessStatusEnum,
   ) {
+    let role;
+
+    switch (RequestAccessStatusEnum[newStatus]) {
+      case RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR:
+        role = PlatformRole.TEAM_CONTRIBUTOR_ROLE.name;
+        break;
+      case RequestAccessStatusEnum.ACCEPTED_AS_READER:
+        role = PlatformRole.TEAM_READER_ROLE.name;
+        break;
+      case RequestAccessStatusEnum.REJECTED:
+        role = 'none';
+        break;
+      default:
+        role = null;
+        break;
+    }
+
+    if (!role) {
+      throw new BadRequestException(
+        `Invalid newStatus. Valid values are ${RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR}, ${RequestAccessStatusEnum.ACCEPTED_AS_READER} or ${RequestAccessStatusEnum.REJECTED}`,
+      );
+    }
+
+    const changeRequest: ChangeRequestAccessDTO = new ChangeRequestAccessDTO(secret, role, newStatus);
+
     switch (changeRequest.new_status) {
       case RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR:
       case RequestAccessStatusEnum.ACCEPTED_AS_READER:
-        return this.requestAccessService.acceptOrganizationRequest(organizationId, requestAccessId, changeRequest.role, changeRequest.secret, token.id);
+        return this.requestAccessService.acceptOrganizationRequest(organizationId, requestAccessId, changeRequest.role, changeRequest.secret, changerId);
       case RequestAccessStatusEnum.REJECTED:
-        return this.requestAccessService.rejectOrganizationRequest(organizationId, requestAccessId, changeRequest.secret, token.id);
+        return this.requestAccessService.rejectOrganizationRequest(organizationId, requestAccessId, changeRequest.secret, changerId);
       default:
         throw new BadRequestException(`Status provided is invalid`);
     }
