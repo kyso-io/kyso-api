@@ -20,6 +20,7 @@ import {
   RequestAccessStatusEnum,
   ResourcePermissions,
   StoragePermissionsEnum,
+  Team,
   TeamMember,
   TeamPermissionsEnum,
   Token,
@@ -65,6 +66,7 @@ import { PermissionsGuard } from '../auth/guards/permission.guard';
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard';
 import { RelationsService } from '../relations/relations.service';
 import { RequestAccessService } from '../request-access/request-access.service';
+import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
 import { OrganizationsService } from './organizations.service';
 
@@ -82,6 +84,9 @@ export class OrganizationsController extends GenericController<Organization> {
 
   @Autowired({ typeName: 'RequestAccessService' })
   private requestAccessService: RequestAccessService;
+
+  @Autowired({ typeName: 'TeamsService' })
+  private teamsService: TeamsService;
 
   constructor(private readonly organizationService: OrganizationsService) {
     super();
@@ -730,5 +735,33 @@ export class OrganizationsController extends GenericController<Organization> {
       default:
         throw new BadRequestException(`Status provided is invalid`);
     }
+  }
+
+  @Public()
+  @Get('/:organizationSlug/team/:teamSlug/visibility')
+  @ApiOperation({
+    summary: `Returns the visibility of a team under an organization`,
+    description: `By passing the appropiate parameters you can know the visibility of a team`,
+  })
+  @ApiNormalizedResponse({ status: 200, description: `Success`, type: String })
+  public async getOrganizationTeamVisibility(@Param('organizationSlug') organizationSlug: string, @Param('teamSlug') teamSlug: string) {
+    const organization: Organization = await this.organizationService.getOrganizationBySlugName(organizationSlug);
+
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    const team: Team = await this.teamsService.getTeam({
+      filter: {
+        organization_id: organization.id,
+        sluglified_name: teamSlug,
+      },
+    });
+
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+
+    return new NormalizedResponseDTO(team.visibility);
   }
 }
