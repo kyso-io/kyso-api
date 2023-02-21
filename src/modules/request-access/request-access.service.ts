@@ -256,7 +256,7 @@ export class RequestAccessService extends AutowiredService {
     }
 
     // Add requester to organization as reader (fixed)
-    const addUserToOrg: AddUserOrganizationDto = new AddUserOrganizationDto(request[0].organization_id, request[0].requester_user_id, PlatformRole.TEAM_READER_ROLE.name);
+    const addUserToOrg: AddUserOrganizationDto = new AddUserOrganizationDto(team.organization_id, request[0].requester_user_id, PlatformRole.TEAM_READER_ROLE.name);
 
     await this.organizationsService.addMemberToOrganization(addUserToOrg);
 

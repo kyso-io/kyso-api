@@ -7,7 +7,6 @@ import {
   Organization,
   OrganizationPermissionsEnum,
   Report,
-  RequestAccess,
   RequestAccessStatusEnum,
   ResourcePermissions,
   Team,
@@ -41,7 +40,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiHeader, ApiHeaders, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { Parser } from 'json2csv';
 import { ObjectId } from 'mongodb';
@@ -69,16 +68,6 @@ import { TeamsService } from './teams.service';
 @UseGuards(PermissionsGuard)
 @ApiBearerAuth()
 @Controller('teams')
-@ApiHeader({
-  name: HEADER_X_KYSO_ORGANIZATION,
-  description: 'active organization (i.e: lightside)',
-  required: true,
-})
-@ApiHeader({
-  name: HEADER_X_KYSO_TEAM,
-  description: 'active team (i.e: protected-team)',
-  required: true,
-})
 export class TeamsController extends GenericController<Team> {
   @Autowired({ typeName: 'RelationsService' })
   private relationsService: RelationsService;
@@ -107,7 +96,12 @@ export class TeamsController extends GenericController<Team> {
   @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Team })
   @ApiHeader({
     name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'Organization',
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
     required: true,
   })
   async getVisibilityTeams(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<Team[]>> {
@@ -158,6 +152,16 @@ export class TeamsController extends GenericController<Team> {
     required: true,
     description: `Id of the team to fetch`,
     schema: { type: 'string' },
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
   })
   @ApiNormalizedResponse({ status: 200, description: `Team matching id`, type: Team })
   @Public()
@@ -215,6 +219,16 @@ export class TeamsController extends GenericController<Team> {
     description: `Name of the team to fetch`,
     schema: { type: 'string' },
   })
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiNormalizedResponse({ status: 200, description: `Returns true if name is available`, type: Boolean })
   @Permission([TeamPermissionsEnum.READ])
   public async checkIfTeamNameIsUnique(@Param('name') name: string, @Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<boolean>> {
@@ -241,8 +255,13 @@ export class TeamsController extends GenericController<Team> {
   })
   @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
   @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
     name: HEADER_X_KYSO_TEAM,
-    description: 'Name of the team',
+    description: 'active team (i.e: protected-team)',
     required: true,
   })
   @Public()
@@ -270,6 +289,16 @@ export class TeamsController extends GenericController<Team> {
     required: true,
     description: `Id of the team to fetch`,
     schema: { type: 'string' },
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
   })
   @Permission([OrganizationPermissionsEnum.ADMIN, TeamPermissionsEnum.ADMIN])
   async exportTeamMembers(@CurrentToken() token: Token, @Param('id') id: string, @Res() response: Response): Promise<void> {
@@ -326,8 +355,13 @@ export class TeamsController extends GenericController<Team> {
   })
   @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
   @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
     name: HEADER_X_KYSO_TEAM,
-    description: 'Name of the team',
+    description: 'active team (i.e: protected-team)',
     required: true,
   })
   @Public()
@@ -365,8 +399,13 @@ export class TeamsController extends GenericController<Team> {
   })
   @ApiNormalizedResponse({ status: 200, description: `List of users`, type: TeamMember })
   @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
     name: HEADER_X_KYSO_TEAM,
-    description: 'Name of the team',
+    description: 'active team (i.e: protected-team)',
     required: true,
   })
   @Permission([TeamPermissionsEnum.READ])
@@ -394,8 +433,13 @@ export class TeamsController extends GenericController<Team> {
   })
   @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Boolean })
   @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
     name: HEADER_X_KYSO_TEAM,
-    description: 'Name of the team',
+    description: 'active team (i.e: protected-team)',
     required: true,
   })
   @Permission([TeamPermissionsEnum.READ])
@@ -425,6 +469,16 @@ export class TeamsController extends GenericController<Team> {
     required: true,
     description: `Slug the team to fetch`,
     schema: { type: 'string' },
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
   })
   @ApiNormalizedResponse({ status: 200, description: `Team`, type: Team })
   @Public()
@@ -498,6 +552,16 @@ export class TeamsController extends GenericController<Team> {
     description: `User id of the user to add`,
     schema: { type: 'string' },
   })
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
   @Permission([TeamPermissionsEnum.EDIT])
   async addMemberToTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
@@ -522,6 +586,16 @@ export class TeamsController extends GenericController<Team> {
     required: true,
     description: `Id of the user to remove`,
     schema: { type: 'string' },
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
   })
   @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
   @Permission([TeamPermissionsEnum.EDIT])
@@ -554,8 +628,13 @@ export class TeamsController extends GenericController<Team> {
     type: Team,
   })
   @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
     name: HEADER_X_KYSO_TEAM,
-    description: 'Name of the team',
+    description: 'active team (i.e: protected-team)',
     required: true,
   })
   @Permission([TeamPermissionsEnum.EDIT])
@@ -618,6 +697,16 @@ export class TeamsController extends GenericController<Team> {
     description: `Created team data`,
     type: Team,
   })
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @Permission([TeamPermissionsEnum.CREATE])
   async createTeam(@CurrentToken() token: Token, @Body() team: Team): Promise<NormalizedResponseDTO<Team>> {
     const newTeam: Team = await this.teamsService.createTeam(token, team);
@@ -637,8 +726,13 @@ export class TeamsController extends GenericController<Team> {
   })
   @ApiNormalizedResponse({ status: 200, description: `Team reports`, type: Report })
   @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
     name: HEADER_X_KYSO_TEAM,
-    description: 'Name of the team',
+    description: 'active team (i.e: protected-team)',
     required: true,
   })
   @Permission([TeamPermissionsEnum.READ])
@@ -664,6 +758,16 @@ export class TeamsController extends GenericController<Team> {
     required: true,
     description: `Id of the team to set user roles`,
     schema: { type: 'string' },
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
   })
   @ApiNormalizedResponse({ status: 201, description: `Updated team`, type: TeamMember })
   @Permission([TeamPermissionsEnum.EDIT])
@@ -696,6 +800,16 @@ export class TeamsController extends GenericController<Team> {
     description: `Name of the role to remove`,
     schema: { type: 'string' },
   })
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiNormalizedResponse({ status: 200, description: `Remove role of user in a team`, type: TeamMember, isArray: true })
   @Permission([TeamPermissionsEnum.EDIT])
   public async removeTeamMemberRole(@Param('teamId') teamId: string, @Param('userId') userId: string, @Param('role') role: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
@@ -719,6 +833,16 @@ export class TeamsController extends GenericController<Team> {
     required: true,
     description: `Id of the user to check`,
     schema: { type: 'string' },
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
   })
   public async userBelongsToTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<boolean>> {
     const belongs: boolean = await this.teamsService.userBelongsToTeam(teamId, userId);
@@ -751,6 +875,16 @@ export class TeamsController extends GenericController<Team> {
     schema: { type: 'string' },
   })
   @ApiNormalizedResponse({ status: 201, description: `Updated team`, type: Team })
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @Permission([TeamPermissionsEnum.EDIT])
   public async setProfilePicture(@CurrentToken() token: Token, @Param('teamId') teamId: string, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Team>> {
     if (!file) {
@@ -775,6 +909,16 @@ export class TeamsController extends GenericController<Team> {
     description: `Id of the team to fetch`,
     schema: { type: 'string' },
   })
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiNormalizedResponse({ status: 200, description: `Updated team`, type: Team })
   public async deleteBackgroundImage(@CurrentToken() token: Token, @Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Team>> {
     const team: Team = await this.teamsService.deleteProfilePicture(token, teamId);
@@ -792,6 +936,16 @@ export class TeamsController extends GenericController<Team> {
     required: true,
     description: `Id of the team to delete`,
     schema: { type: 'string' },
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
   })
   @ApiNormalizedResponse({ status: 200, description: `Deleted team`, type: Team })
   @Permission([OrganizationPermissionsEnum.ADMIN, TeamPermissionsEnum.ADMIN, TeamPermissionsEnum.DELETE])
@@ -819,6 +973,16 @@ export class TeamsController extends GenericController<Team> {
         },
       },
     },
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
   })
   @ApiNormalizedResponse({ status: 200, description: `Upload markdown image`, type: String })
   @UseInterceptors(
