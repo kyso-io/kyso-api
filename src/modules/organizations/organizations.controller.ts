@@ -740,7 +740,7 @@ export class OrganizationsController extends GenericController<Organization> {
   @Public()
   @Get('/:organizationSlug/team/:teamSlug/visibility')
   @ApiOperation({
-    summary: `Returns the visibility of a team under an organization`,
+    summary: `Returns the visibility and teamId of a team under an organization`,
     description: `By passing the appropiate parameters you can know the visibility of a team`,
   })
   @ApiNormalizedResponse({ status: 200, description: `Success`, type: String })
@@ -762,6 +762,9 @@ export class OrganizationsController extends GenericController<Organization> {
       throw new NotFoundException('Team not found');
     }
 
-    return new NormalizedResponseDTO(team.visibility);
+    return new NormalizedResponseDTO({
+      id: team.id,
+      visibility: team.visibility,
+    });
   }
 }
