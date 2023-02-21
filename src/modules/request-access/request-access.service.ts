@@ -255,11 +255,6 @@ export class RequestAccessService extends AutowiredService {
       throw new BadRequestException(`Request access team no longer exists`);
     }
 
-    // Add requester to organization as reader (fixed)
-    const addUserToOrg: AddUserOrganizationDto = new AddUserOrganizationDto(team.organization_id, request[0].requester_user_id, PlatformRole.TEAM_READER_ROLE.name);
-
-    await this.organizationsService.addMemberToOrganization(addUserToOrg);
-
     // add requester to team as specified role
 
     // Update the request
@@ -277,6 +272,10 @@ export class RequestAccessService extends AutowiredService {
     }
 
     await this.teamsService.addMemberToTeam(request[0].channel_id, request[0].requester_user_id, [kysoRole]);
+
+    // Add requester to organization as reader (fixed)
+    const addUserToOrg: AddUserOrganizationDto = new AddUserOrganizationDto(team.organization_id, request[0].requester_user_id, PlatformRole.TEAM_READER_ROLE.name);
+    await this.organizationsService.addMemberToOrganization(addUserToOrg);
 
     // Finally, update the request
     return this.provider.update(
