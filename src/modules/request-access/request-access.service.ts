@@ -307,7 +307,6 @@ export class RequestAccessService extends AutowiredService {
     }
 
     NATSHelper.safelyEmit<any>(this.client, KysoEventEnum.ORGANIZATION_REQUEST_ACCESS_REJECTED, {
-      request,
       organization,
       requesterUser,
       rejecterUser,
@@ -337,7 +336,6 @@ export class RequestAccessService extends AutowiredService {
     }
 
     NATSHelper.safelyEmit<any>(this.client, KysoEventEnum.TEAMS_REQUEST_ACCESS_REJECTED, {
-      request,
       organization,
       team,
       requesterUser,
