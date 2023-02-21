@@ -839,15 +839,17 @@ export class TeamsController extends GenericController<Team> {
     return new NormalizedResponseDTO(scsImagePath);
   }
 
-  @Patch('/:teamId/request-access')
+  @Post('/:teamId/request-access')
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
-    summary: `Request access to a team`,
-    description: `By passing the appropiate parameters you request access to a team`,
+    summary: `Request access to an organization`,
+    description: `By passing the appropiate parameters you request access to an organization`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Request created successfully`, type: RequestAccess })
+  @ApiNormalizedResponse({ status: 200, description: `Request created successfully`, type: String })
   public async requestAccessToAnOrganization(@CurrentToken() token: Token, @Param('teamId') teamId: string) {
-    return this.requestAccessService.requestAccessToTeam(token.id, teamId);
+    await this.requestAccessService.requestAccessToTeam(token.id, teamId);
+
+    return 'Request created successfully';
   }
 
   @Public()
@@ -856,9 +858,9 @@ export class TeamsController extends GenericController<Team> {
     summary: `Request access to an organization`,
     description: `By passing the appropiate parameters you request access to an organization`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Request changed successfully`, type: RequestAccess })
+  @ApiNormalizedResponse({ status: 200, description: `Request changed successfully`, type: String })
   public async changeRequestAccessStatus(
-    @Param(':teamId') teamId: string,
+    @Param('teamId') teamId: string,
     @Param('requestAccessId') requestAccessId: string,
     @Param('secret') secret: string,
     @Param('changerId') changerId: string,
@@ -866,12 +868,15 @@ export class TeamsController extends GenericController<Team> {
   ) {
     let role;
 
-    switch (newStatus) {
+    switch (RequestAccessStatusEnum[newStatus]) {
       case RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR:
         role = PlatformRole.TEAM_CONTRIBUTOR_ROLE.name;
         break;
       case RequestAccessStatusEnum.ACCEPTED_AS_READER:
         role = PlatformRole.TEAM_READER_ROLE.name;
+        break;
+      case RequestAccessStatusEnum.REJECTED:
+        role = 'none';
         break;
       default:
         role = null;
@@ -879,17 +884,21 @@ export class TeamsController extends GenericController<Team> {
     }
 
     if (!role) {
-      throw new BadRequestException(`Invalid newStatus. Valid values are ${PlatformRole.TEAM_READER_ROLE.name} and ${PlatformRole.TEAM_CONTRIBUTOR_ROLE.name}`);
+      throw new BadRequestException(
+        `Invalid newStatus. Valid values are ${RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR}, ${RequestAccessStatusEnum.ACCEPTED_AS_READER} or ${RequestAccessStatusEnum.REJECTED}`,
+      );
     }
 
     const changeRequest: ChangeRequestAccessDTO = new ChangeRequestAccessDTO(secret, role, newStatus);
 
     switch (changeRequest.new_status) {
-      case RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR:
       case RequestAccessStatusEnum.ACCEPTED_AS_READER:
-        return this.requestAccessService.acceptTeamRequest(teamId, requestAccessId, changeRequest.role, changeRequest.secret, changerId);
+      case RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR:
+        await this.requestAccessService.acceptTeamRequest(teamId, requestAccessId, changeRequest.role, changeRequest.secret, changerId);
+        return `Request accepted successfully`;
       case RequestAccessStatusEnum.REJECTED:
-        return this.requestAccessService.rejectTeamRequest(teamId, requestAccessId, changeRequest.secret, changerId);
+        await this.requestAccessService.rejectTeamRequest(teamId, requestAccessId, changeRequest.secret, changerId);
+        return `Request rejected successfully`;
       default:
         throw new BadRequestException(`Status provided is invalid`);
     }

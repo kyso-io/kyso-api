@@ -667,15 +667,17 @@ export class OrganizationsController extends GenericController<Organization> {
     return new NormalizedResponseDTO(paginatedResponseDto, relations);
   }
 
-  @Patch('/:organizationId/request-access')
+  @Post('/:organizationId/request-access')
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Request access to an organization`,
     description: `By passing the appropiate parameters you request access to an organization`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Request created successfully`, type: RequestAccess })
+  @ApiNormalizedResponse({ status: 200, description: `Request created successfully`, type: String })
   public async requestAccessToAnOrganization(@CurrentToken() token: Token, @Param('organizationId') organizationId: string) {
-    return this.requestAccessService.requestAccessToOrganization(token.id, organizationId);
+    this.requestAccessService.requestAccessToOrganization(token.id, organizationId);
+
+    return;
   }
 
   @Public()
@@ -684,7 +686,7 @@ export class OrganizationsController extends GenericController<Organization> {
     summary: `Request access to an organization`,
     description: `By passing the appropiate parameters you request access to an organization`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Request changed successfully`, type: RequestAccess })
+  @ApiNormalizedResponse({ status: 200, description: `Request changed successfully`, type: String })
   public async changeRequestAccessStatus(
     @Param('organizationId') organizationId: string,
     @Param('requestAccessId') requestAccessId: string,
@@ -720,9 +722,11 @@ export class OrganizationsController extends GenericController<Organization> {
     switch (changeRequest.new_status) {
       case RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR:
       case RequestAccessStatusEnum.ACCEPTED_AS_READER:
-        return this.requestAccessService.acceptOrganizationRequest(organizationId, requestAccessId, changeRequest.role, changeRequest.secret, changerId);
+        await this.requestAccessService.acceptOrganizationRequest(organizationId, requestAccessId, changeRequest.role, changeRequest.secret, changerId);
+        return `Request accepted successfully`;
       case RequestAccessStatusEnum.REJECTED:
-        return this.requestAccessService.rejectOrganizationRequest(organizationId, requestAccessId, changeRequest.secret, changerId);
+        await this.requestAccessService.rejectOrganizationRequest(organizationId, requestAccessId, changeRequest.secret, changerId);
+        return `Request rejected successfully`;
       default:
         throw new BadRequestException(`Status provided is invalid`);
     }

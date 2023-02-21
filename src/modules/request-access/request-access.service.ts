@@ -9,6 +9,7 @@ import {
   RequestAccess,
   RequestAccessStatusEnum,
   Team,
+  TeamMember,
   User,
 } from '@kyso-io/kyso-model';
 import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common';
@@ -71,8 +72,6 @@ export class RequestAccessService extends AutowiredService {
 
     const onlyAdmins = allMembers.filter((x) => x.role_names.includes(PlatformRole.ORGANIZATION_ADMIN_ROLE.name));
 
-    console.log(onlyAdmins);
-
     if (onlyAdmins && onlyAdmins.length > 0) {
       const allAdmins: User[] = [];
 
@@ -121,9 +120,54 @@ export class RequestAccessService extends AutowiredService {
       throw new BadRequestException(`Invalid team provided`);
     }
 
-    const requestAccess: RequestAccess = new RequestAccess(requester_user_id, null, team_id, RequestAccessStatusEnum.PENDING, null, null);
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
+    if (!organization) {
+      throw new BadRequestException(`Organization not found for team ${team.sluglified_name}`);
+    }
 
-    return this.provider.create(requestAccess);
+    // Look for team admins at organization level
+    const allMembers: OrganizationMemberJoin[] = await this.organizationsService.getMembers(team.organization_id);
+    const onlyAdminsAtOrgLevel = allMembers.filter((x) => x.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name));
+
+    // Look for team admins at team level
+    const allDirectTeamMembers: TeamMember[] = await this.teamsService.getMembers(team_id);
+    const onlyAdminsAtTeamLevel = allDirectTeamMembers.filter((x) => x.team_roles.includes(PlatformRole.TEAM_ADMIN_ROLE.name));
+
+    const onlyAdmins = [...onlyAdminsAtOrgLevel.map((x) => x.id), ...onlyAdminsAtTeamLevel.map((x) => x.id)];
+
+    if (onlyAdmins && onlyAdmins.length > 0) {
+      const allTeamAdmins: User[] = [];
+
+      // Process admins
+      for (const teamAdminId of onlyAdmins) {
+        try {
+          const user: User = await this.usersService.getUserById(teamAdminId);
+
+          allTeamAdmins.push(user);
+        } catch (ex) {
+          Logger.warn(`Cant retrieve data from user ${teamAdminId}`);
+        }
+      }
+
+      if (allTeamAdmins.length > 0) {
+        const requestAccess: RequestAccess = new RequestAccess(requester_user_id, null, team_id, RequestAccessStatusEnum.PENDING, null, null);
+
+        const result = await this.provider.create(requestAccess);
+
+        NATSHelper.safelyEmit<any>(this.client, KysoEventEnum.TEAMS_REQUEST_ACCESS_CREATED, {
+          request: result,
+          organization,
+          team,
+          requesterUser,
+          organizationAdmins: allTeamAdmins,
+          frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+        });
+
+        return result;
+      } else {
+        throw new PreconditionFailedException('No administrator admins found for this organization');
+      }
+    }
   }
 
   public async acceptOrganizationRequest(organization_id: string, requestId: string, role: string, secret: string, accepter_id: string): Promise<RequestAccess> {
