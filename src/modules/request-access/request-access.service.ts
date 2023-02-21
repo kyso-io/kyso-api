@@ -291,6 +291,8 @@ export class RequestAccessService extends AutowiredService {
   public async rejectOrganizationRequest(organizationId: string, requestId: string, secret: string, rejecter_id: string): Promise<RequestAccess> {
     const request: RequestAccess[] = await this.provider.read({ filter: { id: requestId } });
     const rejecterUser: User = await this.usersService.getUserById(rejecter_id);
+    const requesterUser: User = await this.usersService.getUserById(request[0].requester_user_id);
+    const organization: Organization = await this.organizationsService.getOrganizationById(request[0].organization_id);
 
     if (!rejecterUser) {
       throw new BadRequestException(`Invalid user provided`);
@@ -304,12 +306,23 @@ export class RequestAccessService extends AutowiredService {
       throw new ForbiddenException(`Organization identifiers mismatch`);
     }
 
+    NATSHelper.safelyEmit<any>(this.client, KysoEventEnum.ORGANIZATION_REQUEST_ACCESS_REJECTED, {
+      request,
+      organization,
+      requesterUser,
+      rejecterUser,
+      frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+    });
+
     return this.rejectRequest(request[0], secret, rejecterUser);
   }
 
   public async rejectTeamRequest(teamId: string, requestId: string, secret: string, rejecter_id: string): Promise<RequestAccess> {
     const request: RequestAccess[] = await this.provider.read({ filter: { id: requestId } });
     const rejecterUser: User = await this.usersService.getUserById(rejecter_id);
+    const requesterUser: User = await this.usersService.getUserById(request[0].requester_user_id);
+    const team: Team = await this.teamsService.getTeamById(request[0].channel_id);
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
 
     if (!rejecterUser) {
       throw new BadRequestException(`Invalid user provided`);
@@ -322,6 +335,15 @@ export class RequestAccessService extends AutowiredService {
     if (request[0].channel_id !== teamId) {
       throw new ForbiddenException(`Channel identifiers mismatch`);
     }
+
+    NATSHelper.safelyEmit<any>(this.client, KysoEventEnum.TEAMS_REQUEST_ACCESS_REJECTED, {
+      request,
+      organization,
+      team,
+      requesterUser,
+      rejecterUser,
+      frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+    });
 
     return this.rejectRequest(request[0], secret, rejecterUser);
   }
