@@ -261,12 +261,10 @@ export class RequestAccessService extends AutowiredService {
     let finalStatus = RequestAccessStatusEnum.PENDING;
     let kysoRole = PlatformRole.TEAM_READER_ROLE;
 
-    if (role !== PlatformRole.TEAM_READER_ROLE.name) {
+    if (role === PlatformRole.TEAM_READER_ROLE.name) {
       finalStatus = RequestAccessStatusEnum.ACCEPTED_AS_READER;
       kysoRole = PlatformRole.TEAM_READER_ROLE;
-    }
-
-    if (role !== PlatformRole.TEAM_CONTRIBUTOR_ROLE.name) {
+    } else if (role === PlatformRole.TEAM_CONTRIBUTOR_ROLE.name) {
       finalStatus = RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR;
       kysoRole = PlatformRole.TEAM_CONTRIBUTOR_ROLE;
     }
