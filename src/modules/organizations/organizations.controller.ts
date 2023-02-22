@@ -1,5 +1,6 @@
 import {
   AddUserOrganizationDto,
+  ChangeRequestAccessDTO,
   CreateOrganizationDto,
   GlobalPermissionsEnum,
   InviteUserDto,
@@ -15,8 +16,11 @@ import {
   PaginatedResponseDto,
   Relations,
   ReportDTO,
+  RequestAccess,
+  RequestAccessStatusEnum,
   ResourcePermissions,
   StoragePermissionsEnum,
+  Team,
   TeamMember,
   TeamPermissionsEnum,
   Token,
@@ -49,6 +53,7 @@ import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiOperation, ApiP
 import { Response } from 'express';
 import { Parser } from 'json2csv';
 import { Public } from 'src/decorators/is-public';
+import { PlatformRole } from 'src/security/platform-roles';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { GenericController } from '../../generic/controller.generic';
@@ -60,6 +65,8 @@ import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { PermissionsGuard } from '../auth/guards/permission.guard';
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard';
 import { RelationsService } from '../relations/relations.service';
+import { RequestAccessService } from '../request-access/request-access.service';
+import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
 import { OrganizationsService } from './organizations.service';
 
@@ -74,6 +81,12 @@ export class OrganizationsController extends GenericController<Organization> {
 
   @Autowired({ typeName: 'UsersService' })
   private usersService: UsersService;
+
+  @Autowired({ typeName: 'RequestAccessService' })
+  private requestAccessService: RequestAccessService;
+
+  @Autowired({ typeName: 'TeamsService' })
+  private teamsService: TeamsService;
 
   constructor(private readonly organizationService: OrganizationsService) {
     super();
@@ -657,5 +670,101 @@ export class OrganizationsController extends GenericController<Organization> {
     const paginatedResponseDto: PaginatedResponseDto<ReportDTO> = await this.organizationService.getOrganizationReports(token, organizationSlug, page, limit, sort);
     const relations: Relations = await this.relationsService.getRelations(paginatedResponseDto.results, 'report', { Author: 'User' });
     return new NormalizedResponseDTO(paginatedResponseDto, relations);
+  }
+
+  @Post('/:organizationId/request-access')
+  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiOperation({
+    summary: `Request access to an organization`,
+    description: `By passing the appropiate parameters you request access to an organization`,
+  })
+  @ApiNormalizedResponse({ status: 200, description: `Request created successfully`, type: String })
+  public async requestAccessToAnOrganization(@CurrentToken() token: Token, @Param('organizationId') organizationId: string) {
+    this.requestAccessService.requestAccessToOrganization(token.id, organizationId);
+
+    return;
+  }
+
+  @Public()
+  @Get('/:organizationId/request-access/:requestAccessId/:secret/:changerId/:newStatus')
+  @ApiOperation({
+    summary: `Request access to an organization`,
+    description: `By passing the appropiate parameters you request access to an organization`,
+  })
+  @ApiNormalizedResponse({ status: 200, description: `Request changed successfully`, type: String })
+  public async changeRequestAccessStatus(
+    @Param('organizationId') organizationId: string,
+    @Param('requestAccessId') requestAccessId: string,
+    @Param('secret') secret: string,
+    @Param('changerId') changerId: string,
+    @Param('newStatus') newStatus: RequestAccessStatusEnum,
+  ) {
+    let role;
+
+    switch (RequestAccessStatusEnum[newStatus]) {
+      case RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR:
+        role = PlatformRole.TEAM_CONTRIBUTOR_ROLE.name;
+        break;
+      case RequestAccessStatusEnum.ACCEPTED_AS_READER:
+        role = PlatformRole.TEAM_READER_ROLE.name;
+        break;
+      case RequestAccessStatusEnum.REJECTED:
+        role = 'none';
+        break;
+      default:
+        role = null;
+        break;
+    }
+
+    if (!role) {
+      throw new BadRequestException(
+        `Invalid newStatus. Valid values are ${RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR}, ${RequestAccessStatusEnum.ACCEPTED_AS_READER} or ${RequestAccessStatusEnum.REJECTED}`,
+      );
+    }
+
+    const changeRequest: ChangeRequestAccessDTO = new ChangeRequestAccessDTO(secret, role, newStatus);
+
+    switch (changeRequest.new_status) {
+      case RequestAccessStatusEnum.ACCEPTED_AS_CONTRIBUTOR:
+      case RequestAccessStatusEnum.ACCEPTED_AS_READER:
+        await this.requestAccessService.acceptOrganizationRequest(organizationId, requestAccessId, changeRequest.role, changeRequest.secret, changerId);
+        return `Request accepted successfully`;
+      case RequestAccessStatusEnum.REJECTED:
+        await this.requestAccessService.rejectOrganizationRequest(organizationId, requestAccessId, changeRequest.secret, changerId);
+        return `Request rejected successfully`;
+      default:
+        throw new BadRequestException(`Status provided is invalid`);
+    }
+  }
+
+  @Public()
+  @Get('/:organizationSlug/team/:teamSlug/visibility')
+  @ApiOperation({
+    summary: `Returns the visibility and teamId of a team under an organization`,
+    description: `By passing the appropiate parameters you can know the visibility of a team`,
+  })
+  @ApiNormalizedResponse({ status: 200, description: `Success`, type: String })
+  public async getOrganizationTeamVisibility(@Param('organizationSlug') organizationSlug: string, @Param('teamSlug') teamSlug: string) {
+    const organization: Organization = await this.organizationService.getOrganizationBySlugName(organizationSlug);
+
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    const team: Team = await this.teamsService.getTeam({
+      filter: {
+        organization_id: organization.id,
+        sluglified_name: teamSlug,
+      },
+    });
+
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+
+    return new NormalizedResponseDTO({
+      id: team.id,
+      visibility: team.visibility,
+    });
   }
 }
