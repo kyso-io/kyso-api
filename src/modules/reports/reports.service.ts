@@ -1111,7 +1111,18 @@ export class ReportsService extends AutowiredService {
       if (index !== -1) {
         const file: File = reportFiles[index];
         const newPathScs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${file.name}`;
-        let hardLinkFile: File = new File(report.id, file.name, newPathScs, file.size, file.sha, version, createKysoReportVersionDto.message, createKysoReportVersionDto.git_metadata, file.toc, []);
+        let hardLinkFile: File = new File(
+          report.id,
+          file.name,
+          newPathScs,
+          file.size,
+          file.sha,
+          version,
+          createKysoReportVersionDto.message,
+          createKysoReportVersionDto.git_metadata,
+          file.toc,
+          file.columns_stats,
+        );
         hardLinkFile = await this.filesMongoProvider.create(hardLinkFile);
         const source: string = join(sftpDestinationFolder, file.path_scs);
         const target: string = join(sftpDestinationFolder, hardLinkFile.path_scs);
@@ -1634,8 +1645,8 @@ export class ReportsService extends AutowiredService {
         size = statSync(mainFileReportLocalPath).size;
       }
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion + 1}/${fileLastVersion.name}`;
-      let fileNewVersion: File = new File(report.id, fileLastVersion.name, path_scs, size, sha, lastVersion + 1, message, git_metadata, fileLastVersion.toc, []);
-      fileNewVersion = await this.filesMongoProvider.create(fileNewVersion);
+      const fileNewVersion: File = new File(report.id, fileLastVersion.name, path_scs, size, sha, lastVersion + 1, message, git_metadata, fileLastVersion.toc, fileLastVersion.columns_stats);
+      await this.filesMongoProvider.create(fileNewVersion);
       Logger.log(`Report '${report.id} ${report.sluglified_name}': Created new version ${lastVersion + 1} for file '${fileLastVersion.name}'`, ReportsService.name);
     }
     Logger.log(`Deleting LOCAL folder '${localReportPath}'...`, ReportsService.name);
@@ -2406,8 +2417,8 @@ export class ReportsService extends AutowiredService {
       const size: number = statSync(files[i].filePath).size;
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`;
       const toc: TableOfContentEntryDto[] = this.getTableOfContents(files[i].filePath);
-      let reportFile: File = new File(report.id, originalName, path_scs, size, sha, version, message, git_metadata, toc, []);
-      reportFile = await this.filesMongoProvider.create(reportFile);
+      const reportFile: File = new File(report.id, originalName, path_scs, size, sha, version, message, git_metadata, toc, []);
+      await this.filesMongoProvider.create(reportFile);
       if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
         report = await this.updateReportPreviewPicture(report, files[i].filePath);
       }

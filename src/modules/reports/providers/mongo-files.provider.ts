@@ -5,7 +5,7 @@ import { db } from '../../../main';
 import { MongoProvider } from '../../../providers/mongo.provider';
 @Injectable()
 export class FilesMongoProvider extends MongoProvider<File> {
-  version = 6;
+  version = 7;
 
   constructor() {
     super('File', db);
@@ -68,5 +68,9 @@ export class FilesMongoProvider extends MongoProvider<File> {
 
   public async migrate_from_5_to_6() {
     await this.getCollection().updateMany({}, { $set: { toc: [] } });
+  }
+
+  public async migrate_from_6_to_7() {
+    await this.getCollection().updateMany({}, { $set: { columns_stats: [] } });
   }
 }
