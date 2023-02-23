@@ -47,7 +47,7 @@ import { BadRequestException, ForbiddenException, Inject, Injectable, InternalSe
 import { ClientProxy } from '@nestjs/microservices';
 import { Octokit } from '@octokit/rest';
 import * as AdmZip from 'adm-zip';
-import axios, { AxiosResponse } from 'axios';
+import axios, { AxiosError, AxiosResponse } from 'axios';
 import * as FormData from 'form-data';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs';
 import { moveSync } from 'fs-extra';
@@ -3310,6 +3310,21 @@ export class ReportsService extends AutowiredService {
     } catch (e) {
       Logger.warn(`${pathToIndex} was not indexed properly`, e, FullTextSearchService.name);
       return { status: 'error' };
+    }
+  }
+
+  public async getLinesOfReportFile(file: File, beginLine: number, endLine: number): Promise<string> {
+    try {
+      const kysoScsUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_WEBHOOK_URL);
+      const url = `${kysoScsUrl}/hooks/cl?file=.${file.path_scs}&beg=${beginLine}&end=${endLine}`;
+      const response: AxiosResponse<string, any> = await axios.get<string, any>(url);
+      return response.data;
+    } catch (e) {
+      const error = e as AxiosError;
+      if (error.response) {
+        Logger.error(`An error occurred requesting lines '${beginLine} - ${endLine}' of file '${file.id} - ${file.path_scs}'`, error.response.data, ReportsService.name);
+      }
+      return null;
     }
   }
 }

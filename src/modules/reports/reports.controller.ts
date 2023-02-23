@@ -35,6 +35,7 @@ import {
   Logger,
   NotFoundException,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   PreconditionFailedException,
@@ -199,6 +200,48 @@ export class ReportsController extends GenericController<Report> {
     }
     const relations = await this.relationsService.getRelations(reports, 'report', { Author: 'User' });
     return new NormalizedResponseDTO(reportsDtos, relations);
+  }
+
+  @Get('lines')
+  @Public()
+  @ApiOperation({
+    summary: `Get content of a file`,
+    description: `By passing the id a file, get its raw content directly from the source.`,
+  })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    description: 'Id of the report to fetch',
+    schema: { type: 'string' },
+  })
+  async getLinesOfReportFile(
+    @CurrentToken() token: Token,
+    @Query('fileId') fileId: string,
+    @Query('beginLine', ParseIntPipe) beginLine: number,
+    @Query('endLine', ParseIntPipe) endLine: number,
+  ): Promise<NormalizedResponseDTO<string>> {
+    const file: File = await this.reportsService.getFileById(fileId);
+    if (!file) {
+      throw new PreconditionFailedException('File not found');
+    }
+    const report: Report = await this.reportsService.getReportById(file.report_id);
+    if (!report) {
+      throw new PreconditionFailedException('Report not found');
+    }
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!token) {
+      if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+        throw new PreconditionFailedException(`Report is not public`);
+      }
+    } else {
+      const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
+      const index: number = teams.findIndex((t: Team) => t.id === team.id);
+      if (index === -1) {
+        throw new ForbiddenException('You do not have permissions to access this report');
+      }
+    }
+    const lines: string = await this.reportsService.getLinesOfReportFile(file, beginLine, endLine);
+    return new NormalizedResponseDTO(lines);
   }
 
   @Get('paginated')
