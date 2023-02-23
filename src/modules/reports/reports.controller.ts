@@ -240,13 +240,6 @@ export class ReportsController extends GenericController<Report> {
         throw new ForbiddenException('You do not have permissions to access this report');
       }
     }
-    // let lines = '';
-    // if (beginLine === 1) {
-    //   lines = 'hist1,hist2,hist3\n';
-    // }
-    // for (let i = beginLine; i <= endLine; i++) {
-    //   lines += `${i},${i + 1},${i + 2}${i < endLine ? '\n' : ''}`;
-    // }
     const lines: string = await this.reportsService.getLinesOfReportFile(file, beginLine, endLine);
     return new NormalizedResponseDTO(lines);
   }
