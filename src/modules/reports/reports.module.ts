@@ -6,6 +6,7 @@ import { FilesMongoProvider } from './providers/mongo-files.provider';
 import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider';
 import { ReportsMongoProvider } from './providers/mongo-reports.provider';
 import { StarredReportsMongoProvider } from './providers/mongo-starred-reports.provider';
+import { ReportsAnalyticsMongoProvider } from './providers/reports-analytics.mongo-provider';
 import { ReportsController } from './reports.controller';
 import { createProvider, ReportsService } from './reports.service';
 import { createSftpProvider, SftpService } from './sftp.service';
@@ -18,15 +19,16 @@ export class ReportsModule {
     return {
       module: ReportsModule,
       providers: [
+        DraftReportsMongoProvider,
         FilesMongoProvider,
-        reportServiceDynamicProvider,
         PinnedReportsMongoProvider,
+        ReportsAnalyticsMongoProvider,
         ReportsService,
         ReportsMongoProvider,
+        reportServiceDynamicProvider,
         sftpDynamicProvider,
         SftpService,
         StarredReportsMongoProvider,
-        DraftReportsMongoProvider,
       ],
       imports: [registerNatsService(), NestjsFormDataModule],
       controllers: [ReportsController],
