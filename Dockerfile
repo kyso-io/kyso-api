@@ -15,8 +15,9 @@ RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,gid=1000,required\
   npm ci
 # Copy the sources
 COPY src ./src/
-# Copy the templates (moved to notification-consumer project)
-# COPY templates ./templates/
+# Copy the static-data folder
+COPY static-data ./static-data/
+
 # Build the application (leaves result on ./dist)
 RUN npm run build
 # Execute `npm ci` (not install) for production with an externally mounted npmrc
