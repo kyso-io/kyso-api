@@ -8,7 +8,7 @@ const capitalize = (s: string) => s && s[0].toUpperCase() + s.slice(1);
 
 const flatten = (list) => list.reduce((a, b) => a.concat(Array.isArray(b) ? flatten(b) : b), []);
 
-const VALID_COLLECTIONS: string[] = ['User', 'Organization', 'Team', 'Report', 'Comment', 'Tag'];
+const VALID_COLLECTIONS: string[] = ['User', 'Organization', 'Team', 'Report', 'ReportAnalytics', 'Comment', 'Tag'];
 
 const listKeyToVal = (data: any) => {
   return data.reduce((prev: any, curr: any) => {

@@ -15,8 +15,9 @@ RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,gid=1000,required\
   npm ci
 # Copy the sources
 COPY src ./src/
-# Copy the templates (moved to notification-consumer project)
-# COPY templates ./templates/
+# Copy the static-data folder
+COPY static-data ./static-data/
+
 # Build the application (leaves result on ./dist)
 RUN npm run build
 # Execute `npm ci` (not install) for production with an externally mounted npmrc
@@ -39,6 +40,8 @@ COPY --chown=node:node --from=builder /app/node_modules ./node_modules
 COPY --chown=node:node --from=builder /app/dist ./dist
 # Copy the public folder from the repository
 COPY --chown=node:node public/ ./public/
+# Copy the static-data folder from the repository
+COPY --chown=node:node static-data/ ./static-data/
 # Copy the sources ... FIXME(sto): this should not be needed!!!
 COPY --chown=node:node src/ ./src/
 # Create link to the sources from dist ... FIXME(sto): again, this is wrong

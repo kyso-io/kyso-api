@@ -1,4 +1,5 @@
 import {
+  AnalyticsSource,
   Comment,
   DraftReport,
   EntityEnum,
@@ -7,6 +8,9 @@ import {
   GlobalPermissionsEnum,
   HEADER_X_KYSO_ORGANIZATION,
   HEADER_X_KYSO_TEAM,
+  KysoAnalyticsReportDownload,
+  KysoAnalyticsReportShare,
+  KysoEventEnum,
   KysoSetting,
   KysoSettingsEnum,
   NormalizedResponseDTO,
@@ -14,6 +18,7 @@ import {
   PaginatedResponseDto,
   PinnedReport,
   Report,
+  ReportAnalytics,
   ReportDTO,
   ReportPermissionsEnum,
   ResourcePermissions,
@@ -23,6 +28,7 @@ import {
   TeamVisibilityEnum,
   Token,
   UpdateReportRequestDTO,
+  User,
 } from '@kyso-io/kyso-model';
 import {
   BadRequestException,
@@ -32,9 +38,11 @@ import {
   ForbiddenException,
   Get,
   Headers,
+  Inject,
   Logger,
   NotFoundException,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   PreconditionFailedException,
@@ -46,15 +54,19 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import axios, { AxiosResponse } from 'axios';
+import { Request } from 'express';
 import { ObjectId } from 'mongodb';
 import { FormDataRequest } from 'nestjs-form-data';
+import { RealIP } from 'nestjs-real-ip';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { Public } from '../../decorators/is-public';
 import { GenericController } from '../../generic/controller.generic';
+import { NATSHelper } from '../../helpers/natsHelper';
 import { QueryParser } from '../../helpers/queryParser';
 import slugify from '../../helpers/slugify';
 import { Validators } from '../../helpers/validators';
@@ -70,6 +82,7 @@ import { OrganizationsService } from '../organizations/organizations.service';
 import { RelationsService } from '../relations/relations.service';
 import { TagsService } from '../tags/tags.service';
 import { TeamsService } from '../teams/teams.service';
+import { UsersService } from '../users/users.service';
 import { CreateKysoReportVersionDto } from './create-kyso-report-version.dto';
 import { CreateKysoReportDto } from './create-kyso-report.dto';
 import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider';
@@ -113,10 +126,14 @@ export class ReportsController extends GenericController<Report> {
   @Autowired({ typeName: 'KysoSettingsService' })
   private kysoSettingsService: KysoSettingsService;
 
+  @Autowired({ typeName: 'UsersService' })
+  private usersService: UsersService;
+
   constructor(
     private readonly emailVerifiedGuard: EmailVerifiedGuard,
     private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider,
     private readonly solvedCaptchaGuard: SolvedCaptchaGuard,
+    @Inject('NATS_SERVICE') private client: ClientProxy,
   ) {
     super();
   }
@@ -199,6 +216,48 @@ export class ReportsController extends GenericController<Report> {
     }
     const relations = await this.relationsService.getRelations(reports, 'report', { Author: 'User' });
     return new NormalizedResponseDTO(reportsDtos, relations);
+  }
+
+  @Get('lines')
+  @Public()
+  @ApiOperation({
+    summary: `Get content of a file`,
+    description: `By passing the id a file, get its raw content directly from the source.`,
+  })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    description: 'Id of the report to fetch',
+    schema: { type: 'string' },
+  })
+  async getLinesOfReportFile(
+    @CurrentToken() token: Token,
+    @Query('fileId') fileId: string,
+    @Query('beginLine', ParseIntPipe) beginLine: number,
+    @Query('endLine', ParseIntPipe) endLine: number,
+  ): Promise<NormalizedResponseDTO<string>> {
+    const file: File = await this.reportsService.getFileById(fileId);
+    if (!file) {
+      throw new PreconditionFailedException('File not found');
+    }
+    const report: Report = await this.reportsService.getReportById(file.report_id);
+    if (!report) {
+      throw new PreconditionFailedException('Report not found');
+    }
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!token) {
+      if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+        throw new PreconditionFailedException(`Report is not public`);
+      }
+    } else {
+      const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
+      const index: number = teams.findIndex((t: Team) => t.id === team.id);
+      if (index === -1) {
+        throw new ForbiddenException('You do not have permissions to access this report');
+      }
+    }
+    const lines: string = await this.reportsService.getLinesOfReportFile(file, beginLine, endLine);
+    return new NormalizedResponseDTO(lines);
   }
 
   @Get('paginated')
@@ -527,8 +586,7 @@ export class ReportsController extends GenericController<Report> {
     description: 'Id of the report to fetch',
     schema: { type: 'string' },
   })
-  async getReportById(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
-    await this.reportsService.increaseViews({ _id: new ObjectId(reportId) });
+  async getReportById(@CurrentToken() token: Token, @RealIP() ip: string, @Req() request: Request, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
     const report: Report = await this.reportsService.getReportById(reportId);
     if (!report) {
       throw new NotFoundException('Report not found');
@@ -537,21 +595,117 @@ export class ReportsController extends GenericController<Report> {
     if (!team) {
       throw new NotFoundException('Team not found');
     }
-
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     if (!organization) {
       throw new NotFoundException(`Organization with id ${team.organization_id} not found`);
     }
-
-    if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-      const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team, organization);
-      if (!hasPermissions) {
+    if (token) {
+      if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+        const index: number = token.permissions.teams.findIndex((t: ResourcePermissions) => t.id === team.id);
+        if (index === -1) {
+          throw new ForbiddenException('You do not have permissions to access this report');
+        }
+      }
+    } else {
+      if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
         throw new ForbiddenException('You do not have permissions to access this report');
       }
     }
+    await this.reportsService.increaseViews({ _id: new ObjectId(reportId) });
+    report.views++;
+    const user_id: string | null = token ? token.id : null;
+    const user_agent: string = request.headers['user-agent'] || null;
+    this.reportsService.sendReportViewEvent(report.id, user_id, ip, user_agent);
     const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id);
     return new NormalizedResponseDTO(reportDto, relations);
+  }
+
+  @Get('/:reportId/analytics')
+  @ApiOperation({
+    summary: `Get report analytics`,
+    description: `Allows fetching analytics of a specific report passing its id`,
+  })
+  @ApiNormalizedResponse({
+    status: 200,
+    description: `Report analytics matching id`,
+    type: ReportAnalytics,
+  })
+  @ApiParam({
+    name: 'reportId',
+    required: true,
+    description: 'Id of the report to fetch its analitycs',
+    schema: { type: 'string' },
+  })
+  async getReportAnalytics(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportAnalytics>> {
+    const report: Report = await this.reportsService.getReportById(reportId);
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
+    if (!organization) {
+      throw new NotFoundException(`Organization with id ${team.organization_id} not found`);
+    }
+    if (token) {
+      if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+        const index: number = token.permissions.teams.findIndex((t: ResourcePermissions) => t.id === team.id);
+        if (index === -1) {
+          throw new ForbiddenException('You do not have permissions to access this report');
+        }
+      }
+    } else {
+      if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+        throw new ForbiddenException('You do not have permissions to access this report');
+      }
+    }
+    const reportAnalytics: ReportAnalytics = await this.reportsService.getReportAnalytics(report.id);
+    const relations = await this.relationsService.getRelations(reportAnalytics);
+    const normalizedResponseDto: NormalizedResponseDTO<ReportAnalytics> = new NormalizedResponseDTO(reportAnalytics, relations);
+    const user_ids: { [id: string]: User } = {};
+    for (const e of reportAnalytics.downloads.last_items) {
+      if (e.user_id && !user_ids[e.user_id]) {
+        user_ids[e.user_id] = null;
+      }
+    }
+    for (const e of reportAnalytics.views.last_items) {
+      if (e.user_id && !user_ids[e.user_id]) {
+        user_ids[e.user_id] = null;
+      }
+    }
+    for (const e of reportAnalytics.shares.last_items) {
+      if (e.user_id && !user_ids[e.user_id]) {
+        user_ids[e.user_id] = null;
+      }
+    }
+    const userIds: string[] = [];
+    for (const id in user_ids) {
+      userIds.push(id);
+    }
+    if (userIds.length > 0) {
+      const users: User[] = await this.usersService.getUsers({
+        filter: {
+          id: {
+            $in: userIds,
+          },
+        },
+      });
+      normalizedResponseDto.relations['user'] = {};
+      for (const user of users) {
+        normalizedResponseDto.relations['user'][user.id] = {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          name: user.name,
+          display_name: user.display_name,
+          avatar_url: user.avatar_url,
+        };
+      }
+    }
+    return normalizedResponseDto;
   }
 
   @Get('/:reportId/comments')
@@ -1125,6 +1279,11 @@ export class ReportsController extends GenericController<Report> {
         Logger.error(`An error occurred while parsing the version`, e, ReportsController.name);
       }
     }
+    NATSHelper.safelyEmit<KysoAnalyticsReportDownload>(this.client, KysoEventEnum.ANALYTICS_REPORT_DOWNLOAD, {
+      report_id: report.id,
+      user_id: token ? token.id : null,
+      source: AnalyticsSource.CLI,
+    });
     this.reportsService.returnZippedReport(report, version, response);
   }
 
@@ -1189,6 +1348,11 @@ export class ReportsController extends GenericController<Report> {
         Logger.error(`An error occurred while parsing the version`, e, ReportsController.name);
       }
     }
+    NATSHelper.safelyEmit<KysoAnalyticsReportDownload>(this.client, KysoEventEnum.ANALYTICS_REPORT_DOWNLOAD, {
+      report_id: report.id,
+      user_id: token ? token.id : null,
+      source: AnalyticsSource.UI,
+    });
     this.reportsService.downloadReport(reportId, version, response);
   }
 
@@ -1428,6 +1592,8 @@ export class ReportsController extends GenericController<Report> {
   @Public()
   async getReport(
     @CurrentToken() token: Token,
+    @Req() request: Request,
+    @RealIP() ip: string,
     @Param('teamId') teamId: string,
     @Param('reportSlug') reportSlug: string,
     @Query('version') versionStr: string,
@@ -1462,9 +1628,44 @@ export class ReportsController extends GenericController<Report> {
       version = parseInt(versionStr, 10);
     }
     await this.reportsService.increaseViews({ _id: new ObjectId(report.id) });
+    report.views += 1;
+    const user_id: string | null = token ? token.id : null;
+    const user_agent: string = request.headers['user-agent'] || null;
+    this.reportsService.sendReportViewEvent(report.id, user_id, ip, user_agent);
     const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token?.id, version);
     return new NormalizedResponseDTO(reportDto, relations);
+  }
+
+  @Post('/:reportId/on-shared')
+  @ApiOperation({
+    summary: `Detect if a report is shared`,
+    description: `Allows detecting if a report is shared passing its id`,
+  })
+  @ApiParam({
+    name: 'reportId',
+    required: true,
+    description: `Id of the report to fetch`,
+    schema: { type: 'string' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Report shared`,
+  })
+  @ApiResponse({
+    status: 404,
+    description: `Report not found`,
+  })
+  @Public()
+  async onShareReport(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<void> {
+    const report: Report = await this.reportsService.getReportById(reportId);
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
+    NATSHelper.safelyEmit<KysoAnalyticsReportShare>(this.client, KysoEventEnum.ANALYTICS_REPORT_SHARE, {
+      report_id: report.id,
+      user_id: token ? token.id : null,
+    });
   }
 
   @UseInterceptors(FileInterceptor('file'))

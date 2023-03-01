@@ -1,5 +1,6 @@
 import {
   AllowDownload,
+  AnalyticsSource,
   Comment,
   CreateReportDTO,
   DraftReport,
@@ -10,6 +11,7 @@ import {
   GithubRepository,
   GitMetadata,
   GlobalPermissionsEnum,
+  KysoAnalyticsReportView,
   KysoConfigFile,
   KysoEventEnum,
   KysoIndex,
@@ -26,6 +28,7 @@ import {
   Organization,
   PinnedReport,
   Report,
+  ReportAnalytics,
   ReportDTO,
   ReportPermissionsEnum,
   ReportStatus,
@@ -47,11 +50,13 @@ import { BadRequestException, ForbiddenException, Inject, Injectable, InternalSe
 import { ClientProxy } from '@nestjs/microservices';
 import { Octokit } from '@octokit/rest';
 import * as AdmZip from 'adm-zip';
-import axios, { AxiosResponse } from 'axios';
+import axios, { AxiosError, AxiosResponse } from 'axios';
 import * as FormData from 'form-data';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs';
 import { moveSync } from 'fs-extra';
+import * as geoIpCountry from 'geoip-country';
 import * as glob from 'glob';
+import { IP2Location } from 'ip2location-nodejs';
 import { join } from 'path';
 import * as sha256File from 'sha256-file';
 import { NATSHelper } from 'src/helpers/natsHelper';
@@ -85,7 +90,10 @@ import { FilesMongoProvider } from './providers/mongo-files.provider';
 import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.provider';
 import { ReportsMongoProvider } from './providers/mongo-reports.provider';
 import { StarredReportsMongoProvider } from './providers/mongo-starred-reports.provider';
+import { ReportsAnalyticsMongoProvider } from './providers/reports-analytics.mongo-provider';
 import { SftpService } from './sftp.service';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const DeviceDetector = require('node-device-detector');
 
 function factory(service: ReportsService) {
   return service;
@@ -143,15 +151,41 @@ export class ReportsService extends AutowiredService {
   @Autowired({ typeName: 'InlineCommentsService' })
   private inlineCommentsService: InlineCommentsService;
 
+  private deviceDetector: any;
+  private ip2location: IP2Location;
+  private mapCountries: Map<string, { country: string; latitude: number; longitude: number; name: string }>;
+
   constructor(
     private readonly provider: ReportsMongoProvider,
     private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider,
     private readonly starredReportsMongoProvider: StarredReportsMongoProvider,
     private readonly draftReportMongoProvider: DraftReportsMongoProvider,
     private readonly filesMongoProvider: FilesMongoProvider,
+    private readonly reportsAnalyticsMongoProvider: ReportsAnalyticsMongoProvider,
     @Inject('NATS_SERVICE') private client: ClientProxy,
   ) {
     super();
+    this.deviceDetector = new DeviceDetector({
+      clientIndexes: true,
+      deviceIndexes: true,
+      deviceAliasCode: false,
+    });
+    this.ip2location = new IP2Location();
+    this.ip2location.open('./static-data/IP2LOCATION-LITE-DB5.BIN');
+    this.loadCountries();
+  }
+
+  private loadCountries(): void {
+    this.mapCountries = new Map<string, { country: string; latitude: number; longitude: number; name: string }>();
+    const countries: { country: string; latitude: string; longitude: string; name: string }[] = JSON.parse(readFileSync('./static-data/countries.json').toString());
+    countries.forEach((country: { country: string; latitude: string; longitude: string; name: string }) => {
+      this.mapCountries.set(country.country, {
+        country: country.country,
+        latitude: parseFloat(country.latitude.replace(',', '.')),
+        longitude: parseFloat(country.longitude.replace(',', '.')),
+        name: country.name,
+      });
+    });
   }
 
   public async isOwner(userId: string, requesterId: string): Promise<boolean> {
@@ -1471,8 +1505,6 @@ export class ReportsService extends AutowiredService {
       Logger.error(`No kyso.{yml,yaml,json} file found`, ReportsService.name);
       throw new PreconditionFailedException(`No kyso.{yml,yaml,json} file found`);
     }
-
-    console.log(kysoConfigFile);
 
     const organization: Organization = await this.organizationsService.getOrganization({
       filter: {
@@ -2843,7 +2875,7 @@ export class ReportsService extends AutowiredService {
   private async preprocessHtmlFiles(sourcePath: string) {
     const foundFiles = glob.sync(sourcePath + '/**/*.htm*');
 
-    const result = replaceStringInFilesSync({
+    replaceStringInFilesSync({
       files: foundFiles,
       from: /<head>/,
       to: `
@@ -3311,5 +3343,80 @@ export class ReportsService extends AutowiredService {
       Logger.warn(`${pathToIndex} was not indexed properly`, e, FullTextSearchService.name);
       return { status: 'error' };
     }
+  }
+
+  public async getLinesOfReportFile(file: File, beginLine: number, endLine: number): Promise<string> {
+    try {
+      const kysoScsUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_WEBHOOK_URL);
+      const url = `${kysoScsUrl}/hooks/cl?file=.${file.path_scs}&beg=${beginLine}&end=${endLine}`;
+      const response: AxiosResponse<string, any> = await axios.get<string, any>(url);
+      return response.data;
+    } catch (e) {
+      const error = e as AxiosError;
+      if (error.response) {
+        Logger.error(`An error occurred requesting lines '${beginLine} - ${endLine}' of file '${file.id} - ${file.path_scs}'`, error.response.data, ReportsService.name);
+      }
+      return null;
+    }
+  }
+
+  public sendReportViewEvent(report_id: string, user_id: string | null, ip: string, user_agent: string | null): void {
+    const resultIp2Location = this.ip2location.getAll(ip);
+    let location = null;
+    let country = null;
+    if (resultIp2Location && resultIp2Location.countryShort && resultIp2Location.countryShort !== '-') {
+      const parts: string[] = [];
+      if (resultIp2Location.city) {
+        parts.push(resultIp2Location.city);
+      }
+      if (resultIp2Location.region) {
+        if (resultIp2Location.region.includes(', ')) {
+          parts.push(resultIp2Location.region.split(', ').reverse().join(' '));
+        } else {
+          parts.push(resultIp2Location.region);
+        }
+      }
+      if (resultIp2Location.countryLong) {
+        parts.push(resultIp2Location.countryLong);
+      }
+      if (resultIp2Location.countryShort) {
+        country = resultIp2Location.countryShort;
+        parts.push(`(${resultIp2Location.countryShort})`);
+      }
+      location = parts.join(' ');
+    } else {
+      const geo2: geoIpCountry.Lookup = geoIpCountry.lookup(ip);
+      if (geo2?.country) {
+        country = geo2.country;
+        location = `(${geo2.country})`;
+      }
+    }
+    let coords: { lat: number; lng: number } | null = null;
+    if (country && this.mapCountries.has(country)) {
+      coords = {
+        lat: this.mapCountries.get(country).latitude,
+        lng: this.mapCountries.get(country).longitude,
+      };
+    }
+    NATSHelper.safelyEmit<KysoAnalyticsReportView>(this.client, KysoEventEnum.ANALYTICS_REPORT_VIEW, {
+      report_id,
+      user_id,
+      location,
+      coords,
+      device: user_agent ? this.deviceDetector.detect(user_agent) : null,
+      source: AnalyticsSource.UI,
+    });
+  }
+
+  public async getReportAnalytics(reportId: string): Promise<ReportAnalytics> {
+    const result: ReportAnalytics[] = await this.reportsAnalyticsMongoProvider.read({
+      filter: {
+        reportId,
+      },
+    });
+    if (result.length === 0) {
+      throw new NotFoundException(`Report does not have analytics`);
+    }
+    return result[0];
   }
 }
