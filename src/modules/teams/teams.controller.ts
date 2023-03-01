@@ -7,6 +7,7 @@ import {
   Organization,
   OrganizationPermissionsEnum,
   Report,
+  RequestAccess,
   RequestAccessStatusEnum,
   ResourcePermissions,
   Team,
@@ -40,7 +41,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiHeader, ApiHeaders, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { Parser } from 'json2csv';
 import { ObjectId } from 'mongodb';
@@ -1003,17 +1004,20 @@ export class TeamsController extends GenericController<Team> {
     return new NormalizedResponseDTO(scsImagePath);
   }
 
-  @Post('/:teamId/request-access')
+  @Post('/:organizationSlug/:teamSlug/request-access')
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
-    summary: `Request access to an organization`,
-    description: `By passing the appropiate parameters you request access to an organization`,
+    summary: `Request access to a team`,
+    description: `By passing the appropiate parameters you request access to a team`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Request created successfully`, type: String })
-  public async requestAccessToAnOrganization(@CurrentToken() token: Token, @Param('teamId') teamId: string) {
-    await this.requestAccessService.requestAccessToTeam(token.id, teamId);
-
-    return 'Request created successfully';
+  @ApiNormalizedResponse({ status: 200, description: `Request created successfully`, type: RequestAccess })
+  public async requestAccessToTeam(
+    @CurrentToken() token: Token,
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('teamSlug') teamSlug: string,
+  ): Promise<NormalizedResponseDTO<RequestAccess>> {
+    const requestAccess: RequestAccess = await this.requestAccessService.requestAccessToTeam(token.id, organizationSlug, teamSlug);
+    return new NormalizedResponseDTO<RequestAccess>(requestAccess);
   }
 
   @Public()
