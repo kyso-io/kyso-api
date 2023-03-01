@@ -219,7 +219,7 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/rey.jpg',
+            avatar_url: 'https://fjbarrena.dev/_next/image?url=%2Fstatic%2Fportraits%2Frey.jpg&w=640&q=75',
             global_permissions: [],
             location: faker.address.cityName(),
             bio: faker.hacker.phrase(),
@@ -233,7 +233,7 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/kylo.jpeg',
+            avatar_url: 'https://fjbarrena.dev/_next/image?url=%2Fstatic%2Fportraits%2Fkylo.jpeg&w=640&q=75',
             global_permissions: [],
             location: faker.address.cityName(),
             bio: faker.hacker.phrase(),
@@ -247,7 +247,7 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/chewbacca.jpg',
+            avatar_url: 'https://fjbarrena.dev/_next/image?url=%2Fstatic%2Fportraits%2Fchewbacca.jpg&w=640&q=75',
             global_permissions: [],
             location: faker.address.cityName(),
             bio: faker.hacker.phrase(),
@@ -261,7 +261,7 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/gideon.jpg',
+            avatar_url: 'https://fjbarrena.dev/_next/image?url=%2Fstatic%2Fportraits%2Fgideon.jpg&w=640&q=75',
             global_permissions: [],
             location: faker.address.cityName(),
             bio: faker.hacker.phrase(),
@@ -275,7 +275,7 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/baby_yoda.jpg',
+            avatar_url: 'https://fjbarrena.dev/_next/image?url=%2Fstatic%2Fportraits%2Fbaby_yoda.jpg&w=640&q=75',
             global_permissions: [],
             location: faker.address.cityName(),
             bio: faker.hacker.phrase(),
@@ -289,7 +289,7 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/palpatine.jpg',
+            avatar_url: 'https://fjbarrena.dev/_next/image?url=%2Fstatic%2Fportraits%2Fpalpatine.jpg&w=640&q=75',
             global_permissions: [GlobalPermissionsEnum.GLOBAL_ADMIN],
             location: faker.address.cityName(),
             bio: faker.hacker.phrase(),
@@ -304,7 +304,7 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/ahsoka.jpg',
+            avatar_url: 'https://fjbarrena.dev/_next/image?url=%2Fstatic%2Fportraits%2Fahsoka.jpg&w=640&q=75',
             global_permissions: [],
             location: faker.address.cityName(),
             bio: faker.hacker.phrase(),
@@ -319,7 +319,7 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: false,
             show_captcha: true,
-            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/dooku.jpeg',
+            avatar_url: 'https://fjbarrena.dev/_next/image?url=%2Fstatic%2Fportraits%2Fdooku.jpeg&w=640&q=75',
             global_permissions: [],
             location: faker.address.cityName(),
             bio: faker.hacker.phrase(),
@@ -334,7 +334,7 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/leia.jpg',
+            avatar_url: 'https://fjbarrena.dev/_next/image?url=%2Fstatic%2Fportraits%2Fleia.jpg&w=640&q=75',
             global_permissions: [],
             location: faker.address.cityName(),
             bio: faker.hacker.phrase(),
@@ -349,7 +349,7 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/amidala.jpg',
+            avatar_url: 'https://fjbarrena.dev/_next/image?url=%2Fstatic%2Fportraits%2Famidala.jpg&w=640&q=75',
             global_permissions: [],
             location: faker.address.cityName(),
             bio: faker.hacker.phrase(),
@@ -364,7 +364,7 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/mando.jpg',
+            avatar_url: 'https://fjbarrena.dev/_next/image?url=%2Fstatic%2Fportraits%2Fmando.jpg&w=640&q=75',
             global_permissions: [],
             location: faker.address.cityName(),
             bio: faker.hacker.phrase(),
@@ -379,7 +379,7 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/bb8.jpg',
+            avatar_url: 'https://fjbarrena.dev/_next/image?url=%2Fstatic%2Fportraits%2Fbb8.jpg&w=640&q=75',
             global_permissions: [],
             location: faker.address.cityName(),
             bio: faker.hacker.phrase(),
@@ -394,7 +394,7 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/r2d2.jpg',
+            avatar_url: 'https://fjbarrena.dev/_next/image?url=%2Fstatic%2Fportraits%2Fr2d2.jpg&w=640&q=75',
             global_permissions: [],
             location: faker.address.cityName(),
             bio: faker.hacker.phrase(),
@@ -409,7 +409,7 @@ export class TestingDataPopulatorService {
           $set: {
             email_verified: true,
             show_captcha: false,
-            avatar_url: 'https://handbook.kyso.io/docs/qa/images/portraits/c3p0.jpg',
+            avatar_url: 'https://fjbarrena.dev/_next/image?url=%2Fstatic%2Fportraits%2Fc3p0.jpg&w=640&q=75',
             global_permissions: [],
             location: faker.address.cityName(),
             bio: faker.hacker.phrase(),
