@@ -1,10 +1,10 @@
 import {
   AddUserOrganizationDto,
   KysoEventEnum,
-  KysoRole,
+  KysoOrganizationRequestAccessCreatedEvent,
   KysoSettingsEnum,
+  KysoTeamRequestAccessCreatedEvent,
   Organization,
-  OrganizationMember,
   OrganizationMemberJoin,
   RequestAccess,
   RequestAccessStatusEnum,
@@ -12,7 +12,7 @@ import {
   TeamMember,
   User,
 } from '@kyso-io/kyso-model';
-import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, PreconditionFailedException, Provider } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { isArray } from 'class-validator';
 import { Autowired } from 'src/decorators/autowired';
@@ -55,22 +55,22 @@ export class RequestAccessService extends AutowiredService {
     super();
   }
 
-  public async requestAccessToOrganization(requester_user_id: string, organization_id: string): Promise<RequestAccess> {
-    Logger.log(`User ${requester_user_id} requesting access to organization ${organization_id}`);
+  public async requestAccessToOrganization(requester_user_id: string, organizationSlug: string): Promise<RequestAccess> {
+    Logger.log(`User ${requester_user_id} requesting access to organization '${organizationSlug}'`);
 
     const requesterUser: User = await this.usersService.getUserById(requester_user_id);
     if (!requesterUser) {
       throw new BadRequestException(`Invalid user provided`);
     }
 
-    const organization: Organization = await this.organizationsService.getOrganizationById(organization_id);
+    const organization: Organization = await this.organizationsService.getOrganizationBySlugName(organizationSlug);
     if (!organization) {
-      throw new BadRequestException(`Invalid organization provided`);
+      throw new NotFoundException(`Organization '${organizationSlug}' not found`);
     }
 
     const allMembers: OrganizationMemberJoin[] = await this.organizationsService.getMembers(organization.id);
 
-    const onlyAdmins = allMembers.filter((x) => x.role_names.includes(PlatformRole.ORGANIZATION_ADMIN_ROLE.name));
+    const onlyAdmins: OrganizationMemberJoin[] = allMembers.filter((x) => x.role_names.includes(PlatformRole.ORGANIZATION_ADMIN_ROLE.name));
 
     if (onlyAdmins && onlyAdmins.length > 0) {
       const allAdmins: User[] = [];
@@ -87,10 +87,10 @@ export class RequestAccessService extends AutowiredService {
       }
 
       if (allAdmins.length > 0) {
-        const requestAccess: RequestAccess = new RequestAccess(requester_user_id, organization_id, null, RequestAccessStatusEnum.PENDING, null, null);
-        const result = await this.provider.create(requestAccess);
+        const requestAccess: RequestAccess = new RequestAccess(requester_user_id, organization.id, null, RequestAccessStatusEnum.PENDING, null, null);
+        const result: RequestAccess = await this.provider.create(requestAccess);
 
-        NATSHelper.safelyEmit<any>(this.client, KysoEventEnum.ORGANIZATION_REQUEST_ACCESS_CREATED, {
+        NATSHelper.safelyEmit<KysoOrganizationRequestAccessCreatedEvent>(this.client, KysoEventEnum.ORGANIZATION_REQUEST_ACCESS_CREATED, {
           request: result,
           organization,
           requesterUser,
@@ -107,22 +107,22 @@ export class RequestAccessService extends AutowiredService {
     }
   }
 
-  public async requestAccessToTeam(requester_user_id: string, team_id: string): Promise<RequestAccess> {
-    Logger.log(`User ${requester_user_id} requesting access to team ${team_id}`);
+  public async requestAccessToTeam(requester_user_id: string, organizationSlug: string, teamSlug: string): Promise<RequestAccess> {
+    Logger.log(`User ${requester_user_id} requesting access to team ${teamSlug} in organization '${organizationSlug}'`);
 
     const requesterUser: User = await this.usersService.getUserById(requester_user_id);
     if (!requesterUser) {
       throw new BadRequestException(`Invalid user provided`);
     }
 
-    const team: Team = await this.teamsService.getTeamById(team_id);
-    if (!team) {
-      throw new BadRequestException(`Invalid team provided`);
+    const organization: Organization = await this.organizationsService.getOrganizationBySlugName(organizationSlug);
+    if (!organization) {
+      throw new NotFoundException(`Organization '${organizationSlug}' not found`);
     }
 
-    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-    if (!organization) {
-      throw new BadRequestException(`Organization not found for team ${team.sluglified_name}`);
+    const team: Team = await this.teamsService.getUniqueTeam(organization.id, teamSlug);
+    if (!team) {
+      throw new BadRequestException(`Invalid team provided`);
     }
 
     // Look for team admins at organization level
@@ -130,7 +130,7 @@ export class RequestAccessService extends AutowiredService {
     const onlyAdminsAtOrgLevel = allMembers.filter((x) => x.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name));
 
     // Look for team admins at team level
-    const allDirectTeamMembers: TeamMember[] = await this.teamsService.getMembers(team_id);
+    const allDirectTeamMembers: TeamMember[] = await this.teamsService.getMembers(team.id);
     const onlyAdminsAtTeamLevel = allDirectTeamMembers.filter((x) => x.team_roles.includes(PlatformRole.TEAM_ADMIN_ROLE.name));
 
     const onlyAdmins = [...onlyAdminsAtOrgLevel.map((x) => x.id), ...onlyAdminsAtTeamLevel.map((x) => x.id)];
@@ -150,11 +150,11 @@ export class RequestAccessService extends AutowiredService {
       }
 
       if (allTeamAdmins.length > 0) {
-        const requestAccess: RequestAccess = new RequestAccess(requester_user_id, null, team_id, RequestAccessStatusEnum.PENDING, null, null);
+        const requestAccess: RequestAccess = new RequestAccess(requester_user_id, null, team.id, RequestAccessStatusEnum.PENDING, null, null);
 
         const result = await this.provider.create(requestAccess);
 
-        NATSHelper.safelyEmit<any>(this.client, KysoEventEnum.TEAMS_REQUEST_ACCESS_CREATED, {
+        NATSHelper.safelyEmit<KysoTeamRequestAccessCreatedEvent>(this.client, KysoEventEnum.TEAMS_REQUEST_ACCESS_CREATED, {
           request: result,
           organization,
           team,

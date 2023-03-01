@@ -23,6 +23,7 @@ import {
   Team,
   TeamMember,
   TeamPermissionsEnum,
+  TeamVisibilityEnum,
   Token,
   UpdateJoinCodesDto,
   UpdateOrganizationDTO,
@@ -672,17 +673,16 @@ export class OrganizationsController extends GenericController<Organization> {
     return new NormalizedResponseDTO(paginatedResponseDto, relations);
   }
 
-  @Post('/:organizationId/request-access')
+  @Post('/:organizationSlug/request-access')
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Request access to an organization`,
     description: `By passing the appropiate parameters you request access to an organization`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Request created successfully`, type: String })
-  public async requestAccessToAnOrganization(@CurrentToken() token: Token, @Param('organizationId') organizationId: string) {
-    this.requestAccessService.requestAccessToOrganization(token.id, organizationId);
-
-    return;
+  @ApiNormalizedResponse({ status: 200, description: `Request created successfully`, type: RequestAccess })
+  public async requestAccessToAnOrganization(@CurrentToken() token: Token, @Param('organizationSlug') organizationSlug: string): Promise<NormalizedResponseDTO<RequestAccess>> {
+    const requestAccess: RequestAccess = await this.requestAccessService.requestAccessToOrganization(token.id, organizationSlug);
+    return new NormalizedResponseDTO<RequestAccess>(requestAccess);
   }
 
   @Public()
@@ -744,7 +744,10 @@ export class OrganizationsController extends GenericController<Organization> {
     description: `By passing the appropiate parameters you can know the visibility of a team`,
   })
   @ApiNormalizedResponse({ status: 200, description: `Success`, type: String })
-  public async getOrganizationTeamVisibility(@Param('organizationSlug') organizationSlug: string, @Param('teamSlug') teamSlug: string) {
+  public async getOrganizationTeamVisibility(
+    @Param('organizationSlug') organizationSlug: string,
+    @Param('teamSlug') teamSlug: string,
+  ): Promise<NormalizedResponseDTO<{ id: string; visibility: TeamVisibilityEnum }>> {
     const organization: Organization = await this.organizationService.getOrganizationBySlugName(organizationSlug);
 
     if (!organization) {
