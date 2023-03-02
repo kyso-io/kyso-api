@@ -65,6 +65,7 @@ import { OrganizationsService } from '../organizations/organizations.service';
 import { ReportsService } from '../reports/reports.service';
 import { SftpService } from '../reports/sftp.service';
 import { TeamsService } from '../teams/teams.service';
+import { UsersNotificationsServiceService } from '../user-notifications-settings/users-notifications-settings.service';
 import { KysoUserAccessTokensMongoProvider } from './providers/mongo-kyso-user-access-token.provider';
 import { UsersMongoProvider } from './providers/mongo-users.provider';
 import { UserChangePasswordMongoProvider } from './providers/user-change-password-mongo.provider';
@@ -107,6 +108,9 @@ export class UsersService extends AutowiredService {
 
   @Autowired({ typeName: 'SftpService' })
   private sftpService: SftpService;
+
+  @Autowired({ typeName: 'UsersNotificationsServiceService' })
+  private usersNotificationsServiceService: UsersNotificationsServiceService;
 
   constructor(
     private readonly kysoAccessTokenProvider: KysoUserAccessTokensMongoProvider,
@@ -218,6 +222,9 @@ export class UsersService extends AutowiredService {
     const user: User = await this.provider.create(newUser);
     const tokenStr: string = await this.authService.login(new Login(signUpDto.password, effectiveLoginProvider, signUpDto.email, null));
     const token: Token = this.authService.evaluateAndDecodeToken(tokenStr);
+
+    // Create default notifications settings
+    await this.usersNotificationsServiceService.createUserNotificationsSettings(user.id);
 
     // Create user organization
     const organizationName: string = user.display_name.charAt(0).toUpperCase() + user.display_name.slice(1);

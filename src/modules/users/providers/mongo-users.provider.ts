@@ -1,4 +1,4 @@
-import { GlobalPermissionsEnum, LoginProviderEnum, User } from '@kyso-io/kyso-model';
+import { GlobalPermissionsEnum, LoginProviderEnum, User, UserNotificationsSettings } from '@kyso-io/kyso-model';
 import { OnboardingProgress } from '@kyso-io/kyso-model/dist/models/onboarding-progress.model';
 import { Injectable, Logger } from '@nestjs/common';
 import * as mongo from 'mongodb';
@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '../../../main';
 import { MongoProvider } from '../../../providers/mongo.provider';
 import { AuthService } from '../../auth/auth.service';
+import { CommentsController } from '../../comments/comments.controller';
 
 const DEFAULT_GLOBAL_ADMIN_USER = new User(
   'default-admin@kyso.io',
@@ -30,7 +31,7 @@ const DEFAULT_GLOBAL_ADMIN_USER = new User(
 @Injectable()
 export class UsersMongoProvider extends MongoProvider<User> {
   provider: any;
-  version = 8;
+  version = 9;
 
   constructor() {
     super('User', db, [
@@ -198,5 +199,42 @@ export class UsersMongoProvider extends MongoProvider<User> {
         },
       },
     );
+  }
+
+  /**
+   * Add, for each user, an object to configure its notifications
+   */
+  async migrate_from_8_to_9(): Promise<void> {
+    const users: User[] = await this.read({});
+    for (const user of users) {
+      const uns: UserNotificationsSettings = new UserNotificationsSettings(user.id);
+      uns.global_settings.new_member_organization = true;
+      uns.global_settings.change_or_removal_member_in_organization = true;
+      uns.global_settings.updated_role_in_organization = true;
+      uns.global_settings.deleted_organization = true;
+      uns.global_settings.new_channel = true;
+      uns.global_settings.new_member_channel = true;
+      uns.global_settings.change_or_removal_member_in_channel = true;
+      uns.global_settings.updated_role_in_channel = true;
+      uns.global_settings.channel_deleted = true;
+      uns.global_settings.new_report = true;
+      uns.global_settings.new_report_vesion = true;
+      uns.global_settings.deleted_report = true;
+      uns.global_settings.new_comment_in_report = true;
+      uns.global_settings.new_mention_in_report = true;
+      uns.global_settings.report_comment_removed = true;
+      uns.created_at = new Date();
+      const createdUns: any = await this.getCollection('UserNotificationsSettings').insertOne(uns);
+      await this.getCollection('UserNotificationsSettings').updateOne(
+        { _id: createdUns.insertedId },
+        {
+          $set: {
+            id: createdUns.insertedId.toString(),
+            created_at: new Date(),
+            updated_at: new Date(),
+          },
+        },
+      );
+    }
   }
 }
