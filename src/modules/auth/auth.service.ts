@@ -18,13 +18,14 @@ import {
   User,
   UserAccount,
 } from '@kyso-io/kyso-model';
-import { ForbiddenException, Injectable, Logger, Provider } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException, Provider } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import * as mongo from 'mongodb';
 import { Autowired } from '../../decorators/autowired';
 import { AutowiredService } from '../../generic/autowired.generic';
+import { PlatformRole } from '../../security/platform-roles';
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { TeamsService } from '../teams/teams.service';
@@ -65,6 +66,12 @@ export class AuthService extends AutowiredService {
 
   @Autowired({ typeName: 'TeamsService' })
   private teamsService: TeamsService;
+
+  @Autowired({ typeName: 'PlatformRoleService' })
+  public readonly platformRoleService: PlatformRoleService;
+
+  @Autowired({ typeName: 'UserRoleService' })
+  public readonly userRoleService: UserRoleService;
 
   constructor(
     private readonly bitbucketLoginProvider: BitbucketLoginProvider,
@@ -586,5 +593,95 @@ export class AuthService extends AutowiredService {
     } catch (e) {
       return null;
     }
+  }
+
+  public async getPublicPermissions(): Promise<TokenPermissions> {
+    const globalKysoPermissions: KysoPermissions[] = [];
+    const organizationsResourcePermissions: ResourcePermissions[] = [];
+    const teamsResourcePermissions: ResourcePermissions[] = [];
+    const publicTeams: Team[] = await this.teamsService.getTeams({
+      filter: {
+        visibility: TeamVisibilityEnum.PUBLIC,
+      },
+    });
+    if (publicTeams.length > 0) {
+      const uniqueOrganizationIds: string[] = [];
+      publicTeams.forEach((team: Team) => {
+        const resourcePermissions: ResourcePermissions = new ResourcePermissions(
+          team.sluglified_name,
+          team.display_name,
+          PlatformRole.EXTERNAL_ROLE.permissions,
+          team.id,
+          false,
+          team.organization_id,
+          ['external'],
+          team.visibility,
+        );
+        teamsResourcePermissions.push(resourcePermissions);
+      });
+      publicTeams.forEach((team) => {
+        if (!uniqueOrganizationIds.includes(team.organization_id)) {
+          uniqueOrganizationIds.push(team.organization_id);
+        }
+      });
+      const publicOrganizations: Organization[] = await this.organizationsService.getOrganizations({
+        filter: {
+          _id: { $in: uniqueOrganizationIds.map((id) => new mongo.ObjectId(id)) },
+        },
+      });
+      publicOrganizations.forEach((organization: Organization) => {
+        const resourcePermissions: ResourcePermissions = new ResourcePermissions(organization.sluglified_name, organization.display_name, [], organization.id, false, organization.id, [], null);
+        organizationsResourcePermissions.push(resourcePermissions);
+      });
+    }
+    return new TokenPermissions(globalKysoPermissions, teamsResourcePermissions, organizationsResourcePermissions);
+  }
+  f;
+
+  public async getPermissionsGivenUsername(username: string): Promise<TokenPermissions> {
+    const user: User = await this.usersService.getUser({
+      filter: {
+        username,
+      },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    const finalPermissions: TokenPermissions = await AuthService.buildFinalPermissionsForUser(
+      user.email,
+      this.usersService,
+      this.teamsService,
+      this.organizationsService,
+      this.platformRoleService,
+      this.userRoleService,
+    );
+    const publicTokenPermissions: TokenPermissions = await this.getPublicPermissions();
+    // Global permissions
+    for (const kysoPermission of publicTokenPermissions.global) {
+      if (!finalPermissions.global.includes(kysoPermission)) {
+        finalPermissions.global.push(kysoPermission);
+      }
+    }
+    // Organization permissions
+    for (const publicOrganizationResourcePermission of publicTokenPermissions.organizations) {
+      const index: number = finalPermissions.organizations.findIndex(
+        (organizationResourcePermission: ResourcePermissions) => organizationResourcePermission.id === publicOrganizationResourcePermission.id,
+      );
+      if (index === -1) {
+        finalPermissions.organizations.push(publicOrganizationResourcePermission);
+      }
+    }
+    // Team permissions
+    for (const publicTeamResourcePermission of publicTokenPermissions.teams) {
+      const index: number = finalPermissions.teams.findIndex((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === publicTeamResourcePermission.id);
+      if (index === -1) {
+        finalPermissions.teams.push(publicTeamResourcePermission);
+      }
+    }
+    return finalPermissions;
+  }
+
+  public async getPermissions(username?: string): Promise<TokenPermissions> {
+    return username ? this.getPermissionsGivenUsername(username) : this.getPublicPermissions();
   }
 }

@@ -9,7 +9,6 @@ import {
   Report,
   ReportDTO,
   ReportPermissionsEnum,
-  ResourcePermissions,
   SignUpDto,
   Team,
   TeamVisibilityEnum,
@@ -39,16 +38,13 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { XMLParser } from 'fast-xml-parser';
-import { readFileSync, writeFileSync } from 'fs';
 import * as moment from 'moment';
-import { ObjectId } from 'mongodb';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { Cookies } from '../../decorators/cookies';
 import { Public } from '../../decorators/is-public';
 import { GenericController } from '../../generic/controller.generic';
 import { db } from '../../main';
-import { PlatformRole } from '../../security/platform-roles';
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { ReportsService } from '../reports/reports.service';
@@ -443,89 +439,21 @@ export class AuthController extends GenericController<string> {
     example: 'rey@kyso.io',
   })
   @ApiBearerAuth()
-  async getUserPermissions(@CurrentToken() requesterUser: Token, @Param('username') username: string) {
-    if (!requesterUser) {
+  async getUserPermissions(@CurrentToken() token: Token, @Param('username') username: string) {
+    if (!token) {
       throw new UnauthorizedException('Unhautenticated request');
     }
-
-    if (!requesterUser.isGlobalAdmin() && requesterUser.username.toLowerCase() !== username.toLowerCase()) {
+    if (!token.isGlobalAdmin() && token.username.toLowerCase() !== username.toLowerCase()) {
       throw new UnauthorizedException(`The requester user has no rights to access other user permissions`);
     }
-
-    const finalPermissions: TokenPermissions =
-      username === requesterUser.username
-        ? requesterUser.permissions
-        : await AuthService.buildFinalPermissionsForUser(requesterUser.email, this.usersService, this.teamsService, this.organizationsService, this.platformRoleService, this.userRoleService);
-    const { data: publicTokenPermissions } = await this.getPublicPermissions();
-    // Global permissions
-    for (const kysoPermission of publicTokenPermissions.global) {
-      if (!finalPermissions.global.includes(kysoPermission)) {
-        finalPermissions.global.push(kysoPermission);
-      }
-    }
-    // Organization permissions
-    for (const publicOrganizationResourcePermission of publicTokenPermissions.organizations) {
-      const index: number = finalPermissions.organizations.findIndex(
-        (organizationResourcePermission: ResourcePermissions) => organizationResourcePermission.id === publicOrganizationResourcePermission.id,
-      );
-      if (index === -1) {
-        finalPermissions.organizations.push(publicOrganizationResourcePermission);
-      }
-    }
-    // Team permissions
-    for (const publicTeamResourcePermission of publicTokenPermissions.teams) {
-      const index: number = finalPermissions.teams.findIndex((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === publicTeamResourcePermission.id);
-      if (index === -1) {
-        finalPermissions.teams.push(publicTeamResourcePermission);
-      }
-    }
-
-    // If the user is global admin
-    return new NormalizedResponseDTO(finalPermissions);
+    const tokenPermissions: TokenPermissions = await this.authService.getPermissions(username ?? token.username);
+    return new NormalizedResponseDTO(tokenPermissions);
   }
 
   @Get('/public-permissions')
   @Public()
   async getPublicPermissions(): Promise<NormalizedResponseDTO<TokenPermissions>> {
-    const globalKysoPermissions: KysoPermissions[] = [];
-    const organizationsResourcePermissions: ResourcePermissions[] = [];
-    const teamsResourcePermissions: ResourcePermissions[] = [];
-    const publicTeams: Team[] = await this.teamsService.getTeams({
-      filter: {
-        visibility: TeamVisibilityEnum.PUBLIC,
-      },
-    });
-    if (publicTeams.length > 0) {
-      const uniqueOrganizationIds: string[] = [];
-      publicTeams.forEach((team: Team) => {
-        const resourcePermissions: ResourcePermissions = new ResourcePermissions(
-          team.sluglified_name,
-          team.display_name,
-          PlatformRole.EXTERNAL_ROLE.permissions,
-          team.id,
-          false,
-          team.organization_id,
-          ['external'],
-          team.visibility,
-        );
-        teamsResourcePermissions.push(resourcePermissions);
-      });
-      publicTeams.forEach((team) => {
-        if (!uniqueOrganizationIds.includes(team.organization_id)) {
-          uniqueOrganizationIds.push(team.organization_id);
-        }
-      });
-      const publicOrganizations: Organization[] = await this.organizationsService.getOrganizations({
-        filter: {
-          _id: { $in: uniqueOrganizationIds.map((id) => new ObjectId(id)) },
-        },
-      });
-      publicOrganizations.forEach((organization: Organization) => {
-        const resourcePermissions: ResourcePermissions = new ResourcePermissions(organization.sluglified_name, organization.display_name, [], organization.id, false, organization.id, [], null);
-        organizationsResourcePermissions.push(resourcePermissions);
-      });
-    }
-    const tokenPermissions: TokenPermissions = new TokenPermissions(globalKysoPermissions, teamsResourcePermissions, organizationsResourcePermissions);
+    const tokenPermissions: TokenPermissions = await this.authService.getPermissions();
     return new NormalizedResponseDTO(tokenPermissions);
   }
 
