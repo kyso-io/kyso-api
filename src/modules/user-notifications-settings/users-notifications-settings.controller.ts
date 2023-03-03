@@ -47,7 +47,7 @@ export class UsersNotificationsSettingsController extends GenericController<User
     type: UserNotificationsSettings,
     isArray: true,
   })
-  public async updateUserNotificationsSettings(
+  public async updateUserNotificationsSettingsGlobal(
     @CurrentToken() token: Token,
     @Body() updateUserNotificationsSettings: UpdateUserNotificationsSettings,
   ): Promise<NormalizedResponseDTO<UserNotificationsSettings>> {

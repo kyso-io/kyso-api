@@ -43,19 +43,23 @@ export class UsersNotificationsServiceService extends AutowiredService {
       throw new ConflictException(`Notifications settings with user_id ${user_id} already exists`);
     }
     uns = new UserNotificationsSettings(user_id);
+    // Organization
     uns.global_settings.new_member_organization = true;
-    uns.global_settings.change_or_removal_member_in_organization = true;
+    uns.global_settings.removed_member_in_organization = true;
     uns.global_settings.updated_role_in_organization = true;
-    uns.global_settings.deleted_organization = true;
+    uns.global_settings.organization_removed = true;
+    // Channel
     uns.global_settings.new_channel = true;
     uns.global_settings.new_member_channel = true;
-    uns.global_settings.change_or_removal_member_in_channel = true;
+    uns.global_settings.removed_member_in_channel = true;
     uns.global_settings.updated_role_in_channel = true;
-    uns.global_settings.channel_deleted = true;
+    uns.global_settings.channel_removed = true;
+    // Report
     uns.global_settings.new_report = true;
-    uns.global_settings.new_report_vesion = true;
-    uns.global_settings.deleted_report = true;
+    uns.global_settings.new_report_version = true;
+    uns.global_settings.report_removed = true;
     uns.global_settings.new_comment_in_report = true;
+    uns.global_settings.replay_comment_in_report = true;
     uns.global_settings.new_mention_in_report = true;
     uns.global_settings.report_comment_removed = true;
     return this.provider.create(uns);
@@ -82,7 +86,7 @@ export class UsersNotificationsServiceService extends AutowiredService {
     }
     switch (updateUserNotificationsSettings.scope) {
       case UserNotificationsSettingsScope.Global:
-        return this.provider.update({ _id: this.provider.toObjectId(uns.id) }, { $set: { global_settings: updateUserNotificationsSettings } });
+        return this.provider.update({ _id: this.provider.toObjectId(uns.id) }, { $set: { global_settings: updateUserNotificationsSettings.settings } });
       case UserNotificationsSettingsScope.Organization:
         const organization_settings: any = { ...uns.organization_settings };
         organization_settings[organization_id] = updateUserNotificationsSettings.settings;

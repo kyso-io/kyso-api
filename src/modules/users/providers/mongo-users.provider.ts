@@ -6,7 +6,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { db } from '../../../main';
 import { MongoProvider } from '../../../providers/mongo.provider';
 import { AuthService } from '../../auth/auth.service';
-import { CommentsController } from '../../comments/comments.controller';
 
 const DEFAULT_GLOBAL_ADMIN_USER = new User(
   'default-admin@kyso.io',
@@ -208,19 +207,23 @@ export class UsersMongoProvider extends MongoProvider<User> {
     const users: User[] = await this.read({});
     for (const user of users) {
       const uns: UserNotificationsSettings = new UserNotificationsSettings(user.id);
+      // Organization
       uns.global_settings.new_member_organization = true;
-      uns.global_settings.change_or_removal_member_in_organization = true;
+      uns.global_settings.removed_member_in_organization = true;
       uns.global_settings.updated_role_in_organization = true;
-      uns.global_settings.deleted_organization = true;
+      uns.global_settings.organization_removed = true;
+      // Channel
       uns.global_settings.new_channel = true;
       uns.global_settings.new_member_channel = true;
-      uns.global_settings.change_or_removal_member_in_channel = true;
+      uns.global_settings.removed_member_in_channel = true;
       uns.global_settings.updated_role_in_channel = true;
-      uns.global_settings.channel_deleted = true;
+      uns.global_settings.channel_removed = true;
+      // Report
       uns.global_settings.new_report = true;
-      uns.global_settings.new_report_vesion = true;
-      uns.global_settings.deleted_report = true;
+      uns.global_settings.new_report_version = true;
+      uns.global_settings.report_removed = true;
       uns.global_settings.new_comment_in_report = true;
+      uns.global_settings.replay_comment_in_report = true;
       uns.global_settings.new_mention_in_report = true;
       uns.global_settings.report_comment_removed = true;
       uns.created_at = new Date();
