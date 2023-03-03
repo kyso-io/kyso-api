@@ -38,7 +38,11 @@ export class KysoSettingsMongoProvider extends MongoProvider<KysoSetting> {
         const description = KysoSettingsService.getKysoSettingDescription(KysoSettingsEnum[key]);
         Logger.log(`Populating setting ${key} with default value ${defaultValue}`, KysoSettingsMongoProvider.name);
         const toSave: KysoSetting = new KysoSetting(key, description, defaultValue);
-        await this.create(toSave);
+
+        const insertedDocument = await this.create(toSave);
+
+        // Update the value because PATATA
+        await this.updateOne({ _id: insertedDocument._id }, { $set: { value: defaultValue } });
       }
     }
   }
