@@ -508,10 +508,10 @@ export class TeamsController extends GenericController<Team> {
             throw new ForbiddenException('You are not allowed to access this team');
           }
         }
-      } else {
-        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-          throw new ForbiddenException('You are not allowed to access this team');
-        }
+      }
+    } else {
+      if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+        throw new ForbiddenException('You are not allowed to access this team');
       }
     }
 
