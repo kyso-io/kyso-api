@@ -15,6 +15,7 @@ import {
   Organization,
   OrganizationMember,
   OrganizationMemberJoin,
+  PaginatedResponseDto,
   Report,
   ReportPermissionsEnum,
   ResourcePermissions,
@@ -23,6 +24,7 @@ import {
   TeamMember,
   TeamMemberJoin,
   TeamMembershipOriginEnum,
+  TeamsInfoQuery,
   TeamVisibilityEnum,
   Token,
   TokenPermissions,
@@ -866,14 +868,44 @@ export class TeamsService extends AutowiredService {
     return publicFilePath;
   }
 
-  public async getTeamsInfo(token: Token, teamId?: string): Promise<TeamInfoDto[]> {
+  public async getTeamsInfo(token: Token, teamsInfoQuery: TeamsInfoQuery): Promise<PaginatedResponseDto<TeamInfoDto>> {
+    const paginatedResponseDto: PaginatedResponseDto<TeamInfoDto> = new PaginatedResponseDto<TeamInfoDto>(teamsInfoQuery.page, 0, 0, [], 0, 0);
     const tokenPermissions: TokenPermissions = await this.authService.getPermissions(token?.username);
-    if (teamId) {
-      tokenPermissions.teams = tokenPermissions.teams.filter((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === teamId);
+    tokenPermissions.teams = tokenPermissions.teams.filter((teamResourcePermission: ResourcePermissions) => teamResourcePermission.organization_id === teamsInfoQuery.organizationId);
+    if (teamsInfoQuery.teamId) {
+      tokenPermissions.teams = tokenPermissions.teams.filter((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === teamsInfoQuery.teamId);
     }
     if (tokenPermissions.teams.length === 0) {
-      return [];
+      return paginatedResponseDto;
     }
+    if (teamsInfoQuery.search) {
+      tokenPermissions.teams = tokenPermissions.teams.filter((teamResourcePermission: ResourcePermissions) => {
+        return teamResourcePermission.name.toLowerCase().includes(teamsInfoQuery.search.toLowerCase());
+      });
+    }
+    tokenPermissions.teams.sort((a: ResourcePermissions, b: ResourcePermissions) => {
+      const aName: string = a.name.toLowerCase();
+      const bName: string = b.name.toLowerCase();
+      if (aName < bName) {
+        return -1;
+      } else if (aName > bName) {
+        return 1;
+      } else {
+        return 0;
+      }
+    });
+    const numTeams: number = tokenPermissions.teams.length;
+    const numPages: number = Math.ceil(numTeams / teamsInfoQuery.limit);
+    // Given page (From 1 to n) and page size, calculate the start and end index of the teams to return
+    const startIndex: number = (teamsInfoQuery.page - 1) * teamsInfoQuery.limit;
+    const endIndex: number = Math.min(startIndex + teamsInfoQuery.limit, numTeams);
+    tokenPermissions.teams = tokenPermissions.teams.slice(startIndex, endIndex);
+
+    paginatedResponseDto.itemCount = tokenPermissions.teams.length;
+    paginatedResponseDto.itemsPerPage = teamsInfoQuery.limit;
+    paginatedResponseDto.totalItems = numTeams;
+    paginatedResponseDto.totalPages = numPages;
+
     const map: Map<string, { members: number; reports: number; discussions: number; comments: number; lastChange: Date }> = new Map<
       string,
       { members: number; reports: number; discussions: number; comments: number; lastChange: Date }
@@ -1004,12 +1036,11 @@ export class TeamsService extends AutowiredService {
       map.get(teamId).comments++;
       map.get(teamId).lastChange = moment.max(moment(inlineComment.updated_at), moment(map.get(teamId).lastChange)).toDate();
     });
-    const result: TeamInfoDto[] = [];
     map.forEach((value: { members: number; reports: number; discussions: number; comments: number; lastChange: Date; avatar_url: string }, teamId: string) => {
       const teamInfoDto: TeamInfoDto = new TeamInfoDto(teamId, value.members, value.reports, value.discussions, value.comments, value.lastChange);
-      result.push(teamInfoDto);
+      paginatedResponseDto.results.push(teamInfoDto);
     });
-    return result;
+    return paginatedResponseDto;
   }
 
   public async deleteMemberInTeamsOfOrganization(organizationId: string, userId: string): Promise<void> {
