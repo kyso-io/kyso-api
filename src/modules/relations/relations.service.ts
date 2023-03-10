@@ -102,7 +102,11 @@ export class RelationsService extends AutowiredService {
         }
         if (collection === 'Report') acc[model.id] = plainToInstance(Report, model);
         if (collection === 'Comment') acc[model.id] = plainToInstance(Comment, model);
-        if (collection === 'Team') acc[model.id] = plainToInstance(Team, model);
+        if (collection === 'Team') {
+          acc[model.id] = plainToInstance(Team, model);
+          delete acc[model.id].slackChannel;
+          delete acc[model.id].teamsIncomingWebhookUrl;
+        }
         if (collection === 'Organization') acc[model.id] = plainToInstance(Organization, model);
         if (collection === 'Tag') acc[model.id] = plainToInstance(Tag, model);
         if (collection === 'Discussion') acc[model.id] = plainToInstance(Discussion, model);
