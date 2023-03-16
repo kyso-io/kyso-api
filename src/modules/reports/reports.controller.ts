@@ -59,6 +59,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import axios, { AxiosResponse } from 'axios';
 import { Request } from 'express';
+import * as moment from 'moment';
 import { ObjectId } from 'mongodb';
 import { FormDataRequest } from 'nestjs-form-data';
 import { RealIP } from 'nestjs-real-ip';
@@ -415,6 +416,44 @@ export class ReportsController extends GenericController<Report> {
       const text: string = data.filter.text;
       delete data.filter.text;
       data.filter.$or = [{ title: { $regex: `${text}`, $options: 'i' } }, { description: { $regex: `${text}`, $options: 'i' } }];
+    }
+    if (data.filter.hasOwnProperty('created_at')) {
+      if (data.filter.created_at.hasOwnProperty('$gt')) {
+        const date: Date = data.filter.created_at.$gt;
+        data.filter.created_at = {
+          $gt: moment(date).endOf('day').toDate(),
+        };
+      } else if (data.filter.created_at.hasOwnProperty('$lt')) {
+        const date: Date = data.filter.created_at.$lt;
+        data.filter.created_at = {
+          $lt: moment(date).startOf('day').toDate(),
+        };
+      } else {
+        const date: Date = data.filter.created_at;
+        data.filter.created_at = {
+          $gt: moment(date).startOf('day').toDate(),
+          $lt: moment(date).add(1, 'days').startOf('day').toDate(),
+        };
+      }
+    }
+    if (data.filter.hasOwnProperty('updated_at')) {
+      if (data.filter.updated_at.hasOwnProperty('$gt')) {
+        const date: Date = data.filter.updated_at.$gt;
+        data.filter.updated_at = {
+          $gt: moment(date).endOf('day').toDate(),
+        };
+      } else if (data.filter.updated_at.hasOwnProperty('$lt')) {
+        const date: Date = data.filter.updated_at.$lt;
+        data.filter.updated_at = {
+          $lt: moment(date).startOf('day').toDate(),
+        };
+      } else {
+        const date: Date = data.filter.updated_at;
+        data.filter.updated_at = {
+          $gt: moment(date).startOf('day').toDate(),
+          $lt: moment(date).add(1, 'days').startOf('day').toDate(),
+        };
+      }
     }
     return this.getNormalizedResponsePaginatedReports(token, data);
   }
