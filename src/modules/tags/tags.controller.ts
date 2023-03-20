@@ -1,14 +1,31 @@
-import { EntityEnum, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, NormalizedResponseDTO, Tag, TagAssign, TagRequestDTO } from '@kyso-io/kyso-model';
-import { Body, Controller, Delete, Get, Param, Patch, Post, PreconditionFailedException, Req, UseGuards } from '@nestjs/common';
+import {
+  EntityEnum,
+  HEADER_X_KYSO_ORGANIZATION,
+  HEADER_X_KYSO_TEAM,
+  NormalizedResponseDTO,
+  ResourcePermissions,
+  Tag,
+  TagAssign,
+  TagRequestDTO,
+  Team,
+  TeamVisibilityEnum,
+  Token,
+  TokenPermissions,
+} from '@kyso-io/kyso-model';
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, PreconditionFailedException, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { ObjectId } from 'mongodb';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
+import { Autowired } from '../../decorators/autowired';
 import { GenericController } from '../../generic/controller.generic';
 import { QueryParser } from '../../helpers/queryParser';
+import { CurrentToken } from '../auth/annotations/current-token.decorator';
+import { AuthService } from '../auth/auth.service';
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { PermissionsGuard } from '../auth/guards/permission.guard';
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard';
 import { TagsService } from '../tags/tags.service';
+import { TeamsService } from '../teams/teams.service';
 
 @ApiTags('tags')
 @ApiExtraModels(Tag)
@@ -26,6 +43,12 @@ import { TagsService } from '../tags/tags.service';
   required: true,
 })
 export class TagsController extends GenericController<Tag> {
+  @Autowired({ typeName: 'TeamsService' })
+  private teamsService: TeamsService;
+
+  @Autowired({ typeName: 'AuthService' })
+  private authService: AuthService;
+
   constructor(private readonly tagsService: TagsService) {
     super();
   }
@@ -36,13 +59,39 @@ export class TagsController extends GenericController<Tag> {
     description: `Allows fetching all tags`,
   })
   @ApiNormalizedResponse({ status: 200, description: `Get all available tags`, type: Tag, isArray: true })
-  public async getTags(@Req() req): Promise<NormalizedResponseDTO<Tag[]>> {
+  public async getTags(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<Tag[]>> {
     const query = QueryParser.toQueryObject(req.url);
     if (!query.sort) {
       query.sort = { created_at: -1 };
     }
     if (!query.filter) {
       query.filter = {};
+    }
+    if (!query.filter.hasOwnProperty('organization_id')) {
+      throw new BadRequestException('organization_id is required');
+    }
+    const tokenPermissions: TokenPermissions = await this.authService.getPermissions(token.username);
+    const indexOrganization: number = tokenPermissions.organizations.findIndex((rp: ResourcePermissions) => rp.id === query.filter.organization_id);
+    if (indexOrganization === -1) {
+      throw new ForbiddenException('You do not have permissions to get tags for this organization');
+    }
+    if (!query.filter.hasOwnProperty('team_id')) {
+      const teams: Team[] = await this.teamsService.getTeams({
+        filter: {
+          organization_id: query.filter.organization_id,
+          visibility: TeamVisibilityEnum.PRIVATE,
+        },
+      });
+      if (teams.length > 0) {
+        query.filter.team_id = {
+          $nin: teams.map((team: Team) => team.id),
+        };
+      }
+    } else {
+      const indexTeam: number = tokenPermissions.teams.findIndex((rp: ResourcePermissions) => rp.organization_id === query.filter.organization_id && rp.id === query.filter.team_id);
+      if (indexTeam === -1) {
+        throw new ForbiddenException('You do not have permissions to get tags for this team');
+      }
     }
     if (query.filter.hasOwnProperty('entityId') || query.filter.hasOwnProperty('type')) {
       const filter: any = {};
@@ -91,21 +140,27 @@ export class TagsController extends GenericController<Tag> {
     return new NormalizedResponseDTO(tag);
   }
 
-  @Get('/check-name/:name')
+  @Post('/exists')
   @ApiOperation({
-    summary: `Check if tag name is unique`,
-    description: `Allows checking if a tag name is unique`,
+    summary: `Check if tag exists`,
+    description: `Allows checking if a tag exists`,
   })
-  @ApiParam({
-    name: 'name',
-    required: true,
-    description: `Name of the tag to fetch`,
-    schema: { type: 'string' },
-  })
-  @ApiNormalizedResponse({ status: 200, description: `Tag matching name`, type: Boolean })
-  public async checkIfTagNameIsUnique(@Param('name') name: string): Promise<NormalizedResponseDTO<boolean>> {
-    const tag: Tag = await this.tagsService.getTag({ filter: { name } });
-    return new NormalizedResponseDTO<boolean>(tag !== null);
+  @ApiNormalizedResponse({ status: 200, description: `Boolean indicates whether a tag exists`, type: Boolean })
+  public async checkIfTagNameIsUnique(@Body() tag: Tag): Promise<NormalizedResponseDTO<boolean>> {
+    const filter: any = {
+      organization_id: tag.organization_id,
+      name: tag.name.toLowerCase(),
+    };
+    if (tag.team_id) {
+      const team: Team = await this.teamsService.getTeamById(tag.team_id);
+      if (team.visibility === TeamVisibilityEnum.PRIVATE) {
+        filter.team_id = tag.team_id;
+      }
+    }
+    const existsTag: Tag = await this.tagsService.getTag({
+      filter,
+    });
+    return new NormalizedResponseDTO<boolean>(existsTag !== null);
   }
 
   @Patch('/:tagId')
@@ -157,9 +212,20 @@ export class TagsController extends GenericController<Tag> {
     description: `Created tag`,
     type: Tag,
   })
-  public async createTag(@Body() tagRequestDto: TagRequestDTO): Promise<NormalizedResponseDTO<Tag>> {
-    const tag: Tag = await this.tagsService.createTag(tagRequestDto);
-    return new NormalizedResponseDTO(tag);
+  public async createTag(@CurrentToken() token: Token, @Body() tag: Tag): Promise<NormalizedResponseDTO<Tag>> {
+    const tokenPermissions: TokenPermissions = await this.authService.getPermissions(token.username);
+    const indexOrganization: number = tokenPermissions.organizations.findIndex((rp: ResourcePermissions) => rp.id === tag.organization_id);
+    if (indexOrganization === -1) {
+      throw new ForbiddenException('You do not have permissions to get tags for this organization');
+    }
+    if (tag.team_id) {
+      const indexTeam: number = tokenPermissions.teams.findIndex((rp: ResourcePermissions) => rp.organization_id === tag.organization_id && rp.id === tag.team_id);
+      if (indexTeam === -1) {
+        throw new ForbiddenException('You do not have permissions to get tags for this team');
+      }
+    }
+    const newTag: Tag = await this.tagsService.createTag(tag);
+    return new NormalizedResponseDTO(newTag);
   }
 
   @Delete('/:tagId')
@@ -175,8 +241,8 @@ export class TagsController extends GenericController<Tag> {
     schema: { type: 'string' },
   })
   @ApiNormalizedResponse({ status: 200, description: `Deleted tag`, type: Tag })
-  public async deleteTag(@Param('tagId') tagId: string): Promise<NormalizedResponseDTO<Tag>> {
-    const tag: Tag = await this.tagsService.deleteTag(tagId);
+  public async deleteTag(@CurrentToken() token: Token, @Param('tagId') tagId: string): Promise<NormalizedResponseDTO<Tag>> {
+    const tag: Tag = await this.tagsService.deleteTag(token, tagId);
     return new NormalizedResponseDTO(tag);
   }
 

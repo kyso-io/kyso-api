@@ -4,7 +4,6 @@ import {
   Comment,
   CreateDiscussionRequestDTO,
   CreateReportDTO,
-  CreateUserRequestDTO,
   Discussion,
   EntityEnum,
   GlobalPermissionsEnum,
@@ -17,7 +16,6 @@ import {
   RepositoryProvider,
   SignUpDto,
   Tag,
-  TagRequestDTO,
   Team,
   TeamPermissionsEnum,
   TeamVisibilityEnum,
@@ -152,8 +150,7 @@ export class TestingDataPopulatorService {
       await this.createTestingReports();
       await this.createTestingComments();
       await this.createDiscussions();
-      await this.createTags();
-      await this.assignTagsToReports();
+      await this.createAndAssignTagsToReports();
     }
   }
 
@@ -1009,43 +1006,42 @@ export class TestingDataPopulatorService {
     }
   }
 
-  private async createTags(): Promise<void> {
+  private async createAndAssignTagsToReports(): Promise<void> {
+    // Public and protected teams don't need the team_id in the creation tag
     try {
-      this.KylorenTag = await this.tagsService.createTag(new TagRequestDTO('kyloren'));
-      this.AngerTag = await this.tagsService.createTag(new TagRequestDTO('anger'));
-      this.DoubtsTag = await this.tagsService.createTag(new TagRequestDTO('doubts'));
-      this.PokemonTag = await this.tagsService.createTag(new TagRequestDTO('pokemon'));
-      this.PikachuTag = await this.tagsService.createTag(new TagRequestDTO('pikachu'));
-      this.SecretTag = await this.tagsService.createTag(new TagRequestDTO('secret'));
-      this.DeathTag = await this.tagsService.createTag(new TagRequestDTO('death'));
-      this.ImperiumTag = await this.tagsService.createTag(new TagRequestDTO('imperium'));
-      this.DeathStarTag = await this.tagsService.createTag(new TagRequestDTO('death star'));
-      this.FreedomTag = await this.tagsService.createTag(new TagRequestDTO('freedom'));
-      this.JediTag = await this.tagsService.createTag(new TagRequestDTO('jedi'));
-    } catch (ex) {
-      Logger.error('Error at createTags', ex);
-    }
-  }
-
-  private async assignTagsToReports(): Promise<void> {
-    try {
+      this.KylorenTag = await this.tagsService.createTag(new Tag(this.LightsideOrganization.id, null, 'kyloren'));
       await this.tagsService.assignTagToEntity(this.KylorenTag.id, this.KyloThoughtsReport.id, EntityEnum.REPORT);
+      this.AngerTag = await this.tagsService.createTag(new Tag(this.LightsideOrganization.id, null, 'anger'));
       await this.tagsService.assignTagToEntity(this.AngerTag.id, this.KyloThoughtsReport.id, EntityEnum.REPORT);
+      this.DoubtsTag = await this.tagsService.createTag(new Tag(this.LightsideOrganization.id, null, 'doubts'));
       await this.tagsService.assignTagToEntity(this.DoubtsTag.id, this.KyloThoughtsReport.id, EntityEnum.REPORT);
 
+      // Private report
+      this.PokemonTag = await this.tagsService.createTag(new Tag(this.DarksideOrganization.id, this.PrivateTeam.id, 'pokemon'));
       await this.tagsService.assignTagToEntity(this.PokemonTag.id, this.BestPokemonReport.id, EntityEnum.REPORT);
+      this.AngerTag = await this.tagsService.createTag(new Tag(this.DarksideOrganization.id, this.PrivateTeam.id, 'anger'));
       await this.tagsService.assignTagToEntity(this.AngerTag.id, this.BestPokemonReport.id, EntityEnum.REPORT);
+      this.PikachuTag = await this.tagsService.createTag(new Tag(this.DarksideOrganization.id, this.PrivateTeam.id, 'pikachu'));
       await this.tagsService.assignTagToEntity(this.PikachuTag.id, this.BestPokemonReport.id, EntityEnum.REPORT);
 
+      this.AngerTag = await this.tagsService.createTag(new Tag(this.DarksideOrganization.id, null, 'anger'));
       await this.tagsService.assignTagToEntity(this.AngerTag.id, this.DeathStarEngineeringReport.id, EntityEnum.REPORT);
+      this.SecretTag = await this.tagsService.createTag(new Tag(this.DarksideOrganization.id, null, 'secret'));
       await this.tagsService.assignTagToEntity(this.SecretTag.id, this.DeathStarEngineeringReport.id, EntityEnum.REPORT);
+      this.DeathTag = await this.tagsService.createTag(new Tag(this.DarksideOrganization.id, null, 'death'));
       await this.tagsService.assignTagToEntity(this.DeathTag.id, this.DeathStarEngineeringReport.id, EntityEnum.REPORT);
+      this.ImperiumTag = await this.tagsService.createTag(new Tag(this.DarksideOrganization.id, null, 'imperium'));
       await this.tagsService.assignTagToEntity(this.ImperiumTag.id, this.DeathStarEngineeringReport.id, EntityEnum.REPORT);
+      this.DeathStarTag = await this.tagsService.createTag(new Tag(this.DarksideOrganization.id, null, 'death star'));
       await this.tagsService.assignTagToEntity(this.DeathStarTag.id, this.DeathStarEngineeringReport.id, EntityEnum.REPORT);
 
+      this.FreedomTag = await this.tagsService.createTag(new Tag(this.LightsideOrganization.id, null, 'freedom'));
       await this.tagsService.assignTagToEntity(this.FreedomTag.id, this.RebelScumCounterAttackReport.id, EntityEnum.REPORT);
+      this.JediTag = await this.tagsService.createTag(new Tag(this.LightsideOrganization.id, null, 'jedi'));
       await this.tagsService.assignTagToEntity(this.JediTag.id, this.RebelScumCounterAttackReport.id, EntityEnum.REPORT);
+      this.DeathStarTag = await this.tagsService.createTag(new Tag(this.LightsideOrganization.id, null, 'death star'));
       await this.tagsService.assignTagToEntity(this.DeathStarTag.id, this.RebelScumCounterAttackReport.id, EntityEnum.REPORT);
+      this.ImperiumTag = await this.tagsService.createTag(new Tag(this.LightsideOrganization.id, null, 'imperium'));
       await this.tagsService.assignTagToEntity(this.ImperiumTag.id, this.RebelScumCounterAttackReport.id, EntityEnum.REPORT);
     } catch (ex) {
       Logger.error('Error at assignTagsToReports', ex);
