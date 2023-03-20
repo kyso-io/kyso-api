@@ -2524,14 +2524,24 @@ export class ReportsService extends AutowiredService {
     }
     const user: User = await this.usersService.getUserById(userId);
     const report: Report = await this.getReportById(reportId);
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
     const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
     const normalizedTags: string[] = checkedTags.map((tag: string) => tag.trim().toLocaleLowerCase());
-    const tagsDb: Tag[] = await this.tagsService.getTags({ filter: { name: { $in: normalizedTags } } });
+    const filter: any = {
+      organization_id: team.organization_id,
+      name: { $in: normalizedTags },
+    };
+    if (team.visibility === TeamVisibilityEnum.PRIVATE) {
+      filter.team_id = team.id;
+    }
+    const tagsDb: Tag[] = await this.tagsService.getTags({
+      filter,
+    });
     for (const tagName of normalizedTags) {
       let tag: Tag = tagsDb.find((tag: Tag) => tag.name === tagName);
       if (!tag) {
         // Create tag
-        tag = new Tag(tagName);
+        tag = new Tag(team.organization_id, team.visibility === TeamVisibilityEnum.PRIVATE ? team.id : null, tagName);
         tag = await this.tagsService.createTag(tag);
         NATSHelper.safelyEmit<KysoTagsEvent>(this.client, KysoEventEnum.TAGS_CREATE, {
           user,
