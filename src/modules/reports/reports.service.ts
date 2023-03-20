@@ -7,6 +7,7 @@ import {
   ElasticSearchIndex,
   EntityEnum,
   File,
+  GitCommit,
   GithubFileHash,
   GithubRepository,
   GitMetadata,
@@ -2791,7 +2792,7 @@ export class ReportsService extends AutowiredService {
     return this.filesMongoProvider.read(query);
   }
 
-  public async getReportVersions(reportId: string): Promise<{ version: number; created_at: Date; num_files: number; message: string }[]> {
+  public async getReportVersions(reportId: string): Promise<{ version: number; created_at: Date; num_files: number; message: string; git_commit: GitCommit }[]> {
     const report: Report = await this.getReportById(reportId);
     if (!report) {
       throw new PreconditionFailedException('Report not found');
@@ -2805,14 +2806,22 @@ export class ReportsService extends AutowiredService {
       },
     };
     const files: File[] = await this.filesMongoProvider.read(query);
-    const map: Map<number, { version: number; created_at: Date; num_files: number; message: string }> = new Map<number, { version: number; created_at: Date; num_files: number; message: string }>();
+    const map: Map<number, { version: number; created_at: Date; num_files: number; message: string; git_commit: GitCommit }> = new Map<
+      number,
+      { version: number; created_at: Date; num_files: number; message: string; git_commit: GitCommit }
+    >();
     files.forEach((file: File) => {
       if (!map.has(file.version)) {
+        let git_commit: GitCommit | null = null;
+        if (file?.git_metadata?.latest_commit && Array.isArray(file.git_metadata.latest_commit) && file.git_metadata.latest_commit.length > 0) {
+          git_commit = file.git_metadata.latest_commit[0];
+        }
         map.set(file.version, {
           version: file.version,
           created_at: file.created_at,
           num_files: 0,
           message: file.message ?? '',
+          git_commit,
         });
       }
       map.get(file.version).num_files++;

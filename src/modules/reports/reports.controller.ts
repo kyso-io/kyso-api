@@ -4,6 +4,7 @@ import {
   DraftReport,
   EntityEnum,
   File,
+  GitCommit,
   GithubFileHash,
   GlobalPermissionsEnum,
   HEADER_X_KYSO_ORGANIZATION,
@@ -1444,7 +1445,7 @@ export class ReportsController extends GenericController<Report> {
     @CurrentToken() token: Token,
     @Param('reportId') reportId: string,
     @Req() req,
-  ): Promise<NormalizedResponseDTO<{ version: number; created_at: Date; num_files: number; message: string }>> {
+  ): Promise<NormalizedResponseDTO<{ version: number; created_at: Date; num_files: number; message: string; git_commit: GitCommit }>> {
     const report: Report = await this.reportsService.getReportById(reportId);
     if (!report) {
       throw new NotFoundException('Report not found');
