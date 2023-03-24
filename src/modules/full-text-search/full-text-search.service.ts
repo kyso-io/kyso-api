@@ -13,7 +13,6 @@ import {
 } from '@kyso-io/kyso-model';
 import { Injectable, Logger, Provider } from '@nestjs/common';
 import axios, { AxiosResponse } from 'axios';
-import { writeFileSync } from 'fs';
 import { ObjectId } from 'mongodb';
 import { Autowired } from '../../decorators/autowired';
 import { AutowiredService } from '../../generic/autowired.generic';
@@ -404,12 +403,10 @@ export class FullTextSearchService extends AutowiredService {
     }
 
     const metadataReports: any = await this.searchCountersReports(searchTerms, filterPeople, filterTags, filterFiles, userBelongings);
-    writeFileSync('/Users/dani/Downloads/elasticsearch/metadataReports.json', JSON.stringify(metadataReports, null, 2));
     this.fillPaginationData(ElasticSearchIndex.Report, reportsFullTextSearchResultType.metadata, page, perPage, metadataReports);
     this.fillAggregators(reportsFullTextSearchResultType.metadata.aggregators, metadataReports);
 
     const metadataComments: any = await this.searchCountersComments(searchTerms, filterPeople, userBelongings);
-    writeFileSync('/Users/dani/Downloads/elasticsearch/metadataComments.json', JSON.stringify(metadataComments, null, 2));
     this.fillPaginationData(ElasticSearchIndex.Comment, commentsFullTextSearchResultType.metadata, page, perPage, metadataComments);
     this.fillAggregators(commentsFullTextSearchResultType.metadata.aggregators, metadataComments);
 
