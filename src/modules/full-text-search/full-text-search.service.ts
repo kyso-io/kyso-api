@@ -187,6 +187,56 @@ export class FullTextSearchService extends AutowiredService {
     }
   }
 
+  public async updateStarsInKysoIndex(entityId: string, stars: number): Promise<any> {
+    try {
+      const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
+      const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_update_by_query`;
+      const response: AxiosResponse<any> = await axios.post(url, {
+        query: {
+          match: {
+            entityId,
+          },
+        },
+        script: {
+          source: `ctx._source.stars = ${stars}`,
+        },
+      });
+      if (response.status === 200) {
+        return response.data;
+      } else {
+        return null;
+      }
+    } catch (e: any) {
+      Logger.error(`An error occurred updating fields in element with id ${entityId}`, e, FullTextSearchService.name);
+      return null;
+    }
+  }
+
+  public async updateNumCommentsInKysoIndex(entityId: string, numComments: number): Promise<any> {
+    try {
+      const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
+      const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_update_by_query`;
+      const response: AxiosResponse<any> = await axios.post(url, {
+        query: {
+          match: {
+            entityId,
+          },
+        },
+        script: {
+          source: `ctx._source.numComments = ${numComments}`,
+        },
+      });
+      if (response.status === 200) {
+        return response.data;
+      } else {
+        return null;
+      }
+    } catch (e: any) {
+      Logger.error(`An error occurred updating fields in element with id ${entityId}`, e, FullTextSearchService.name);
+      return null;
+    }
+  }
+
   public async updateReportFiles(kysoIndex: KysoIndex): Promise<any> {
     try {
       const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
@@ -311,7 +361,7 @@ export class FullTextSearchService extends AutowiredService {
       }
     }
 
-    const searchResults: SearchData = await this.searchResults(searchTerms, type, page, perPage, filterPeople, filterTags, filterFiles, userBelongings);
+    const searchResults: SearchData = await this.searchResults(searchTerms, type, page, perPage, filterPeople, filterTags, filterFiles, orderBy, order, userBelongings);
     if (!searchResults) {
       return fullTextSearchDTO;
     }
@@ -572,8 +622,6 @@ export class FullTextSearchService extends AutowiredService {
       });
     }
 
-    console.log(JSON.stringify(body));
-
     try {
       const response = await axios.post(url, body);
       return response.data;
@@ -646,8 +694,6 @@ export class FullTextSearchService extends AutowiredService {
       body.query.bool.filter.bool.must.push({ terms: { 'people.keyword': filterPeople } });
     }
 
-    // console.log(JSON.stringify(body));
-
     try {
       const response = await axios.post(url, body);
       return response.data;
@@ -665,6 +711,8 @@ export class FullTextSearchService extends AutowiredService {
     filterPeople: string[],
     filterTags: string[],
     filterFiles: string[],
+    orderBy: string,
+    order: string,
     userBelongings?: Map<string, string[]>,
   ): Promise<SearchData> {
     const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
@@ -704,13 +752,17 @@ export class FullTextSearchService extends AutowiredService {
           },
         },
       },
-      _source: ['entityId', 'filePath', 'isPublic', 'link', 'organizationSlug', 'people', 'tags', 'teamSlug', 'title', 'type', 'version'],
       highlight: {
         order: 'score',
         fields: {
           content: { number_of_fragments: 1, fragment_size: 150, max_analyzed_offset: 99999 },
         },
       },
+      sort: [
+        {
+          [orderBy]: order,
+        },
+      ],
     };
 
     // Add collapse for reports
@@ -724,21 +776,19 @@ export class FullTextSearchService extends AutowiredService {
           sort: [{ version: 'desc' }],
         },
       };
+      if (filterTags.length > 0) {
+        body.query.bool.filter.bool.must.push({ terms: { 'tags.keyword': filterTags } });
+      }
+      if (filterFiles.length > 0) {
+        filterFiles.forEach((extension: string) => {
+          body.query.bool.filter.bool.must.push({ wildcard: { 'fileRef.keyword': `*.${extension}` } });
+        });
+      }
     }
 
     if (filterPeople.length > 0) {
       body.query.bool.filter.bool.must.push({ terms: { 'people.keyword': filterPeople } });
     }
-    if (filterTags.length > 0) {
-      body.query.bool.filter.bool.must.push({ terms: { 'tags.keyword': filterTags } });
-    }
-    if (filterFiles.length > 0) {
-      filterFiles.forEach((extension: string) => {
-        body.query.bool.filter.bool.must.push({ wildcard: { 'fileRef.keyword': `*.${extension}` } });
-      });
-    }
-
-    // console.log(JSON.stringify(body));
 
     try {
       const response = await axios.post(url, body);
