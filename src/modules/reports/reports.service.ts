@@ -623,8 +623,13 @@ export class ReportsService extends AutowiredService {
     const team: Team = await this.teamsService.getTeamById(report.team_id);
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-
+    const stars: number = await this.starredReportsMongoProvider.count({
+      filter: {
+        report_id: reportId,
+      },
+    });
     if (starredReports.length === 0) {
+      await this.fullTextSearchService.updateStarsInKysoIndex(report.id, Math.max(0, stars + 1));
       await this.starredReportsMongoProvider.create({
         user_id: token.id,
         report_id: report.id,
@@ -637,8 +642,9 @@ export class ReportsService extends AutowiredService {
         frontendUrl,
       });
     } else {
-      const pinnedReport: StarredReport = starredReports[0];
-      await this.starredReportsMongoProvider.deleteOne({ _id: this.provider.toObjectId(pinnedReport.id) });
+      await this.fullTextSearchService.updateStarsInKysoIndex(report.id, Math.max(0, stars - 1));
+      const starredReport: StarredReport = starredReports[0];
+      await this.starredReportsMongoProvider.deleteOne({ _id: this.provider.toObjectId(starredReport.id) });
       NATSHelper.safelyEmit<KysoReportsStarEvent>(this.client, KysoEventEnum.REPORTS_UNSTAR, {
         user,
         organization,

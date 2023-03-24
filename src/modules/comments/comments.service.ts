@@ -1,3 +1,4 @@
+import * as moment from 'moment';
 import {
   Comment,
   CommentDto,
@@ -138,6 +139,13 @@ export class CommentsService extends AutowiredService {
       Logger.log('Checking mentions in discussion');
       await this.checkMentionsInDiscussionComment(newComment, commentDto.user_ids);
     } else if (report) {
+      const numComments: number = await this.provider.count({
+        filter: {
+          report_id: report.id,
+          mark_delete_at: null,
+        },
+      });
+      await this.fullTextSearchService.updateNumCommentsInKysoIndex(report.id, numComments);
       Logger.log('Checking mentions in report');
       await this.baseCommentsService.checkMentionsInReportComment(newComment.report_id, newComment.user_id, commentDto.user_ids);
     } else {
@@ -335,6 +343,16 @@ export class CommentsService extends AutowiredService {
     Logger.log(`Deleting comment '${comment.id}' of user '${comment.user_id}' in ElasticSearch...`, CommentsService.name);
     this.fullTextSearchService.deleteDocument(ElasticSearchIndex.Comment, comment.id);
 
+    if (report) {
+      const numComments: number = await this.provider.count({
+        filter: {
+          report_id: report.id,
+          mark_delete_at: null,
+        },
+      });
+      await this.fullTextSearchService.updateNumCommentsInKysoIndex(report.id, numComments);
+    }
+
     return comment;
   }
 
@@ -379,6 +397,7 @@ export class CommentsService extends AutowiredService {
     kysoIndex.content = comment.plain_text;
     kysoIndex.type = ElasticSearchIndex.Comment;
     kysoIndex.entityId = comment.id;
+    kysoIndex.updatedAt = moment(comment.updated_at).unix() * 1000;
 
     let organization: Organization = null;
     let team: Team = null;
