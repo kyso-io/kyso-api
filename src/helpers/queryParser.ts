@@ -18,7 +18,13 @@ export class QueryParser {
       delete result.filter.id;
     }
 
-    if (!result.limit) result.limit = DEFAULT_LIMIT_VALUE;
+    if (result.filter.limit) {
+      result.limit = result.filter.limit;
+      delete result.filter.limit;
+    } else if (!result.limit) {
+      result.limit = DEFAULT_LIMIT_VALUE;
+    }
+
     if (result.skip) {
       result.skip = (result.skip - 1) * result.limit;
     }
