@@ -7,6 +7,7 @@ import {
   ElasticSearchIndex,
   EntityEnum,
   File,
+  GitCommit,
   GithubFileHash,
   GithubRepository,
   GitMetadata,
@@ -622,8 +623,13 @@ export class ReportsService extends AutowiredService {
     const team: Team = await this.teamsService.getTeamById(report.team_id);
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-
+    const stars: number = await this.starredReportsMongoProvider.count({
+      filter: {
+        report_id: reportId,
+      },
+    });
     if (starredReports.length === 0) {
+      await this.fullTextSearchService.updateStarsInKysoIndex(report.id, Math.max(0, stars + 1));
       await this.starredReportsMongoProvider.create({
         user_id: token.id,
         report_id: report.id,
@@ -636,8 +642,9 @@ export class ReportsService extends AutowiredService {
         frontendUrl,
       });
     } else {
-      const pinnedReport: StarredReport = starredReports[0];
-      await this.starredReportsMongoProvider.deleteOne({ _id: this.provider.toObjectId(pinnedReport.id) });
+      await this.fullTextSearchService.updateStarsInKysoIndex(report.id, Math.max(0, stars - 1));
+      const starredReport: StarredReport = starredReports[0];
+      await this.starredReportsMongoProvider.deleteOne({ _id: this.provider.toObjectId(starredReport.id) });
       NATSHelper.safelyEmit<KysoReportsStarEvent>(this.client, KysoEventEnum.REPORTS_UNSTAR, {
         user,
         organization,
@@ -2523,14 +2530,24 @@ export class ReportsService extends AutowiredService {
     }
     const user: User = await this.usersService.getUserById(userId);
     const report: Report = await this.getReportById(reportId);
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
     const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
     const normalizedTags: string[] = checkedTags.map((tag: string) => tag.trim().toLocaleLowerCase());
-    const tagsDb: Tag[] = await this.tagsService.getTags({ filter: { name: { $in: normalizedTags } } });
+    const filter: any = {
+      organization_id: team.organization_id,
+      name: { $in: normalizedTags },
+    };
+    if (team.visibility === TeamVisibilityEnum.PRIVATE) {
+      filter.team_id = team.id;
+    }
+    const tagsDb: Tag[] = await this.tagsService.getTags({
+      filter,
+    });
     for (const tagName of normalizedTags) {
       let tag: Tag = tagsDb.find((tag: Tag) => tag.name === tagName);
       if (!tag) {
         // Create tag
-        tag = new Tag(tagName);
+        tag = new Tag(team.organization_id, team.visibility === TeamVisibilityEnum.PRIVATE ? team.id : null, tagName);
         tag = await this.tagsService.createTag(tag);
         NATSHelper.safelyEmit<KysoTagsEvent>(this.client, KysoEventEnum.TAGS_CREATE, {
           user,
@@ -2791,7 +2808,7 @@ export class ReportsService extends AutowiredService {
     return this.filesMongoProvider.read(query);
   }
 
-  public async getReportVersions(reportId: string): Promise<{ version: number; created_at: Date; num_files: number; message: string }[]> {
+  public async getReportVersions(reportId: string): Promise<{ version: number; created_at: Date; num_files: number; message: string; git_commit: GitCommit }[]> {
     const report: Report = await this.getReportById(reportId);
     if (!report) {
       throw new PreconditionFailedException('Report not found');
@@ -2805,14 +2822,22 @@ export class ReportsService extends AutowiredService {
       },
     };
     const files: File[] = await this.filesMongoProvider.read(query);
-    const map: Map<number, { version: number; created_at: Date; num_files: number; message: string }> = new Map<number, { version: number; created_at: Date; num_files: number; message: string }>();
+    const map: Map<number, { version: number; created_at: Date; num_files: number; message: string; git_commit: GitCommit }> = new Map<
+      number,
+      { version: number; created_at: Date; num_files: number; message: string; git_commit: GitCommit }
+    >();
     files.forEach((file: File) => {
       if (!map.has(file.version)) {
+        let git_commit: GitCommit | null = null;
+        if (file?.git_metadata?.latest_commit && Array.isArray(file.git_metadata.latest_commit) && file.git_metadata.latest_commit.length > 0) {
+          git_commit = file.git_metadata.latest_commit[0];
+        }
         map.set(file.version, {
           version: file.version,
           created_at: file.created_at,
           num_files: 0,
           message: file.message ?? '',
+          git_commit,
         });
       }
       map.get(file.version).num_files++;

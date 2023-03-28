@@ -24,6 +24,7 @@ import { TagsModule } from './modules/tags/tags.module';
 import { TeamsModule } from './modules/teams/teams.module';
 import { TestingDataPopulatorModule } from './modules/testing-data-populator/testing-data-populator.module';
 import { ThemesModule } from './modules/themes/themes.module';
+import { UsersNotificationsSettingsModule } from './modules/user-notifications-settings/users-notifications-settings.module';
 import { UsersModule } from './modules/users/users.module';
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { UsersModule } from './modules/users/users.module';
     TestingDataPopulatorModule,
     ThemesModule,
     UsersModule.forRoot(),
+    UsersNotificationsSettingsModule.forRoot(),
   ],
   providers: [
     RequestLoggerMiddleware,

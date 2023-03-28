@@ -15,15 +15,19 @@ import {
   Organization,
   OrganizationMember,
   OrganizationMemberJoin,
+  PaginatedResponseDto,
   Report,
   ReportPermissionsEnum,
+  ResourcePermissions,
   Team,
   TeamInfoDto,
   TeamMember,
   TeamMemberJoin,
   TeamMembershipOriginEnum,
+  TeamsInfoQuery,
   TeamVisibilityEnum,
   Token,
+  TokenPermissions,
   UpdateTeamMembersDTO,
   User,
 } from '@kyso-io/kyso-model';
@@ -39,6 +43,7 @@ import { userHasPermission } from '../../helpers/permissions';
 import slugify from '../../helpers/slugify';
 import { PlatformRole } from '../../security/platform-roles';
 import { ActivityFeedService } from '../activity-feed/activity-feed.service';
+import { AuthService } from '../auth/auth.service';
 import { CommentsService } from '../comments/comments.service';
 import { DiscussionsService } from '../discussions/discussions.service';
 import { InlineCommentsService } from '../inline-comments/inline-comments.service';
@@ -90,6 +95,9 @@ export class TeamsService extends AutowiredService {
 
   @Autowired({ typeName: 'ActivityFeedService' })
   private activityFeedService: ActivityFeedService;
+
+  @Autowired({ typeName: 'AuthService' })
+  private authService: AuthService;
 
   constructor(private readonly provider: TeamsMongoProvider, private readonly teamMemberProvider: TeamMemberMongoProvider, @Inject('NATS_SERVICE') private client: ClientProxy) {
     super();
@@ -860,103 +868,78 @@ export class TeamsService extends AutowiredService {
     return publicFilePath;
   }
 
-  public async getTeamsInfo(token: Token, teamId?: string): Promise<TeamInfoDto[]> {
+  public async getTeamsInfo(token: Token, teamsInfoQuery: TeamsInfoQuery): Promise<PaginatedResponseDto<TeamInfoDto>> {
+    const paginatedResponseDto: PaginatedResponseDto<TeamInfoDto> = new PaginatedResponseDto<TeamInfoDto>(teamsInfoQuery.page, 0, 0, [], 0, 0);
+    const tokenPermissions: TokenPermissions = await this.authService.getPermissions(token?.username);
+    tokenPermissions.teams = tokenPermissions.teams.filter((teamResourcePermission: ResourcePermissions) => teamResourcePermission.organization_id === teamsInfoQuery.organizationId);
+    if (teamsInfoQuery.teamId) {
+      tokenPermissions.teams = tokenPermissions.teams.filter((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === teamsInfoQuery.teamId);
+    }
+    if (tokenPermissions.teams.length === 0) {
+      return paginatedResponseDto;
+    }
+    if (teamsInfoQuery.search) {
+      tokenPermissions.teams = tokenPermissions.teams.filter((teamResourcePermission: ResourcePermissions) => {
+        return teamResourcePermission.name.toLowerCase().includes(teamsInfoQuery.search.toLowerCase());
+      });
+    }
+    tokenPermissions.teams.sort((a: ResourcePermissions, b: ResourcePermissions) => {
+      const aName: string = a.name.toLowerCase();
+      const bName: string = b.name.toLowerCase();
+      if (aName < bName) {
+        return -1;
+      } else if (aName > bName) {
+        return 1;
+      } else {
+        return 0;
+      }
+    });
+    const numTeams: number = tokenPermissions.teams.length;
+    const numPages: number = Math.ceil(numTeams / teamsInfoQuery.limit);
+    // Given page (From 1 to n) and page size, calculate the start and end index of the teams to return
+    const startIndex: number = (teamsInfoQuery.page - 1) * teamsInfoQuery.limit;
+    const endIndex: number = Math.min(startIndex + teamsInfoQuery.limit, numTeams);
+    tokenPermissions.teams = tokenPermissions.teams.slice(startIndex, endIndex);
+
+    paginatedResponseDto.itemCount = tokenPermissions.teams.length;
+    paginatedResponseDto.itemsPerPage = teamsInfoQuery.limit;
+    paginatedResponseDto.totalItems = numTeams;
+    paginatedResponseDto.totalPages = numPages;
+
     const map: Map<string, { members: number; reports: number; discussions: number; comments: number; lastChange: Date }> = new Map<
       string,
       { members: number; reports: number; discussions: number; comments: number; lastChange: Date }
     >();
-    if (token) {
-      for (const teamResourcePermission of token.permissions.teams) {
-        if (teamId && teamId.length > 0 && teamId !== teamResourcePermission.id) {
-          continue;
-        }
-        if (!map.has(teamResourcePermission.id)) {
-          const team: Team = await this.getTeamById(teamResourcePermission.id);
-          const teamMembers: TeamMember[] = await this.getMembers(team.id);
-          map.set(team.id, {
-            members: teamMembers.length,
-            reports: 0,
-            discussions: 0,
-            comments: 0,
-            lastChange: team.updated_at,
-          });
-        }
-      }
-    } else {
-      const teams: Team[] = await this.getTeams({
-        filter: {
-          visibility: TeamVisibilityEnum.PUBLIC,
-        },
-      });
-      for (const team of teams) {
-        if (teamId && teamId.length > 0 && teamId !== team.id) {
-          continue;
-        }
-        if (!map.has(team.id)) {
-          const teamMembers: TeamMember[] = await this.getMembers(team.id);
-          map.set(team.id, {
-            members: teamMembers.length,
-            reports: 0,
-            discussions: 0,
-            comments: 0,
-            lastChange: team.updated_at,
-          });
-        }
+    for (const teamResourcePermission of tokenPermissions.teams) {
+      if (!map.has(teamResourcePermission.id)) {
+        const team: Team = await this.getTeamById(teamResourcePermission.id);
+        const teamMembers: TeamMember[] = await this.getMembers(team.id);
+        map.set(team.id, {
+          members: teamMembers.length,
+          reports: 0,
+          discussions: 0,
+          comments: 0,
+          lastChange: team.updated_at,
+        });
       }
     }
-    let teams: Team[] = [];
     const teamsQuery: any = {
-      filter: {},
+      filter: {
+        id: { $in: tokenPermissions.teams.map((x: ResourcePermissions) => x.id) },
+      },
     };
     const reportsQuery: any = {
-      filter: {},
+      filter: {
+        team_id: { $in: tokenPermissions.teams.map((x: ResourcePermissions) => x.id) },
+      },
     };
     const discussionsQuery: any = {
-      filter: {},
+      filter: {
+        mark_delete_at: null,
+        team_id: { $in: tokenPermissions.teams.map((x: ResourcePermissions) => x.id) },
+      },
     };
-    if (token) {
-      if (teamId && teamId.length > 0) {
-        teamsQuery.filter.id = teamId;
-      }
-      if (token.isGlobalAdmin()) {
-        teams = await this.getTeams(teamsQuery);
-      } else {
-        teams = await this.getTeamsForController(token.id, teamsQuery);
-        reportsQuery.filter = {
-          team_id: {
-            $in: teams.map((x: Team) => x.id),
-          },
-        };
-        discussionsQuery.filter = {
-          team_id: {
-            $in: teams.map((x: Team) => x.id),
-          },
-        };
-      }
-    } else {
-      if (teamId && teamId.length > 0) {
-        if (!map.has(teamId)) {
-          return [];
-        } else {
-          teamsQuery.filter.id = teamId;
-          teamsQuery.filter.visibility = TeamVisibilityEnum.PUBLIC;
-        }
-      }
-      teams = await this.getTeams(teamsQuery);
-      if (teams.length === 0) {
-        return [];
-      }
-      reportsQuery.filter = {
-        team_id: {
-          $in: teams.map((x: Team) => x.id),
-        },
-      };
-      discussionsQuery.filter = {
-        team_id: {
-          $in: teams.map((x: Team) => x.id),
-        },
-      };
-    }
+    const teams: Team[] = await this.getTeams(teamsQuery);
     teams.forEach((team: Team) => {
       if (map.has(team.id)) {
         map.get(team.id).lastChange = moment.max(moment(team.updated_at), moment(map.get(team.id).lastChange)).toDate();
@@ -989,19 +972,21 @@ export class TeamsService extends AutowiredService {
       map.get(discussion.team_id).lastChange = moment.max(moment(discussion.updated_at), moment(map.get(discussion.team_id).lastChange)).toDate();
     });
     const commentsQuery: any = {
-      filter: {},
+      filter: {
+        $or: [],
+      },
     };
-    if (!token || (token && !token.isGlobalAdmin())) {
-      commentsQuery.filter = {
-        $or: [
-          {
-            report_id: { $in: reports.map((report: Report) => report.id) },
-            discussion_id: { $in: discussions.map((discussion: Discussion) => discussion.id) },
-          },
-        ],
-      };
+    if (reports.length > 0) {
+      commentsQuery.filter.$or.push({
+        report_id: { $in: reports.map((report: Report) => report.id) },
+      });
     }
-    const comments: Comment[] = await this.commentsService.getComments(commentsQuery);
+    if (discussions.length > 0) {
+      commentsQuery.filter.$or.push({
+        discussion_id: { $in: discussions.map((discussion: Discussion) => discussion.id) },
+      });
+    }
+    const comments: Comment[] = reports.length > 0 || discussions.length > 0 ? await this.commentsService.getComments(commentsQuery) : [];
     comments.forEach((comment: Comment) => {
       let teamId: string | null = null;
       if (discussionTeamMap.has(comment.discussion_id)) {
@@ -1024,14 +1009,16 @@ export class TeamsService extends AutowiredService {
       map.get(teamId).comments++;
       map.get(teamId).lastChange = moment.max(moment(comment.updated_at), moment(map.get(teamId).lastChange)).toDate();
     });
-    const inlineCommentsQuery: any = {
-      filter: {
-        report_id: {
-          $in: reports.map((x: Report) => x.id),
-        },
-      },
-    };
-    const inlineComments: InlineComment[] = await this.inlineCommentsService.getInlineComments(inlineCommentsQuery);
+    const inlineComments: InlineComment[] =
+      reports.length > 0
+        ? await this.inlineCommentsService.getInlineComments({
+            filter: {
+              report_id: {
+                $in: reports.map((x: Report) => x.id),
+              },
+            },
+          })
+        : [];
     inlineComments.forEach((inlineComment: InlineComment) => {
       if (!reportTeamMap.has(inlineComment.report_id)) {
         return;
@@ -1049,12 +1036,11 @@ export class TeamsService extends AutowiredService {
       map.get(teamId).comments++;
       map.get(teamId).lastChange = moment.max(moment(inlineComment.updated_at), moment(map.get(teamId).lastChange)).toDate();
     });
-    const result: TeamInfoDto[] = [];
     map.forEach((value: { members: number; reports: number; discussions: number; comments: number; lastChange: Date; avatar_url: string }, teamId: string) => {
       const teamInfoDto: TeamInfoDto = new TeamInfoDto(teamId, value.members, value.reports, value.discussions, value.comments, value.lastChange);
-      result.push(teamInfoDto);
+      paginatedResponseDto.results.push(teamInfoDto);
     });
-    return result;
+    return paginatedResponseDto;
   }
 
   public async deleteMemberInTeamsOfOrganization(organizationId: string, userId: string): Promise<void> {

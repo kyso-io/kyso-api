@@ -14,6 +14,8 @@ import {
   TeamInfoDto,
   TeamMember,
   TeamPermissionsEnum,
+  TeamsInfoQuery,
+  PaginatedResponseDto,
   TeamVisibilityEnum,
   Token,
   UpdateTeamMembersDTO,
@@ -137,10 +139,10 @@ export class TeamsController extends GenericController<Team> {
   })
   @ApiNormalizedResponse({ status: 200, description: `Number of members and reports by team`, type: TeamInfoDto })
   @Public()
-  public async getNumMembersAndReportsByOrganization(@CurrentToken() token: Token, @Query('teamId') teamId: string): Promise<NormalizedResponseDTO<TeamInfoDto[]>> {
-    const organizationInfoDto: TeamInfoDto[] = await this.teamsService.getTeamsInfo(token, teamId);
-    const relations = await this.relationsService.getRelations(organizationInfoDto);
-    return new NormalizedResponseDTO(organizationInfoDto, relations);
+  public async getNumMembersAndReportsByOrganization(@CurrentToken() token: Token, @Query() teamsInfoQuery: TeamsInfoQuery): Promise<NormalizedResponseDTO<PaginatedResponseDto<TeamInfoDto>>> {
+    const paginatedResponseDto: PaginatedResponseDto<TeamInfoDto> = await this.teamsService.getTeamsInfo(token, teamsInfoQuery);
+    const relations = await this.relationsService.getRelations(paginatedResponseDto.results);
+    return new NormalizedResponseDTO(paginatedResponseDto, relations);
   }
 
   @Get('/:id')
@@ -506,10 +508,10 @@ export class TeamsController extends GenericController<Team> {
             throw new ForbiddenException('You are not allowed to access this team');
           }
         }
-      } else {
-        if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-          throw new ForbiddenException('You are not allowed to access this team');
-        }
+      }
+    } else {
+      if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+        throw new ForbiddenException('You are not allowed to access this team');
       }
     }
 

@@ -140,8 +140,8 @@ export class OrganizationsController extends GenericController<Organization> {
     description: `Allows fetching the number of members, reports, discussions and comments by organization`,
   })
   @ApiNormalizedResponse({ status: 200, description: `Number of members and reports by organization`, type: OrganizationInfoDto })
-  public async getNumMembersAndReportsByOrganization(@CurrentToken() token: Token, @Query('organizationId') organizationId: string): Promise<NormalizedResponseDTO<OrganizationInfoDto[]>> {
-    const organizationInfoDto: OrganizationInfoDto[] = await this.organizationService.getNumMembersAndReportsByOrganization(token, organizationId);
+  public async getOrganizationsInfo(@CurrentToken() token: Token, @Query('organizationId') organizationId: string): Promise<NormalizedResponseDTO<OrganizationInfoDto[]>> {
+    const organizationInfoDto: OrganizationInfoDto[] = await this.organizationService.getOrganizationsInfo(token, organizationId);
     const relations = await this.relationsService.getRelations(organizationInfoDto);
     return new NormalizedResponseDTO(organizationInfoDto, relations);
   }

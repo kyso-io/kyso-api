@@ -32,6 +32,7 @@ import {
   TeamMember,
   TeamVisibilityEnum,
   Token,
+  TokenPermissions,
   UpdateJoinCodesDto,
   UpdateOrganizationDTO,
   UpdateOrganizationMembersDTO,
@@ -48,6 +49,7 @@ import { arrayEquals } from '../../helpers/array-equals';
 import { NATSHelper } from '../../helpers/natsHelper';
 import { PlatformRole } from '../../security/platform-roles';
 import { ActivityFeedService } from '../activity-feed/activity-feed.service';
+import { AuthService } from '../auth/auth.service';
 import { CommentsService } from '../comments/comments.service';
 import { DiscussionsService } from '../discussions/discussions.service';
 import { InlineCommentsService } from '../inline-comments/inline-comments.service';
@@ -99,6 +101,9 @@ export class OrganizationsService extends AutowiredService {
 
   @Autowired({ typeName: 'SftpService' })
   private sftpService: SftpService;
+
+  @Autowired({ typeName: 'AuthService' })
+  private authService: AuthService;
 
   constructor(
     private readonly provider: OrganizationsMongoProvider,
@@ -731,20 +736,24 @@ export class OrganizationsService extends AutowiredService {
     return this.provider.update({ _id: this.provider.toObjectId(organization.id) }, { $set: { avatar_url: null } });
   }
 
-  public async getNumMembersAndReportsByOrganization(token: Token | null, organizationId: string): Promise<OrganizationInfoDto[]> {
+  public async getOrganizationsInfo(token: Token | null, organizationId: string): Promise<OrganizationInfoDto[]> {
     const map: Map<string, { members: number; reports: number; discussions: number; comments: number; lastChange: Date; avatar_url: string }> = new Map<
       string,
       { members: number; reports: number; discussions: number; comments: number; lastChange: Date; avatar_url: string }
     >();
+    const tokenPermissions: TokenPermissions = await this.authService.getPermissions(token?.username);
+    if (organizationId) {
+      tokenPermissions.organizations = tokenPermissions.organizations.filter((x: ResourcePermissions) => x.id === organizationId);
+      tokenPermissions.teams = tokenPermissions.teams.filter((x: ResourcePermissions) => x.organization_id === organizationId);
+    }
+    if (tokenPermissions.organizations.length === 0 || tokenPermissions.teams.length === 0) {
+      return [];
+    }
     const query: any = {
-      filter: {},
+      filter: {
+        organization_id: { $in: tokenPermissions.organizations.map((x: ResourcePermissions) => x.id) },
+      },
     };
-    if (token && !token.isGlobalAdmin()) {
-      query.filter.member_id = token.id;
-    }
-    if (organizationId && organizationId.length > 0) {
-      query.filter.organization_id = organizationId;
-    }
     const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.read(query);
     for (const organizationMemberJoin of members) {
       if (!map.has(organizationMemberJoin.organization_id)) {
@@ -764,67 +773,30 @@ export class OrganizationsService extends AutowiredService {
       }
     }
     const teamOrgMap: Map<string, string> = new Map<string, string>();
-    let teams: Team[] = [];
     const teamsQuery: any = {
-      filter: {},
+      filter: {
+        id: { $in: tokenPermissions.teams.map((x: ResourcePermissions) => x.id) },
+      },
     };
     const reportsQuery: any = {
-      filter: {},
+      filter: {
+        team_id: { $in: tokenPermissions.teams.map((x: ResourcePermissions) => x.id) },
+      },
     };
     const discussionsQuery: any = {
       filter: {
         mark_delete_at: null,
+        team_id: { $in: tokenPermissions.teams.map((x: ResourcePermissions) => x.id) },
       },
     };
-    if (organizationId && organizationId.length > 0) {
-      teamsQuery.filter.organization_id = organizationId;
-    }
-    if (!token) {
-      if (organizationId) {
-        teamsQuery.filter.organization_id = organizationId;
-      }
-      teamsQuery.filter.visibility = TeamVisibilityEnum.PUBLIC;
-      teams = await this.teamsService.getTeams(teamsQuery);
-      if (teams.length > 0) {
-        reportsQuery.filter = {
-          team_id: {
-            $in: teams.map((x: Team) => x.id),
-          },
-        };
-        discussionsQuery.filter = {
-          team_id: {
-            $in: teams.map((x: Team) => x.id),
-          },
-        };
-      } else {
-        reportsQuery.filter = null;
-      }
-    } else if (token.isGlobalAdmin()) {
-      teams = await this.teamsService.getTeams(teamsQuery);
-    } else {
-      teams = await this.teamsService.getTeamsForController(token.id, teamsQuery);
-      if (teams.length > 0) {
-        reportsQuery.filter = {
-          team_id: {
-            $in: teams.map((x: Team) => x.id),
-          },
-        };
-        discussionsQuery.filter = {
-          team_id: {
-            $in: teams.map((x: Team) => x.id),
-          },
-        };
-      } else {
-        reportsQuery.filter = null;
-      }
-    }
+    const teams: Team[] = await this.teamsService.getTeams(teamsQuery);
     teams.forEach((team: Team) => {
       teamOrgMap.set(team.id, team.organization_id);
       if (map.has(team.organization_id)) {
         map.get(team.organization_id).lastChange = moment.max(moment(team.updated_at), moment(map.get(team.organization_id).lastChange)).toDate();
       }
     });
-    const reports: Report[] = reportsQuery.filter ? await this.reportsService.getReports(reportsQuery) : [];
+    const reports: Report[] = await this.reportsService.getReports(reportsQuery);
     const mapReportOrg: Map<string, string> = new Map<string, string>();
     reports.forEach((report: Report) => {
       const organizationId: string | undefined = teamOrgMap.get(report.team_id);
@@ -860,27 +832,21 @@ export class OrganizationsService extends AutowiredService {
       map.get(organizationId).lastChange = moment.max(moment(discussion.updated_at), moment(map.get(organizationId).lastChange)).toDate();
     });
     const commentsQuery: any = {
-      filter: {},
-    };
-    if (!token || !token.isGlobalAdmin()) {
-      commentsQuery.filter = {
+      filter: {
         $or: [],
-      };
-      if (reports.length > 0) {
-        commentsQuery.filter.$or.push({
-          report_id: { $in: reports.map((report: Report) => report.id) },
-        });
-      }
-      if (discussions.length > 0) {
-        commentsQuery.filter.$or.push({
-          discussion_id: { $in: discussions.map((discussion: Discussion) => discussion.id) },
-        });
-      }
-      if (reports.length === 0 && discussions.length === 0) {
-        commentsQuery.filter = null;
-      }
+      },
+    };
+    if (reports.length > 0) {
+      commentsQuery.filter.$or.push({
+        report_id: { $in: reports.map((report: Report) => report.id) },
+      });
     }
-    const comments: Comment[] = commentsQuery.filter ? await this.commentsService.getComments(commentsQuery) : [];
+    if (discussions.length > 0) {
+      commentsQuery.filter.$or.push({
+        discussion_id: { $in: discussions.map((discussion: Discussion) => discussion.id) },
+      });
+    }
+    const comments: Comment[] = reports.length > 0 || discussions.length > 0 ? await this.commentsService.getComments(commentsQuery) : [];
     comments.forEach((comment: Comment) => {
       let organizationId: string | null;
       if (comment.report_id) {
@@ -904,14 +870,16 @@ export class OrganizationsService extends AutowiredService {
       map.get(organizationId).comments++;
       map.get(organizationId).lastChange = moment.max(moment(comment.updated_at), moment(map.get(organizationId).lastChange)).toDate();
     });
-    const inlineCommentsQuery: any = {
-      filter: {
-        report_id: {
-          $in: reports.map((x: Report) => x.id),
-        },
-      },
-    };
-    const inlineComments: InlineComment[] = await this.inlineCommentsService.getInlineComments(inlineCommentsQuery);
+    const inlineComments: InlineComment[] =
+      reports.length > 0
+        ? await this.inlineCommentsService.getInlineComments({
+            filter: {
+              report_id: {
+                $in: reports.map((x: Report) => x.id),
+              },
+            },
+          })
+        : [];
     inlineComments.forEach((inlineComment: InlineComment) => {
       if (!mapReportOrg.has(inlineComment.report_id)) {
         return;
