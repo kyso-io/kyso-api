@@ -2,6 +2,12 @@ import { Logger, Type } from '@nestjs/common';
 
 const singletonMap = new Map<string, any>();
 
+/**
+ * Register a service using a unique name
+ *
+ * @param name    Unique name. For example, the final implementation class would be a good choice
+ * @param object  The instance of the service
+ */
 export const registerSingleton = (name: any, object: any) => {
   singletonMap.set(name, object);
 };
