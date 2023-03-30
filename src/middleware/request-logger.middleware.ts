@@ -24,8 +24,6 @@ export class RequestLoggerMiddleware implements NestMiddleware {
     const remoteAddress = request.socket.remoteAddress;
     const xForwardedFor = request.get('x-forwarded-for') || null;
 
-    console.log(request.rawHeaders);
-
     if (xForwardedFor) {
       ip = xForwardedFor;
     } else {
