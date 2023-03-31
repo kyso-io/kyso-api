@@ -1,4 +1,17 @@
-import { CreateInlineCommentDto, InlineComment, InlineCommentDto, Organization, Report, ResourcePermissions, Team, Token, UpdateInlineCommentDto, User } from '@kyso-io/kyso-model';
+import {
+  CreateInlineCommentDto,
+  InlineComment,
+  InlineCommentDto,
+  InlineCommentStatusEnum,
+  InlineCommentStatusHistoryDto,
+  Organization,
+  Report,
+  ResourcePermissions,
+  Team,
+  Token,
+  UpdateInlineCommentDto,
+  User,
+} from '@kyso-io/kyso-model';
 import { ForbiddenException, Injectable, NotFoundException, Provider } from '@nestjs/common';
 import { Autowired } from '../../decorators/autowired';
 import { AutowiredService } from '../../generic/autowired.generic';
@@ -57,7 +70,7 @@ export class InlineCommentsService extends AutowiredService {
   }
 
   public async getGivenReportId(report_id: string): Promise<InlineComment[]> {
-    return this.provider.read({ filter: { report_id }, sort: { created_at: 1 } });
+    return this.provider.read({ filter: { report_id, parent_comment_id: null }, sort: { created_at: 1 } });
   }
 
   public async createInlineComment(userId: string, createInlineCommentDto: CreateInlineCommentDto): Promise<InlineComment> {
@@ -81,7 +94,22 @@ export class InlineCommentsService extends AutowiredService {
       throw new NotFoundException(`Organization with id ${team.organization_id} was not found`);
     }
 
-    const inlineComment: InlineComment = new InlineComment(report.id, createInlineCommentDto.cell_id, userId, createInlineCommentDto.text, false, false, createInlineCommentDto.mentions);
+    const report_last_version: number = await this.reportsService.getLastVersionOfReport(report.id);
+
+    const inlineComment: InlineComment = new InlineComment(
+      report.id,
+      createInlineCommentDto.cell_id,
+      userId,
+      createInlineCommentDto.text,
+      false,
+      false,
+      createInlineCommentDto.mentions,
+      createInlineCommentDto.parent_comment_id,
+      report_last_version,
+      InlineCommentStatusEnum.OPEN,
+    );
+    const inlineCommentStatusHistoryDto: InlineCommentStatusHistoryDto = new InlineCommentStatusHistoryDto(new Date(), null, InlineCommentStatusEnum.OPEN, userId, report_last_version);
+    inlineComment.status_history = [inlineCommentStatusHistoryDto];
     const result = await this.provider.create(inlineComment);
 
     this.baseCommentsService.sendCreateCommentNotifications(user, organization, team, inlineComment, report, null);
@@ -137,7 +165,25 @@ export class InlineCommentsService extends AutowiredService {
       }
     }
 
-    const updateResult = this.provider.update({ _id: this.provider.toObjectId(inlineComment.id) }, { $set: { edited: true, text: updateInlineCommentDto.text } });
+    const report_last_version: number = await this.reportsService.getLastVersionOfReport(report.id);
+    const status_history: InlineCommentStatusHistoryDto[] = [...inlineComment.status_history];
+    if (inlineComment.current_status !== updateInlineCommentDto.status) {
+      status_history.unshift(new InlineCommentStatusHistoryDto(new Date(), inlineComment.current_status, updateInlineCommentDto.status, token.id, report_last_version));
+    }
+
+    const updateResult: InlineComment = await this.provider.update(
+      {
+        _id: this.provider.toObjectId(inlineComment.id),
+      },
+      {
+        $set: {
+          edited: inlineComment.text !== updateInlineCommentDto.text,
+          text: updateInlineCommentDto.text,
+          current_status: updateInlineCommentDto.status,
+          status_history,
+        },
+      },
+    );
 
     this.baseCommentsService.sendUpdateCommentNotifications(user, organization, team, inlineComment, report, null);
     this.baseCommentsService.checkMentionsInReportComment(report.id, user.id, inlineComment.mentions);
@@ -190,7 +236,7 @@ export class InlineCommentsService extends AutowiredService {
       }
     }
 
-    await this.provider.deleteOne({ _id: this.provider.toObjectId(id) });
+    await this.provider.deleteMany({ $or: [{ _id: this.provider.toObjectId(id) }, { parent_comment_id: id }] });
 
     this.baseCommentsService.sendDeleteCommentNotifications(user, organization, team, inlineComment, report, null);
 
@@ -199,7 +245,7 @@ export class InlineCommentsService extends AutowiredService {
 
   public async inlineCommentModelToInlineCommentDto(inlineComment: InlineComment): Promise<InlineCommentDto> {
     const user: User = await this.usersService.getUserById(inlineComment.user_id);
-    return new InlineCommentDto(
+    const inlineCommentDto: InlineCommentDto = new InlineCommentDto(
       inlineComment.id,
       inlineComment.created_at,
       inlineComment.updated_at,
@@ -212,6 +258,15 @@ export class InlineCommentsService extends AutowiredService {
       user.name,
       user.avatar_url,
       inlineComment.mentions,
+      inlineComment.parent_comment_id,
+      inlineComment.report_version,
+      inlineComment.current_status,
     );
+    inlineCommentDto.status_history = inlineComment.status_history;
+    if (!inlineComment.parent_comment_id) {
+      const inlineComments: InlineComment[] = await this.provider.read({ filter: { parent_comment_id: inlineComment.id }, sort: { created_at: 1 } });
+      inlineCommentDto.inline_comments = await Promise.all(inlineComments.map((ic: InlineComment) => this.inlineCommentModelToInlineCommentDto(ic)));
+    }
+    return inlineCommentDto;
   }
 }

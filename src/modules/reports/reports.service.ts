@@ -3051,7 +3051,7 @@ export class ReportsService extends AutowiredService {
     }
   }
 
-  private async getLastVersionOfReport(reportId: string): Promise<number> {
+  public async getLastVersionOfReport(reportId: string): Promise<number> {
     const query: any = {
       filter: {
         report_id: reportId,
