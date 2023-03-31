@@ -1,5 +1,6 @@
 import {
   CreateInlineCommentDto,
+  File,
   InlineComment,
   InlineCommentDto,
   InlineCommentStatusEnum,
@@ -15,6 +16,7 @@ import {
 import { ForbiddenException, Injectable, NotFoundException, Provider } from '@nestjs/common';
 import { Autowired } from '../../decorators/autowired';
 import { AutowiredService } from '../../generic/autowired.generic';
+import { db } from '../../main';
 import { PlatformRole } from '../../security/platform-roles';
 import { BaseCommentsService } from '../comments/base-comments.service';
 import { OrganizationsService } from '../organizations/organizations.service';
@@ -268,5 +270,73 @@ export class InlineCommentsService extends AutowiredService {
       inlineCommentDto.inline_comments = await Promise.all(inlineComments.map((ic: InlineComment) => this.inlineCommentModelToInlineCommentDto(ic)));
     }
     return inlineCommentDto;
+  }
+
+  public async checkInlineComments(report_id: string): Promise<void> {
+    const report_version: number = await this.reportsService.getLastVersionOfReport(report_id);
+    if (report_version === 1) {
+      return;
+    }
+    const files_previous_version: File[] = await db
+      .collection('File')
+      .find({ report_id, version: report_version - 1 })
+      .toArray();
+    const files_current_version: File[] = await db.collection('File').find({ report_id, version: report_version }).toArray();
+    for (const file_previous_version of files_previous_version) {
+      const file_current_version: File | undefined = files_current_version.find((file: File) => file.name === file_previous_version.name);
+      if (!file_current_version) {
+        // File was deleted in current version
+        continue;
+      }
+      const inline_comments_previous_version: InlineComment[] = await this.provider.read({
+        filter: {
+          report_id,
+          report_version: file_previous_version.version,
+          parent_comment_id: null,
+          $ne: {
+            current_status: InlineCommentStatusEnum.CLOSED,
+          },
+        },
+      });
+      for (const inline_comment_previous_version of inline_comments_previous_version) {
+        let inline_comment_current_version: InlineComment = new InlineComment(
+          report_id,
+          file_previous_version.id === inline_comment_previous_version.cell_id ? file_current_version.id : inline_comment_previous_version.cell_id,
+          inline_comment_previous_version.user_id,
+          inline_comment_previous_version.text,
+          inline_comment_previous_version.edited,
+          inline_comment_previous_version.markedAsDeleted,
+          inline_comment_previous_version.mentions,
+          null,
+          report_version,
+          inline_comment_previous_version.current_status,
+        );
+        inline_comment_current_version.status_history = [...inline_comment_previous_version.status_history];
+        inline_comment_current_version = await this.provider.create(inline_comment_current_version);
+        // Check if inline comment has replies
+        const inline_comments_replies_previous_version: InlineComment[] = await this.provider.read({
+          filter: {
+            report_id,
+            report_version: file_previous_version.version,
+            parent_comment_id: inline_comment_previous_version.id,
+          },
+        });
+        for (const inline_comment_reply_previous_version of inline_comments_replies_previous_version) {
+          let inline_comment_reply_current_version: InlineComment = new InlineComment(
+            report_id,
+            file_previous_version.id === inline_comment_reply_previous_version.cell_id ? file_current_version.id : inline_comment_reply_previous_version.cell_id,
+            inline_comment_reply_previous_version.user_id,
+            inline_comment_reply_previous_version.text,
+            inline_comment_reply_previous_version.edited,
+            inline_comment_reply_previous_version.markedAsDeleted,
+            inline_comment_reply_previous_version.mentions,
+            inline_comment_current_version.id,
+            report_version,
+            inline_comment_reply_previous_version.current_status,
+          );
+          inline_comment_reply_current_version = await this.provider.create(inline_comment_reply_current_version);
+        }
+      }
+    }
   }
 }
