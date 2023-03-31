@@ -916,6 +916,7 @@ export class ReportsService extends AutowiredService {
         if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
           report = await this.updateReportPreviewPicture(report, localFilePath);
         }
+        await this.inlineCommentsService.checkInlineComments(report.id);
       }
 
       const authors: string[] = await this.processAuthors(kysoConfigFile.authors, uploaderUser, team);
@@ -1178,6 +1179,8 @@ export class ReportsService extends AutowiredService {
       }
     }
     Logger.log(`Report '${report.id} ${report.sluglified_name}': Files uploaded to Ftp`, ReportsService.name);
+
+    await this.inlineCommentsService.checkInlineComments(report.id);
 
     // Check if there are some files not hard linked
     new Promise<void>(async () => {
@@ -1690,6 +1693,9 @@ export class ReportsService extends AutowiredService {
     }
     Logger.log(`Deleting LOCAL folder '${localReportPath}'...`, ReportsService.name);
     rmSync(localReportPath, { recursive: true, force: true });
+
+    await this.inlineCommentsService.checkInlineComments(report.id);
+
     Logger.log(`LOCAL folder '${localReportPath}' deleted.`, ReportsService.name);
     const pathToIndex = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${lastVersion + 1}`;
     Logger.log(`Advising ElasticSearch there is a new version of a report that has to be indexed in '${pathToIndex}'`, ReportsService.name);
@@ -2465,6 +2471,8 @@ export class ReportsService extends AutowiredService {
 
     rmSync(tmpReportDir, { recursive: true, force: true });
 
+    await this.inlineCommentsService.checkInlineComments(report.id);
+
     const kysoIndexerApi: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.KYSO_INDEXER_API_BASE_URL);
     const pathToIndex = `${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}`;
 
@@ -3051,7 +3059,7 @@ export class ReportsService extends AutowiredService {
     }
   }
 
-  private async getLastVersionOfReport(reportId: string): Promise<number> {
+  public async getLastVersionOfReport(reportId: string): Promise<number> {
     const query: any = {
       filter: {
         report_id: reportId,

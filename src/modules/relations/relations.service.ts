@@ -48,7 +48,7 @@ export class RelationsService extends AutowiredService {
         }
         return { collection, id: data[key] };
       })
-      .filter((item) => item.id !== null && item.id.length > 0);
+      .filter((item) => item.id && item.id.length > 0);
 
     const result = [];
     relations.forEach((relation) => {
