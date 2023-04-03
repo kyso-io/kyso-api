@@ -406,6 +406,7 @@ export class ReportsService extends AutowiredService {
     if (updateReportRequestDTO.hasOwnProperty('show_output') && updateReportRequestDTO.show_output != null) {
       dataToUpdate.show_output = updateReportRequestDTO.show_output;
     }
+    let updatedMainFile = false;
     if (updateReportRequestDTO.hasOwnProperty('main_file') && updateReportRequestDTO.main_file != null && updateReportRequestDTO.main_file.length > 0) {
       const files: File[] = await this.filesMongoProvider.read({
         filter: {
@@ -415,17 +416,28 @@ export class ReportsService extends AutowiredService {
       });
       if (files.length > 0) {
         dataToUpdate.main_file = files[0].name;
+        updatedMainFile = true;
       }
     }
     report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: dataToUpdate });
 
-    NATSHelper.safelyEmit<KysoReportsUpdateEvent>(this.client, KysoEventEnum.REPORTS_UPDATE, {
-      user,
-      organization,
-      team,
-      report,
-      frontendUrl,
-    });
+    if (updatedMainFile) {
+      NATSHelper.safelyEmit<KysoReportsUpdateEvent>(this.client, KysoEventEnum.REPORTS_UPDATED_MAIN_FILE, {
+        user,
+        organization,
+        team,
+        report,
+        frontendUrl,
+      });
+    } else {
+      NATSHelper.safelyEmit<KysoReportsUpdateEvent>(this.client, KysoEventEnum.REPORTS_UPDATE, {
+        user,
+        organization,
+        team,
+        report,
+        frontendUrl,
+      });
+    }
 
     const kysoIndex: KysoIndex = new KysoIndex();
     kysoIndex.entityId = report.id;
