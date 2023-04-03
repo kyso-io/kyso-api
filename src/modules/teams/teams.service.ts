@@ -509,7 +509,7 @@ export class TeamsService extends AutowiredService {
     // Get all team  of the organization
     const teams: Team[] = await this.getTeams({ filter: { organization_id } });
     for (const team of teams) {
-      await this.deleteTeam(token, team.id);
+      await this.deleteTeam(token, team.id, true);
     }
   }
 
@@ -804,7 +804,7 @@ export class TeamsService extends AutowiredService {
     return team;
   }
 
-  public async deleteTeam(token: Token, teamId: string): Promise<Team> {
+  public async deleteTeam(token: Token, teamId: string, deletedOrganization = false): Promise<Team> {
     const team: Team = await this.getTeamById(teamId);
     if (!team) {
       throw new PreconditionFailedException('Team not found');
@@ -838,6 +838,7 @@ export class TeamsService extends AutowiredService {
       team,
       user_ids: teamMembers.map((teamMember: TeamMember) => teamMember.id),
       frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+      deletedOrganization,
     });
     return team;
   }
