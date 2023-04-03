@@ -645,7 +645,7 @@ export class TeamsService extends AutowiredService {
           roles: [element.role],
         });
       } else {
-        // If the user already beonged to the organization...
+        // If the user already belonged to the organization...
         if (team.visibility === TeamVisibilityEnum.PRIVATE) {
           // and if the team is private...
           if (member) {
@@ -671,16 +671,28 @@ export class TeamsService extends AutowiredService {
             });
           }
         } else {
-          // Otherwise (protected and public teams) he is a member of the organization and he already had access to the rest of the teams, in practice it is an update of his role
-          NATSHelper.safelyEmit<KysoTeamsUpdateMemberRolesEvent>(this.client, KysoEventEnum.TEAMS_UPDATE_MEMBER_ROLES, {
-            user,
-            organization,
-            team,
-            emailsCentralized,
-            frontendUrl,
-            previousRoles: member ? member.role_names : [],
-            currentRoles: [element.role],
-          });
+          if (!member) {
+            // we notify him that he has been added to the team
+            NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
+              user,
+              organization,
+              team,
+              emailsCentralized,
+              frontendUrl,
+              roles: [element.role],
+            });
+          } else {
+            // Otherwise (protected and public teams) he is a member of the organization and he already had access to the rest of the teams, in practice it is an update of his role
+            NATSHelper.safelyEmit<KysoTeamsUpdateMemberRolesEvent>(this.client, KysoEventEnum.TEAMS_UPDATE_MEMBER_ROLES, {
+              user,
+              organization,
+              team,
+              emailsCentralized,
+              frontendUrl,
+              previousRoles: member ? member.role_names : [],
+              currentRoles: [element.role],
+            });
+          }
         }
       }
     }
