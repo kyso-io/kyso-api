@@ -293,8 +293,8 @@ export class InlineCommentsService extends AutowiredService {
           report_id,
           report_version: file_previous_version.version,
           parent_comment_id: null,
-          $ne: {
-            current_status: InlineCommentStatusEnum.CLOSED,
+          current_status: {
+            $ne: InlineCommentStatusEnum.CLOSED,
           },
         },
       });
