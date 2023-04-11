@@ -899,7 +899,6 @@ export class ReportsService extends AutowiredService {
 
     const name: string = slugify(kysoConfigFile.title);
     const reports: Report[] = await this.provider.read({ filter: { sluglified_name: name, team_id: team.id } });
-    const reportFiles: File[] = [];
     let version = 1;
     let report: Report = null;
     let isNew = false;
@@ -924,7 +923,6 @@ export class ReportsService extends AutowiredService {
         const toc: TableOfContentEntryDto[] = this.getTableOfContents(localFilePath);
         let reportFile = new File(report.id, originalName, path_scs, size, sha, version, createKysoReportDto.message, createKysoReportDto.git_metadata, toc, []);
         reportFile = await this.filesMongoProvider.create(reportFile);
-        reportFiles.push(reportFile);
         if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
           report = await this.updateReportPreviewPicture(report, localFilePath);
         }
@@ -992,7 +990,6 @@ export class ReportsService extends AutowiredService {
         const toc: TableOfContentEntryDto[] = this.getTableOfContents(localFilePath);
         let file: File = new File(report.id, originalName, path_scs, size, sha, 1, createKysoReportDto.message, createKysoReportDto.git_metadata, toc, []);
         file = await this.filesMongoProvider.create(file);
-        reportFiles.push(file);
         if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
           report = await this.updateReportPreviewPicture(report, localFilePath);
         }
@@ -1195,7 +1192,7 @@ export class ReportsService extends AutowiredService {
     await this.inlineCommentsService.checkInlineComments(report.id);
 
     // Check if there are some files not hard linked
-    const promise: Promise<void> = new Promise<void>(async () => {
+    new Promise<void>(async () => {
       const readDirectoryRecursively = async (directory: string): Promise<string[]> => {
         let filePaths: string[] = [];
         try {
@@ -1468,7 +1465,7 @@ export class ReportsService extends AutowiredService {
 
       newReports.push(report);
 
-      const promise: Promise<void> = new Promise<void>(async () => {
+      new Promise<void>(async () => {
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name);
         await this.uploadReportToFtp(report.id, tmpReportDir);
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } });
@@ -1553,7 +1550,6 @@ export class ReportsService extends AutowiredService {
 
     const name: string = slugify(kysoConfigFile.title);
     const reports: Report[] = await this.provider.read({ filter: { sluglified_name: name, team_id: team.id } });
-    const reportFiles: File[] = [];
     let report: Report = null;
     if (reports.length > 0) {
       Logger.log(`Report '${name}' already exists in team ${team.sluglified_name}`, ReportsService.name);
@@ -1619,7 +1615,6 @@ export class ReportsService extends AutowiredService {
       const toc: TableOfContentEntryDto[] = this.getTableOfContents(localFilePath);
       let file: File = new File(report.id, originalName, path_scs, size, sha, version, message, git_metadata, toc, []);
       file = await this.filesMongoProvider.create(file);
-      reportFiles.push(file);
       if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
         report = await this.updateReportPreviewPicture(report, localFilePath);
       }
@@ -1821,7 +1816,6 @@ export class ReportsService extends AutowiredService {
     if (commitsResponse.status !== 200) {
       report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
       Logger.error(`Report '${report.id} ${repositoryName}': GitHub API returned status ${commitsResponse.status}`, ReportsService.name);
-      // throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: GitHub API returned status ${commitsResponse.status}`)
       return;
     }
     const sha: string = commitsResponse.data[0].sha;
@@ -1862,7 +1856,7 @@ export class ReportsService extends AutowiredService {
       return this.createMultipleKysoReports(kysoConfigFile, tmpReportDir, zip, user, zip.getEntries()[0].entryName, null, null);
     }
 
-    const promise: Promise<void> = new Promise<void>(async () => {
+    new Promise<void>(async () => {
       Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${sha}'`, ReportsService.name);
 
       const userHasPermission: boolean = await this.checkCreateReportPermission(token.id, kysoConfigFile.organization, kysoConfigFile.team);
@@ -1916,7 +1910,6 @@ export class ReportsService extends AutowiredService {
     if (!zip) {
       report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
       Logger.error(`Report '${report.id} ${report.sluglified_name}': Could not download commit ${sha}`, ReportsService.name);
-      // throw new PreconditionFailedException(`Could not download repository ${report.sluglified_name} commit ${sha}`, ReportsService.name)
       return;
     }
     Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${sha}'`, ReportsService.name);
@@ -1925,7 +1918,6 @@ export class ReportsService extends AutowiredService {
     if (filePaths.length < 2) {
       report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
       Logger.error(`Report ${report.id} ${report.sluglified_name}: Repository does not contain any files`, ReportsService.name);
-      // throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: Repository does not contain any files`, ReportsService.name)
       return;
     }
 
@@ -2019,7 +2011,6 @@ export class ReportsService extends AutowiredService {
       if (!buffer) {
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
         Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${desiredCommit}`, ReportsService.name);
-        // throw new PreconditionFailedException(`Could not download repository ${repositoryName} commit ${desiredCommit}`, ReportsService.name)
         return;
       }
       Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name);
@@ -2059,7 +2050,7 @@ export class ReportsService extends AutowiredService {
       return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null, null);
     }
 
-    const promise: Promise<void> = new Promise<void>(async () => {
+    new Promise<void>(async () => {
       const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.organization, kysoConfigFile.team);
       if (!userHasPermission) {
         Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
@@ -2174,7 +2165,6 @@ export class ReportsService extends AutowiredService {
       if (!buffer) {
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
         Logger.error(`Report '${report.id} ${repositoryId}': Could not download commit ${desiredCommit}`, ReportsService.name);
-        // throw new PreconditionFailedException(`Could not download repository ${repositoryId} commit ${desiredCommit}`, ReportsService.name)
         return;
       }
       Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name);
@@ -2214,7 +2204,7 @@ export class ReportsService extends AutowiredService {
       return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null, null);
     }
 
-    const promise: Promise<void> = new Promise<void>(async () => {
+    new Promise<void>(async () => {
       const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.organization, kysoConfigFile.team);
       if (!userHasPermission) {
         Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
@@ -2265,7 +2255,6 @@ export class ReportsService extends AutowiredService {
       if (!buffer) {
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
         Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${desiredCommit}`, ReportsService.name);
-        // throw new PreconditionFailedException(`Could not download repository ${repositoryName} commit ${desiredCommit}`, ReportsService.name)
         return;
       }
       Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name);
@@ -2283,7 +2272,6 @@ export class ReportsService extends AutowiredService {
     if (filePaths.length < 2) {
       report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
       Logger.error(`Report ${report.id} ${report.sluglified_name}: Repository does not contain any files`, ReportsService.name);
-      // throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: Repository does not contain any files`, ReportsService.name)
       return;
     }
 
@@ -2315,7 +2303,6 @@ export class ReportsService extends AutowiredService {
       if (!buffer) {
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
         Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${desiredCommit}`, ReportsService.name);
-        // throw new PreconditionFailedException(`Could not download repository ${repositoryName} commit ${desiredCommit}`, ReportsService.name)
         return;
       }
       Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${desiredCommit}'`, ReportsService.name);
@@ -2333,7 +2320,6 @@ export class ReportsService extends AutowiredService {
     if (filePaths.length < 2) {
       report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
       Logger.error(`Report ${report.id} ${report.sluglified_name}: Repository does not contain any files`, ReportsService.name);
-      // throw new PreconditionFailedException(`Report ${report.id} ${report.sluglified_name}: Repository does not contain any files`, ReportsService.name)
       return;
     }
 
@@ -2468,16 +2454,16 @@ export class ReportsService extends AutowiredService {
     await this.uploadReportToFtp(report.id, tmpReportDir);
 
     // Get all report files
-    for (let i = 0; i < files.length; i++) {
-      const originalName: string = files[i].name;
-      const sha: string = sha256File(files[i].filePath);
-      const size: number = statSync(files[i].filePath).size;
+    for (const f of files) {
+      const originalName: string = f.name;
+      const sha: string = sha256File(f.filePath);
+      const size: number = statSync(f.filePath).size;
       const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${originalName}`;
-      const toc: TableOfContentEntryDto[] = this.getTableOfContents(files[i].filePath);
+      const toc: TableOfContentEntryDto[] = this.getTableOfContents(f.filePath);
       const reportFile: File = new File(report.id, originalName, path_scs, size, sha, version, message, git_metadata, toc, []);
       await this.filesMongoProvider.create(reportFile);
       if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
-        report = await this.updateReportPreviewPicture(report, files[i].filePath);
+        report = await this.updateReportPreviewPicture(report, f.filePath);
       }
     }
 

@@ -1,5 +1,5 @@
 import { Token, TokenPermissions } from '@kyso-io/kyso-model';
-import { createParamDecorator, ExecutionContext, Logger } from '@nestjs/common';
+import { ExecutionContext, Logger, createParamDecorator } from '@nestjs/common';
 import { Autowired } from '../../../decorators/autowired';
 import { OrganizationsService } from '../../organizations/organizations.service';
 import { TeamsService } from '../../teams/teams.service';
@@ -32,9 +32,6 @@ class AuxCurrentTokenDecoratorClass {
 
   @Autowired({ typeName: 'OrganizationsService' })
   public organizationsService: OrganizationsService;
-
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  constructor() {}
 }
 
 export const CurrentToken = createParamDecorator(async (data: unknown, ctx: ExecutionContext) => {

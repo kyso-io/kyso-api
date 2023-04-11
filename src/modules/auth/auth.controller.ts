@@ -485,7 +485,6 @@ export class AuthController extends GenericController<string> {
     const splittedUri: string[] = originalUri.split('/');
     const organizationName = splittedUri[0];
     const teamName = splittedUri[1];
-    // const reportName = splittedUri[3]
 
     const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } });
     if (!organization) {
@@ -637,7 +636,6 @@ export class AuthController extends GenericController<string> {
       userId = token.id;
     }
     if (userHasPermission) {
-      // FIXME: For now convert the report_type to a string, we should use the Enum
       const report_type: string = report.report_type || '';
       // If the report is not an application return a 409 code when we have
       // been asked to send data, if not return a 403, if not the ingress
