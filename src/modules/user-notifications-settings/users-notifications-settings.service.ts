@@ -97,6 +97,11 @@ export class UsersNotificationsServiceService extends AutowiredService {
           channels_settings[organization_id] = {};
         }
         channels_settings[organization_id][channel_id] = updateUserNotificationsSettings.settings;
+        channels_settings[organization_id][channel_id].new_member_organization = false;
+        channels_settings[organization_id][channel_id].removed_member_in_organization = false;
+        channels_settings[organization_id][channel_id].updated_role_in_organization = false;
+        channels_settings[organization_id][channel_id].organization_removed = false;
+        channels_settings[organization_id][channel_id].new_channel = false;
         return this.provider.update({ _id: this.provider.toObjectId(uns.id) }, { $set: { channels_settings } });
       default:
         throw new BadRequestException('Invalid scope');
