@@ -1195,7 +1195,7 @@ export class ReportsService extends AutowiredService {
     await this.inlineCommentsService.checkInlineComments(report.id);
 
     // Check if there are some files not hard linked
-    new Promise<void>(async () => {
+    const promise: Promise<void> = new Promise<void>(async () => {
       const readDirectoryRecursively = async (directory: string): Promise<string[]> => {
         let filePaths: string[] = [];
         try {
@@ -1330,7 +1330,7 @@ export class ReportsService extends AutowiredService {
           Logger.error(`Property organization for report folder ${reportFolderName} must have value`, ReportsService.name);
           throw new PreconditionFailedException(`Property organization for report folder ${reportFolderName} must have value`);
         }
-        kysoConfigFile.organization = kysoConfigFile.organization;
+        kysoConfigFile.organization = baseKysoConfigFile.organization;
       }
       if (!kysoConfigFile.hasOwnProperty('team')) {
         if (!baseKysoConfigFile.hasOwnProperty('team')) {
@@ -1341,7 +1341,7 @@ export class ReportsService extends AutowiredService {
           Logger.error(`Property team for report folder ${reportFolderName} must have value`, ReportsService.name);
           throw new PreconditionFailedException(`Property team for report folder ${reportFolderName} must have value`);
         }
-        kysoConfigFile.team = kysoConfigFile.team;
+        kysoConfigFile.team = baseKysoConfigFile.team;
       }
       if (!kysoConfigFile.hasOwnProperty('tags')) {
         if (baseKysoConfigFile.hasOwnProperty('tags') && baseKysoConfigFile.tags.length > 0) {
@@ -1468,7 +1468,7 @@ export class ReportsService extends AutowiredService {
 
       newReports.push(report);
 
-      new Promise<void>(async () => {
+      const promise: Promise<void> = new Promise<void>(async () => {
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name);
         await this.uploadReportToFtp(report.id, tmpReportDir);
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } });
@@ -1862,7 +1862,7 @@ export class ReportsService extends AutowiredService {
       return this.createMultipleKysoReports(kysoConfigFile, tmpReportDir, zip, user, zip.getEntries()[0].entryName, null, null);
     }
 
-    new Promise<void>(async () => {
+    const promise: Promise<void> = new Promise<void>(async () => {
       Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${sha}'`, ReportsService.name);
 
       const userHasPermission: boolean = await this.checkCreateReportPermission(token.id, kysoConfigFile.organization, kysoConfigFile.team);
@@ -2059,7 +2059,7 @@ export class ReportsService extends AutowiredService {
       return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null, null);
     }
 
-    new Promise<void>(async () => {
+    const promise: Promise<void> = new Promise<void>(async () => {
       const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.organization, kysoConfigFile.team);
       if (!userHasPermission) {
         Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
@@ -2214,7 +2214,7 @@ export class ReportsService extends AutowiredService {
       return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null, null);
     }
 
-    new Promise<void>(async () => {
+    const promise: Promise<void> = new Promise<void>(async () => {
       const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.organization, kysoConfigFile.team);
       if (!userHasPermission) {
         Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
@@ -3245,7 +3245,7 @@ export class ReportsService extends AutowiredService {
         href: `#${content
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '')}`,
+          .replace(/^(-+)|(-+)$/g, '')}`,
         title: content,
       };
     });

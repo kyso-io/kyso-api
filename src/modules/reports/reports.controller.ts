@@ -326,7 +326,7 @@ export class ReportsController extends GenericController<Report> {
           throw new BadRequestException('Team not found');
         }
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-          const indexTeam: number = teams.findIndex((team: Team) => team.id === team.id);
+          const indexTeam: number = teams.findIndex((t: Team) => t.id === team.id);
           if (indexTeam === -1) {
             throw new ForbiddenException('Team not public');
           }
