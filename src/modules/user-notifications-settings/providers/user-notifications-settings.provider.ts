@@ -5,7 +5,7 @@ import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class UserNotificationsSettingsProvider extends MongoProvider<UserNotificationsSettings> {
-  version = 2;
+  version = 3;
 
   constructor() {
     super('UserNotificationsSettings', db, []);
@@ -30,6 +30,34 @@ export class UserNotificationsSettingsProvider extends MongoProvider<UserNotific
           channels_settings[organization_id][channel_id].updated_role_in_organization = false;
           channels_settings[organization_id][channel_id].organization_removed = false;
           channels_settings[organization_id][channel_id].new_channel = false;
+        }
+      }
+      await this.update(
+        { _id: this.toObjectId(uns.id) },
+        {
+          $set: {
+            channels_settings,
+          },
+        },
+      );
+    }
+  }
+
+  async migrate_from_2_to_3(): Promise<void> {
+    const unss: UserNotificationsSettings[] = await this.getCollection().find({}).toArray();
+    for (const uns of unss) {
+      const channels_settings: {
+        [organization_id: string]: {
+          [channel_id: string]: NotificationsSettings;
+        };
+      } = { ...uns.channels_settings };
+      for (const organization_id in channels_settings) {
+        for (const channel_id in channels_settings[organization_id]) {
+          delete channels_settings[organization_id][channel_id].new_member_organization;
+          delete channels_settings[organization_id][channel_id].removed_member_in_organization;
+          delete channels_settings[organization_id][channel_id].updated_role_in_organization;
+          delete channels_settings[organization_id][channel_id].organization_removed;
+          delete channels_settings[organization_id][channel_id].new_channel;
         }
       }
       await this.update(
