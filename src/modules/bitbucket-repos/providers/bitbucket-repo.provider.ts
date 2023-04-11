@@ -123,7 +123,7 @@ export class BitbucketReposProvider {
   }
 
   public extractEmailFromText(text: string): RegExpMatchArray | null {
-    return text.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi);
+    return text.match(/([a-zA-Z0-9._\-]+@[a-zA-Z0-9._\-]+\.[a-zA-Z0-9_\-]+)/gi);
   }
 
   public async getRootFilesAndFolders(accessToken: string, fullName: string): Promise<any> {

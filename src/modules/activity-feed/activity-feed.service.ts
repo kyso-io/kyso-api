@@ -51,7 +51,7 @@ export class ActivityFeedService extends AutowiredService {
     for (const table of tables) {
       const activityFeedMongoProvider: ActivityFeedMongoProvider = new ActivityFeedMongoProvider(table);
       await activityFeedMongoProvider.checkMigrations();
-      promises.push((activityFeedMongoProvider.getCollection().find(query.filter).sort(query.sort) as any).toArray());
+      promises.push(activityFeedMongoProvider.getCollection().find(query.filter).sort(query.sort).toArray());
     }
     const activityFeed: ActivityFeed[] = (await Promise.all(promises)).flat();
     return activityFeed;

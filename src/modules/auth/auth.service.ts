@@ -277,10 +277,6 @@ export class AuthService extends AutowiredService {
 
             // If not exists in response, then apply organization roles
             if (alreadyExistsInResponse.length === 0) {
-              // If the team is private, we must ensure that the user belongs explicitly
-              // to the team
-              if (orgTeam.visibility === TeamVisibilityEnum.PRIVATE) {
-              }
               // If not, retrieve the roles
               const teamResourcePermission: ResourcePermissions = new ResourcePermissions(
                 orgTeam.sluglified_name,
@@ -302,7 +298,6 @@ export class AuthService extends AutowiredService {
       }
     }
 
-    // TODO: Global permissions, not related to teams
     const generalRoles = await userRoleService.getRolesByUser(user.id);
 
     if (generalRoles && generalRoles.length > 0) {

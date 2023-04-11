@@ -97,7 +97,9 @@ export class GitlabReposProvider {
   }
 
   public async getRepositories(accessToken: string, page: number, per_page: number, search?: string): Promise<GitlabRepository[]> {
-    const url = `${this.URL}/api/v4/projects?per_page=${per_page}&page=${page}&order_by=name&sort=asc${search ? `&search=${search}` : ''}`;
+    const urlParams = `per_page=${per_page}&page=${page}&order_by=name&sort=asc`;
+    const urlSearch = search ? `&search=${search}` : '';
+    const url = this.URL + '/api/v4/projects?' + urlParams + urlSearch;
     const result: AxiosResponse<GitlabRepository[]> = await axios.get<GitlabRepository[]>(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -107,7 +109,13 @@ export class GitlabReposProvider {
   }
 
   public async getUserRepositories(accessToken: string, userId: number, page: number, per_page: number, search?: string): Promise<GitlabRepository[]> {
-    const url = `${this.URL}/api/v4/users/${userId}/projects?per_page=${per_page}&page=${page}&order_by=name&sort=asc${search && search.length > 0 ? `&search=${search}` : ''}`;
+    let url = this.URL + '/api/v4/users/' + userId + '/projects' + '?';
+    url += 'per_page=' + per_page + '&';
+    url += 'page=' + page + '&';
+    url += 'order_by=name&sort=asc';
+    if (search && search.length > 0) {
+      url += '&search=' + search;
+    }
     const result: AxiosResponse<GitlabRepository[]> = await axios.get<GitlabRepository[]>(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -127,9 +135,16 @@ export class GitlabReposProvider {
   }
 
   public async getRepositoryTree(accessToken: string, repositoryId: number, branch: string, path: string, recursive: boolean): Promise<GitlabFile[]> {
-    const url = `${this.URL}/api/v4/projects/${encodeURIComponent(repositoryId)}/repository/tree?${branch && branch.length > 0 ? `ref=${branch}` : ''}${path ? `&path=${path}` : ''}${
-      recursive ? '&recursive=true' : ''
-    }`;
+    let url = this.URL + '/api/v4/projects/' + encodeURIComponent(repositoryId) + '/repository/tree?';
+    if (branch && branch.length > 0) {
+      url += 'ref=' + branch;
+    }
+    if (path) {
+      url += (branch && branch.length > 0 ? '&' : '') + 'path=' + path;
+    }
+    if (recursive) {
+      url += '&recursive=true';
+    }
     const result: AxiosResponse<GitlabFile[]> = await axios.get<GitlabFile[]>(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -149,7 +164,10 @@ export class GitlabReposProvider {
   }
 
   public async getCommits(accessToken: string, repositoryId: number, branch: string): Promise<GitlabCommit[]> {
-    const url = `${this.URL}/api/v4/projects/${encodeURIComponent(repositoryId)}/repository/commits?${branch && branch.length > 0 ? `ref_name=${branch}` : ''}`;
+    let url = this.URL + '/api/v4/projects/' + encodeURIComponent(repositoryId) + '/repository/commits?';
+    if (branch && branch.length > 0) {
+      url += 'ref_name=' + branch;
+    }
     const result: AxiosResponse<GitlabCommit[]> = await axios.get<GitlabCommit[]>(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -179,7 +197,10 @@ export class GitlabReposProvider {
   }
 
   public async getFileContent(accessToken: string, repositoryId: number, path: string, commit: string): Promise<Buffer> {
-    const url = `${this.URL}/api/v4/projects/${encodeURIComponent(repositoryId)}/repository/files/${path}${commit && commit.length > 0 ? `?ref=${commit}` : ''}`;
+    let url = this.URL + '/api/v4/projects/' + encodeURIComponent(repositoryId) + '/repository/files/' + path;
+    if (commit && commit.length > 0) {
+      url += '?ref=' + commit;
+    }
     const result: AxiosResponse<GitlabFileContent> = await axios.get<GitlabFileContent>(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -206,7 +227,10 @@ export class GitlabReposProvider {
   }
 
   public async downloadRepository(accessToken: string, repositoryId: number | string, commit: string): Promise<Buffer> {
-    const url = `${this.URL}/api/v4/projects/${encodeURIComponent(repositoryId)}/repository/archive.zip${commit && commit.length > 0 ? `?sha=${commit}` : ''}`;
+    let url = this.URL + '/api/v4/projects/' + encodeURIComponent(repositoryId) + '/repository/archive.zip';
+    if (commit && commit.length > 0) {
+      url += '?sha=' + commit;
+    }
     const result: AxiosResponse<Buffer> = await axios.get(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,

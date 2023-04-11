@@ -361,45 +361,43 @@ export class FullTextSearchService extends AutowiredService {
     }
 
     const searchResults: SearchData = await this.searchResults(searchTerms, type, page, perPage, filterPeople, filterTags, filterFiles, orderBy, order, userBelongings);
-    if (!searchResults) {
-      return fullTextSearchDTO;
-    }
-
-    switch (type) {
-      case ElasticSearchIndex.Report:
-        reportsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => {
-          let source: any = { ...hit._source };
-          if (hit?.inner_hits?.max_version?.hits?.hits.length > 0) {
-            source = { ...source, ...hit.inner_hits.max_version.hits.hits[0]._source };
-          }
-          return {
-            ...source,
+    if (searchResults) {
+      switch (type) {
+        case ElasticSearchIndex.Report:
+          reportsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => {
+            let source: any = { ...hit._source };
+            if (hit?.inner_hits?.max_version?.hits?.hits.length > 0) {
+              source = { ...source, ...hit.inner_hits.max_version.hits.hits[0]._source };
+            }
+            return {
+              ...source,
+              score: hit._score,
+              content: hit.highlight && hit.highlight.content ? hit.highlight.content : '',
+            };
+          });
+          break;
+        case ElasticSearchIndex.Discussion:
+          discussionsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
+            ...hit._source,
+            score: hit._score,
+          }));
+          break;
+        case ElasticSearchIndex.Comment:
+          commentsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
+            ...hit._source,
             score: hit._score,
             content: hit.highlight && hit.highlight.content ? hit.highlight.content : '',
-          };
-        });
-        break;
-      case ElasticSearchIndex.Discussion:
-        discussionsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
-          ...hit._source,
-          score: hit._score,
-        }));
-        break;
-      case ElasticSearchIndex.Comment:
-        commentsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
-          ...hit._source,
-          score: hit._score,
-          content: hit.highlight && hit.highlight.content ? hit.highlight.content : '',
-        }));
-        break;
-      case ElasticSearchIndex.User:
-        membersFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
-          ...hit._source,
-          score: hit._score,
-        }));
-        break;
-      default:
-        break;
+          }));
+          break;
+        case ElasticSearchIndex.User:
+          membersFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
+            ...hit._source,
+            score: hit._score,
+          }));
+          break;
+        default:
+          break;
+      }
     }
 
     const metadataReports: any = await this.searchCountersReports(searchTerms, filterPeople, filterTags, filterFiles, userBelongings);

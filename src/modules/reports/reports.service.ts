@@ -1192,7 +1192,7 @@ export class ReportsService extends AutowiredService {
     await this.inlineCommentsService.checkInlineComments(report.id);
 
     // Check if there are some files not hard linked
-    new Promise<void>(async () => {
+    (async () => {
       const readDirectoryRecursively = async (directory: string): Promise<string[]> => {
         let filePaths: string[] = [];
         try {
@@ -1237,7 +1237,7 @@ export class ReportsService extends AutowiredService {
         Logger.error(`Report '${report.id}': Error while reading files from SFTP`, ReportsService.name);
       }
       await client.end();
-    });
+    })();
 
     rmSync(tmpReportDir, { recursive: true, force: true });
 
@@ -1462,7 +1462,7 @@ export class ReportsService extends AutowiredService {
 
       newReports.push(report);
 
-      new Promise<void>(async () => {
+      (async () => {
         Logger.log(`Report '${report.id} ${report.sluglified_name}': Uploading files to Ftp...`, ReportsService.name);
         await this.uploadReportToFtp(report.id, tmpReportDir);
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Imported } });
@@ -1499,7 +1499,7 @@ export class ReportsService extends AutowiredService {
             frontendUrl,
           });
         }
-      });
+      })();
     }
     return newReports;
   }
@@ -1853,7 +1853,7 @@ export class ReportsService extends AutowiredService {
       return this.createMultipleKysoReports(kysoConfigFile, tmpReportDir, zip, user, zip.getEntries()[0].entryName, null, null);
     }
 
-    new Promise<void>(async () => {
+    (async () => {
       Logger.log(`Downloaded ${files.length} files from repository ${repositoryName}' commit '${sha}'`, ReportsService.name);
 
       const userHasPermission: boolean = await this.checkCreateReportPermission(token.id, kysoConfigFile.organization, kysoConfigFile.team);
@@ -1893,7 +1893,7 @@ export class ReportsService extends AutowiredService {
           frontendUrl,
         });
       }
-    });
+    })();
 
     return report;
   }
@@ -2047,7 +2047,7 @@ export class ReportsService extends AutowiredService {
       return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null, null);
     }
 
-    new Promise<void>(async () => {
+    (async () => {
       const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.organization, kysoConfigFile.team);
       if (!userHasPermission) {
         Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
@@ -2084,7 +2084,7 @@ export class ReportsService extends AutowiredService {
           frontendUrl,
         });
       }
-    });
+    })();
 
     return report;
   }
@@ -2201,7 +2201,7 @@ export class ReportsService extends AutowiredService {
       return this.createMultipleKysoReports(kysoConfigFile, extractedDir, zip, user, zip.getEntries()[0].entryName, null, null);
     }
 
-    new Promise<void>(async () => {
+    (async () => {
       const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.organization, kysoConfigFile.team);
       if (!userHasPermission) {
         Logger.error(`User ${user.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
@@ -2237,7 +2237,7 @@ export class ReportsService extends AutowiredService {
           frontendUrl,
         });
       }
-    });
+    })();
 
     return report;
   }
