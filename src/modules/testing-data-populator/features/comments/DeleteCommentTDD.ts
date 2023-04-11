@@ -1,10 +1,9 @@
-import { Logger } from '@nestjs/common';
-import { CommentsService } from 'src/modules/comments/comments.service';
-import { Comment, Team, User } from '@kyso-io/kyso-model';
-import { CommentTDDHelper } from './CommentTDDHelper';
-import { ReportsTDDHelper } from '../reports/ReportTDDHelper';
-import { ReportsService } from 'src/modules/reports/reports.service';
 import { faker } from '@faker-js/faker';
+import { Comment, Team, User } from '@kyso-io/kyso-model';
+import { CommentsService } from 'src/modules/comments/comments.service';
+import { ReportsService } from 'src/modules/reports/reports.service';
+import { ReportsTDDHelper } from '../reports/ReportTDDHelper';
+import { CommentTDDHelper } from './CommentTDDHelper';
 export class DeleteCommentTDD {
   public static async createComments(
     commentsService: CommentsService,

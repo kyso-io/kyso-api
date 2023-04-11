@@ -1,8 +1,7 @@
-import { AddUserAccountDTO, CreateUserRequestDTO, Login, LoginProviderEnum, SignUpDto, Token, User, UserAccount } from '@kyso-io/kyso-model';
+import { AddUserAccountDTO, Login, LoginProviderEnum, SignUpDto, Token, User, UserAccount } from '@kyso-io/kyso-model';
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ObjectId } from 'mongodb';
-import { v4 as uuidv4 } from 'uuid';
 import { Autowired } from '../../../decorators/autowired';
 import { BitbucketReposService } from '../../bitbucket-repos/bitbucket-repos.service';
 import { BitbucketEmail } from '../../bitbucket-repos/classes/bitbucket-email';
@@ -41,24 +40,6 @@ export class BitbucketLoginProvider extends BaseLoginProvider {
       if (!user) {
         // User does not exists, create it
         const signup = new SignUpDto(email ? email : bitbucketUser.username, bitbucketUser.username, bitbucketUser.display_name, AuthService.generateRandomPassword());
-
-        /*const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
-          email ? email : bitbucketUser.username,
-          bitbucketUser.username,
-          bitbucketUser.display_name,
-          bitbucketUser.display_name,
-          LoginProviderEnum.BITBUCKET,
-          '',
-          '',
-          '',
-          'free',
-          bitbucketUser.links?.avatar?.href,
-          null,
-          false,
-          [],
-          uuidv4(),
-        );*/
-
         user = await this.usersService.createUser(signup, LoginProviderEnum.BITBUCKET);
         user = await this.usersService.updateUser(
           { id: user.id },

@@ -1,8 +1,7 @@
-import { AddUserAccountDTO, CreateUserRequestDTO, Login, LoginProviderEnum, SignUpDto, Token, User, UserAccount } from '@kyso-io/kyso-model';
+import { AddUserAccountDTO, Login, LoginProviderEnum, SignUpDto, Token, User, UserAccount } from '@kyso-io/kyso-model';
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ObjectId } from 'mongodb';
-import { v4 as uuidv4 } from 'uuid';
 import { Autowired } from '../../../decorators/autowired';
 import slugify from '../../../helpers/slugify';
 import { GitlabReposService } from '../../gitlab-repos/gitlab-repos.service';
@@ -33,24 +32,6 @@ export class GitlabLoginProvider extends BaseLoginProvider {
       if (!user) {
         // User does not exists, create it
         const signup = new SignUpDto(gitlabUser.email, slugify(gitlabUser.username), gitlabUser.name, AuthService.generateRandomPassword());
-
-        /*const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
-          gitlabUser.email,
-          slugify(gitlabUser.username),
-          gitlabUser.name,
-          gitlabUser.name,
-          LoginProviderEnum.GITLAB,
-          '',
-          '',
-          '',
-          'free',
-          gitlabUser.avatar_url,
-          null,
-          false,
-          [],
-          uuidv4(),
-        );
-        user = await this.usersService.createUser(createUserRequestDto);*/
         user = await this.usersService.createUser(signup, LoginProviderEnum.GITLAB);
         user = await this.usersService.updateUser(
           { id: user.id },

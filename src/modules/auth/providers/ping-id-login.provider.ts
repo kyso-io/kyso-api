@@ -26,26 +26,6 @@ export class PingIdLoginProvider extends BaseLoginProvider {
 
         // User does not exists, create it
         const signup = new SignUpDto(login.email, slugify(login.email), name, login.password);
-
-        /*
-        const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
-          login.email,
-          slugify(login.email),
-          name,
-          name,
-          LoginProviderEnum.PING_ID_SAML,
-          '',
-          '',
-          '',
-          'free',
-          portrait,
-          null,
-          true, // If comes from PingID is an enterprise user, that means we can assume is verified
-          [],
-          login.password,
-        );
-        */
-
         user = await this.usersService.createUser(signup, LoginProviderEnum.PING_ID_SAML);
         user = await this.usersService.updateUser(
           { id: user.id },

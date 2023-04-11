@@ -3245,7 +3245,7 @@ export class ReportsService extends AutowiredService {
         href: `#${content
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^(-+)|(-+)$/g, '')}`,
+          .replace(/^-+|-+$/g, '')}`,
         title: content,
       };
     });

@@ -1,5 +1,5 @@
 import { KysoSettingsEnum, UpdateKysoSettingDto } from '@kyso-io/kyso-model';
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as AdmZip from 'adm-zip';
 import { Response } from 'express';
 import { existsSync, mkdirSync, rmSync } from 'fs';

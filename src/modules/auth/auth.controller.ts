@@ -86,7 +86,6 @@ export class AuthController extends GenericController<string> {
 
   constructor(private readonly authService: AuthService, private readonly baseLoginProvider: BaseLoginProvider) {
     super();
-    // setTimeout(() => this.hola(), 1000);
   }
 
   @Get('/version')
@@ -628,7 +627,6 @@ export class AuthController extends GenericController<string> {
       if (!cookies || !cookies['kyso-jwt-token'] || cookies['kyso-jwt-token'].length === 0) {
         throw new ForbiddenException('No cookies set. Forbidden');
       }
-      // Logger.log(`Received token: ${cookies['kyso-jwt-token']}`);
       const token: Token = this.authService.evaluateAndDecodeToken(cookies['kyso-jwt-token']);
       if (!token) {
         throw new ForbiddenException('No token in cookies. Forbidden');

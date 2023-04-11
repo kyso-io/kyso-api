@@ -39,8 +39,6 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
     orgAuthOptions.allow_login_with_kyso = true;
     orgAuthOptions.allow_login_with_google = true;
     orgAuthOptions.otherProviders = [];
-    // DEPRECATED
-    // orgOptions.auth = orgAuthOptions;
 
     for (const org of allOrganizations) {
       org.options = orgOptions;
@@ -142,8 +140,6 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
         orgAuthOptions.allow_login_with_kyso = true;
         orgAuthOptions.allow_login_with_google = true;
         orgAuthOptions.otherProviders = [];
-        // DEPRECATED
-        // orgOptions.auth = orgAuthOptions;
         orgOptions.notifications = orgNotifications;
         data = {
           options: orgOptions,
@@ -184,8 +180,6 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
         orgAuthOptions.allow_login_with_bitbucket = true;
         orgAuthOptions.allow_login_with_gitlab = true;
         orgAuthOptions.otherProviders = [];
-        // DEPRECATED
-        // orgOptions.auth = orgAuthOptions;
         const orgNotifications: OrganizationNotifications = new OrganizationNotifications(false, [], null, null, null);
         orgNotifications.centralized = false;
         orgNotifications.emails = [];
@@ -282,8 +276,6 @@ export class OrganizationsMongoProvider extends MongoProvider<Organization> {
         orgAuthOptions.allow_login_with_kyso = true;
         orgAuthOptions.allow_login_with_google = true;
         orgAuthOptions.otherProviders = [];
-        // DEPRECATED
-        // orgOptions.auth = orgAuthOptions;
         orgOptions.notifications = orgNotifications;
         data = {
           options: orgOptions,

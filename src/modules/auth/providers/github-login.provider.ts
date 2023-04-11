@@ -1,9 +1,8 @@
-import { AddUserAccountDTO, CreateUserRequestDTO, GithubEmail, KysoSettingsEnum, Login, LoginProviderEnum, SignUpDto, Token, User, UserAccount } from '@kyso-io/kyso-model';
+import { AddUserAccountDTO, GithubEmail, KysoSettingsEnum, Login, LoginProviderEnum, SignUpDto, Token, User, UserAccount } from '@kyso-io/kyso-model';
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import axios from 'axios';
 import { ObjectId } from 'mongodb';
-import { v4 as uuidv4 } from 'uuid';
 import { Autowired } from '../../../decorators/autowired';
 import { UnauthorizedError } from '../../../helpers/errorHandling';
 import { GithubReposService } from '../../github-repos/github-repos.service';
@@ -65,25 +64,6 @@ export class GithubLoginProvider extends BaseLoginProvider {
       if (!user) {
         // User does not exists, create it
         const signup = new SignUpDto(githubEmail.email, githubUser.login, githubUser.name, AuthService.generateRandomPassword());
-
-        /*
-        const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
-          githubEmail.email,
-          githubUser.login,
-          githubUser.name,
-          githubUser.login,
-          LoginProviderEnum.GITHUB,
-          '',
-          '',
-          '',
-          'free',
-          githubUser.avatar_url,
-          null,
-          false,
-          [],
-          uuidv4(),
-        );
-        user = await this.usersService.createUser(createUserRequestDto);*/
         user = await this.usersService.createUser(signup, LoginProviderEnum.GITHUB);
         user = await this.usersService.updateUser(
           { id: user.id },

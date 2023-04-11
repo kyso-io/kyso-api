@@ -1,10 +1,9 @@
-import { CreateUserRequestDTO, KysoSettingsEnum, Login, LoginProviderEnum, SignUpDto, UserAccount } from '@kyso-io/kyso-model';
+import { KysoSettingsEnum, Login, LoginProviderEnum, SignUpDto, UserAccount } from '@kyso-io/kyso-model';
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import axios from 'axios';
 import { google } from 'googleapis';
 import { ObjectId } from 'mongodb';
-import { v4 as uuidv4 } from 'uuid';
 import slugify from '../../../helpers/slugify';
 import { AuthService } from '../auth.service';
 import { BaseLoginProvider } from './base-login.provider';
@@ -43,26 +42,6 @@ export class GoogleLoginProvider extends BaseLoginProvider {
         Logger.log(`User ${googleUser.email} is a new user`, GoogleLoginProvider.name);
 
         const signup: SignUpDto = new SignUpDto(googleUser.email, slugify(googleUser.email), name, AuthService.generateRandomPassword());
-
-        /*const createUserRequestDto: CreateUserRequestDTO = new CreateUserRequestDTO(
-          googleUser.email,
-          slugify(googleUser.email),
-          name,
-          googleUser.name,
-          LoginProviderEnum.GOOGLE,
-          '',
-          '',
-          '',
-          'free',
-          googleUser.picture,
-          null,
-          false,
-          [],
-          uuidv4(),
-        );
-
-        user = await this.usersService.createUser(createUserRequestDto);*/
-
         user = await this.usersService.createUser(signup, LoginProviderEnum.GOOGLE);
         user = await this.usersService.updateUser(
           { id: user.id },

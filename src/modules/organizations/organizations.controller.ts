@@ -315,7 +315,13 @@ export class OrganizationsController extends GenericController<Organization> {
     data.sort((a, b) => {
       const display_name_a: string = a.display_name.toLowerCase();
       const display_name_b: string = b.display_name.toLowerCase();
-      return display_name_b > display_name_a ? -1 : display_name_b < display_name_a ? 1 : 0;
+      if (display_name_b > display_name_a) {
+        return -1;
+      } else if (display_name_b < display_name_a) {
+        return 1;
+      } else {
+        return 0;
+      }
     });
     const parser = new Parser();
     const csv: string = parser.parse(data);

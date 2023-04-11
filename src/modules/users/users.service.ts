@@ -31,18 +31,7 @@ import {
   VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model';
 import { OnboardingProgress } from '@kyso-io/kyso-model/dist/models/onboarding-progress.model';
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-  NotFoundException,
-  PreconditionFailedException,
-  Provider,
-} from '@nestjs/common';
+import { ConflictException, ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import axios from 'axios';
 import * as moment from 'moment';
