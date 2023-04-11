@@ -105,15 +105,11 @@ export class TagsService extends AutowiredService {
     if (!tag) {
       throw new NotFoundException('Tag not found');
     }
-    switch (entityType) {
-      case EntityEnum.REPORT:
-        const report: Report = await this.reportsService.getReportById(entityId);
-        if (!report) {
-          throw new NotFoundException('Report not found');
-        }
-        break;
-      default:
-        break;
+    if (entityType === EntityEnum.REPORT) {
+      const report: Report = await this.reportsService.getReportById(entityId);
+      if (!report) {
+        throw new NotFoundException('Report not found');
+      }
     }
     return this.tagsAssignMongoProvider.create({ tag_id: tagId, entity_id: entityId, type: entityType });
   }

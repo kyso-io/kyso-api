@@ -1,8 +1,7 @@
-import { KysoConfigFile } from '@kyso-io/kyso-model';
+import { KysoConfigFile, KysoSettingsEnum } from '@kyso-io/kyso-model';
 import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosResponse } from 'axios';
 import { Autowired } from '../../../decorators/autowired';
-import { KysoSettingsEnum } from '@kyso-io/kyso-model';
 import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service';
 import { GitlabFileContent } from '../interfaces/giltab-file-content';
 import { GitlabAccessToken } from '../interfaces/gitlab-access-token';
@@ -98,7 +97,7 @@ export class GitlabReposProvider {
   }
 
   public async getRepositories(accessToken: string, page: number, per_page: number, search?: string): Promise<GitlabRepository[]> {
-    const url = `${this.URL}/api/v4/projects?per_page=${per_page}&page=${page}&order_by=name&sort=asc${search && search.length > 0 ? `&search=${search}` : ''}`;
+    const url = `${this.URL}/api/v4/projects?per_page=${per_page}&page=${page}&order_by=name&sort=asc${search ? `&search=${search}` : ''}`;
     const result: AxiosResponse<GitlabRepository[]> = await axios.get<GitlabRepository[]>(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -118,8 +117,6 @@ export class GitlabReposProvider {
   }
 
   public async getRepository(accessToken: string, repositoryId: number | string): Promise<GitlabRepository> {
-    // repository.id
-    // repository.path_with_namespace
     const url = `${this.URL}/api/v4/projects/${encodeURIComponent(repositoryId)}`;
     const result: AxiosResponse<GitlabRepository> = await axios.get<GitlabRepository>(url, {
       headers: {

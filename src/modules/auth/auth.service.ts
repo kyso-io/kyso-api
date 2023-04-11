@@ -18,7 +18,7 @@ import {
   User,
   UserAccount,
 } from '@kyso-io/kyso-model';
-import { ForbiddenException, Injectable, Logger, NotFoundException, Provider } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Provider } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
@@ -268,8 +268,7 @@ export class AuthService extends AutowiredService {
           response.organizations.push(orgResourcePermissions);
 
           // Get all the teams that belong to that organizations (an user can belong to multiple organizations)
-          // const organizationTeams: Team[] = await teamService.getTeams({ filter: { organization_id: organization.id } })
-          const teamsVisibleByUser: Team[] = await (await teamService.getTeamsVisibleForUser(user.id)).filter((x) => x.organization_id === organization.id);
+          const teamsVisibleByUser: Team[] = (await teamService.getTeamsVisibleForUser(user.id)).filter((x: Team) => x.organization_id === organization.id);
 
           // For-each team
           for (const orgTeam of teamsVisibleByUser) {
@@ -388,13 +387,9 @@ export class AuthService extends AutowiredService {
       let allUserPermissions = [];
 
       if (userPermissionsInThatTeam && userPermissionsInThatTeam?.permissions && userPermissionsInThatTeam.permissions.length > 0) {
-        /** makes no sense, if has organization_inherited, don't have permissions property */
-        // if (!userPermissionsInThatTeam.hasOwnProperty('organization_inherited') || userPermissionsInThatTeam.organization_inherited === false) {
         allUserPermissions = [...userPermissionsInThatTeam.permissions];
-        //}
       } else {
         if (userPermissionsInThatTeam && userPermissionsInThatTeam.organization_inherited && userPermissionsInThatTeam?.permissions) {
-          // TODO: get organization role of that user and retrieve their permissions
           allUserPermissions = [...userPermissionsInThatOrganization.permissions];
         }
       }
@@ -423,7 +418,6 @@ export class AuthService extends AutowiredService {
 
     switch (login.provider) {
       case LoginProviderEnum.KYSO:
-      default:
         const isKysoAuthEnabled = (await this.kysoSettingsService.getValue(KysoSettingsEnum.AUTH_ENABLE_GLOBALLY_KYSO)) === 'true' ? true : false;
 
         if (isKysoAuthEnabled) {
@@ -476,6 +470,8 @@ export class AuthService extends AutowiredService {
 
       case LoginProviderEnum.OKTA_SAML:
         return this.oktaLoginProvider.login(login);
+      default:
+        throw new BadRequestException(null, 'Invalid login provider');
     }
   }
 
@@ -514,13 +510,7 @@ export class AuthService extends AutowiredService {
   evaluateAndDecodeToken(token: string): Token {
     try {
       const tokenStatus: TokenStatusEnum = this.verifyToken(token);
-
-      switch (tokenStatus) {
-        case TokenStatusEnum.VALID:
-          return this.decodeToken(token);
-        default:
-          return undefined;
-      }
+      return tokenStatus === TokenStatusEnum.VALID ? this.decodeToken(token) : undefined;
     } catch (ex) {
       // TOKEN IS NOT VALID
       return undefined;

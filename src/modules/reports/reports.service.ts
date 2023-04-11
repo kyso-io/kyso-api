@@ -1381,7 +1381,6 @@ export class ReportsService extends AutowiredService {
     for (const [reportFolderName, { kysoConfigFile, organization, team }] of kysoConfigFilesMap.entries()) {
       const name: string = slugify(kysoConfigFile.title);
       const reports: Report[] = await this.provider.read({ filter: { sluglified_name: name, team_id: team.id } });
-      const reportFiles: File[] = [];
       let version = 1;
       let report: Report = null;
       const tmpReportDir: string = join(baseTmpDir, reportFolderName);
@@ -1408,7 +1407,6 @@ export class ReportsService extends AutowiredService {
           const toc: TableOfContentEntryDto[] = this.getTableOfContents(localFilePath);
           let reportFile = new File(report.id, originalName, path_scs, size, sha, version, message, git_metadata, toc, []);
           reportFile = await this.filesMongoProvider.create(reportFile);
-          reportFiles.push(reportFile);
         }
         report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { main_file: kysoConfigFile?.main } });
       } else {
@@ -1455,7 +1453,6 @@ export class ReportsService extends AutowiredService {
           const toc: TableOfContentEntryDto[] = this.getTableOfContents(localFilePath);
           let file: File = new File(report.id, originalName, path_scs, size, sha, 1, message, git_metadata, toc, []);
           file = await this.filesMongoProvider.create(file);
-          reportFiles.push(file);
           if (kysoConfigFile?.preview && originalName === kysoConfigFile.preview) {
             report = await this.updateReportPreviewPicture(report, localFilePath);
           }

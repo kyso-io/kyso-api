@@ -75,15 +75,7 @@ export class GitlabReposController extends GenericController<Repository> {
       userAccount = await this.usersService.updateGitlabUserAccount(user.id, userAccount, gitlabAccessToken);
     }
 
-    // const repos: GithubRepository[] = await this.gitlabReposService.getRepositories(userAccount.accessToken, page, perPage, filter)
     const userRepos: GithubRepository[] = await this.gitlabReposService.getUserRepositories(userAccount.accessToken, parseInt(userAccount.accountId, 10), page, perPage, filter);
-    // const result: GithubRepository[] = [...repos]
-    // userRepos.forEach((repo: GithubRepository) => {
-    //     const index: number = result.findIndex((r: GithubRepository) => r.id === repo.id)
-    //     if (index === -1) {
-    //         result.push(repo)
-    //     }
-    // })
     return new NormalizedResponseDTO(userRepos);
   }
 

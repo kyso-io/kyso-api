@@ -1,6 +1,5 @@
-import { KysoUserAccessToken, User } from '@kyso-io/kyso-model';
+import { KysoUserAccessToken } from '@kyso-io/kyso-model';
 import { Injectable, Logger } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
 import { db } from '../../../main';
 import { MongoProvider } from '../../../providers/mongo.provider';
 

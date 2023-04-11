@@ -206,7 +206,6 @@ export class TeamsService extends AutowiredService {
   }
 
   async searchMembers(query: any): Promise<TeamMemberJoin[]> {
-    // return this.teamMemberProvider.read(query)
     const userTeamMembership: TeamMemberJoin[] = await this.teamMemberProvider.read(query);
     const map: Map<string, TeamMemberJoin> = new Map<string, TeamMemberJoin>();
     for (const userTeam of userTeamMembership) {

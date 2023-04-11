@@ -119,7 +119,7 @@ export class GithubReposProvider {
     } catch (err) {
       if (err.status === 403) {
         try {
-          const newPath = filePath.substr(0, filePath.lastIndexOf('/'));
+          const newPath = filePath.substring(0, filePath.lastIndexOf('/'));
           res = await octokit.repos.getContent({
             owner,
             repo,

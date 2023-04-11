@@ -5,7 +5,7 @@ import { ObjectId } from 'mongodb';
 import { KYSO_MODEL_VERSION_COLLECTION_NAME } from './constants';
 
 const FK_NAME_REGEX = /^_p_(_?[a-zA-Z]+)$/;
-const FK_VALUE_REGEX = RegExp('^_?[a-zA-Z]+\\$(\\w+)$');
+const FK_VALUE_REGEX = /^_?[a-zA-Z]+\$(\w+)$/;
 const QUERY_TO_PIPELINE = {
   projection: '$project',
   filter: '$match',
@@ -246,7 +246,7 @@ export abstract class MongoProvider<T> {
     return count;
   }
 
-  runDynamicMethod(methodName: string) {
+  async runDynamicMethod(methodName: string): Promise<void> {
     this[methodName]();
   }
 

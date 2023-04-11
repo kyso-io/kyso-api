@@ -1,11 +1,10 @@
-import { GithubRepository } from '@kyso-io/kyso-model';
+import { GithubRepository, KysoSettingsEnum } from '@kyso-io/kyso-model';
 import { Injectable } from '@nestjs/common';
 import { Autowired } from '../../../decorators/autowired';
-import { KysoSettingsEnum } from '@kyso-io/kyso-model';
 import { KysoSettingsService } from '../../kyso-settings/kyso-settings.service';
-import { CreateBitbucketWebhookDto } from '../classes/create-bitbucket-webhook.dto';
 import { BitbucketEmail } from '../classes/bitbucket-email';
 import { BitbucketPaginatedResponse } from '../classes/bitbucket-paginated-response';
+import { CreateBitbucketWebhookDto } from '../classes/create-bitbucket-webhook.dto';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const axios = require('axios').default;
 

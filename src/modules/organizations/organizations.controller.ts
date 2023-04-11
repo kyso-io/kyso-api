@@ -118,17 +118,6 @@ export class OrganizationsController extends GenericController<Organization> {
     if (!query.filter) {
       query.filter = {};
     }
-    /*
-        if (!token.isGlobalAdmin()) {
-            const userInOrganizations: OrganizationMemberJoin[] = await this.organizationService.searchMembersJoin({
-                filter: {
-                    member_id: token.id,
-                },
-            })
-            query.filter._id = {
-                $in: userInOrganizations.map((o: OrganizationMemberJoin) => new ObjectId(o.organization_id)),
-            }
-        }*/
     const organizations: Organization[] = await this.organizationService.getOrganizations(query);
     return new NormalizedResponseDTO(organizations);
   }

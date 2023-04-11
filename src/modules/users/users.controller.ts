@@ -151,10 +151,7 @@ export class UsersController extends GenericController<User> {
     @Body() accessTokenConfiguration: CreateKysoAccessTokenDto,
   ): Promise<NormalizedResponseDTO<KysoUserAccessToken>> {
     if (jwtToken && this.authService.evaluateAndDecodeToken(jwtToken.replace('Bearer ', ''))) {
-      // TODO: Now the token has the same permissions that the user, but in the future we can create
-      // tokens with a specific scope
       const scope: KysoPermissions[] = [];
-
       const response: KysoUserAccessToken = await this.usersService.createKysoAccessToken(token.id, accessTokenConfiguration.name, scope, accessTokenConfiguration.expiration_date);
       return new NormalizedResponseDTO(response);
     } else {

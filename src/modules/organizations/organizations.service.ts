@@ -270,7 +270,6 @@ export class OrganizationsService extends AutowiredService {
   }
 
   public async searchMembersJoin(query: any): Promise<OrganizationMemberJoin[]> {
-    // return this.organizationMemberProvider.read(query)
     const userOrganizationMembership: OrganizationMemberJoin[] = await this.organizationMemberProvider.read(query);
     const map: Map<string, OrganizationMemberJoin> = new Map<string, OrganizationMemberJoin>();
     for (const userOrganizationMember of userOrganizationMembership) {
@@ -800,26 +799,6 @@ export class OrganizationsService extends AutowiredService {
       map.get(organizationId).lastChange = moment.max(moment(report.updated_at), moment(map.get(organizationId).lastChange)).toDate();
     });
     const discussions: Discussion[] = discussionsQuery.filter ? await this.discussionsService.getDiscussions(discussionsQuery) : [];
-    const mapDiscussionOrg: Map<string, string> = new Map<string, string>();
-    discussions.forEach((discussion: Discussion) => {
-      const organizationId: string | undefined = teamOrgMap.get(discussion.team_id);
-      if (!organizationId) {
-        return;
-      }
-      mapDiscussionOrg.set(discussion.id, organizationId);
-      if (!map.has(organizationId)) {
-        map.set(organizationId, {
-          members: 0,
-          reports: 0,
-          discussions: 0,
-          comments: 0,
-          lastChange: moment('1970-01-10').toDate(),
-          avatar_url: null,
-        });
-      }
-      map.get(organizationId).discussions++;
-      map.get(organizationId).lastChange = moment.max(moment(discussion.updated_at), moment(map.get(organizationId).lastChange)).toDate();
-    });
     const commentsQuery: any = {
       filter: {
         $or: [],

@@ -30,9 +30,6 @@ export class CommentsController extends GenericController<Comment> {
     super();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  assignReferences(comment: Comment) {}
-
   @Get('/:commentId')
   @ApiOperation({
     summary: `Get a comment`,
