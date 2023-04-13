@@ -162,7 +162,7 @@ export class InlineCommentsService extends AutowiredService {
         isTeamAdmin = teamResourcePermissions.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name);
       }
 
-      if (!isOrgAdmin && !isTeamAdmin && !token.isGlobalAdmin()) {
+      if (!isOrgAdmin && !isTeamAdmin && !token.isGlobalAdmin() && !report.author_ids.includes(token.id)) {
         throw new ForbiddenException(`User with id ${token.id} is not allowed to update inline comment ${id}`);
       }
     }
