@@ -917,6 +917,9 @@ export class ReportsService extends AutowiredService {
         if (entry.isDirectory) {
           continue;
         }
+        if ((originalName === 'kyso.json' || originalName === 'kyso.yml' || originalName === 'kyso.yaml') && createKysoReportDto.ignoreKysoConfigFile) {
+          continue;
+        }
         const sha: string = sha256File(localFilePath);
         const size: number = statSync(localFilePath).size;
         const path_scs = `/${organization.sluglified_name}/${team.sluglified_name}/reports/${report.sluglified_name}/${version}/${entry.entryName}`;
@@ -982,6 +985,9 @@ export class ReportsService extends AutowiredService {
         const originalName: string = entry.entryName;
         const localFilePath: string = join(tmpReportDir, entry.entryName);
         if (entry.isDirectory) {
+          continue;
+        }
+        if ((originalName === 'kyso.json' || originalName === 'kyso.yml' || originalName === 'kyso.yaml') && createKysoReportDto.ignoreKysoConfigFile) {
           continue;
         }
         const sha: string = sha256File(localFilePath);

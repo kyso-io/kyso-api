@@ -1,11 +1,16 @@
 import { ApiMethods, BaseModel, GitMetadata, StaticImplements, TableOfContentEntryDto } from '@kyso-io/kyso-model';
 import { Transform } from 'class-transformer';
-import { IsArray, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsOptional, IsString } from 'class-validator';
 import { IsFile, MemoryStoredFile } from 'nestjs-form-data';
 
 export class CreateKysoReportDto extends BaseModel implements StaticImplements<ApiMethods<CreateKysoReportDto>, typeof CreateKysoReportDto> {
   @IsFile()
   public file: MemoryStoredFile;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true')
+  @IsBoolean()
+  public ignoreKysoConfigFile: boolean;
 
   @IsOptional()
   @IsString()
@@ -24,11 +29,12 @@ export class CreateKysoReportDto extends BaseModel implements StaticImplements<A
   @IsArray()
   public toc: TableOfContentEntryDto[];
 
-  constructor(file: MemoryStoredFile, message: string, git_metadata: GitMetadata, toc: TableOfContentEntryDto[] = []) {
+  constructor(file: MemoryStoredFile, message: string, git_metadata: GitMetadata, ignoreKysoConfigFile: boolean, toc: TableOfContentEntryDto[] = []) {
     super();
     this.file = file;
     this.message = message;
     this.git_metadata = git_metadata;
+    this.ignoreKysoConfigFile = ignoreKysoConfigFile;
     this.toc = toc;
   }
 
@@ -37,7 +43,7 @@ export class CreateKysoReportDto extends BaseModel implements StaticImplements<A
   }
 
   static createEmpty(): CreateKysoReportDto {
-    return new CreateKysoReportDto(null, '', null, []);
+    return new CreateKysoReportDto(null, '', null, false, []);
   }
 
   static examples(): { [key: string]: { value: CreateKysoReportDto } } {
