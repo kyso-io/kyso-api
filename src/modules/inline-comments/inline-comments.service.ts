@@ -71,8 +71,15 @@ export class InlineCommentsService extends AutowiredService {
     return inlineComments.length === 1 ? inlineComments[0] : null;
   }
 
-  public async getGivenReportId(report_id: string): Promise<InlineComment[]> {
-    return this.provider.read({ filter: { report_id, parent_comment_id: null }, sort: { created_at: 1 } });
+  public async getGivenReportId(report_id: string, file_id: string): Promise<InlineComment[]> {
+    const filter = {
+      report_id,
+      parent_comment_id: null,
+    };
+    if (file_id) {
+      filter['file_id'] = file_id;
+    }
+    return this.provider.read({ filter, sort: { created_at: 1 } });
   }
 
   public async createInlineComment(userId: string, createInlineCommentDto: CreateInlineCommentDto): Promise<InlineComment> {
@@ -100,6 +107,7 @@ export class InlineCommentsService extends AutowiredService {
 
     const inlineComment: InlineComment = new InlineComment(
       report.id,
+      createInlineCommentDto.file_id,
       createInlineCommentDto.cell_id,
       userId,
       createInlineCommentDto.text,
@@ -252,6 +260,7 @@ export class InlineCommentsService extends AutowiredService {
       inlineComment.created_at,
       inlineComment.updated_at,
       inlineComment.report_id,
+      inlineComment.file_id,
       inlineComment.cell_id,
       inlineComment.user_id,
       inlineComment.text,
@@ -301,6 +310,7 @@ export class InlineCommentsService extends AutowiredService {
       for (const inline_comment_previous_version of inline_comments_previous_version) {
         let inline_comment_current_version: InlineComment = new InlineComment(
           report_id,
+          inline_comment_previous_version.file_id,
           file_previous_version.id === inline_comment_previous_version.cell_id ? file_current_version.id : inline_comment_previous_version.cell_id,
           inline_comment_previous_version.user_id,
           inline_comment_previous_version.text,
@@ -324,6 +334,7 @@ export class InlineCommentsService extends AutowiredService {
         for (const inline_comment_reply_previous_version of inline_comments_replies_previous_version) {
           let inline_comment_reply_current_version: InlineComment = new InlineComment(
             report_id,
+            inline_comment_reply_previous_version.file_id,
             file_previous_version.id === inline_comment_reply_previous_version.cell_id ? file_current_version.id : inline_comment_reply_previous_version.cell_id,
             inline_comment_reply_previous_version.user_id,
             inline_comment_reply_previous_version.text,

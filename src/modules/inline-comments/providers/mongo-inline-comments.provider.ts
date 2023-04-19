@@ -10,7 +10,7 @@ export class MongoInlineCommentsProvider extends MongoProvider<InlineComment> {
   @Autowired({ typeName: 'ReportsService' })
   private reportsService: ReportsService;
 
-  version = 3;
+  version = 4;
 
   constructor() {
     super('InlineComment', db);
@@ -84,5 +84,9 @@ export class MongoInlineCommentsProvider extends MongoProvider<InlineComment> {
         },
       );
     }
+  }
+
+  async migrate_from_3_to_4() {
+    await this.getCollection().updateMany({}, { $set: { file_id: null } });
   }
 }

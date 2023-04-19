@@ -13,8 +13,8 @@ import {
   Token,
   UpdateInlineCommentDto,
 } from '@kyso-io/kyso-model';
-import { Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { Public } from '../../decorators/is-public';
@@ -63,6 +63,18 @@ export class InlineCommentController extends GenericController<InlineComment> {
     summary: 'Get all inline comments for a report',
     description: 'Get all inline comments for a report',
   })
+  @ApiParam({
+    name: 'reportId',
+    required: true,
+    description: 'Id of the report to fetch inline comments',
+    schema: { type: 'string' },
+  })
+  @ApiQuery({
+    name: 'file_id',
+    required: false,
+    description: 'Id of the file to fetch inline comments',
+    schema: { type: 'string' },
+  })
   @ApiNormalizedResponse({
     status: 200,
     description: `Report matching id`,
@@ -75,7 +87,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
     schema: { type: 'string' },
   })
   @Public()
-  async getAll(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<InlineCommentDto>> {
+  async getAll(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Query('file_id') file_id: string): Promise<NormalizedResponseDTO<InlineCommentDto>> {
     const report: Report = await this.reportsService.getReportById(reportId);
     if (!report) {
       throw new NotFoundException('Report not found');
@@ -94,7 +106,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
         throw new ForbiddenException('You are not allowed to see comments of this report');
       }
     }
-    const inlineComments: InlineComment[] = await this.inlineCommentsService.getGivenReportId(reportId);
+    const inlineComments: InlineComment[] = await this.inlineCommentsService.getGivenReportId(reportId, file_id);
     const relations: Relations = await this.relationsService.getRelations(inlineComments, 'InlineComment');
     const inlineCommentsDto: InlineCommentDto[] = await Promise.all(
       inlineComments.map((inlineComment: InlineComment) => this.inlineCommentsService.inlineCommentModelToInlineCommentDto(inlineComment)),
