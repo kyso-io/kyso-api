@@ -13,7 +13,7 @@ import {
   Token,
   UpdateInlineCommentDto,
 } from '@kyso-io/kyso-model';
-import { Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
@@ -58,13 +58,13 @@ export class InlineCommentController extends GenericController<InlineComment> {
     super();
   }
 
-  @Get(':reportId')
+  @Get()
   @ApiOperation({
     summary: 'Get all inline comments for a report',
     description: 'Get all inline comments for a report',
   })
-  @ApiParam({
-    name: 'reportId',
+  @ApiQuery({
+    name: 'report_id',
     required: true,
     description: 'Id of the report to fetch inline comments',
     schema: { type: 'string' },
@@ -77,18 +77,15 @@ export class InlineCommentController extends GenericController<InlineComment> {
   })
   @ApiNormalizedResponse({
     status: 200,
-    description: `Report matching id`,
+    description: `Report inline comments`,
     type: InlineCommentDto,
   })
-  @ApiParam({
-    name: 'reportId',
-    required: true,
-    description: 'Id of the report to fetch inline comments',
-    schema: { type: 'string' },
-  })
   @Public()
-  async getAll(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Query('file_id') file_id: string): Promise<NormalizedResponseDTO<InlineCommentDto>> {
-    const report: Report = await this.reportsService.getReportById(reportId);
+  async getInlineComments(@CurrentToken() token: Token, @Query('reportId') report_id: string, @Query('file_id') file_id: string): Promise<NormalizedResponseDTO<InlineCommentDto[]>> {
+    if (!report_id) {
+      throw new BadRequestException('reportId is required');
+    }
+    const report: Report = await this.reportsService.getReportById(report_id);
     if (!report) {
       throw new NotFoundException('Report not found');
     }
@@ -106,12 +103,57 @@ export class InlineCommentController extends GenericController<InlineComment> {
         throw new ForbiddenException('You are not allowed to see comments of this report');
       }
     }
-    const inlineComments: InlineComment[] = await this.inlineCommentsService.getGivenReportId(reportId, file_id);
+    const inlineComments: InlineComment[] = await this.inlineCommentsService.getGivenReportId(report_id, file_id);
     const relations: Relations = await this.relationsService.getRelations(inlineComments, 'InlineComment');
     const inlineCommentsDto: InlineCommentDto[] = await Promise.all(
       inlineComments.map((inlineComment: InlineComment) => this.inlineCommentsService.inlineCommentModelToInlineCommentDto(inlineComment)),
     );
     return new NormalizedResponseDTO(inlineCommentsDto, relations);
+  }
+
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Get inline comment',
+    description: 'Get inline comment',
+  })
+  @ApiNormalizedResponse({
+    status: 200,
+    description: `Inline comment`,
+    type: InlineCommentDto,
+  })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    description: 'Id of the inline comment',
+    schema: { type: 'string' },
+  })
+  @Public()
+  async getInlineComment(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<InlineCommentDto>> {
+    const inlineComment: InlineComment = await this.inlineCommentsService.getById(id);
+    if (!inlineComment) {
+      throw new NotFoundException('Inline comment not found');
+    }
+    const report: Report = await this.reportsService.getReportById(inlineComment.report_id);
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!team) {
+      throw new NotFoundException('Team not found');
+    }
+    if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+      if (!token) {
+        throw new ForbiddenException('You are not authorized to access this resource');
+      }
+      const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
+      const index: number = teams.findIndex((t: Team) => t.id === team.id);
+      if (index === -1) {
+        throw new ForbiddenException('You are not allowed to get this inline comment');
+      }
+    }
+    const relations: Relations = await this.relationsService.getRelations(inlineComment);
+    const inlineCommentDto: InlineCommentDto = await this.inlineCommentsService.inlineCommentModelToInlineCommentDto(inlineComment);
+    return new NormalizedResponseDTO(inlineCommentDto, relations);
   }
 
   @Post()

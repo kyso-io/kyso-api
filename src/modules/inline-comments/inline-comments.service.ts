@@ -66,7 +66,7 @@ export class InlineCommentsService extends AutowiredService {
     await this.provider.deleteMany({ report_id: reportId });
   }
 
-  private async getById(id: string): Promise<InlineComment> {
+  public async getById(id: string): Promise<InlineComment> {
     const inlineComments: InlineComment[] = await this.provider.read({ filter: { _id: this.provider.toObjectId(id) } });
     return inlineComments.length === 1 ? inlineComments[0] : null;
   }
