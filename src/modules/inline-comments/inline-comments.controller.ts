@@ -28,6 +28,7 @@ import { RelationsService } from '../relations/relations.service';
 import { ReportsService } from '../reports/reports.service';
 import { TeamsService } from '../teams/teams.service';
 import { InlineCommentsService } from './inline-comments.service';
+import { Validators } from '../../helpers/validators';
 
 @Controller('inline-comments')
 @ApiTags('inline-comments')
@@ -121,6 +122,31 @@ export class InlineCommentController extends GenericController<InlineComment> {
     description: `Inline comment`,
     type: InlineCommentDto,
   })
+  @ApiNormalizedResponse({
+    status: 400,
+    description: `Invalid inline comment id`,
+    type: InlineCommentDto,
+  })
+  @ApiNormalizedResponse({
+    status: 403,
+    description: `You are not allowed to get this inline comment`,
+    type: InlineCommentDto,
+  })
+  @ApiNormalizedResponse({
+    status: 404,
+    description: `Inline comment not found`,
+    type: InlineCommentDto,
+  })
+  @ApiNormalizedResponse({
+    status: 404,
+    description: `Report not found`,
+    type: InlineCommentDto,
+  })
+  @ApiNormalizedResponse({
+    status: 404,
+    description: `Team not found`,
+    type: InlineCommentDto,
+  })
   @ApiParam({
     name: 'id',
     required: true,
@@ -129,6 +155,9 @@ export class InlineCommentController extends GenericController<InlineComment> {
   })
   @Public()
   async getInlineComment(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<InlineCommentDto>> {
+    if (!Validators.isValidObjectId(id)) {
+      throw new BadRequestException('Invalid inline comment id');
+    }
     const inlineComment: InlineComment = await this.inlineCommentsService.getById(id);
     if (!inlineComment) {
       throw new NotFoundException('Inline comment not found');
@@ -143,7 +172,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
     }
     if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
       if (!token) {
-        throw new ForbiddenException('You are not authorized to access this resource');
+        throw new ForbiddenException('You are not allowed to get this inline comment');
       }
       const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
       const index: number = teams.findIndex((t: Team) => t.id === team.id);
