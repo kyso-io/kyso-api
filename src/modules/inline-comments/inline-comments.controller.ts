@@ -12,6 +12,7 @@ import {
   TeamVisibilityEnum,
   Token,
   UpdateInlineCommentDto,
+  User,
 } from '@kyso-io/kyso-model';
 import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -19,6 +20,7 @@ import { ApiNormalizedResponse } from '../../decorators/api-normalized-response'
 import { Autowired } from '../../decorators/autowired';
 import { Public } from '../../decorators/is-public';
 import { GenericController } from '../../generic/controller.generic';
+import { Validators } from '../../helpers/validators';
 import { CurrentToken } from '../auth/annotations/current-token.decorator';
 import { Permission } from '../auth/annotations/permission.decorator';
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
@@ -27,8 +29,8 @@ import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard';
 import { RelationsService } from '../relations/relations.service';
 import { ReportsService } from '../reports/reports.service';
 import { TeamsService } from '../teams/teams.service';
+import { UsersService } from '../users/users.service';
 import { InlineCommentsService } from './inline-comments.service';
-import { Validators } from '../../helpers/validators';
 
 @Controller('inline-comments')
 @ApiTags('inline-comments')
@@ -54,6 +56,9 @@ export class InlineCommentController extends GenericController<InlineComment> {
 
   @Autowired({ typeName: 'TeamsService' })
   private teamsService: TeamsService;
+
+  @Autowired({ typeName: 'UsersService' })
+  private usersService: UsersService;
 
   constructor(private readonly inlineCommentsService: InlineCommentsService) {
     super();
@@ -182,6 +187,12 @@ export class InlineCommentController extends GenericController<InlineComment> {
     }
     const relations: Relations = await this.relationsService.getRelations(inlineComment);
     const inlineCommentDto: InlineCommentDto = await this.inlineCommentsService.inlineCommentModelToInlineCommentDto(inlineComment);
+    for (const inlineCommentStatusHistoryDto of inlineComment.status_history) {
+      if (!relations.user[inlineCommentStatusHistoryDto.user_id]) {
+        const user: User = await this.usersService.getUserById(inlineCommentStatusHistoryDto.user_id);
+        relations.user[user.id] = user;
+      }
+    }
     return new NormalizedResponseDTO(inlineCommentDto, relations);
   }
 
