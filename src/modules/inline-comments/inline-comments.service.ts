@@ -300,6 +300,7 @@ export class InlineCommentsService extends AutowiredService {
       const inline_comments_previous_version: InlineComment[] = await this.provider.read({
         filter: {
           report_id,
+          file_id: file_previous_version.id,
           report_version: file_previous_version.version,
           parent_comment_id: null,
           current_status: {
@@ -310,7 +311,7 @@ export class InlineCommentsService extends AutowiredService {
       for (const inline_comment_previous_version of inline_comments_previous_version) {
         let inline_comment_current_version: InlineComment = new InlineComment(
           report_id,
-          inline_comment_previous_version.file_id,
+          file_current_version.id,
           file_previous_version.id === inline_comment_previous_version.cell_id ? file_current_version.id : inline_comment_previous_version.cell_id,
           inline_comment_previous_version.user_id,
           inline_comment_previous_version.text,
@@ -334,7 +335,7 @@ export class InlineCommentsService extends AutowiredService {
         for (const inline_comment_reply_previous_version of inline_comments_replies_previous_version) {
           let inline_comment_reply_current_version: InlineComment = new InlineComment(
             report_id,
-            inline_comment_reply_previous_version.file_id,
+            file_current_version.id,
             file_previous_version.id === inline_comment_reply_previous_version.cell_id ? file_current_version.id : inline_comment_reply_previous_version.cell_id,
             inline_comment_reply_previous_version.user_id,
             inline_comment_reply_previous_version.text,
