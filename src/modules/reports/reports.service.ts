@@ -485,6 +485,7 @@ export class ReportsService extends AutowiredService {
       organization = await this.organizationsService.getOrganizationById(team.organization_id);
       if (organization) {
         this.fullTextSearchService.deleteIndexedResults(organization.sluglified_name, team.sluglified_name, report.id, ElasticSearchIndex.Report);
+        this.fullTextSearchService.deleteDocumentsGivenTypeOrganizationAndTeam(ElasticSearchIndex.InlineComment, organization.sluglified_name, team.sluglified_name);
       }
     }
 

@@ -1,25 +1,31 @@
 import {
   CreateInlineCommentDto,
+  ElasticSearchIndex,
   File,
   InlineComment,
   InlineCommentDto,
   InlineCommentStatusEnum,
   InlineCommentStatusHistoryDto,
+  KysoIndex,
   Organization,
   Report,
   ResourcePermissions,
   Team,
+  TeamVisibilityEnum,
   Token,
   UpdateInlineCommentDto,
   User,
 } from '@kyso-io/kyso-model';
-import { ForbiddenException, Injectable, NotFoundException, Provider } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Provider } from '@nestjs/common';
+import * as moment from 'moment';
 import { Autowired } from '../../decorators/autowired';
 import { AutowiredService } from '../../generic/autowired.generic';
 import { db } from '../../main';
 import { PlatformRole } from '../../security/platform-roles';
 import { BaseCommentsService } from '../comments/base-comments.service';
+import { FullTextSearchService } from '../full-text-search/full-text-search.service';
 import { OrganizationsService } from '../organizations/organizations.service';
+import { FilesService } from '../reports/files.service';
 import { ReportsService } from '../reports/reports.service';
 import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
@@ -53,6 +59,12 @@ export class InlineCommentsService extends AutowiredService {
 
   @Autowired({ typeName: 'BaseCommentsService' })
   private baseCommentsService: BaseCommentsService;
+
+  @Autowired({ typeName: 'FullTextSearchService' })
+  private fullTextSearchService: FullTextSearchService;
+
+  @Autowired({ typeName: 'FilesService' })
+  private filesService: FilesService;
 
   constructor(private readonly provider: MongoInlineCommentsProvider) {
     super();
@@ -126,6 +138,8 @@ export class InlineCommentsService extends AutowiredService {
 
     this.baseCommentsService.checkMentionsInReportComment(report.id, userId, createInlineCommentDto.mentions);
 
+    this.indexInlineComment(inlineComment);
+
     return result;
   }
 
@@ -139,6 +153,11 @@ export class InlineCommentsService extends AutowiredService {
     const report: Report = await this.reportsService.getReportById(inlineComment.report_id);
     if (!report) {
       throw new NotFoundException(`Report with id ${inlineComment.report_id} not found`);
+    }
+
+    const report_version: number = await this.reportsService.getLastVersionOfReport(report.id);
+    if (inlineComment.report_version !== report_version) {
+      throw new BadRequestException(`Inline comment can not be updated because belong to an old version of the report`);
     }
 
     const team: Team = await this.teamsService.getTeamById(report.team_id);
@@ -198,6 +217,12 @@ export class InlineCommentsService extends AutowiredService {
     this.baseCommentsService.sendUpdateCommentNotifications(user, organization, team, inlineComment, report, null);
     this.baseCommentsService.checkMentionsInReportComment(report.id, user.id, inlineComment.mentions);
 
+    Logger.log(`Updating comment '${updateResult.id}' of user '${updateResult.user_id}' in Elasticsearch...`, InlineCommentsService.name);
+    const kysoIndex: KysoIndex | null = await this.inlineCommentToKysoIndex(updateResult);
+    if (kysoIndex) {
+      this.fullTextSearchService.updateDocument(kysoIndex);
+    }
+
     return updateResult;
   }
 
@@ -211,6 +236,11 @@ export class InlineCommentsService extends AutowiredService {
     const report: Report = await this.reportsService.getReportById(inlineComment.report_id);
     if (!report) {
       throw new NotFoundException(`Report with id ${inlineComment.report_id} not found`);
+    }
+
+    const report_version: number = await this.reportsService.getLastVersionOfReport(report.id);
+    if (inlineComment.report_version !== report_version) {
+      throw new BadRequestException(`Inline comment can not be deleted because belong to an old version of the report`);
     }
 
     const team: Team = await this.teamsService.getTeamById(report.team_id);
@@ -249,6 +279,9 @@ export class InlineCommentsService extends AutowiredService {
     await this.provider.deleteMany({ $or: [{ _id: this.provider.toObjectId(id) }, { parent_comment_id: id }] });
 
     this.baseCommentsService.sendDeleteCommentNotifications(user, organization, team, inlineComment, report, null);
+
+    Logger.log(`Deleting inline comment '${inlineComment.id}' of user '${inlineComment.user_id}' in ElasticSearch...`, InlineCommentsService.name);
+    this.fullTextSearchService.deleteDocument(ElasticSearchIndex.InlineComment, inlineComment.id);
 
     return true;
   }
@@ -350,5 +383,108 @@ export class InlineCommentsService extends AutowiredService {
         }
       }
     }
+    await this.reindexCommentsGivenReportId(report_id);
+  }
+
+  public async reindexInlineComments(): Promise<void> {
+    await this.fullTextSearchService.deleteAllDocumentsOfType(ElasticSearchIndex.InlineComment);
+    const reports: Report[] = await this.reportsService.getReports({});
+    for (const report of reports) {
+      await this.reindexCommentsGivenReportId(report.id);
+    }
+  }
+
+  private async reindexCommentsGivenReportId(report_id: string): Promise<void> {
+    const report: Report | null = await this.reportsService.getReport(report_id);
+    if (!report) {
+      Logger.warn(`Report ${report_id} not found`, InlineCommentsService.name);
+      return;
+    }
+    const team: Team | null = await this.teamsService.getTeam(report.team_id);
+    if (!team) {
+      Logger.warn(`Team ${report.team_id} not found for report ${report.id}`, InlineCommentsService.name);
+      return;
+    }
+    const organization: Organization | null = await this.organizationsService.getOrganization(team.organization_id);
+    if (!organization) {
+      Logger.warn(`Organization ${team.organization_id} not found for team ${team.id} and report ${report.id}`, InlineCommentsService.name);
+      return;
+    }
+    await this.fullTextSearchService.deleteDocumentsGivenTypeOrganizationAndTeam(ElasticSearchIndex.InlineComment, organization.sluglified_name, team.sluglified_name);
+    const report_version: number = await this.reportsService.getLastVersionOfReport(report_id);
+    const inlineComments: InlineComment[] = await this.provider.read({ filter: { report_id, report_version } });
+    const promises: Promise<any>[] = [];
+    for (const inlineComment of inlineComments) {
+      promises.push(this.indexInlineComment(inlineComment));
+    }
+    await Promise.all(promises);
+    Logger.log(
+      `Reindexed ${inlineComments.length} inline comments for report '${report_id}' of team '${team.sluglified_name}' and organization '${organization.sluglified_name}'`,
+      InlineCommentsService.name,
+    );
+  }
+
+  private async indexInlineComment(inlineComment: InlineComment): Promise<any> {
+    Logger.log(`Indexing inline comment '${inlineComment.id}' of user '${inlineComment.user_id}'`, InlineCommentsService.name);
+    const kysoIndex: KysoIndex = await this.inlineCommentToKysoIndex(inlineComment);
+    if (kysoIndex) {
+      return this.fullTextSearchService.indexDocument(kysoIndex);
+    } else {
+      return null;
+    }
+  }
+
+  private async inlineCommentToKysoIndex(inlineComment: InlineComment): Promise<KysoIndex> {
+    const kysoIndex: KysoIndex = new KysoIndex();
+    kysoIndex.title = inlineComment.text;
+    kysoIndex.content = inlineComment.text;
+    kysoIndex.type = ElasticSearchIndex.InlineComment;
+    kysoIndex.entityId = inlineComment.id;
+    kysoIndex.updatedAt = moment(inlineComment.updated_at).unix() * 1000;
+    kysoIndex.version = inlineComment.report_version;
+
+    const report: Report = await this.reportsService.getReportById(inlineComment.report_id);
+    if (!report) {
+      Logger.error(`Report ${inlineComment.report_id} could not be found`, InlineCommentsService.name);
+      return null;
+    }
+    const file: File | null = await this.filesService.getFileById(inlineComment.file_id);
+    if (!file) {
+      Logger.error(`File ${inlineComment.file_id} could not be found for inline comment ${inlineComment.comment_id}`, InlineCommentsService.name);
+      return null;
+    }
+    const team: Team | null = await this.teamsService.getTeamById(report.team_id);
+    if (!team) {
+      Logger.error(`Team ${report.team_id} could not be found for inline comment ${inlineComment.comment_id}`, InlineCommentsService.name);
+      return null;
+    }
+    const organization: Organization | null = await this.organizationsService.getOrganizationById(team.organization_id);
+    if (!organization) {
+      Logger.error(`Organization ${team.organization_id} could not be found for team ${team.id} and inline comment ${inlineComment.comment_id}`, InlineCommentsService.name);
+      return null;
+    }
+
+    kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC;
+    kysoIndex.link = `/${organization.sluglified_name}/${team.sluglified_name}/${report.sluglified_name}/${file.name}`;
+    kysoIndex.organizationSlug = organization?.sluglified_name ? organization.sluglified_name : '';
+    kysoIndex.teamSlug = team?.sluglified_name ? team.sluglified_name : '';
+
+    const user: User | null = await this.usersService.getUserById(inlineComment.user_id);
+    if (user) {
+      kysoIndex.people.push(user.email);
+    }
+    if (inlineComment?.user_ids && inlineComment.user_ids.length > 0) {
+      for (const userId of inlineComment.user_ids) {
+        const user: User | null = await this.usersService.getUserById(userId);
+        if (user) {
+          const index: number = kysoIndex.people.indexOf(user.email);
+          if (index === -1) {
+            kysoIndex.people.push(user.email);
+          }
+        }
+      }
+    }
+
+    return kysoIndex;
   }
 }

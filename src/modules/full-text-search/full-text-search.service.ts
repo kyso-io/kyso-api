@@ -46,10 +46,6 @@ export class FullTextSearchService extends AutowiredService {
   @Autowired({ typeName: 'TeamsService' })
   private teamsService: TeamsService;
 
-  constructor() {
-    super();
-  }
-
   public async deleteIndexedResults(organizationSlug: string, teamSlug: string, entityId: string, type: ElasticSearchIndex): Promise<any> {
     Logger.log(`Deleting indexed data for ${organizationSlug} and ${teamSlug} and ${entityId} for ${type}`);
     const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
@@ -154,6 +150,28 @@ export class FullTextSearchService extends AutowiredService {
       }
     } catch (e: any) {
       Logger.error(`An error occurred deleting element with id '${entityId}' of type '${type}'`, e, FullTextSearchService.name);
+      return null;
+    }
+  }
+
+  public async deleteDocumentsGivenTypeOrganizationAndTeam(type: ElasticSearchIndex, organizationSlug: string, teamSlug: string): Promise<any> {
+    try {
+      const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
+      const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_delete_by_query`;
+      const response: AxiosResponse<any> = await axios.post(url, {
+        query: {
+          bool: {
+            must: [{ term: { type } }, { term: { organizationSlug } }, { term: { teamSlug } }],
+          },
+        },
+      });
+      if (response.status === 200) {
+        return response.data;
+      } else {
+        return null;
+      }
+    } catch (e: any) {
+      Logger.error(`An error occurred deleting elements for type '${type}' organization '${organizationSlug}' and team '${teamSlug}'`, e, FullTextSearchService.name);
       return null;
     }
   }
@@ -299,12 +317,17 @@ export class FullTextSearchService extends AutowiredService {
     const membersFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0, FullTextSearchAggregators.createEmpty());
     const membersFullTextSearchResultType: FullTextSearchResultType = new FullTextSearchResultType([], membersFullTextSearchMetadata);
 
+    // Inline Comments
+    const inlineCommentsFullTextSearchMetadata: FullTextSearchMetadata = new FullTextSearchMetadata(0, 0, 0, 0, FullTextSearchAggregators.createEmpty());
+    const inlineCommentsFullTextSearchResultType: FullTextSearchResultType = new FullTextSearchResultType([], inlineCommentsFullTextSearchMetadata);
+
     // Result
     const fullTextSearchDTO: FullTextSearchDTO = new FullTextSearchDTO(
       reportsFullTextSearchResultType,
       discussionsFullTextSearchResultType,
       commentsFullTextSearchResultType,
       membersFullTextSearchResultType,
+      inlineCommentsFullTextSearchResultType,
     );
 
     let requesterTeamsVisible: Team[] = [];
@@ -395,6 +418,13 @@ export class FullTextSearchService extends AutowiredService {
             score: hit._score,
           }));
           break;
+        case ElasticSearchIndex.InlineComment:
+          inlineCommentsFullTextSearchResultType.results = searchResults.hits.hits.map((hit: any) => ({
+            ...hit._source,
+            score: hit._score,
+            content: hit.highlight && hit.highlight.content ? hit.highlight.content : '',
+          }));
+          break;
         default:
           break;
       }
@@ -407,6 +437,10 @@ export class FullTextSearchService extends AutowiredService {
     const metadataComments: any = await this.searchCountersComments(searchTerms, filterPeople, userBelongings);
     this.fillPaginationData(ElasticSearchIndex.Comment, commentsFullTextSearchResultType.metadata, page, perPage, metadataComments);
     this.fillAggregators(commentsFullTextSearchResultType.metadata.aggregators, metadataComments);
+
+    const metadataInlineComments: any = await this.searchCountersInlineComments(searchTerms, filterPeople, userBelongings);
+    this.fillPaginationData(ElasticSearchIndex.InlineComment, inlineCommentsFullTextSearchResultType.metadata, page, perPage, metadataInlineComments);
+    this.fillAggregators(inlineCommentsFullTextSearchResultType.metadata.aggregators, metadataInlineComments);
 
     return fullTextSearchDTO;
   }
@@ -463,6 +497,7 @@ export class FullTextSearchService extends AutowiredService {
         fullTextSearchMetadata.pages = Math.ceil(fullTextSearchMetadata.total / perPage);
         break;
       case ElasticSearchIndex.Comment:
+      case ElasticSearchIndex.InlineComment:
       case ElasticSearchIndex.Discussion:
       case ElasticSearchIndex.User:
         fullTextSearchMetadata.page = page;
@@ -660,6 +695,78 @@ export class FullTextSearchService extends AutowiredService {
               minimum_should_match: 1,
               should: belongingsQuery,
               must: [{ terms: { 'type.keyword': [ElasticSearchIndex.Comment] } }],
+            },
+          },
+        },
+      },
+      aggs: {
+        organization: {
+          terms: {
+            field: 'organizationSlug.keyword',
+          },
+        },
+        organization_team: {
+          terms: {
+            script: {
+              source: "return doc['organizationSlug.keyword'].value + '_' + doc['teamSlug.keyword'].value;",
+            },
+          },
+        },
+        people: {
+          terms: {
+            field: 'people.keyword',
+          },
+        },
+      },
+    };
+
+    if (filterPeople.length > 0) {
+      body.query.bool.filter.bool.must.push({ terms: { 'people.keyword': filterPeople } });
+    }
+
+    try {
+      const response = await axios.post(url, body);
+      return response.data;
+    } catch (e: any) {
+      Logger.error(`Error while aggregating data`, e, FullTextSearchService.name);
+      return null;
+    }
+  }
+
+  private async searchCountersInlineComments(terms: string, filterPeople: string[], userBelongings?: Map<string, string[]>): Promise<any> {
+    const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
+    const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_search`;
+
+    const belongingsQuery = [];
+
+    if (userBelongings) {
+      for (const organization of userBelongings.keys()) {
+        const queryTerm = {
+          bool: {
+            must: [{ term: { 'organizationSlug.keyword': organization } }, { terms: { 'teamSlug.keyword': userBelongings.get(organization) } }],
+          },
+        };
+
+        belongingsQuery.push(queryTerm);
+      }
+    }
+
+    // Don't do the query if we don't have an orgs/teams filter
+    if (belongingsQuery.length == 0) {
+      return null;
+    }
+
+    const body: any = {
+      from: 0,
+      size: 0,
+      query: {
+        bool: {
+          must: [{ match: { content: { query: terms, operator: 'AND' } } }],
+          filter: {
+            bool: {
+              minimum_should_match: 1,
+              should: belongingsQuery,
+              must: [{ terms: { 'type.keyword': [ElasticSearchIndex.InlineComment] } }],
             },
           },
         },

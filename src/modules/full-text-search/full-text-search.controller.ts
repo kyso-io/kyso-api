@@ -22,6 +22,7 @@ import { DiscussionsService } from '../discussions/discussions.service';
 import { ReportsService } from '../reports/reports.service';
 import { UsersService } from '../users/users.service';
 import { FullTextSearchService } from './full-text-search.service';
+import { InlineCommentsService } from '../inline-comments/inline-comments.service';
 
 @ApiTags('search')
 @UseGuards(PermissionsGuard)
@@ -42,6 +43,9 @@ export class FullTextSearchController {
 
   @Autowired({ typeName: 'ReportsService' })
   private reportsService: ReportsService;
+
+  @Autowired({ typeName: 'InlineCommentsService' })
+  private inlineCommentsService: InlineCommentsService;
 
   @Get()
   @Public()
@@ -95,7 +99,7 @@ export class FullTextSearchController {
       const fullTextSearchAggregators: FullTextSearchAggregators = new FullTextSearchAggregators([], [], [], [], []);
       const emptyMeta: FullTextSearchMetadata = new FullTextSearchMetadata(page, 0, perPage, 0, fullTextSearchAggregators);
       const emptyResult: FullTextSearchResultType = new FullTextSearchResultType([], emptyMeta);
-      const fullTextSearchDTO: FullTextSearchDTO = new FullTextSearchDTO(emptyResult, emptyResult, emptyResult, emptyResult);
+      const fullTextSearchDTO: FullTextSearchDTO = new FullTextSearchDTO(emptyResult, emptyResult, emptyResult, emptyResult, emptyResult);
       return new NormalizedResponseDTO(fullTextSearchDTO, null);
     }
   }
@@ -113,6 +117,7 @@ export class FullTextSearchController {
     this.usersService.reindexUsers();
     this.discussionsService.reindexDiscussions();
     this.commentsService.reindexComments();
+    this.inlineCommentsService.reindexInlineComments();
     return { status: 'indexing' };
   }
 
@@ -161,6 +166,18 @@ export class FullTextSearchController {
   @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
   public async reindexComments() {
     this.commentsService.reindexComments();
+    return { status: 'indexing' };
+  }
+
+  @Get('/reindex-inline-comments')
+  @ApiOperation({
+    summary: `Reindex inline comments`,
+    description: `Reindex inline comments`,
+  })
+  @ApiNormalizedResponse({ status: 200, description: `Indexing inline comments`, type: Tag, isArray: true })
+  @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
+  public async reindexInlineComments() {
+    this.inlineCommentsService.reindexInlineComments();
     return { status: 'indexing' };
   }
 }
