@@ -74,6 +74,10 @@ export class InlineCommentsService extends AutowiredService {
     return this.provider.read(query);
   }
 
+  public async countInlineComments(query: any): Promise<number> {
+    return this.provider.count(query);
+  }
+
   public async deleteReportInlineComments(reportId: string): Promise<void> {
     await this.provider.deleteMany({ report_id: reportId });
   }
