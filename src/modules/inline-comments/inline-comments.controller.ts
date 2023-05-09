@@ -5,6 +5,7 @@ import {
   InlineComment,
   InlineCommentDto,
   InlineCommentPermissionsEnum,
+  InlineCommentStatusEnum,
   NormalizedResponseDTO,
   PaginatedResponseDto,
   Relations,
@@ -241,6 +242,55 @@ export class InlineCommentController extends GenericController<InlineComment> {
       totalPages,
     );
     return new NormalizedResponseDTO(paginatedResponseDto, relations);
+  }
+
+  @Get('count-opened')
+  @ApiOperation({
+    summary: `Count opened inline comments`,
+    description: `Count opened inline comments`,
+  })
+  @ApiNormalizedResponse({
+    status: 200,
+    description: `Count opened inline comments`,
+    type: Number,
+  })
+  public async countOpenedInlineComments(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<number>> {
+    const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
+    if (teams.length === 0) {
+      const paginatedResponseDto: PaginatedResponseDto<InlineCommentDto> = new PaginatedResponseDto<InlineCommentDto>(1, 0, 0, [], 0, 0);
+      return new NormalizedResponseDTO(paginatedResponseDto);
+    }
+    const filterReports = {
+      team_id: { $in: teams.map((team: Team) => team.id) },
+      author_ids: { $in: [token.id] },
+    };
+    const reports: Report[] = await this.reportsService.getReports({
+      filter: filterReports,
+    });
+    if (reports.length === 0) {
+      const paginatedResponseDto: PaginatedResponseDto<InlineCommentDto> = new PaginatedResponseDto<InlineCommentDto>(1, 0, 0, [], 0, 0);
+      return new NormalizedResponseDTO(paginatedResponseDto);
+    }
+    const inlineCommentsQuery: any = {
+      parent_comment_id: null,
+      current_status: {
+        $in: [InlineCommentStatusEnum.DOING, InlineCommentStatusEnum.OPEN, InlineCommentStatusEnum.TO_DO],
+      },
+      $or: [
+        {
+          user_id: token.id,
+        },
+      ],
+    };
+    const report_versions: number[] = await Promise.all(reports.map((report: Report) => this.reportsService.getLastVersionOfReport(report.id)));
+    reports.forEach((report: Report, index: number) => {
+      inlineCommentsQuery.$or.push({
+        report_id: report.id,
+        report_version: report_versions[index],
+      });
+    });
+    const totalItems: number = await this.inlineCommentsService.countInlineComments({ filter: inlineCommentsQuery });
+    return new NormalizedResponseDTO(totalItems);
   }
 
   @Get(':id')
