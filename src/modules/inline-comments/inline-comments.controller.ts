@@ -256,21 +256,26 @@ export class InlineCommentController extends GenericController<InlineComment> {
   })
   public async countOpenedInlineComments(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<number>> {
     const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
+
     if (teams.length === 0) {
       const paginatedResponseDto: PaginatedResponseDto<InlineCommentDto> = new PaginatedResponseDto<InlineCommentDto>(1, 0, 0, [], 0, 0);
-      return new NormalizedResponseDTO(paginatedResponseDto);
+      return new NormalizedResponseDTO(paginatedResponseDto.totalItems);
     }
+
     const filterReports = {
       team_id: { $in: teams.map((team: Team) => team.id) },
       author_ids: { $in: [token.id] },
     };
+
     const reports: Report[] = await this.reportsService.getReports({
       filter: filterReports,
     });
+
     if (reports.length === 0) {
       const paginatedResponseDto: PaginatedResponseDto<InlineCommentDto> = new PaginatedResponseDto<InlineCommentDto>(1, 0, 0, [], 0, 0);
-      return new NormalizedResponseDTO(paginatedResponseDto);
+      return new NormalizedResponseDTO(paginatedResponseDto.totalItems);
     }
+
     const inlineCommentsQuery: any = {
       parent_comment_id: null,
       current_status: {
@@ -282,14 +287,18 @@ export class InlineCommentController extends GenericController<InlineComment> {
         },
       ],
     };
+
     const report_versions: number[] = await Promise.all(reports.map((report: Report) => this.reportsService.getLastVersionOfReport(report.id)));
+
     reports.forEach((report: Report, index: number) => {
       inlineCommentsQuery.$or.push({
         report_id: report.id,
         report_version: report_versions[index],
       });
     });
+
     const totalItems: number = await this.inlineCommentsService.countInlineComments({ filter: inlineCommentsQuery });
+
     return new NormalizedResponseDTO(totalItems);
   }
 
