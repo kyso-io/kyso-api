@@ -13,7 +13,13 @@ export class MongoInlineCommentsProvider extends MongoProvider<InlineComment> {
   version = 4;
 
   constructor() {
-    super('InlineComment', db);
+    super('InlineComment', db, [
+      {
+        keys: {
+          text: 'text',
+        },
+      },
+    ]);
   }
 
   populateMinimalData() {

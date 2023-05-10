@@ -7,6 +7,8 @@ import {
   KysoPermissions,
   KysoUserAccessToken,
   NormalizedResponseDTO,
+  OrganizationMember,
+  Team,
   Token,
   UpdateUserRequestDTO,
   User,
@@ -31,6 +33,8 @@ import { AuthService } from '../auth/auth.service';
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { PermissionsGuard } from '../auth/guards/permission.guard';
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard';
+import { OrganizationsService } from '../organizations/organizations.service';
+import { TeamsService } from '../teams/teams.service';
 import { UsersService } from './users.service';
 
 @ApiTags('users')
@@ -50,6 +54,12 @@ import { UsersService } from './users.service';
 export class UsersController extends GenericController<User> {
   @Autowired({ typeName: 'AuthService' })
   private authService: AuthService;
+
+  @Autowired({ typeName: 'OrganizationsService' })
+  private organizationsService: OrganizationsService;
+
+  @Autowired({ typeName: 'TeamsService' })
+  private teamsService: TeamsService;
 
   constructor(private readonly usersService: UsersService) {
     super();
@@ -119,6 +129,32 @@ export class UsersController extends GenericController<User> {
 
     const result: User[] = await this.usersService.getUsers(query);
     return new NormalizedResponseDTO(UserDTO.fromUserArray(result));
+  }
+
+  @Get('/same-organizations')
+  @ApiOperation({
+    summary: `Get users who are in the same organizations`,
+    description: `Get users who are in the same organizations`,
+  })
+  @ApiNormalizedResponse({
+    status: 200,
+    description: `Report inline comments`,
+    type: UserDTO,
+  })
+  public async getSameOrganizations(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<UserDTO[]>> {
+    const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
+    const organizationsSet: Set<string> = new Set(teams.map((team: Team) => team.organization_id));
+    const result: OrganizationMember[][] = await Promise.all(Array.from(organizationsSet.values()).map((organizationId: string) => this.organizationsService.getOrganizationMembers(organizationId)));
+    const map: Map<string, void> = new Map<string, void>();
+    result.forEach((organizationMembers: OrganizationMember[]) => {
+      organizationMembers.forEach((organizationMember: OrganizationMember) => {
+        if (!map.has(organizationMember.id)) {
+          map.set(organizationMember.id, void 0);
+        }
+      });
+    });
+    const users: User[] = await this.usersService.getUsers({ filter: { id: { $in: Array.from(map.keys()) } } });
+    return new NormalizedResponseDTO(UserDTO.fromUserArray(users));
   }
 
   @Get('/access-tokens')
