@@ -41,6 +41,7 @@ const PUBLIC_KYSO_SETTINGS: KysoSettingsEnum[] = [
   KysoSettingsEnum.ALLOW_PUBLIC_CHANNELS,
   KysoSettingsEnum.ONBOARDING_MESSAGES,
   KysoSettingsEnum.FOOTER_CONTENTS,
+  KysoSettingsEnum.KYSO_COMMENT_STATES_VALUES,
 ];
 
 @ApiTags('kyso-settings')

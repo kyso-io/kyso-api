@@ -1,4 +1,4 @@
-import { KysoSetting, KysoSettingsEnum, UpdateKysoSettingDto } from '@kyso-io/kyso-model';
+import { InlineCommentStatusEnum, KysoSetting, KysoSettingsEnum, UpdateKysoSettingDto } from '@kyso-io/kyso-model';
 import { Injectable, Provider } from '@nestjs/common';
 import { AutowiredService } from '../../generic/autowired.generic';
 import { KysoSettingsMongoProvider } from './providers/kyso-settings-mongo.provider';
@@ -201,6 +201,22 @@ export class KysoSettingsService extends AutowiredService {
           { text: 'Prices', url: 'https://about.kyso.io/pricing' },
           { text: 'Privacy', url: 'https://about.kyso.io/privacy' },
         ];
+      case KysoSettingsEnum.KYSO_COMMENT_STATES_VALUES:
+        return {
+          labels: {
+            [InlineCommentStatusEnum.OPEN]: 'open',
+            [InlineCommentStatusEnum.TO_DO]: 'todo',
+            [InlineCommentStatusEnum.DOING]: 'doing',
+            [InlineCommentStatusEnum.CLOSED]: 'closed',
+          },
+          classes: {
+            [InlineCommentStatusEnum.OPEN]: 'bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full dark:bg-blue-900 dark:text-blue-300',
+            [InlineCommentStatusEnum.TO_DO]: 'bg-gray-100 text-gray-800 text-xs font-medium px-2 py-0.5 rounded-full dark:bg-gray-700 dark:text-gray-300',
+            [InlineCommentStatusEnum.DOING]: 'bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded-full dark:bg-yellow-900 dark:text-yellow-300',
+            [InlineCommentStatusEnum.CLOSED]: 'bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-full dark:bg-red-900 dark:text-red-300',
+          },
+        };
+
       default:
         return '';
     }
@@ -328,6 +344,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'Text shown up in the onboarding process';
       case KysoSettingsEnum.FOOTER_CONTENTS:
         return 'Contents that will be shown in the footer';
+      case KysoSettingsEnum.KYSO_COMMENT_STATES_VALUES:
+        return 'Values of css classes for the inline comment states';
       default:
         return 'No description provided';
     }
