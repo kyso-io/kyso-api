@@ -254,6 +254,31 @@ export class FullTextSearchService extends AutowiredService {
     }
   }
 
+  public async updateNumTasksInKysoIndex(entityId: string, numTasks: number): Promise<any> {
+    try {
+      const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
+      const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_update_by_query`;
+      const response: AxiosResponse<any> = await axios.post(url, {
+        query: {
+          match: {
+            entityId,
+          },
+        },
+        script: {
+          source: `ctx._source.numTasks = ${numTasks}`,
+        },
+      });
+      if (response.status === 200) {
+        return response.data;
+      } else {
+        return null;
+      }
+    } catch (e: any) {
+      Logger.error(`An error occurred updating fields in element with id ${entityId}`, e, FullTextSearchService.name);
+      return null;
+    }
+  }
+
   public async updateReportFiles(kysoIndex: KysoIndex): Promise<any> {
     try {
       const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);

@@ -144,6 +144,18 @@ export class InlineCommentsService extends AutowiredService {
 
     this.indexInlineComment(inlineComment);
 
+    if (!result.parent_comment_id) {
+      // Only inline comments without children
+      const numTasks: number = await this.countInlineComments({
+        filter: {
+          parent_comment_id: null,
+          report_id: report.id,
+          report_version: report_last_version,
+        },
+      });
+      this.fullTextSearchService.updateNumTasksInKysoIndex(report.id, numTasks);
+    }
+
     return result;
   }
 
@@ -286,6 +298,19 @@ export class InlineCommentsService extends AutowiredService {
 
     Logger.log(`Deleting inline comment '${inlineComment.id}' of user '${inlineComment.user_id}' in ElasticSearch...`, InlineCommentsService.name);
     this.fullTextSearchService.deleteDocument(ElasticSearchIndex.InlineComment, inlineComment.id);
+
+    if (!inlineComment.parent_comment_id) {
+      // Only inline comments without children
+      const report_last_version: number = await this.reportsService.getLastVersionOfReport(report.id);
+      const numTasks: number = await this.countInlineComments({
+        filter: {
+          parent_comment_id: null,
+          report_id: report.id,
+          report_version: report_last_version,
+        },
+      });
+      this.fullTextSearchService.updateNumTasksInKysoIndex(report.id, numTasks);
+    }
 
     return true;
   }
