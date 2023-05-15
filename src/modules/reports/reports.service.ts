@@ -1560,7 +1560,7 @@ export class ReportsService extends AutowiredService {
       throw new PreconditionFailedException(`Report '${name}' already exists in team ${team.sluglified_name}`);
     }
 
-    const authors: string[] = [user.id];
+    const authors: string[] = [];
     if (kysoConfigFile.authors && Array.isArray(kysoConfigFile.authors)) {
       for (const email of kysoConfigFile.authors) {
         const author: User = await this.usersService.getUser({
