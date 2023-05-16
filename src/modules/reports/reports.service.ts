@@ -768,7 +768,7 @@ export class ReportsService extends AutowiredService {
   }
 
   public async increaseViews(filter: any): Promise<void> {
-    await this.provider.update(filter, { $inc: { views: 1 } });
+    await this.provider.getCollection().findOneAndUpdate(filter, { $inc: { views: 1 } }, { returnDocument: 'after' });
   }
 
   private async processAuthors(kysoFileAuthors: string[], uploaderUser: User, team: Team): Promise<string[]> {
