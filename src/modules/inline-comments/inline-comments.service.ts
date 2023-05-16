@@ -171,10 +171,10 @@ export class InlineCommentsService extends AutowiredService {
       throw new NotFoundException(`Report with id ${inlineComment.report_id} not found`);
     }
 
-    const report_version: number = await this.reportsService.getLastVersionOfReport(report.id);
+    /*const report_version: number = await this.reportsService.getLastVersionOfReport(report.id);
     if (inlineComment.report_version !== report_version) {
       throw new BadRequestException(`Inline comment can not be updated because belong to an old version of the report`);
-    }
+    }*/
 
     const team: Team = await this.teamsService.getTeamById(report.team_id);
     if (!team) {
