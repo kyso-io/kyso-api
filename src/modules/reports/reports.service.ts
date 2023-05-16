@@ -12,6 +12,7 @@ import {
   GithubRepository,
   GitMetadata,
   GlobalPermissionsEnum,
+  InlineComment,
   KysoAnalyticsReportView,
   KysoConfigFile,
   KysoEventEnum,
@@ -43,6 +44,7 @@ import {
   TeamVisibilityEnum,
   Token,
   TokenPermissions,
+  UpdateInlineCommentDto,
   UpdateReportRequestDTO,
   User,
   UserAccount,
@@ -53,6 +55,7 @@ import { Octokit } from '@octokit/rest';
 import * as AdmZip from 'adm-zip';
 import axios, { AxiosError, AxiosResponse } from 'axios';
 import * as FormData from 'form-data';
+import * as fs from 'fs';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs';
 import { moveSync } from 'fs-extra';
 import * as geoIpCountry from 'geoip-country';
@@ -1029,7 +1032,8 @@ export class ReportsService extends AutowiredService {
     return report;
   }
 
-  public async updateKysoReport(userId: string, reportId: string, createKysoReportVersionDto: CreateKysoReportVersionDto): Promise<Report> {
+  public async updateKysoReport(token: Token, reportId: string, createKysoReportVersionDto: CreateKysoReportVersionDto): Promise<Report> {
+    const userId = token.id;
     let report: Report = await this.getReportById(reportId);
     if (!report) {
       throw new NotFoundException('Report not found');
@@ -1041,6 +1045,7 @@ export class ReportsService extends AutowiredService {
     const zip = new AdmZip(createKysoReportVersionDto.file.buffer);
     zip.extractAllTo(tmpReportDir, true);
     Logger.log(`Extracted zip file to ${tmpReportDir}`);
+
     const kysoConfigFile: KysoConfigFile | null = this.getKysoConfigFileFromZip(zip, tmpReportDir);
     if (kysoConfigFile) {
       const { valid, message } = KysoConfigFile.isValid(kysoConfigFile);
@@ -1081,6 +1086,9 @@ export class ReportsService extends AutowiredService {
         }
       }
     }
+
+    Logger.log('Looking for orphan inline comments');
+    this.processOrphanInJupyterNotebook(token, reportId, zip, tmpReportDir);
 
     const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_USERNAME);
     const password: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PASSWORD);
@@ -3152,6 +3160,47 @@ export class ReportsService extends AutowiredService {
       return existsDraft[1];
     } else {
       return null;
+    }
+  }
+
+  private async processOrphanInJupyterNotebook(token: Token, reportId: string, zip: AdmZip, tmpReportDir: string) {
+    const reportInlineComments: InlineComment[] = await this.inlineCommentsService.getInlineComments({
+      filter: {
+        report_id: {
+          $in: [reportId],
+        },
+      },
+    });
+
+    const orphanInlineComments: InlineComment[] = [];
+    const allCellIdsInNewReport: string[] = [];
+
+    for (const entry of zip.getEntries()) {
+      const originalName: string = entry.entryName;
+      const localFilePath = join(tmpReportDir, entry.entryName);
+
+      if (originalName.endsWith('ipynb')) {
+        console.log(originalName);
+        const rawData = fs.readFileSync(localFilePath);
+        const jsonParsed = JSON.parse(rawData.toString());
+        for (const cell of jsonParsed.cells) {
+          if (cell.id) {
+            allCellIdsInNewReport.push(cell.id);
+          }
+        }
+      }
+    }
+
+    for (const prevInlineComment of reportInlineComments) {
+      // If prev.cell_id has value and does not exist in the new report, it's an orphan
+      if (prevInlineComment.cell_id && allCellIdsInNewReport.lastIndexOf(prevInlineComment.cell_id) === -1) {
+        orphanInlineComments.push(prevInlineComment);
+      }
+    }
+
+    for (const orphan of orphanInlineComments) {
+      const toUpdate: UpdateInlineCommentDto = new UpdateInlineCommentDto(orphan.file_id, orphan.text, orphan.mentions, orphan.current_status, true);
+      this.inlineCommentsService.updateInlineComment(token, orphan.id, toUpdate);
     }
   }
 

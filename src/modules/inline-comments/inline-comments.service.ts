@@ -226,6 +226,7 @@ export class InlineCommentsService extends AutowiredService {
           text: updateInlineCommentDto.text,
           current_status: updateInlineCommentDto.status,
           status_history,
+          orphan: updateInlineCommentDto.orphan,
         },
       },
     );
@@ -353,6 +354,8 @@ export class InlineCommentsService extends AutowiredService {
       .find({ report_id, version: report_version - 1 })
       .toArray();
     const files_current_version: File[] = await db.collection('File').find({ report_id, version: report_version }).toArray();
+
+    // START: UPDATE STATUS HISTORY
     for (const file_previous_version of files_previous_version) {
       const file_current_version: File | undefined = files_current_version.find((file: File) => file.name === file_previous_version.name);
       if (!file_current_version) {
@@ -412,7 +415,11 @@ export class InlineCommentsService extends AutowiredService {
         }
       }
     }
+    // END: UPDATE STATUS HISTORY
+
+    // START: REINDEX INLINE COMMENTS
     await this.reindexCommentsGivenReportId(report_id);
+    // END: REINDEX INLINE COMMENTS
   }
 
   public async reindexInlineComments(): Promise<void> {
