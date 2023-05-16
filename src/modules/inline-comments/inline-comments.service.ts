@@ -138,7 +138,7 @@ export class InlineCommentsService extends AutowiredService {
     inlineComment.status_history = [inlineCommentStatusHistoryDto];
     const result = await this.provider.create(inlineComment);
 
-    this.baseCommentsService.sendCreateCommentNotifications(user, organization, team, inlineComment, report, null);
+    this.baseCommentsService.sendCreateCommentNotifications('inline-comment', user, organization, team, inlineComment, report, null);
 
     this.baseCommentsService.checkMentionsInReportComment(report.id, userId, createInlineCommentDto.mentions);
 
@@ -230,7 +230,7 @@ export class InlineCommentsService extends AutowiredService {
       },
     );
 
-    this.baseCommentsService.sendUpdateCommentNotifications(user, organization, team, inlineComment, report, null);
+    this.baseCommentsService.sendUpdateCommentNotifications('inline-comment', user, organization, team, updateResult, report, null);
     this.baseCommentsService.checkMentionsInReportComment(report.id, user.id, inlineComment.mentions);
 
     Logger.log(`Updating comment '${updateResult.id}' of user '${updateResult.user_id}' in Elasticsearch...`, InlineCommentsService.name);
@@ -294,7 +294,7 @@ export class InlineCommentsService extends AutowiredService {
 
     await this.provider.deleteMany({ $or: [{ _id: this.provider.toObjectId(id) }, { parent_comment_id: id }] });
 
-    this.baseCommentsService.sendDeleteCommentNotifications(user, organization, team, inlineComment, report, null);
+    this.baseCommentsService.sendDeleteCommentNotifications('inline-comment', user, organization, team, inlineComment, report, null);
 
     Logger.log(`Deleting inline comment '${inlineComment.id}' of user '${inlineComment.user_id}' in ElasticSearch...`, InlineCommentsService.name);
     this.fullTextSearchService.deleteDocument(ElasticSearchIndex.InlineComment, inlineComment.id);

@@ -120,7 +120,7 @@ export class CommentsService extends AutowiredService {
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     const user: User = await this.usersService.getUserById(token.id);
 
-    this.baseCommentsService.sendCreateCommentNotifications(user, organization, team, newComment, report, discussion);
+    this.baseCommentsService.sendCreateCommentNotifications('comment', user, organization, team, newComment, report, discussion);
 
     if (newComment.comment_id) {
       // It's a reply to a "parent" comment. We must send a notification to the author of the parent
@@ -256,7 +256,7 @@ export class CommentsService extends AutowiredService {
       await this.discussionsService.checkParticipantsInDiscussion(updatedComment.discussion_id);
     }
 
-    this.baseCommentsService.sendUpdateCommentNotifications(user, organization, team, comment, report, null);
+    this.baseCommentsService.sendUpdateCommentNotifications('comment', user, organization, team, updatedComment, report, null);
 
     if (updatedComment.comment_id) {
       // It's a reply to a "parent" comment. We must send a notification to the author of the parent
@@ -334,7 +334,7 @@ export class CommentsService extends AutowiredService {
     }
     comment = await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } });
 
-    this.baseCommentsService.sendDeleteCommentNotifications(await this.usersService.getUserById(token.id), organization, team, comment, report, discussion);
+    this.baseCommentsService.sendDeleteCommentNotifications('comment', await this.usersService.getUserById(token.id), organization, team, comment, report, discussion);
 
     if (discussion) {
       await this.discussionsService.checkParticipantsInDiscussion(discussion.id);
