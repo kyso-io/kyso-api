@@ -3199,6 +3199,7 @@ export class ReportsService extends AutowiredService {
     }
 
     for (const orphan of orphanInlineComments) {
+      Logger.log(`Found orphan inline comment for cell ${orphan.cell_id} with id ${orphan.id} and content ${orphan.text}`);
       const toUpdate: UpdateInlineCommentDto = new UpdateInlineCommentDto(orphan.file_id, orphan.text, orphan.mentions, orphan.current_status, true);
       this.inlineCommentsService.updateInlineComment(token, orphan.id, toUpdate);
     }
