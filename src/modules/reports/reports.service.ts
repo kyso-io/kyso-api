@@ -3164,44 +3164,52 @@ export class ReportsService extends AutowiredService {
   }
 
   private async processOrphanInJupyterNotebook(token: Token, reportId: string, zip: AdmZip, tmpReportDir: string) {
-    const reportInlineComments: InlineComment[] = await this.inlineCommentsService.getInlineComments({
-      filter: {
-        report_id: {
-          $in: [reportId],
+    try {
+      const reportInlineComments: InlineComment[] = await this.inlineCommentsService.getInlineComments({
+        filter: {
+          report_id: {
+            $in: [reportId],
+          },
         },
-      },
-    });
+      });
 
-    const orphanInlineComments: InlineComment[] = [];
-    const allCellIdsInNewReport: string[] = [];
+      const orphanInlineComments: InlineComment[] = [];
+      const allCellIdsInNewReport: string[] = [];
 
-    for (const entry of zip.getEntries()) {
-      const originalName: string = entry.entryName;
-      const localFilePath = join(tmpReportDir, entry.entryName);
+      for (const entry of zip.getEntries()) {
+        const originalName: string = entry.entryName;
+        const localFilePath = join(tmpReportDir, entry.entryName);
 
-      if (originalName.endsWith('ipynb')) {
-        console.log(originalName);
-        const rawData = fs.readFileSync(localFilePath);
-        const jsonParsed = JSON.parse(rawData.toString());
-        for (const cell of jsonParsed.cells) {
-          if (cell.id) {
-            allCellIdsInNewReport.push(cell.id);
+        if (originalName.endsWith('ipynb')) {
+          console.log(originalName);
+          const rawData = fs.readFileSync(localFilePath);
+          const jsonParsed = JSON.parse(rawData.toString());
+          for (const cell of jsonParsed.cells) {
+            if (cell.id) {
+              allCellIdsInNewReport.push(cell.id);
+            }
           }
         }
       }
-    }
 
-    for (const prevInlineComment of reportInlineComments) {
-      // If prev.cell_id has value and does not exist in the new report, it's an orphan
-      if (prevInlineComment.cell_id && allCellIdsInNewReport.lastIndexOf(prevInlineComment.cell_id) === -1) {
-        orphanInlineComments.push(prevInlineComment);
+      for (const prevInlineComment of reportInlineComments) {
+        // If prev.cell_id has value and does not exist in the new report, it's an orphan
+        if (prevInlineComment.cell_id && allCellIdsInNewReport.lastIndexOf(prevInlineComment.cell_id) === -1) {
+          orphanInlineComments.push(prevInlineComment);
+        }
       }
-    }
 
-    for (const orphan of orphanInlineComments) {
-      Logger.log(`Found orphan inline comment for cell ${orphan.cell_id} with id ${orphan.id} and content ${orphan.text}`);
-      const toUpdate: UpdateInlineCommentDto = new UpdateInlineCommentDto(orphan.file_id, orphan.text, orphan.mentions, orphan.current_status, true);
-      this.inlineCommentsService.updateInlineComment(token, orphan.id, toUpdate);
+      for (const orphan of orphanInlineComments) {
+        try {
+          Logger.log(`Found orphan inline comment for cell ${orphan.cell_id} with id ${orphan.id} and content ${orphan.text}`);
+          const toUpdate: UpdateInlineCommentDto = new UpdateInlineCommentDto(orphan.file_id, orphan.text, orphan.mentions, orphan.current_status, true);
+          this.inlineCommentsService.updateInlineComment(token, orphan.id, toUpdate);
+        } catch (ex) {
+          Logger.error(`Error updating orphan inline comment for cell ${orphan.cell_id} with id ${orphan.id} and content ${orphan.text}`, ex);
+        }
+      }
+    } catch (ex) {
+      Logger.error(`Error processing orphan comments`, ex);
     }
   }
 
