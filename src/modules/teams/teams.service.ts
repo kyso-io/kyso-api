@@ -507,8 +507,9 @@ export class TeamsService extends AutowiredService {
   public async deleteGivenOrganization(token: Token, organization_id: string): Promise<void> {
     // Get all team  of the organization
     const teams: Team[] = await this.getTeams({ filter: { organization_id } });
+    const notifyUsers: boolean = teams.length > 1;
     for (const team of teams) {
-      await this.deleteTeam(token, team.id, true);
+      await this.deleteTeam(token, team.id, notifyUsers);
     }
   }
 
@@ -803,7 +804,7 @@ export class TeamsService extends AutowiredService {
     return team;
   }
 
-  public async deleteTeam(token: Token, teamId: string, deletedOrganization = false): Promise<Team> {
+  public async deleteTeam(token: Token, teamId: string, notifyUsers = true): Promise<Team> {
     const team: Team = await this.getTeamById(teamId);
     if (!team) {
       throw new PreconditionFailedException('Team not found');
@@ -837,7 +838,7 @@ export class TeamsService extends AutowiredService {
       team,
       user_ids: teamMembers.map((teamMember: TeamMember) => teamMember.id),
       frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-      deletedOrganization,
+      notifyUsers,
     });
     return team;
   }
