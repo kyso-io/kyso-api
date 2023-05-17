@@ -10,7 +10,7 @@ export class MongoInlineCommentsProvider extends MongoProvider<InlineComment> {
   @Autowired({ typeName: 'ReportsService' })
   private reportsService: ReportsService;
 
-  version = 4;
+  version = 5;
 
   constructor() {
     super('InlineComment', db, [
@@ -94,5 +94,12 @@ export class MongoInlineCommentsProvider extends MongoProvider<InlineComment> {
 
   async migrate_from_3_to_4() {
     await this.getCollection().updateMany({}, { $set: { file_id: null } });
+  }
+
+  /**
+   * Included orphan property. By default, everyone is not orphan, we are not monsters!
+   */
+  async migrate_from_4_to_5() {
+    await this.getCollection().updateMany({}, { $set: { orphan: false } });
   }
 }

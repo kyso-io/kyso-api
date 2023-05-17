@@ -943,7 +943,7 @@ export class ReportsController extends GenericController<Report> {
     @Body() createKysoReportVersionDto: CreateKysoReportVersionDto,
   ): Promise<NormalizedResponseDTO<Report | Report[]>> {
     Logger.log(`Called updateKysoReport`);
-    const data: Report = await this.reportsService.updateKysoReport(token.id, reportId, createKysoReportVersionDto);
+    const data: Report = await this.reportsService.updateKysoReport(token, reportId, createKysoReportVersionDto);
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(data, token.id);
     const relations = await this.relationsService.getRelations(data, 'report', { Author: 'User' });
     return new NormalizedResponseDTO(reportDto, relations);
