@@ -70,8 +70,16 @@ export class BaseCommentsService extends AutowiredService {
     });
   }
 
-  public async sendDeleteCommentNotifications(user: User, organization: Organization, team: Team | null, comment: BaseComment, report: Report, discussion: Discussion | null): Promise<void> {
-    NATSHelper.safelyEmit<KysoCommentsDeleteEvent>(this.client, KysoEventEnum.COMMENTS_DELETE, {
+  public async sendDeleteCommentNotifications(
+    type: 'comment' | 'inline-comment',
+    user: User,
+    organization: Organization,
+    team: Team | null,
+    comment: BaseComment,
+    report: Report,
+    discussion: Discussion | null,
+  ): Promise<void> {
+    NATSHelper.safelyEmit<KysoCommentsDeleteEvent>(this.client, type === 'comment' ? KysoEventEnum.COMMENTS_DELETE : KysoEventEnum.INLINE_COMMENTS_DELETE, {
       user,
       organization,
       team,
@@ -82,8 +90,16 @@ export class BaseCommentsService extends AutowiredService {
     });
   }
 
-  public async sendUpdateCommentNotifications(user: User, organization: Organization, team: Team | null, comment: BaseComment, report: Report, discussion: Discussion | null): Promise<void> {
-    NATSHelper.safelyEmit<KysoCommentsUpdateEvent>(this.client, KysoEventEnum.COMMENTS_UPDATE, {
+  public async sendUpdateCommentNotifications(
+    type: 'comment' | 'inline-comment',
+    user: User,
+    organization: Organization,
+    team: Team | null,
+    comment: BaseComment,
+    report: Report,
+    discussion: Discussion | null,
+  ): Promise<void> {
+    NATSHelper.safelyEmit<KysoCommentsUpdateEvent>(this.client, type === 'comment' ? KysoEventEnum.COMMENTS_UPDATE : KysoEventEnum.INLINE_COMMENTS_UPDATE, {
       user,
       organization,
       team,
@@ -94,16 +110,22 @@ export class BaseCommentsService extends AutowiredService {
     });
   }
 
-  public async sendCreateCommentNotifications(user: User, organization: Organization, team: Team | null, comment: BaseComment, report: Report, discussion: Discussion | null): Promise<void> {
+  public async sendCreateCommentNotifications(
+    type: 'comment' | 'inline-comment',
+    user: User,
+    organization: Organization,
+    team: Team | null,
+    comment: BaseComment,
+    report: Report,
+    discussion: Discussion | null,
+  ): Promise<void> {
     if (!user || !organization || !team || !comment || !report) {
       return;
     }
-
     try {
-      if (comment?.comment_id) {
+      if (comment?.comment_id || (comment as any)?.parent_comment_id) {
         Logger.log(`Sending ${KysoEventEnum.COMMENTS_REPLY} event to NATS`);
-
-        NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_REPLY, {
+        NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, type === 'comment' ? KysoEventEnum.COMMENTS_REPLY : KysoEventEnum.INLINE_COMMENTS_REPLY, {
           user,
           organization,
           team,
@@ -112,11 +134,13 @@ export class BaseCommentsService extends AutowiredService {
           report,
           frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
         });
+        if (type === 'inline-comment') {
+          return;
+        }
       }
-
       // We should send the event as a new created comment in any case... because it is!
       Logger.log(`Sending ${KysoEventEnum.COMMENTS_CREATE} event to NATS`);
-      NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_CREATE, {
+      NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, type === 'comment' ? KysoEventEnum.COMMENTS_CREATE : KysoEventEnum.INLINE_COMMENTS_CREATE, {
         user,
         organization,
         team,

@@ -2591,10 +2591,19 @@ export class ReportsService extends AutowiredService {
 
   public async returnZippedReport(report: Report, version: number | null, response: any): Promise<void> {
     const filter: any = { report_id: report.id };
+    const currentVersion: number = await this.getLastVersionOfReport(report.id);
     if (version) {
+      if (version <= 0) {
+        response.status(404).send(new BadRequestException(`Version must be greater than 0`));
+        return;
+      }
+      if (version > currentVersion) {
+        response.status(404).send(new NotFoundException(`Report ${report.sluglified_name} does not have version ${version}`));
+        return;
+      }
       filter.version = version;
     } else {
-      filter.version = await this.getLastVersionOfReport(report.id);
+      filter.version = currentVersion;
     }
     const reportFiles: File[] = await this.filesMongoProvider.read({ filter });
     if (reportFiles.length === 0) {
