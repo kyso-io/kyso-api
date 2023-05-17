@@ -335,6 +335,7 @@ export class InlineCommentsService extends AutowiredService {
       inlineComment.parent_comment_id,
       inlineComment.report_version,
       inlineComment.current_status,
+      inlineComment.orphan,
     );
     inlineCommentDto.status_history = inlineComment.status_history;
     if (!inlineComment.parent_comment_id) {
