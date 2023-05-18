@@ -318,12 +318,15 @@ export class InlineCommentsService extends AutowiredService {
 
   public async inlineCommentModelToInlineCommentDto(inlineComment: InlineComment): Promise<InlineCommentDto> {
     const user: User = await this.usersService.getUserById(inlineComment.user_id);
+    const file: File = await this.filesService.getFileById(inlineComment.file_id);
+
     const inlineCommentDto: InlineCommentDto = new InlineCommentDto(
       inlineComment.id,
       inlineComment.created_at,
       inlineComment.updated_at,
       inlineComment.report_id,
       inlineComment.file_id,
+      file.path_scs,
       inlineComment.cell_id,
       inlineComment.user_id,
       inlineComment.text,
