@@ -173,6 +173,9 @@ export class InlineCommentController extends GenericController<InlineComment> {
       return new NormalizedResponseDTO(paginatedResponseDto);
     }
     const inlineCommentsQuery: any = {
+      file_id: {
+        $ne: null,
+      },
       parent_comment_id: null,
       $or: [],
     };
@@ -277,6 +280,9 @@ export class InlineCommentController extends GenericController<InlineComment> {
     }
 
     const inlineCommentsQuery: any = {
+      file_id: {
+        $ne: null,
+      },
       parent_comment_id: null,
       current_status: {
         $in: [InlineCommentStatusEnum.DOING, InlineCommentStatusEnum.OPEN, InlineCommentStatusEnum.TO_DO],
