@@ -316,6 +316,20 @@ export class InlineCommentsService extends AutowiredService {
     return true;
   }
 
+  public async inlineCommentModelToInlineCommentDtoArray(inlineComments: InlineComment[]): Promise<InlineCommentDto[]> {
+    const result: InlineCommentDto[] = [];
+
+    for (const model of inlineComments) {
+      try {
+        result.push(await this.indexInlineComment(model));
+      } catch (e) {
+        Logger.error('Error transforming inline comment to inline comment dto', e);
+      }
+    }
+
+    return result;
+  }
+
   public async inlineCommentModelToInlineCommentDto(inlineComment: InlineComment): Promise<InlineCommentDto> {
     const user: User = await this.usersService.getUserById(inlineComment.user_id);
     const file: File = await this.filesService.getFileById(inlineComment.file_id);

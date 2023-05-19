@@ -3182,8 +3182,9 @@ export class ReportsService extends AutowiredService {
           },
         },
       });
+      const reportInlineCommentsDTO: InlineCommentDto[] = await this.inlineCommentsService.inlineCommentModelToInlineCommentDtoArray(reportInlineComments);
 
-      const orphanInlineComments: InlineComment[] = [];
+      const orphanInlineComments: InlineCommentDto[] = [];
       const allCellIdsInNewReport: string[] = [];
 
       for (const entry of zip.getEntries()) {
@@ -3194,15 +3195,16 @@ export class ReportsService extends AutowiredService {
           console.log(originalName);
           const rawData = fs.readFileSync(localFilePath);
           const jsonParsed = JSON.parse(rawData.toString());
+
           for (const cell of jsonParsed.cells) {
             if (cell.id) {
               allCellIdsInNewReport.push(cell.id);
             }
           }
 
-          for (const prevInlineComment of reportInlineComments) {
-            const inlineCommentDTO: InlineCommentDto = await this.inlineCommentsService.inlineCommentModelToInlineCommentDto(prevInlineComment);
-            console.log(inlineCommentDTO);
+          // Here are all the report inline comments, but we only want to check those that
+          // are related to the currently processed file (originalName)
+          for (const prevInlineComment of reportInlineCommentsDTO.filter((x) => x.file_path_scs.endsWith(originalName))) {
             // If prev.cell_id has value and does not exist in the new report, it's an orphan
             if (prevInlineComment.cell_id && allCellIdsInNewReport.lastIndexOf(prevInlineComment.cell_id) === -1) {
               orphanInlineComments.push(prevInlineComment);
