@@ -321,7 +321,7 @@ export class InlineCommentsService extends AutowiredService {
 
     for (const model of inlineComments) {
       try {
-        result.push(await this.indexInlineComment(model));
+        result.push(await this.inlineCommentModelToInlineCommentDto(model));
       } catch (e) {
         Logger.error('Error transforming inline comment to inline comment dto', e);
       }
