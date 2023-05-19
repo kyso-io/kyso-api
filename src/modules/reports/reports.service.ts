@@ -3204,6 +3204,8 @@ export class ReportsService extends AutowiredService {
 
           // Here are all the report inline comments, but we only want to check those that
           // are related to the currently processed file (originalName)
+          console.log(reportInlineCommentsDTO);
+          console.log(reportInlineCommentsDTO.filter((x) => x.file_path_scs && x.file_path_scs.endsWith(originalName)));
           for (const prevInlineComment of reportInlineCommentsDTO.filter((x) => x.file_path_scs && x.file_path_scs.endsWith(originalName))) {
             Logger.debug(`Checking inline comment ${prevInlineComment.id} from ${prevInlineComment.file_path_scs}`);
             // If prev.cell_id has value and does not exist in the new report, it's an orphan
