@@ -3199,22 +3199,22 @@ export class ReportsService extends AutowiredService {
             }
           }
         }
-      }
 
-      for (const prevInlineComment of reportInlineComments) {
-        // If prev.cell_id has value and does not exist in the new report, it's an orphan
-        if (prevInlineComment.cell_id && allCellIdsInNewReport.lastIndexOf(prevInlineComment.cell_id) === -1) {
-          orphanInlineComments.push(prevInlineComment);
+        for (const prevInlineComment of reportInlineComments) {
+          // If prev.cell_id has value and does not exist in the new report, it's an orphan
+          if (prevInlineComment.cell_id && allCellIdsInNewReport.lastIndexOf(prevInlineComment.cell_id) === -1) {
+            orphanInlineComments.push(prevInlineComment);
+          }
         }
-      }
 
-      for (const orphan of orphanInlineComments) {
-        try {
-          Logger.log(`Found orphan inline comment for cell ${orphan.cell_id} with id ${orphan.id} and content ${orphan.text}`);
-          const toUpdate: UpdateInlineCommentDto = new UpdateInlineCommentDto(orphan.file_id, orphan.text, orphan.mentions, orphan.current_status, true);
-          this.inlineCommentsService.updateInlineComment(token, orphan.id, toUpdate);
-        } catch (ex) {
-          Logger.error(`Error updating orphan inline comment for cell ${orphan.cell_id} with id ${orphan.id} and content ${orphan.text}`, ex);
+        for (const orphan of orphanInlineComments) {
+          try {
+            Logger.log(`Found orphan inline comment for cell ${orphan.cell_id} with id ${orphan.id} and content ${orphan.text}`);
+            const toUpdate: UpdateInlineCommentDto = new UpdateInlineCommentDto(orphan.file_id, orphan.text, orphan.mentions, orphan.current_status, true);
+            this.inlineCommentsService.updateInlineComment(token, orphan.id, toUpdate);
+          } catch (ex) {
+            Logger.error(`Error updating orphan inline comment for cell ${orphan.cell_id} with id ${orphan.id} and content ${orphan.text}`, ex);
+          }
         }
       }
     } catch (ex) {
