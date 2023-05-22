@@ -216,8 +216,6 @@ export class InlineCommentController extends GenericController<InlineComment> {
       }
     }
 
-    console.log(inlineCommentsQuery);
-
     const inlineComments: InlineComment[] = await db
       .collection('InlineComment')
       .find(inlineCommentsQuery)

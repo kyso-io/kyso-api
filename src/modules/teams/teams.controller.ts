@@ -647,7 +647,6 @@ export class TeamsController extends GenericController<Team> {
   })
   @Permission([TeamPermissionsEnum.EDIT])
   async updateTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string, @Body() updateTeamRequest: UpdateTeamRequest): Promise<NormalizedResponseDTO<Team>> {
-    console.log(updateTeamRequest);
     const team: Team = await this.teamsService.getTeamById(teamId);
     if (!team) {
       throw new NotFoundException('Team not found');

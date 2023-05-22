@@ -259,7 +259,6 @@ export class AuthController extends GenericController<string> {
         throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the saml2:NameID property`);
       }
     } catch (e) {
-      console.log(e);
       throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the saml2:NameID property`);
     }
   }

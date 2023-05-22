@@ -1089,7 +1089,8 @@ export class ReportsService extends AutowiredService {
     }
 
     Logger.log('Looking for orphan inline comments');
-    this.processOrphanInJupyterNotebook(token, reportId, zip, tmpReportDir);
+    await this.processOrphans(token, reportId, createKysoReportVersionDto);
+    await this.processOrphanInJupyterNotebook(token, reportId, zip, tmpReportDir);
 
     const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_USERNAME);
     const password: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PASSWORD);
@@ -3173,6 +3174,35 @@ export class ReportsService extends AutowiredService {
     }
   }
 
+  private async processOrphans(token: Token, reportId: string, createKysoReportVersionDto: CreateKysoReportVersionDto) {
+    try {
+      const reportInlineComments: InlineComment[] = await this.inlineCommentsService.getInlineComments({
+        filter: {
+          report_id: {
+            $in: [reportId],
+          },
+        },
+      });
+
+      const reportInlineCommentsDTO: InlineCommentDto[] = await this.inlineCommentsService.inlineCommentModelToInlineCommentDtoArray(reportInlineComments);
+
+      for (const inlineComment of reportInlineCommentsDTO) {
+        if (createKysoReportVersionDto.deletedFiles.findIndex((x) => x === inlineComment.file_id) !== -1) {
+          // That comment belongs to a deleted file. Mark as orphan.
+          try {
+            const toUpdate: UpdateInlineCommentDto = new UpdateInlineCommentDto(inlineComment.file_id, inlineComment.text, inlineComment.mentions, inlineComment.current_status, true);
+            Logger.debug(`Updating orphan ${inlineComment.id}`);
+            this.inlineCommentsService.updateInlineComment(token, inlineComment.id, toUpdate);
+          } catch (ex) {
+            Logger.error(`Error updating orphan comment for file ${inlineComment.file_path_scs} with id ${inlineComment.id} and content ${inlineComment.text}`, ex);
+          }
+        }
+      }
+    } catch (ex) {
+      Logger.error(`Error processing orphan comments`, ex);
+    }
+  }
+
   private async processOrphanInJupyterNotebook(token: Token, reportId: string, zip: AdmZip, tmpReportDir: string) {
     try {
       const reportInlineComments: InlineComment[] = await this.inlineCommentsService.getInlineComments({
@@ -3192,7 +3222,6 @@ export class ReportsService extends AutowiredService {
         const localFilePath = join(tmpReportDir, entry.entryName);
 
         if (originalName.endsWith('ipynb')) {
-          console.log(originalName);
           const rawData = fs.readFileSync(localFilePath);
           const jsonParsed = JSON.parse(rawData.toString());
 
@@ -3204,8 +3233,6 @@ export class ReportsService extends AutowiredService {
 
           // Here are all the report inline comments, but we only want to check those that
           // are related to the currently processed file (originalName)
-          console.log(reportInlineCommentsDTO);
-          console.log(reportInlineCommentsDTO.filter((x) => x.file_path_scs && x.file_path_scs.endsWith(originalName)));
           for (const prevInlineComment of reportInlineCommentsDTO.filter((x) => x.file_path_scs && x.file_path_scs.endsWith(originalName))) {
             Logger.debug(`Checking inline comment ${prevInlineComment.id} from ${prevInlineComment.file_path_scs}`);
             // If prev.cell_id has value and does not exist in the new report, it's an orphan
