@@ -3385,6 +3385,9 @@ export class ReportsService extends AutowiredService {
     if (sourceFile.name !== targetFile.name) {
       throw new BadRequestException('Source and target are not the same file');
     }
+    if (!sourceFile.name.endsWith('.ipynb')) {
+      throw new BadRequestException('Requested file is not a Jupyter Notebook');
+    }
     const sourceFileContent: Buffer = await this.getReportFileContent(sourceFile);
     if (!sourceFileContent) {
       throw new NotFoundException(`Source file with id ${sourceFileId} not found`);
@@ -3407,6 +3410,15 @@ export class ReportsService extends AutowiredService {
     } catch (e) {
       throw new InternalServerErrorException('Error while getting diff');
     }
+  }
+
+  public async getFileVersions(reportId: string, fileName: string): Promise<File[]> {
+    return this.filesMongoProvider.read({
+      filter: {
+        report_id: reportId,
+        name: fileName,
+      },
+    });
   }
 
   public async isReportDownloadable(token: Token, organization: Organization, team: Team): Promise<boolean> {
