@@ -57,7 +57,7 @@ import {
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import axios, { AxiosResponse } from 'axios';
 import { Request } from 'express';
 import * as moment from 'moment';
@@ -1415,6 +1415,45 @@ export class ReportsController extends GenericController<Report> {
       version = parseInt(versionStr, 10);
     }
     const files: File[] = await this.reportsService.getReportFiles(reportId, version);
+    return new NormalizedResponseDTO(files);
+  }
+
+  @Get('/:reportId/file-versions')
+  @ApiOperation({
+    summary: `Get all versions of a file in a report`,
+    description: `Get all versions of a file in a report`,
+  })
+  @ApiNormalizedResponse({
+    status: 200,
+    description: `Specified report data`,
+    type: File,
+    isArray: true,
+  })
+  @ApiParam({
+    name: 'reportId',
+    required: true,
+    description: 'Id of the report to fetch',
+    schema: { type: 'string' },
+  })
+  @ApiQuery({
+    name: 'fileName',
+    required: true,
+    description: 'Name of the file to fetch',
+    schema: { type: 'string' },
+  })
+  @Public()
+  async getFileVersions(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Query('fileName') fileName: string): Promise<NormalizedResponseDTO<any>> {
+    if (!fileName) {
+      throw new BadRequestException('fileName is required');
+    }
+    const { team, organization } = await this.getReportTeamAndOrganizationGivenReportId(reportId);
+    if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+      const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team, organization);
+      if (!hasPermissions) {
+        throw new ForbiddenException('You do not have permissions to access this report');
+      }
+    }
+    const files: File[] = await this.reportsService.getFileVersions(reportId, fileName);
     return new NormalizedResponseDTO(files);
   }
 
