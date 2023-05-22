@@ -177,7 +177,8 @@ export class InlineCommentController extends GenericController<InlineComment> {
         $ne: null,
       },
       parent_comment_id: null,
-      $or: [],
+      $or: [{ orphan: true }],
+      $and: [],
     };
     if (searchInlineCommentsQuery.inline_comment_author_id) {
       if (searchInlineCommentsQuery.inline_comment_author_id_operator === 'eq') {
@@ -186,7 +187,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
         inlineCommentsQuery.user_id = { $ne: searchInlineCommentsQuery.inline_comment_author_id };
       }
     } else {
-      inlineCommentsQuery.$or.push({
+      inlineCommentsQuery.$and.push({
         user_id: token.id,
       });
     }
@@ -214,6 +215,9 @@ export class InlineCommentController extends GenericController<InlineComment> {
         inlineCommentsQuery.created_at[`$${searchInlineCommentsQuery.end_date_operator}`] = moment(searchInlineCommentsQuery.end_date, 'YYYY-MM-DD', true).toDate();
       }
     }
+
+    console.log(inlineCommentsQuery);
+
     const inlineComments: InlineComment[] = await db
       .collection('InlineComment')
       .find(inlineCommentsQuery)
@@ -287,11 +291,8 @@ export class InlineCommentController extends GenericController<InlineComment> {
       current_status: {
         $in: [InlineCommentStatusEnum.DOING, InlineCommentStatusEnum.OPEN, InlineCommentStatusEnum.TO_DO],
       },
-      $or: [
-        {
-          user_id: token.id,
-        },
-      ],
+      $and: [{ user_id: token.id }],
+      $or: [{ orphan: true }],
     };
 
     const report_versions: number[] = await Promise.all(reports.map((report: Report) => this.reportsService.getLastVersionOfReport(report.id)));

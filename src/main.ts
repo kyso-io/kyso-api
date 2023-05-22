@@ -219,11 +219,24 @@ async function connectToDatabase() {
     try {
       Logger.log(`Connecting to ${process.env.DATABASE_URI}`);
 
-      client = await MongoClient.connect(process.env.DATABASE_URI, {
-        // useUnifiedTopology: true,
-        maxPoolSize: 10,
-        // poolSize: 10 <-- Deprecated
-      });
+      let connectionOptions;
+
+      if (process.env.NODE_ENV === 'development') {
+        connectionOptions = {
+          // useUnifiedTopology: true,
+          maxPoolSize: 10,
+          // poolSize: 10 <-- Deprecated
+          directConnection: true,
+        };
+      } else {
+        connectionOptions = {
+          // useUnifiedTopology: true,
+          maxPoolSize: 10,
+          // poolSize: 10 <-- Deprecated
+        };
+      }
+
+      client = await MongoClient.connect(process.env.DATABASE_URI, connectionOptions);
       Logger.log(`Connecting to database... ${client.s.options.dbName}`);
       db = await client.db(client.s.options.dbName);
       await db.command({ ping: 1 });

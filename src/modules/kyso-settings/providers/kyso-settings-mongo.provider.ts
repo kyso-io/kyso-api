@@ -6,7 +6,7 @@ import { KysoSettingsService } from '../kyso-settings.service';
 
 @Injectable()
 export class KysoSettingsMongoProvider extends MongoProvider<KysoSetting> {
-  version = 2;
+  version = 4;
 
   constructor() {
     super('KysoSettings', db);
@@ -84,6 +84,86 @@ export class KysoSettingsMongoProvider extends MongoProvider<KysoSetting> {
       }
     } else {
       Logger.warn('Onboarding value not found. Migration 1 to 2 from KysoSettings not applied :(');
+    }
+  }
+
+  /**
+   * FOOTER_CONTENTS was saved as string and should be saved as JSON.
+   *
+   * The migration consists on taking the current value of the FOOTER_CONTENTS, transform
+   * it to a JSON object and update it in the database
+   */
+  async migrate_from_2_to_3() {
+    const footerContents: any[] = await this.getCollection().find({ key: KysoSettingsEnum.FOOTER_CONTENTS }).toArray();
+
+    if (footerContents) {
+      let currentValueFooterContents = '';
+      if (footerContents.length > 0) {
+        currentValueFooterContents = footerContents[0].value as string;
+      } else {
+        Logger.warn('FooterContents value not found. Migration 2 to 3 from KysoSettings not applied');
+        return;
+      }
+
+      // If we reach to this point, we have a value in currentValue
+      try {
+        // Transform to JSON
+        const jsonValue = JSON.parse(currentValueFooterContents);
+
+        // Update it
+        await this.update(
+          { key: KysoSettingsEnum.FOOTER_CONTENTS },
+          {
+            $set: {
+              value: jsonValue,
+            },
+          },
+        );
+      } catch (e) {
+        Logger.warn('Error appliying Migration 2 to 3 from KysoSettings', e);
+      }
+    } else {
+      Logger.warn('Footer value not found. Migration 2 to 3 from KysoSettings not applied :(');
+    }
+  }
+
+  /**
+   * KYSO_COMMENT_STATES_VALUES was saved as string and should be saved as JSON.
+   *
+   * The migration consists on taking the current value of the KYSO_COMMENT_STATES_VALUES, transform
+   * it to a JSON object and update it in the database
+   */
+  async migrate_from_3_to_4() {
+    const commentStates: any[] = await this.getCollection().find({ key: KysoSettingsEnum.KYSO_COMMENT_STATES_VALUES }).toArray();
+
+    if (commentStates) {
+      let currentValue = '';
+      if (commentStates.length > 0) {
+        currentValue = commentStates[0].value as string;
+      } else {
+        Logger.warn('FooterContents value not found. Migration 2 to 3 from KysoSettings not applied');
+        return;
+      }
+
+      // If we reach to this point, we have a value in currentValue
+      try {
+        // Transform to JSON
+        const jsonValue = JSON.parse(currentValue);
+
+        // Update it
+        await this.update(
+          { key: KysoSettingsEnum.KYSO_COMMENT_STATES_VALUES },
+          {
+            $set: {
+              value: jsonValue,
+            },
+          },
+        );
+      } catch (e) {
+        Logger.warn('Error appliying Migration 3 to 4 from KysoSettings', e);
+      }
+    } else {
+      Logger.warn('KYSO_COMMENT_STATES_VALUES not found. Migration 3 to 4 from KysoSettings not applied :(');
     }
   }
 }

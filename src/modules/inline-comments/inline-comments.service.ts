@@ -373,7 +373,7 @@ export class InlineCommentsService extends AutowiredService {
       .toArray();
     const files_current_version: File[] = await db.collection('File').find({ report_id, version: report_version }).toArray();
 
-    // START: UPDATE STATUS HISTORY
+    // START: UPDATE STATUS HISTORY AND COPY COMMENTS TO NEW VERSION
     for (const file_previous_version of files_previous_version) {
       const file_current_version: File | undefined = files_current_version.find((file: File) => file.name === file_previous_version.name);
       if (!file_current_version) {
@@ -391,49 +391,56 @@ export class InlineCommentsService extends AutowiredService {
           },
         },
       });
+
       for (const inline_comment_previous_version of inline_comments_previous_version) {
-        let inline_comment_current_version: InlineComment = new InlineComment(
-          report_id,
-          file_current_version.id,
-          file_previous_version.id === inline_comment_previous_version.cell_id ? file_current_version.id : inline_comment_previous_version.cell_id,
-          inline_comment_previous_version.user_id,
-          inline_comment_previous_version.text,
-          inline_comment_previous_version.edited,
-          inline_comment_previous_version.markedAsDeleted,
-          inline_comment_previous_version.mentions,
-          null,
-          report_version,
-          inline_comment_previous_version.current_status,
-        );
-        inline_comment_current_version.status_history = [...inline_comment_previous_version.status_history];
-        inline_comment_current_version = await this.provider.create(inline_comment_current_version);
-        // Check if inline comment has replies
-        const inline_comments_replies_previous_version: InlineComment[] = await this.provider.read({
-          filter: {
-            report_id,
-            report_version: file_previous_version.version,
-            parent_comment_id: inline_comment_previous_version.id,
-          },
-        });
-        for (const inline_comment_reply_previous_version of inline_comments_replies_previous_version) {
-          let inline_comment_reply_current_version: InlineComment = new InlineComment(
+        if (!inline_comment_previous_version.orphan) {
+          let inline_comment_current_version: InlineComment = new InlineComment(
             report_id,
             file_current_version.id,
-            file_previous_version.id === inline_comment_reply_previous_version.cell_id ? file_current_version.id : inline_comment_reply_previous_version.cell_id,
-            inline_comment_reply_previous_version.user_id,
-            inline_comment_reply_previous_version.text,
-            inline_comment_reply_previous_version.edited,
-            inline_comment_reply_previous_version.markedAsDeleted,
-            inline_comment_reply_previous_version.mentions,
-            inline_comment_current_version.id,
+            file_previous_version.id === inline_comment_previous_version.cell_id ? file_current_version.id : inline_comment_previous_version.cell_id,
+            inline_comment_previous_version.user_id,
+            inline_comment_previous_version.text,
+            inline_comment_previous_version.edited,
+            inline_comment_previous_version.markedAsDeleted,
+            inline_comment_previous_version.mentions,
+            null,
             report_version,
-            inline_comment_reply_previous_version.current_status,
+            inline_comment_previous_version.current_status,
+            inline_comment_previous_version.orphan,
           );
-          inline_comment_reply_current_version = await this.provider.create(inline_comment_reply_current_version);
+          inline_comment_current_version.status_history = [...inline_comment_previous_version.status_history];
+          inline_comment_current_version = await this.provider.create(inline_comment_current_version);
+          // Check if inline comment has replies
+          const inline_comments_replies_previous_version: InlineComment[] = await this.provider.read({
+            filter: {
+              report_id,
+              report_version: file_previous_version.version,
+              parent_comment_id: inline_comment_previous_version.id,
+            },
+          });
+          for (const inline_comment_reply_previous_version of inline_comments_replies_previous_version) {
+            let inline_comment_reply_current_version: InlineComment = new InlineComment(
+              report_id,
+              file_current_version.id,
+              file_previous_version.id === inline_comment_reply_previous_version.cell_id ? file_current_version.id : inline_comment_reply_previous_version.cell_id,
+              inline_comment_reply_previous_version.user_id,
+              inline_comment_reply_previous_version.text,
+              inline_comment_reply_previous_version.edited,
+              inline_comment_reply_previous_version.markedAsDeleted,
+              inline_comment_reply_previous_version.mentions,
+              inline_comment_current_version.id,
+              report_version,
+              inline_comment_reply_previous_version.current_status,
+              inline_comment_reply_previous_version.orphan,
+            );
+            inline_comment_reply_current_version = await this.provider.create(inline_comment_reply_current_version);
+          }
+        } else {
+          // If the comment is orphan, don't propagate it to newer versions
         }
       }
     }
-    // END: UPDATE STATUS HISTORY
+    // END: UPDATE STATUS HISTORY AND COPY COMMENTS TO NEW VERSION
 
     // START: REINDEX INLINE COMMENTS
     await this.reindexCommentsGivenReportId(report_id);
