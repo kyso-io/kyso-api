@@ -16,7 +16,7 @@ import {
   UpdateInlineCommentDto,
   User,
 } from '@kyso-io/kyso-model';
-import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Logger, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import * as moment from 'moment';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
@@ -178,7 +178,6 @@ export class InlineCommentController extends GenericController<InlineComment> {
       },
       parent_comment_id: null,
       $or: [{ orphan: true }],
-      $and: [],
     };
     if (searchInlineCommentsQuery.inline_comment_author_id) {
       if (searchInlineCommentsQuery.inline_comment_author_id_operator === 'eq') {
@@ -186,11 +185,11 @@ export class InlineCommentController extends GenericController<InlineComment> {
       } else {
         inlineCommentsQuery.user_id = { $ne: searchInlineCommentsQuery.inline_comment_author_id };
       }
-    } else {
+    } /*else {
       inlineCommentsQuery.$and.push({
         user_id: token.id,
       });
-    }
+    }*/
     const report_versions: number[] = await Promise.all(reports.map((report: Report) => this.reportsService.getLastVersionOfReport(report.id)));
     reports.forEach((report: Report, index: number) => {
       inlineCommentsQuery.$or.push({
@@ -225,17 +224,42 @@ export class InlineCommentController extends GenericController<InlineComment> {
         [searchInlineCommentsQuery.order_by]: searchInlineCommentsQuery.order_direction === 'asc' ? 1 : -1,
       })
       .toArray();
+
     const relations: Relations = await this.relationsService.getRelations(inlineComments, 'InlineComment');
+    const usersRelatedToReports = [];
+
     if (relations.report) {
       for (const reportId in relations.report) {
         if (relations.report.hasOwnProperty(reportId)) {
+          const authorIds = (relations.report[reportId] as Report)?.author_ids;
+
+          if (authorIds) {
+            usersRelatedToReports.push(...(relations.report[reportId] as Report)?.author_ids);
+          }
           relations.report[reportId] = await this.reportsService.reportModelToReportDTO(relations.report[reportId], token.id);
         }
       }
     }
+
+    // ADD MISSING RELATIONS TO USER AUTHORS
+    let userRelationKeys = [];
+    if (relations.user) {
+      userRelationKeys = Object.keys(relations.user);
+    }
+
+    for (const userId of usersRelatedToReports) {
+      if (userRelationKeys.findIndex((x) => x === userId) === -1) {
+        // The user does not exists in the relations, add it
+        const missingUser: User = await this.usersService.getUserById(userId);
+        delete missingUser.hashed_password;
+        relations.user[userId] = missingUser;
+      }
+    }
+
     const inlineCommentsDto: InlineCommentDto[] = await Promise.all(
       inlineComments.map((inlineComment: InlineComment) => this.inlineCommentsService.inlineCommentModelToInlineCommentDto(inlineComment)),
     );
+
     const totalItems: number = await this.inlineCommentsService.countInlineComments({ filter: inlineCommentsQuery });
     const totalPages: number = totalItems > 0 ? Math.ceil(totalItems / searchInlineCommentsQuery.limit) : 0;
     const paginatedResponseDto: PaginatedResponseDto<InlineCommentDto> = new PaginatedResponseDto<InlineCommentDto>(
@@ -289,7 +313,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
       current_status: {
         $in: [InlineCommentStatusEnum.DOING, InlineCommentStatusEnum.OPEN, InlineCommentStatusEnum.TO_DO],
       },
-      $and: [{ user_id: token.id }],
+      // $and: [{ user_id: token.id }],
       $or: [{ orphan: true }],
     };
 
