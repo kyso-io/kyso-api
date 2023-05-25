@@ -112,11 +112,7 @@ export class UsersService extends AutowiredService {
   }
 
   async getUsers(query): Promise<User[]> {
-    let users: User[] = [];
-
-    users = await this.provider.read(query);
-
-    return users;
+    return this.provider.read(query);
   }
 
   public async getUserById(id: string): Promise<User> {

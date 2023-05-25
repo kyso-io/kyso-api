@@ -106,16 +106,8 @@ export class UsersController extends GenericController<User> {
     description: 'Sort by creation_date. Values allowed: asc or desc. Default. <b>desc</b>',
   })
   @Public()
-  async getUsers(@Query('user_id') userId: string[], @Req() req): Promise<NormalizedResponseDTO<UserDTO[]>> {
+  async getUsers(@Req() req): Promise<NormalizedResponseDTO<UserDTO[]>> {
     const query = QueryParser.toQueryObject(req.url);
-    if (userId && userId.length > 0) {
-      const mapped = userId.map((x) => {
-        const result = { id: x };
-        return result;
-      });
-      query.filter = { $or: mapped };
-    }
-
     if (query?.filter?.$text) {
       if (!query.filter.hasOwnProperty('$or')) {
         query.filter.$or = [];
