@@ -1,4 +1,20 @@
-import { ActionEnum, ActivityFeed, Comment, Discussion, EntityEnum, NormalizedResponseDTO, Organization, Relations, Report, Tag, Team, TeamVisibilityEnum, Token, User } from '@kyso-io/kyso-model';
+import {
+  ActionEnum,
+  ActivityFeed,
+  Comment,
+  Discussion,
+  EntityEnum,
+  InlineComment,
+  NormalizedResponseDTO,
+  Organization,
+  Relations,
+  Report,
+  Tag,
+  Team,
+  TeamVisibilityEnum,
+  Token,
+  User,
+} from '@kyso-io/kyso-model';
 import { Controller, Get, NotFoundException, Param, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ObjectId } from 'mongodb';
@@ -17,6 +33,7 @@ import { TagsService } from '../tags/tags.service';
 import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
 import { ActivityFeedService } from './activity-feed.service';
+import { InlineCommentsService } from '../inline-comments/inline-comments.service';
 
 @ApiExtraModels(Report, NormalizedResponseDTO)
 @ApiBearerAuth()
@@ -47,6 +64,9 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
 
   @Autowired({ typeName: 'CommentsService' })
   private commentsService: CommentsService;
+
+  @Autowired({ typeName: 'InlineCommentsService' })
+  private inlineCommentsService: InlineCommentsService;
 
   @Get('user/:username')
   @ApiOperation({
@@ -321,6 +341,7 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
     const userIds: Map<string, boolean> = new Map<string, boolean>();
     const discussionIds: Map<string, boolean> = new Map<string, boolean>();
     const commentsIds: Map<string, boolean> = new Map<string, boolean>();
+    const inlineCommentsIds: Map<string, boolean> = new Map<string, boolean>();
     for (const activity of activityFeed) {
       if (activity?.organization) {
         organizationSlugs.set(activity.organization, null);
@@ -347,6 +368,9 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
             break;
           case EntityEnum.COMMENT:
             commentsIds.set(activity.entity_id, true);
+            break;
+          case EntityEnum.INLINE_COMMENT:
+            inlineCommentsIds.set(activity.entity_id, true);
             break;
         }
       }
@@ -388,6 +412,20 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
         }
         if (comment.discussion_id) {
           discussionIds.set(comment.discussion_id, true);
+        }
+      });
+    }
+    let inlineComments: InlineComment[] = [];
+    relations.inlineComment = {};
+    if (inlineCommentsIds.size > 0) {
+      inlineComments = await this.inlineCommentsService.getInlineComments({
+        filter: { _id: { $in: Array.from(inlineCommentsIds.keys()).map((id: string) => new ObjectId(id)) } },
+      });
+      inlineComments.forEach((inlineComment: InlineComment) => {
+        relations.inlineComment[inlineComment.id] = inlineComment;
+        userIds.set(inlineComment.user_id, true);
+        if (inlineComment.report_id) {
+          reportIds.set(inlineComment.report_id, true);
         }
       });
     }

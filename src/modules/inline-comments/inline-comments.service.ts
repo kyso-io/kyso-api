@@ -212,7 +212,9 @@ export class InlineCommentsService extends AutowiredService {
 
     const report_last_version: number = await this.reportsService.getLastVersionOfReport(report.id);
     const status_history: InlineCommentStatusHistoryDto[] = [...inlineComment.status_history];
+    let statusChanged = false;
     if (inlineComment.current_status !== updateInlineCommentDto.status) {
+      statusChanged = true;
       status_history.unshift(new InlineCommentStatusHistoryDto(new Date(), inlineComment.current_status, updateInlineCommentDto.status, token.id, report_last_version));
     }
 
@@ -231,7 +233,12 @@ export class InlineCommentsService extends AutowiredService {
       },
     );
 
-    this.baseCommentsService.sendUpdateCommentNotifications('inline-comment', user, organization, team, updateResult, report, null);
+    if (statusChanged) {
+      this.baseCommentsService.sendInlineCommentsStatusChanged(user, organization, team, updateResult, report);
+    } else {
+      this.baseCommentsService.sendUpdateCommentNotifications('inline-comment', user, organization, team, updateResult, report, null);
+    }
+
     this.baseCommentsService.checkMentionsInReportComment(report.id, user.id, inlineComment.mentions);
 
     Logger.log(`Updating comment '${updateResult.id}' of user '${updateResult.user_id}' in Elasticsearch...`, InlineCommentsService.name);
