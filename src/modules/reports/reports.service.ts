@@ -3187,11 +3187,12 @@ export class ReportsService extends AutowiredService {
       const reportInlineCommentsDTO: InlineCommentDto[] = await this.inlineCommentsService.inlineCommentModelToInlineCommentDtoArray(reportInlineComments);
 
       for (const inlineComment of reportInlineCommentsDTO) {
-        if (createKysoReportVersionDto.deletedFiles.findIndex((x) => x === inlineComment.file_id) !== -1) {
+        const relativePath = inlineComment.file_path_scs.split('/').slice(6).join('/');
+        if (createKysoReportVersionDto.deletedFiles.findIndex((x) => x.endsWith(relativePath)) !== -1) {
           // That comment belongs to a deleted file. Mark as orphan.
           try {
             const toUpdate: UpdateInlineCommentDto = new UpdateInlineCommentDto(inlineComment.file_id, inlineComment.text, inlineComment.mentions, inlineComment.current_status, true);
-            Logger.debug(`Updating orphan ${inlineComment.id}`);
+            Logger.debug(`Updating orphan ${inlineComment.id} for deleted file ${relativePath}`);
             this.inlineCommentsService.updateInlineComment(token, inlineComment.id, toUpdate);
           } catch (ex) {
             Logger.error(`Error updating orphan comment for file ${inlineComment.file_path_scs} with id ${inlineComment.id} and content ${inlineComment.text}`, ex);
