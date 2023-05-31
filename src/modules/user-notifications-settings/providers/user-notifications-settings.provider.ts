@@ -5,7 +5,7 @@ import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class UserNotificationsSettingsProvider extends MongoProvider<UserNotificationsSettings> {
-  version = 3;
+  version = 4;
 
   constructor() {
     super('UserNotificationsSettings', db, []);
@@ -64,6 +64,63 @@ export class UserNotificationsSettingsProvider extends MongoProvider<UserNotific
         { _id: this.toObjectId(uns.id) },
         {
           $set: {
+            channels_settings,
+          },
+        },
+      );
+    }
+  }
+
+  async migrate_from_3_to_4() {
+    const cursor = await this.getCollection().find({});
+    const unss: UserNotificationsSettings[] = await cursor.toArray();
+    for (const uns of unss) {
+      const global_settings: NotificationsSettings = { ...uns.global_settings } as any;
+      global_settings.new_task = true;
+      global_settings.new_task_reply = true;
+      global_settings.task_status_changed = true;
+      global_settings.task_updated = true;
+      global_settings.task_reply_updated = true;
+      global_settings.task_removed = true;
+      global_settings.task_reply_removed = true;
+      const organization_settings: { [organization_id: string]: NotificationsSettings } = { ...uns.organization_settings };
+      for (const organizationId in organization_settings) {
+        if (organization_settings.hasOwnProperty(organizationId)) {
+          organization_settings[organizationId].new_task = true;
+          organization_settings[organizationId].new_task_reply = true;
+          organization_settings[organizationId].task_status_changed = true;
+          organization_settings[organizationId].task_updated = true;
+          organization_settings[organizationId].task_reply_updated = true;
+          organization_settings[organizationId].task_removed = true;
+          organization_settings[organizationId].task_reply_removed = true;
+        }
+      }
+      const channels_settings: {
+        [organization_id: string]: {
+          [channel_id: string]: NotificationsSettings;
+        };
+      } = { ...uns.channels_settings };
+      for (const organizationId in channels_settings) {
+        if (channels_settings.hasOwnProperty(organizationId)) {
+          for (const teamId in channels_settings[organizationId].teams) {
+            if (channels_settings[organizationId].teams.hasOwnProperty(teamId)) {
+              channels_settings[organizationId].teams[teamId].new_task = true;
+              channels_settings[organizationId].teams[teamId].new_task_reply = true;
+              channels_settings[organizationId].teams[teamId].task_status_changed = true;
+              channels_settings[organizationId].teams[teamId].task_updated = true;
+              channels_settings[organizationId].teams[teamId].task_reply_updated = true;
+              channels_settings[organizationId].teams[teamId].task_removed = true;
+              channels_settings[organizationId].teams[teamId].task_reply_removed = true;
+            }
+          }
+        }
+      }
+      await this.getCollection().update(
+        { id: uns.id },
+        {
+          $set: {
+            global_settings,
+            organization_settings,
             channels_settings,
           },
         },

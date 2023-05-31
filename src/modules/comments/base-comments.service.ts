@@ -1,5 +1,6 @@
 import {
   Discussion,
+  InlineComment,
   KysoCommentsCreateEvent,
   KysoCommentsDeleteEvent,
   KysoCommentsUpdateEvent,
@@ -59,7 +60,7 @@ export class BaseCommentsService extends AutowiredService {
   }
 
   public async sendReplyCommentNotifications(user: User, organization: Organization, team: Team | null, comment: BaseComment, report: Report, discussion: Discussion | null): Promise<void> {
-    NATSHelper.safelyEmit<KysoCommentsDeleteEvent>(this.client, KysoEventEnum.COMMENTS_REPLY, {
+    NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_REPLY, {
       user,
       organization,
       team,
@@ -110,6 +111,17 @@ export class BaseCommentsService extends AutowiredService {
     });
   }
 
+  public async sendInlineCommentsStatusChanged(user: User, organization: Organization, team: Team | null, comment: InlineComment, report: Report): Promise<void> {
+    NATSHelper.safelyEmit<KysoCommentsUpdateEvent>(this.client, KysoEventEnum.INLINE_COMMENTS_CHANGE_STATUS, {
+      user,
+      organization,
+      team,
+      comment,
+      report,
+      frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+    });
+  }
+
   public async sendCreateCommentNotifications(
     type: 'comment' | 'inline-comment',
     user: User,
@@ -140,15 +152,19 @@ export class BaseCommentsService extends AutowiredService {
       }
       // We should send the event as a new created comment in any case... because it is!
       Logger.log(`Sending ${KysoEventEnum.COMMENTS_CREATE} event to NATS`);
-      NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, type === 'comment' ? KysoEventEnum.COMMENTS_CREATE : KysoEventEnum.INLINE_COMMENTS_CREATE, {
-        user,
-        organization,
-        team,
-        comment,
-        discussion,
-        report,
-        frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-      });
+      NATSHelper.safelyEmit<KysoCommentsCreateEvent>(
+        this.client,
+        type === 'comment' ? KysoEventEnum.COMMENTS_CREATE : (comment as InlineComment).parent_comment_id ? KysoEventEnum.INLINE_COMMENTS_REPLY : KysoEventEnum.INLINE_COMMENTS_CREATE,
+        {
+          user,
+          organization,
+          team,
+          comment,
+          discussion,
+          report,
+          frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+        },
+      );
     } catch (ex) {
       Logger.warn('Error sending create comment notifications', ex);
     }
