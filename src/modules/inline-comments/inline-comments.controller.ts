@@ -16,7 +16,7 @@ import {
   UpdateInlineCommentDto,
   User,
 } from '@kyso-io/kyso-model';
-import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Logger, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import * as moment from 'moment';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
@@ -115,7 +115,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
       }
     }
     const inlineComments: InlineComment[] = await this.inlineCommentsService.getGivenReportId(report_id, file_id);
-    const relations: Relations = await this.relationsService.getRelations(inlineComments, 'InlineComment');
+    const relations: Relations = await this.relationsService.getRelations(inlineComments, 'InlineComment', { mentions: 'User' });
     const inlineCommentsDto: InlineCommentDto[] = await Promise.all(
       inlineComments.map((inlineComment: InlineComment) => this.inlineCommentsService.inlineCommentModelToInlineCommentDto(inlineComment)),
     );
@@ -225,7 +225,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
       })
       .toArray();
 
-    const relations: Relations = await this.relationsService.getRelations(inlineComments, 'InlineComment');
+    const relations: Relations = await this.relationsService.getRelations(inlineComments, 'InlineComment', { mentions: 'User' });
     const usersRelatedToReports = [];
 
     if (relations.report) {
@@ -399,7 +399,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
         throw new ForbiddenException('You are not allowed to get this inline comment');
       }
     }
-    const relations: Relations = await this.relationsService.getRelations(inlineComment);
+    const relations: Relations = await this.relationsService.getRelations(inlineComment, 'InlineComment', { mentions: 'User' });
     const inlineCommentDto: InlineCommentDto = await this.inlineCommentsService.inlineCommentModelToInlineCommentDto(inlineComment);
     for (const inlineCommentStatusHistoryDto of inlineComment.status_history) {
       if (!relations.user[inlineCommentStatusHistoryDto.user_id]) {
@@ -429,7 +429,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
   @Permission([InlineCommentPermissionsEnum.CREATE])
   async createInlineComment(@CurrentToken() token: Token, @Body() createInlineCommentDto: CreateInlineCommentDto): Promise<NormalizedResponseDTO<InlineCommentDto>> {
     const inlineComment: InlineComment = await this.inlineCommentsService.createInlineComment(token.id, createInlineCommentDto);
-    const relations: Relations = await this.relationsService.getRelations(inlineComment, 'InlineComment');
+    const relations: Relations = await this.relationsService.getRelations(inlineComment, 'InlineComment', { mentions: 'User' });
     const inlineCommentDto: InlineCommentDto = await this.inlineCommentsService.inlineCommentModelToInlineCommentDto(inlineComment);
     return new NormalizedResponseDTO(inlineCommentDto, relations);
   }
@@ -453,7 +453,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
   @Permission([InlineCommentPermissionsEnum.EDIT])
   async updateInlineComment(@CurrentToken() token: Token, @Param('id') id: string, @Body() updateInlineCommentDto: UpdateInlineCommentDto): Promise<NormalizedResponseDTO<InlineCommentDto>> {
     const inlineComment: InlineComment = await this.inlineCommentsService.updateInlineComment(token, id, updateInlineCommentDto);
-    const relations: Relations = await this.relationsService.getRelations(inlineComment, 'InlineComment');
+    const relations: Relations = await this.relationsService.getRelations(inlineComment, 'InlineComment', { mentions: 'User' });
     const inlineCommentDto: InlineCommentDto = await this.inlineCommentsService.inlineCommentModelToInlineCommentDto(inlineComment);
     return new NormalizedResponseDTO(inlineCommentDto, relations);
   }

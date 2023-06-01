@@ -129,7 +129,7 @@ export class InlineCommentsService extends AutowiredService {
       createInlineCommentDto.text,
       false,
       false,
-      createInlineCommentDto.mentions,
+      [...createInlineCommentDto.mentions],
       createInlineCommentDto.parent_comment_id,
       report_last_version,
       InlineCommentStatusEnum.OPEN,
