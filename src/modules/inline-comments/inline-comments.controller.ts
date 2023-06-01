@@ -137,6 +137,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
     @Query() searchInlineCommentsQuery: SearchInlineCommentsQuery,
   ): Promise<NormalizedResponseDTO<PaginatedResponseDto<InlineCommentDto>>> {
     let teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
+
     if (searchInlineCommentsQuery.organization_id) {
       teams = teams.filter((team: Team) => team.organization_id === searchInlineCommentsQuery.organization_id);
     }
@@ -149,6 +150,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
         }
       });
     }
+
     if (teams.length === 0) {
       const paginatedResponseDto: PaginatedResponseDto<InlineCommentDto> = new PaginatedResponseDto<InlineCommentDto>(1, 0, 0, [], 0, 0);
       return new NormalizedResponseDTO(paginatedResponseDto);
@@ -163,24 +165,24 @@ export class InlineCommentController extends GenericController<InlineComment> {
       $or: [],
     };
 
+    let authorQuery = {};
     if (searchInlineCommentsQuery.report_author_id) {
       if (searchInlineCommentsQuery.report_author_id_operator === 'eq') {
-        filterReports['author_ids'] = { $in: [searchInlineCommentsQuery.report_author_id] };
+        authorQuery = { $in: [searchInlineCommentsQuery.report_author_id] };
+        filterReports['author_ids'] = authorQuery;
       } else {
-        filterReports['author_ids'] = { $nin: [searchInlineCommentsQuery.report_author_id] };
+        authorQuery = { $nin: [searchInlineCommentsQuery.report_author_id] };
+        filterReports['author_ids'] = authorQuery;
       }
     } else {
-      filterReports['author_ids'] = { $in: [token.id] };
+      authorQuery = { $in: [token.id] };
+      filterReports['author_ids'] = authorQuery;
     }
 
     const reports: Report[] = await this.reportsService.getReports({
       filter: filterReports,
     });
 
-    if (reports.length === 0) {
-      const paginatedResponseDto: PaginatedResponseDto<InlineCommentDto> = new PaginatedResponseDto<InlineCommentDto>(1, 0, 0, [], 0, 0);
-      return new NormalizedResponseDTO(paginatedResponseDto);
-    }
     const inlineCommentsQuery: any = {
       file_id: {
         $ne: null,
@@ -192,17 +194,17 @@ export class InlineCommentController extends GenericController<InlineComment> {
     if (searchInlineCommentsQuery.inline_comment_author_id) {
       if (searchInlineCommentsQuery.inline_comment_author_id_operator === 'eq') {
         // Get all reports in which I created a task
-        const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ userId: searchInlineCommentsQuery.inline_comment_author_id })).map((x) => x.report_id);
+        const reportIdsInWhichIHaveTasks: string[] = await (
+          await this.inlineCommentsService.getInlineComments({ filter: { user_id: searchInlineCommentsQuery.inline_comment_author_id } })
+        ).map((x) => x.report_id);
         for (const reportId of reportIdsInWhichIHaveTasks) {
           filterReportsInWhichIAmAuthorOfATask.$or.push({ id: reportId });
         }
-
-        /*inlineCommentsQuery.$or.push({
-          user_id: searchInlineCommentsQuery.inline_comment_author_id,
-        });*/
       } else {
         // Get all reports in which I created a task
-        const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ userId: searchInlineCommentsQuery.inline_comment_author_id })).map((x) => x.report_id);
+        const reportIdsInWhichIHaveTasks: string[] = await (
+          await this.inlineCommentsService.getInlineComments({ filter: { user_id: searchInlineCommentsQuery.inline_comment_author_id } })
+        ).map((x) => x.report_id);
         for (const reportId of reportIdsInWhichIHaveTasks) {
           filterReportsInWhichIAmAuthorOfATask.$or.push({ id: { $ne: reportId } });
         }
@@ -210,15 +212,10 @@ export class InlineCommentController extends GenericController<InlineComment> {
     } else {
       // If not set, by default look for inline comments in which the user is the author
       // Get all reports in which I created a task
-      const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ userId: token.id })).map((x) => x.report_id);
+      const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ filter: { user_id: token.id } })).map((x) => x.report_id);
       for (const reportId of reportIdsInWhichIHaveTasks) {
         filterReportsInWhichIAmAuthorOfATask.$or.push({ id: reportId });
       }
-      //inlineCommentsQuery['$and'] = [{ user_id: token.id }];
-      /*
-      inlineCommentsQuery.$or.push({
-        user_id: token.id,
-      });*/
     }
 
     if (filterReportsInWhichIAmAuthorOfATask.$or.length > 0) {
@@ -227,6 +224,11 @@ export class InlineCommentController extends GenericController<InlineComment> {
       });
 
       reports.push(...reportsInWhichIHaveTasks);
+    }
+
+    if (reports.length === 0) {
+      const paginatedResponseDto: PaginatedResponseDto<InlineCommentDto> = new PaginatedResponseDto<InlineCommentDto>(1, 0, 0, [], 0, 0);
+      return new NormalizedResponseDTO(paginatedResponseDto);
     }
 
     const report_versions: number[] = await Promise.all(reports.map((report: Report) => this.reportsService.getLastVersionOfReport(report.id)));
@@ -260,7 +262,35 @@ export class InlineCommentController extends GenericController<InlineComment> {
 
     const inlineComments: InlineComment[] = await db
       .collection('InlineComment')
-      .find(inlineCommentsQuery)
+      .aggregate([
+        { $match: inlineCommentsQuery },
+        { $lookup: { from: 'Report', localField: 'report_id', foreignField: 'id', as: 'report_data' } },
+        { $unwind: { path: '$report_data', preserveNullAndEmptyArrays: false } },
+        {
+          $match: {
+            $and: [
+              {
+                $or: [
+                  {
+                    'report_data.author_ids': authorQuery,
+                    // { $in: [searchInlineCommentsQuery.report_author_id ? searchInlineCommentsQuery.report_author_id : token.id] }
+                  },
+                  {
+                    user_id: authorQuery,
+                    // searchInlineCommentsQuery.report_author_id ? searchInlineCommentsQuery.report_author_id : token.id
+                  },
+                ],
+              },
+              {
+                'report_data.team_id': {
+                  $in: teams.map((x) => x.id),
+                },
+              },
+            ],
+          },
+        },
+      ])
+      // .find(inlineCommentsQuery)
       .limit(searchInlineCommentsQuery.limit)
       .skip((searchInlineCommentsQuery.page - 1) * searchInlineCommentsQuery.limit)
       .sort({
