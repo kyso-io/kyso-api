@@ -300,8 +300,8 @@ export class InlineCommentController extends GenericController<InlineComment> {
       .collection('InlineComment')
       .aggregate(aggregation)
       // .find(inlineCommentsQuery)
-      .limit(searchInlineCommentsQuery.limit)
       .skip((searchInlineCommentsQuery.page - 1) * searchInlineCommentsQuery.limit)
+      .limit(searchInlineCommentsQuery.limit)
       .sort({
         [searchInlineCommentsQuery.order_by]: searchInlineCommentsQuery.order_direction === 'asc' ? 1 : -1,
       })
@@ -359,7 +359,6 @@ export class InlineCommentController extends GenericController<InlineComment> {
         },
       ])
       .limit(searchInlineCommentsQuery.limit)
-      .skip((searchInlineCommentsQuery.page - 1) * searchInlineCommentsQuery.limit)
       .sort({
         [searchInlineCommentsQuery.order_by]: searchInlineCommentsQuery.order_direction === 'asc' ? 1 : -1,
       })
