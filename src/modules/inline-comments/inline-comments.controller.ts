@@ -179,17 +179,20 @@ export class InlineCommentController extends GenericController<InlineComment> {
       parent_comment_id: null,
       $or: [{ orphan: true }],
     };
+
     if (searchInlineCommentsQuery.inline_comment_author_id) {
       if (searchInlineCommentsQuery.inline_comment_author_id_operator === 'eq') {
         inlineCommentsQuery.user_id = searchInlineCommentsQuery.inline_comment_author_id;
       } else {
         inlineCommentsQuery.user_id = { $ne: searchInlineCommentsQuery.inline_comment_author_id };
       }
-    } /*else {
-      inlineCommentsQuery.$and.push({
+    } else {
+      // If not set, by default look for inline comments in which the user is the author
+      inlineCommentsQuery.$or.push({
         user_id: token.id,
       });
-    }*/
+    }
+
     const report_versions: number[] = await Promise.all(reports.map((report: Report) => this.reportsService.getLastVersionOfReport(report.id)));
     reports.forEach((report: Report, index: number) => {
       inlineCommentsQuery.$or.push({
