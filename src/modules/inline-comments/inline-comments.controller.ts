@@ -156,10 +156,10 @@ export class InlineCommentController extends GenericController<InlineComment> {
 
     // Get all reports in which I have visibility and I am the author
     const filterReports = {
-      team_id: { $in: teams.map((team: Team) => team.id) },
+      //team_id: { $in: teams.map((team: Team) => team.id) },
     };
 
-    const filterReportsInWhichIHaveTasks = {
+    const filterReportsInWhichIAmAuthorOfATask = {
       $or: [],
     };
 
@@ -194,7 +194,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
         // Get all reports in which I created a task
         const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ userId: searchInlineCommentsQuery.inline_comment_author_id })).map((x) => x.report_id);
         for (const reportId of reportIdsInWhichIHaveTasks) {
-          filterReportsInWhichIHaveTasks.$or.push({ id: reportId });
+          filterReportsInWhichIAmAuthorOfATask.$or.push({ id: reportId });
         }
 
         /*inlineCommentsQuery.$or.push({
@@ -204,7 +204,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
         // Get all reports in which I created a task
         const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ userId: searchInlineCommentsQuery.inline_comment_author_id })).map((x) => x.report_id);
         for (const reportId of reportIdsInWhichIHaveTasks) {
-          filterReportsInWhichIHaveTasks.$or.push({ id: { $ne: reportId } });
+          filterReportsInWhichIAmAuthorOfATask.$or.push({ id: { $ne: reportId } });
         }
       }
     } else {
@@ -212,18 +212,18 @@ export class InlineCommentController extends GenericController<InlineComment> {
       // Get all reports in which I created a task
       const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ userId: token.id })).map((x) => x.report_id);
       for (const reportId of reportIdsInWhichIHaveTasks) {
-        filterReportsInWhichIHaveTasks.$or.push({ id: reportId });
+        filterReportsInWhichIAmAuthorOfATask.$or.push({ id: reportId });
       }
-      inlineCommentsQuery['$and'] = [{ user_id: token.id }];
+      //inlineCommentsQuery['$and'] = [{ user_id: token.id }];
       /*
       inlineCommentsQuery.$or.push({
         user_id: token.id,
       });*/
     }
 
-    if (filterReportsInWhichIHaveTasks.$or.length > 0) {
+    if (filterReportsInWhichIAmAuthorOfATask.$or.length > 0) {
       const reportsInWhichIHaveTasks: Report[] = await this.reportsService.getReports({
-        filter: filterReportsInWhichIHaveTasks,
+        filter: filterReportsInWhichIAmAuthorOfATask,
       });
 
       reports.push(...reportsInWhichIHaveTasks);
