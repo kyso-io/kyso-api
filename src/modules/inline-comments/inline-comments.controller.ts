@@ -182,9 +182,13 @@ export class InlineCommentController extends GenericController<InlineComment> {
 
     if (searchInlineCommentsQuery.inline_comment_author_id) {
       if (searchInlineCommentsQuery.inline_comment_author_id_operator === 'eq') {
-        inlineCommentsQuery.user_id = searchInlineCommentsQuery.inline_comment_author_id;
+        inlineCommentsQuery.$or.push({
+          user_id: searchInlineCommentsQuery.inline_comment_author_id,
+        });
       } else {
-        inlineCommentsQuery.user_id = { $ne: searchInlineCommentsQuery.inline_comment_author_id };
+        inlineCommentsQuery.$or.push({
+          user_id: { $ne: searchInlineCommentsQuery.inline_comment_author_id },
+        });
       }
     } else {
       // If not set, by default look for inline comments in which the user is the author
