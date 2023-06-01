@@ -266,8 +266,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
       }
     }
 
-    console.log(inlineCommentsQuery);
-    const aggregation = [
+    const aggregation: any[] = [
       { $match: inlineCommentsQuery },
       { $lookup: { from: 'Report', localField: 'report_id', foreignField: 'id', as: 'report_data' } },
       { $unwind: { path: '$report_data', preserveNullAndEmptyArrays: false } },
@@ -301,6 +300,64 @@ export class InlineCommentController extends GenericController<InlineComment> {
       .collection('InlineComment')
       .aggregate(aggregation)
       // .find(inlineCommentsQuery)
+      .limit(searchInlineCommentsQuery.limit)
+      .skip((searchInlineCommentsQuery.page - 1) * searchInlineCommentsQuery.limit)
+      .sort({
+        [searchInlineCommentsQuery.order_by]: searchInlineCommentsQuery.order_direction === 'asc' ? 1 : -1,
+      })
+      .toArray();
+
+    const aggregateCount: any = await db
+      .collection('InlineComment')
+      .aggregate([
+        {
+          $facet: {
+            results: [
+              { $match: inlineCommentsQuery },
+              { $lookup: { from: 'Report', localField: 'report_id', foreignField: 'id', as: 'report_data' } },
+              { $unwind: { path: '$report_data', preserveNullAndEmptyArrays: false } },
+              {
+                $match: {
+                  $and: [
+                    {
+                      $or: [
+                        {
+                          'report_data.author_ids': reportAuthorQuery,
+                          // { $in: [searchInlineCommentsQuery.report_author_id ? searchInlineCommentsQuery.report_author_id : token.id] }
+                        },
+                        taskAuthorQuery,
+                        /*{
+                          user_id: reportAuthorQuery,
+                          // searchInlineCommentsQuery.report_author_id ? searchInlineCommentsQuery.report_author_id : token.id
+                        },*/
+                      ],
+                    },
+                    {
+                      'report_data.team_id': {
+                        $in: teams.map((x) => x.id),
+                      },
+                    },
+                  ],
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  Total: { $sum: 1 },
+                },
+              },
+            ],
+            count: [
+              {
+                $group: {
+                  _id: null,
+                  Total: { $sum: 1 },
+                },
+              },
+            ],
+          },
+        },
+      ])
       .limit(searchInlineCommentsQuery.limit)
       .skip((searchInlineCommentsQuery.page - 1) * searchInlineCommentsQuery.limit)
       .sort({
@@ -343,8 +400,16 @@ export class InlineCommentController extends GenericController<InlineComment> {
       inlineComments.map((inlineComment: InlineComment) => this.inlineCommentsService.inlineCommentModelToInlineCommentDto(inlineComment)),
     );
 
-    const totalItems: number = await this.inlineCommentsService.countInlineComments({ filter: inlineCommentsQuery });
+    let totalItems = 0;
+
+    try {
+      totalItems = aggregateCount[0].results[0].Total;
+    } catch (ex) {
+      // silent
+    }
+    // const totalItems: number = await this.inlineCommentsService.countInlineComments({ filter: inlineCommentsQuery });
     const totalPages: number = totalItems > 0 ? Math.ceil(totalItems / searchInlineCommentsQuery.limit) : 0;
+
     const paginatedResponseDto: PaginatedResponseDto<InlineCommentDto> = new PaginatedResponseDto<InlineCommentDto>(
       searchInlineCommentsQuery.page,
       inlineCommentsDto.length,
@@ -367,51 +432,18 @@ export class InlineCommentController extends GenericController<InlineComment> {
     type: Number,
   })
   public async countOpenedInlineComments(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<number>> {
-    const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
-
-    if (teams.length === 0) {
-      const paginatedResponseDto: PaginatedResponseDto<InlineCommentDto> = new PaginatedResponseDto<InlineCommentDto>(1, 0, 0, [], 0, 0);
-      return new NormalizedResponseDTO(paginatedResponseDto.totalItems);
-    }
-
-    const filterReports = {
-      team_id: { $in: teams.map((team: Team) => team.id) },
-      author_ids: { $in: [token.id] },
+    const query = {
+      limit: 1,
+      order_by: 'created_at',
+      order_direction: 'desc',
+      page: 1,
+      status: [InlineCommentStatusEnum.DOING, InlineCommentStatusEnum.OPEN, InlineCommentStatusEnum.TO_DO],
+      status_operator: 'in',
     };
 
-    const reports: Report[] = await this.reportsService.getReports({
-      filter: filterReports,
-    });
+    const result = await this.searchInlineComments(token, query as SearchInlineCommentsQuery);
 
-    if (reports.length === 0) {
-      const paginatedResponseDto: PaginatedResponseDto<InlineCommentDto> = new PaginatedResponseDto<InlineCommentDto>(1, 0, 0, [], 0, 0);
-      return new NormalizedResponseDTO(paginatedResponseDto.totalItems);
-    }
-
-    const inlineCommentsQuery: any = {
-      file_id: {
-        $ne: null,
-      },
-      parent_comment_id: null,
-      current_status: {
-        $in: [InlineCommentStatusEnum.DOING, InlineCommentStatusEnum.OPEN, InlineCommentStatusEnum.TO_DO],
-      },
-      // $and: [{ user_id: token.id }],
-      $or: [{ orphan: true }],
-    };
-
-    const report_versions: number[] = await Promise.all(reports.map((report: Report) => this.reportsService.getLastVersionOfReport(report.id)));
-
-    reports.forEach((report: Report, index: number) => {
-      inlineCommentsQuery.$or.push({
-        report_id: report.id,
-        report_version: report_versions[index],
-      });
-    });
-
-    const totalItems: number = await this.inlineCommentsService.countInlineComments({ filter: inlineCommentsQuery });
-
-    return new NormalizedResponseDTO(totalItems);
+    return new NormalizedResponseDTO(result.data.totalItems);
   }
 
   @Get(':id')
