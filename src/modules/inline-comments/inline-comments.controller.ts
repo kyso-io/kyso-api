@@ -153,9 +153,15 @@ export class InlineCommentController extends GenericController<InlineComment> {
       const paginatedResponseDto: PaginatedResponseDto<InlineCommentDto> = new PaginatedResponseDto<InlineCommentDto>(1, 0, 0, [], 0, 0);
       return new NormalizedResponseDTO(paginatedResponseDto);
     }
+
+    // Get all reports in which I have visibility and I am the author
     const filterReports = {
       team_id: { $in: teams.map((team: Team) => team.id) },
     };
+    const filterReportsInWhichIHaveTasks = {
+      $or: [],
+    };
+
     if (searchInlineCommentsQuery.report_author_id) {
       if (searchInlineCommentsQuery.report_author_id_operator === 'eq') {
         filterReports['author_ids'] = { $in: [searchInlineCommentsQuery.report_author_id] };
@@ -165,9 +171,11 @@ export class InlineCommentController extends GenericController<InlineComment> {
     } else {
       filterReports['author_ids'] = { $in: [token.id] };
     }
+
     const reports: Report[] = await this.reportsService.getReports({
       filter: filterReports,
     });
+
     if (reports.length === 0) {
       const paginatedResponseDto: PaginatedResponseDto<InlineCommentDto> = new PaginatedResponseDto<InlineCommentDto>(1, 0, 0, [], 0, 0);
       return new NormalizedResponseDTO(paginatedResponseDto);
@@ -178,32 +186,59 @@ export class InlineCommentController extends GenericController<InlineComment> {
       },
       parent_comment_id: null,
       $or: [{ orphan: true }],
+      $and: [],
     };
 
     if (searchInlineCommentsQuery.inline_comment_author_id) {
       if (searchInlineCommentsQuery.inline_comment_author_id_operator === 'eq') {
-        inlineCommentsQuery.$or.push({
+        // Get all reports in which I created a task
+        const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ userId: searchInlineCommentsQuery.inline_comment_author_id })).map((x) => x.report_id);
+        for (const reportId of reportIdsInWhichIHaveTasks) {
+          filterReportsInWhichIHaveTasks.$or.push({ id: reportId });
+        }
+
+        /*inlineCommentsQuery.$or.push({
           user_id: searchInlineCommentsQuery.inline_comment_author_id,
-        });
+        });*/
       } else {
-        inlineCommentsQuery.$or.push({
+        // Get all reports in which I created a task
+        const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ userId: searchInlineCommentsQuery.inline_comment_author_id })).map((x) => x.report_id);
+        for (const reportId of reportIdsInWhichIHaveTasks) {
+          filterReportsInWhichIHaveTasks.$or.push({ id: { $ne: reportId } });
+        }
+
+        /*inlineCommentsQuery.$or.push({
           user_id: { $ne: searchInlineCommentsQuery.inline_comment_author_id },
-        });
+        });*/
       }
     } else {
       // If not set, by default look for inline comments in which the user is the author
+      // Get all reports in which I created a task
+      const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ userId: token.id })).map((x) => x.report_id);
+      for (const reportId of reportIdsInWhichIHaveTasks) {
+        filterReportsInWhichIHaveTasks.$or.push({ id: reportId });
+      }
+      /*
       inlineCommentsQuery.$or.push({
         user_id: token.id,
-      });
+      });*/
     }
 
+    const reportsInWhichIHaveTasks: Report[] = await this.reportsService.getReports({
+      filter: filterReportsInWhichIHaveTasks,
+    });
+
+    reports.push(...reportsInWhichIHaveTasks);
+
     const report_versions: number[] = await Promise.all(reports.map((report: Report) => this.reportsService.getLastVersionOfReport(report.id)));
+
     reports.forEach((report: Report, index: number) => {
       inlineCommentsQuery.$or.push({
         report_id: report.id,
         report_version: report_versions[index],
       });
     });
+
     if (searchInlineCommentsQuery.status && searchInlineCommentsQuery.status.length > 0) {
       inlineCommentsQuery.current_status = {
         [`$${searchInlineCommentsQuery.status_operator}`]: searchInlineCommentsQuery.status,
