@@ -214,7 +214,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
       for (const reportId of reportIdsInWhichIHaveTasks) {
         filterReportsInWhichIHaveTasks.$or.push({ id: reportId });
       }
-      inlineCommentsQuery['$and'] = [{ user_id: searchInlineCommentsQuery.inline_comment_author_id }];
+      inlineCommentsQuery['$and'] = [{ user_id: token.id }];
       /*
       inlineCommentsQuery.$or.push({
         user_id: token.id,
