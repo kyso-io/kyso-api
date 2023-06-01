@@ -158,6 +158,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
     const filterReports = {
       team_id: { $in: teams.map((team: Team) => team.id) },
     };
+
     const filterReportsInWhichIHaveTasks = {
       $or: [],
     };
@@ -186,7 +187,6 @@ export class InlineCommentController extends GenericController<InlineComment> {
       },
       parent_comment_id: null,
       $or: [{ orphan: true }],
-      $and: [],
     };
 
     if (searchInlineCommentsQuery.inline_comment_author_id) {
@@ -224,11 +224,13 @@ export class InlineCommentController extends GenericController<InlineComment> {
       });*/
     }
 
-    const reportsInWhichIHaveTasks: Report[] = await this.reportsService.getReports({
-      filter: filterReportsInWhichIHaveTasks,
-    });
+    if (filterReportsInWhichIHaveTasks.$or.length > 0) {
+      const reportsInWhichIHaveTasks: Report[] = await this.reportsService.getReports({
+        filter: filterReportsInWhichIHaveTasks,
+      });
 
-    reports.push(...reportsInWhichIHaveTasks);
+      reports.push(...reportsInWhichIHaveTasks);
+    }
 
     const report_versions: number[] = await Promise.all(reports.map((report: Report) => this.reportsService.getLastVersionOfReport(report.id)));
 
