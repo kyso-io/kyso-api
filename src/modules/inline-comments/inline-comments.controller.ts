@@ -165,18 +165,18 @@ export class InlineCommentController extends GenericController<InlineComment> {
       $or: [],
     };
 
-    let authorQuery = {};
+    let reportAuthorQuery = {};
     if (searchInlineCommentsQuery.report_author_id) {
       if (searchInlineCommentsQuery.report_author_id_operator === 'eq') {
-        authorQuery = { $in: [searchInlineCommentsQuery.report_author_id] };
-        filterReports['author_ids'] = authorQuery;
+        reportAuthorQuery = { $in: [searchInlineCommentsQuery.report_author_id] };
+        filterReports['author_ids'] = reportAuthorQuery;
       } else {
-        authorQuery = { $nin: [searchInlineCommentsQuery.report_author_id] };
-        filterReports['author_ids'] = authorQuery;
+        reportAuthorQuery = { $nin: [searchInlineCommentsQuery.report_author_id] };
+        filterReports['author_ids'] = reportAuthorQuery;
       }
     } else {
-      authorQuery = { $in: [token.id] };
-      filterReports['author_ids'] = authorQuery;
+      reportAuthorQuery = { $in: [token.id] };
+      filterReports['author_ids'] = reportAuthorQuery;
     }
 
     const reports: Report[] = await this.reportsService.getReports({
@@ -191,9 +191,11 @@ export class InlineCommentController extends GenericController<InlineComment> {
       $or: [{ orphan: true }],
     };
 
+    let taskAuthorQuery = {};
     if (searchInlineCommentsQuery.inline_comment_author_id) {
       if (searchInlineCommentsQuery.inline_comment_author_id_operator === 'eq') {
         // Get all reports in which I created a task
+        taskAuthorQuery = { user_id: searchInlineCommentsQuery.inline_comment_author_id };
         const reportIdsInWhichIHaveTasks: string[] = await (
           await this.inlineCommentsService.getInlineComments({ filter: { user_id: searchInlineCommentsQuery.inline_comment_author_id } })
         ).map((x) => x.report_id);
@@ -201,6 +203,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
           filterReportsInWhichIAmAuthorOfATask.$or.push({ id: reportId });
         }
       } else {
+        taskAuthorQuery = { user_id: { $ne: searchInlineCommentsQuery.inline_comment_author_id } };
         // Get all reports in which I created a task
         const reportIdsInWhichIHaveTasks: string[] = await (
           await this.inlineCommentsService.getInlineComments({ filter: { user_id: searchInlineCommentsQuery.inline_comment_author_id } })
@@ -212,6 +215,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
     } else {
       // If not set, by default look for inline comments in which the user is the author
       // Get all reports in which I created a task
+      taskAuthorQuery = { user_id: token.id };
       const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ filter: { user_id: token.id } })).map((x) => x.report_id);
       for (const reportId of reportIdsInWhichIHaveTasks) {
         filterReportsInWhichIAmAuthorOfATask.$or.push({ id: reportId });
@@ -245,8 +249,12 @@ export class InlineCommentController extends GenericController<InlineComment> {
         [`$${searchInlineCommentsQuery.status_operator}`]: searchInlineCommentsQuery.status,
       };
     }
+
     if (searchInlineCommentsQuery.text) {
-      inlineCommentsQuery.$text = { $search: searchInlineCommentsQuery.text };
+      inlineCommentsQuery.text = new RegExp(searchInlineCommentsQuery.text);
+
+      // That searchs in all the fields, we only want to search in the field "text"
+      // inlineCommentsQuery.$text = { $search: searchInlineCommentsQuery.text };
     }
     if (searchInlineCommentsQuery.start_date || searchInlineCommentsQuery.end_date) {
       inlineCommentsQuery.created_at = {};
@@ -272,13 +280,14 @@ export class InlineCommentController extends GenericController<InlineComment> {
               {
                 $or: [
                   {
-                    'report_data.author_ids': authorQuery,
+                    'report_data.author_ids': reportAuthorQuery,
                     // { $in: [searchInlineCommentsQuery.report_author_id ? searchInlineCommentsQuery.report_author_id : token.id] }
                   },
-                  {
-                    user_id: authorQuery,
+                  taskAuthorQuery,
+                  /*{
+                    user_id: reportAuthorQuery,
                     // searchInlineCommentsQuery.report_author_id ? searchInlineCommentsQuery.report_author_id : token.id
-                  },
+                  },*/
                 ],
               },
               {
