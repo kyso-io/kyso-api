@@ -267,38 +267,39 @@ export class InlineCommentController extends GenericController<InlineComment> {
     }
 
     console.log(inlineCommentsQuery);
+    const aggregation = [
+      { $match: inlineCommentsQuery },
+      { $lookup: { from: 'Report', localField: 'report_id', foreignField: 'id', as: 'report_data' } },
+      { $unwind: { path: '$report_data', preserveNullAndEmptyArrays: false } },
+      {
+        $match: {
+          $and: [
+            {
+              $or: [
+                {
+                  'report_data.author_ids': reportAuthorQuery,
+                  // { $in: [searchInlineCommentsQuery.report_author_id ? searchInlineCommentsQuery.report_author_id : token.id] }
+                },
+                taskAuthorQuery,
+                /*{
+                  user_id: reportAuthorQuery,
+                  // searchInlineCommentsQuery.report_author_id ? searchInlineCommentsQuery.report_author_id : token.id
+                },*/
+              ],
+            },
+            {
+              'report_data.team_id': {
+                $in: teams.map((x) => x.id),
+              },
+            },
+          ],
+        },
+      },
+    ];
 
     const inlineComments: InlineComment[] = await db
       .collection('InlineComment')
-      .aggregate([
-        { $match: inlineCommentsQuery },
-        { $lookup: { from: 'Report', localField: 'report_id', foreignField: 'id', as: 'report_data' } },
-        { $unwind: { path: '$report_data', preserveNullAndEmptyArrays: false } },
-        {
-          $match: {
-            $and: [
-              {
-                $or: [
-                  {
-                    'report_data.author_ids': reportAuthorQuery,
-                    // { $in: [searchInlineCommentsQuery.report_author_id ? searchInlineCommentsQuery.report_author_id : token.id] }
-                  },
-                  taskAuthorQuery,
-                  /*{
-                    user_id: reportAuthorQuery,
-                    // searchInlineCommentsQuery.report_author_id ? searchInlineCommentsQuery.report_author_id : token.id
-                  },*/
-                ],
-              },
-              {
-                'report_data.team_id': {
-                  $in: teams.map((x) => x.id),
-                },
-              },
-            ],
-          },
-        },
-      ])
+      .aggregate(aggregation)
       // .find(inlineCommentsQuery)
       .limit(searchInlineCommentsQuery.limit)
       .skip((searchInlineCommentsQuery.page - 1) * searchInlineCommentsQuery.limit)
