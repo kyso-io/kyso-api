@@ -206,10 +206,6 @@ export class InlineCommentController extends GenericController<InlineComment> {
         for (const reportId of reportIdsInWhichIHaveTasks) {
           filterReportsInWhichIHaveTasks.$or.push({ id: { $ne: reportId } });
         }
-
-        /*inlineCommentsQuery.$or.push({
-          user_id: { $ne: searchInlineCommentsQuery.inline_comment_author_id },
-        });*/
       }
     } else {
       // If not set, by default look for inline comments in which the user is the author
@@ -218,6 +214,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
       for (const reportId of reportIdsInWhichIHaveTasks) {
         filterReportsInWhichIHaveTasks.$or.push({ id: reportId });
       }
+      inlineCommentsQuery['$and'] = [{ user_id: searchInlineCommentsQuery.inline_comment_author_id }];
       /*
       inlineCommentsQuery.$or.push({
         user_id: token.id,
