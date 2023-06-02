@@ -304,7 +304,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
       .limit(searchInlineCommentsQuery.limit)
       .sort({
         //[searchInlineCommentsQuery.order_by]: searchInlineCommentsQuery.order_direction === 'asc' ? 1 : -1,
-        _id: -1,
+        _id: searchInlineCommentsQuery.order_direction === 'asc' ? 1 : -1,
       })
       .toArray();
 
