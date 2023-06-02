@@ -303,7 +303,8 @@ export class InlineCommentController extends GenericController<InlineComment> {
       .skip((searchInlineCommentsQuery.page - 1) * searchInlineCommentsQuery.limit)
       .limit(searchInlineCommentsQuery.limit)
       .sort({
-        [searchInlineCommentsQuery.order_by]: searchInlineCommentsQuery.order_direction === 'asc' ? 1 : -1,
+        //[searchInlineCommentsQuery.order_by]: searchInlineCommentsQuery.order_direction === 'asc' ? 1 : -1,
+        _id: -1,
       })
       .toArray();
 
