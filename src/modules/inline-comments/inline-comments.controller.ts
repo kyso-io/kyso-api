@@ -138,6 +138,8 @@ export class InlineCommentController extends GenericController<InlineComment> {
   ): Promise<NormalizedResponseDTO<PaginatedResponseDto<InlineCommentDto>>> {
     let teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
 
+    const noPersonFilters: boolean = !searchInlineCommentsQuery.report_author_id && !searchInlineCommentsQuery.inline_comment_author_id;
+
     if (searchInlineCommentsQuery.organization_id) {
       teams = teams.filter((team: Team) => team.organization_id === searchInlineCommentsQuery.organization_id);
     }
@@ -166,6 +168,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
     };
 
     let reportAuthorQuery = {};
+
     if (searchInlineCommentsQuery.report_author_id) {
       if (searchInlineCommentsQuery.report_author_id_operator === 'eq') {
         reportAuthorQuery = { $in: [searchInlineCommentsQuery.report_author_id] };
@@ -175,8 +178,10 @@ export class InlineCommentController extends GenericController<InlineComment> {
         filterReports['author_ids'] = reportAuthorQuery;
       }
     } else {
-      reportAuthorQuery = { $in: [token.id] };
-      filterReports['author_ids'] = reportAuthorQuery;
+      if (noPersonFilters) {
+        reportAuthorQuery = { $in: [token.id] };
+        filterReports['author_ids'] = reportAuthorQuery;
+      }
     }
 
     const reports: Report[] = await this.reportsService.getReports({
@@ -196,9 +201,11 @@ export class InlineCommentController extends GenericController<InlineComment> {
       if (searchInlineCommentsQuery.inline_comment_author_id_operator === 'eq') {
         // Get all reports in which I created a task
         taskAuthorQuery = { user_id: searchInlineCommentsQuery.inline_comment_author_id };
+
         const reportIdsInWhichIHaveTasks: string[] = await (
           await this.inlineCommentsService.getInlineComments({ filter: { user_id: searchInlineCommentsQuery.inline_comment_author_id } })
         ).map((x) => x.report_id);
+
         for (const reportId of reportIdsInWhichIHaveTasks) {
           filterReportsInWhichIAmAuthorOfATask.$or.push({ id: reportId });
         }
@@ -208,6 +215,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
         const reportIdsInWhichIHaveTasks: string[] = await (
           await this.inlineCommentsService.getInlineComments({ filter: { user_id: searchInlineCommentsQuery.inline_comment_author_id } })
         ).map((x) => x.report_id);
+
         for (const reportId of reportIdsInWhichIHaveTasks) {
           filterReportsInWhichIAmAuthorOfATask.$or.push({ id: { $ne: reportId } });
         }
@@ -215,10 +223,12 @@ export class InlineCommentController extends GenericController<InlineComment> {
     } else {
       // If not set, by default look for inline comments in which the user is the author
       // Get all reports in which I created a task
-      taskAuthorQuery = { user_id: token.id };
-      const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ filter: { user_id: token.id } })).map((x) => x.report_id);
-      for (const reportId of reportIdsInWhichIHaveTasks) {
-        filterReportsInWhichIAmAuthorOfATask.$or.push({ id: reportId });
+      if (noPersonFilters) {
+        taskAuthorQuery = { user_id: token.id };
+        const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ filter: { user_id: token.id } })).map((x) => x.report_id);
+        for (const reportId of reportIdsInWhichIHaveTasks) {
+          filterReportsInWhichIAmAuthorOfATask.$or.push({ id: reportId });
+        }
       }
     }
 
