@@ -139,6 +139,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
     let teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
 
     const noPersonFilters: boolean = !searchInlineCommentsQuery.report_author_id && !searchInlineCommentsQuery.inline_comment_author_id;
+    console.log(`noPersonFilters ${noPersonFilters} due to ${searchInlineCommentsQuery.report_author_id} and ${searchInlineCommentsQuery.inline_comment_author_id}`);
 
     if (searchInlineCommentsQuery.organization_id) {
       teams = teams.filter((team: Team) => team.organization_id === searchInlineCommentsQuery.organization_id);
