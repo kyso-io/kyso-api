@@ -64,6 +64,7 @@
     "googleapis": "^95.0.0",
     "helmet": "^4.6.0",
     "ip2location-nodejs": "^9.4.2",
+    "ipaddr.js": "^2.1.0",
     "js-yaml": "^4.1.0",
     "json2csv": "^5.0.7",
     "moment": "^2.29.1",

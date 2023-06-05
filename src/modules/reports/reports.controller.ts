@@ -91,6 +91,8 @@ import { PinnedReportsMongoProvider } from './providers/mongo-pinned-reports.pro
 import { ReportsService } from './reports.service';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const aqp = require('api-query-params');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const ipaddr = require('ipaddr.js');
 
 @ApiExtraModels(Report, NormalizedResponseDTO)
 @ApiTags('reports')
@@ -615,7 +617,7 @@ export class ReportsController extends GenericController<Report> {
     description: 'Id of the report to fetch',
     schema: { type: 'string' },
   })
-  async getReportById(@CurrentToken() token: Token, @RealIP() ip: string, @Req() request: Request, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
+  async getReportById(@CurrentToken() token: Token, @RealIP() realIp: string, @Req() request: Request, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
     const report: Report = await this.reportsService.getReportById(reportId);
     if (!report) {
       throw new NotFoundException('Report not found');
@@ -644,7 +646,13 @@ export class ReportsController extends GenericController<Report> {
     report.views++;
     const user_id: string | null = token ? token.id : null;
     const user_agent: string = request.headers['user-agent'] || null;
-    this.reportsService.sendReportViewEvent(report.id, user_id, ip, user_agent);
+    if (ipaddr.isValid(realIp)) {
+      const addr: any = ipaddr.parse(realIp);
+      if (addr.kind() === 'ipv6' && addr.isIPv4MappedAddress()) {
+        realIp = addr.toIPv4Address().toString();
+      }
+    }
+    this.reportsService.sendReportViewEvent(report.id, user_id, realIp, user_agent);
     const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id);
     return new NormalizedResponseDTO(reportDto, relations);
@@ -1661,7 +1669,7 @@ export class ReportsController extends GenericController<Report> {
   async getReport(
     @CurrentToken() token: Token,
     @Req() request: Request,
-    @RealIP() ip: string,
+    @RealIP() realIp: string,
     @Param('teamId') teamId: string,
     @Param('reportSlug') reportSlug: string,
     @Query('version') versionStr: string,
@@ -1699,7 +1707,13 @@ export class ReportsController extends GenericController<Report> {
     report.views += 1;
     const user_id: string | null = token ? token.id : null;
     const user_agent: string = request.headers['user-agent'] || null;
-    this.reportsService.sendReportViewEvent(report.id, user_id, ip, user_agent);
+    if (ipaddr.isValid(realIp)) {
+      const addr: any = ipaddr.parse(realIp);
+      if (addr.kind() === 'ipv6' && addr.isIPv4MappedAddress()) {
+        realIp = addr.toIPv4Address().toString();
+      }
+    }
+    this.reportsService.sendReportViewEvent(report.id, user_id, realIp, user_agent);
     const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token?.id, version);
     return new NormalizedResponseDTO(reportDto, relations);
