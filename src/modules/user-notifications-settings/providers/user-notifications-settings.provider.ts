@@ -5,7 +5,7 @@ import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class UserNotificationsSettingsProvider extends MongoProvider<UserNotificationsSettings> {
-  version = 4;
+  version = 5;
 
   constructor() {
     super('UserNotificationsSettings', db, []);
@@ -102,6 +102,7 @@ export class UserNotificationsSettingsProvider extends MongoProvider<UserNotific
       } = { ...uns.channels_settings };
       for (const organizationId in channels_settings) {
         if (channels_settings.hasOwnProperty(organizationId)) {
+          // Wrong
           for (const teamId in channels_settings[organizationId].teams) {
             if (channels_settings[organizationId].teams.hasOwnProperty(teamId)) {
               channels_settings[organizationId].teams[teamId].new_task = true;
@@ -121,6 +122,41 @@ export class UserNotificationsSettingsProvider extends MongoProvider<UserNotific
           $set: {
             global_settings,
             organization_settings,
+            channels_settings,
+          },
+        },
+      );
+    }
+  }
+
+  async migrate_from_4_to_5() {
+    const cursor = await this.getCollection().find({});
+    const unss: UserNotificationsSettings[] = await cursor.toArray();
+    for (const uns of unss) {
+      const channels_settings: {
+        [organization_id: string]: {
+          [channel_id: string]: NotificationsSettings;
+        };
+      } = { ...uns.channels_settings };
+      for (const organizationId in channels_settings) {
+        if (channels_settings.hasOwnProperty(organizationId)) {
+          for (const teamId in channels_settings[organizationId]) {
+            if (channels_settings[organizationId].hasOwnProperty(teamId) && !channels_settings[organizationId][teamId].hasOwnProperty('new_task')) {
+              channels_settings[organizationId][teamId].new_task = true;
+              channels_settings[organizationId][teamId].new_task_reply = true;
+              channels_settings[organizationId][teamId].task_status_changed = true;
+              channels_settings[organizationId][teamId].task_updated = true;
+              channels_settings[organizationId][teamId].task_reply_updated = true;
+              channels_settings[organizationId][teamId].task_removed = true;
+              channels_settings[organizationId][teamId].task_reply_removed = true;
+            }
+          }
+        }
+      }
+      await this.getCollection().update(
+        { id: uns.id },
+        {
+          $set: {
             channels_settings,
           },
         },
