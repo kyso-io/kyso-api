@@ -270,6 +270,8 @@ export class InlineCommentController extends GenericController<InlineComment> {
       { $match: inlineCommentsQuery },
       { $lookup: { from: 'Report', localField: 'report_id', foreignField: 'id', as: 'report_data' } },
       { $unwind: { path: '$report_data', preserveNullAndEmptyArrays: false } },
+      { $addFields: { date_created_at: { $toDate: '$created_at' } } },
+      { $addFields: { date_updated_at: { $toDate: '$updated_at' } } },
       {
         $match: {
           $and: [
@@ -294,6 +296,9 @@ export class InlineCommentController extends GenericController<InlineComment> {
           ],
         },
       },
+      {
+        $sort: { ['date_' + searchInlineCommentsQuery.order_by]: searchInlineCommentsQuery.order_direction === 'asc' ? 1 : -1 },
+      },
     ];
 
     const inlineComments: InlineComment[] = await db
@@ -303,8 +308,7 @@ export class InlineCommentController extends GenericController<InlineComment> {
       .skip((searchInlineCommentsQuery.page - 1) * searchInlineCommentsQuery.limit)
       .limit(searchInlineCommentsQuery.limit)
       .sort({
-        //[searchInlineCommentsQuery.order_by]: searchInlineCommentsQuery.order_direction === 'asc' ? 1 : -1,
-        id: searchInlineCommentsQuery.order_direction === 'asc' ? 1 : -1,
+        ['date_' + searchInlineCommentsQuery.order_by]: searchInlineCommentsQuery.order_direction === 'asc' ? 1 : -1,
       })
       .toArray();
 
