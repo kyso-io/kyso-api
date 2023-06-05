@@ -3186,8 +3186,12 @@ export class ReportsService extends AutowiredService {
 
       const reportInlineCommentsDTO: InlineCommentDto[] = await this.inlineCommentsService.inlineCommentModelToInlineCommentDtoArray(reportInlineComments);
 
+      Logger.debug('==========> DELETED FILES');
+      console.log(createKysoReportVersionDto.deletedFiles);
+
       for (const inlineComment of reportInlineCommentsDTO) {
         const relativePath = inlineComment.file_path_scs.split('/').slice(6).join('/');
+        console.log(`===========================> relativePath: ${relativePath}`);
         if (createKysoReportVersionDto.deletedFiles.findIndex((x) => x.endsWith(relativePath)) !== -1) {
           // That comment belongs to a deleted file. Mark as orphan.
           try {
