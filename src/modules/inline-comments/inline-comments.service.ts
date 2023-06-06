@@ -338,35 +338,46 @@ export class InlineCommentsService extends AutowiredService {
   }
 
   public async inlineCommentModelToInlineCommentDto(inlineComment: InlineComment): Promise<InlineCommentDto> {
-    const user: User = await this.usersService.getUserById(inlineComment.user_id);
-    const file: File = await this.filesService.getFileById(inlineComment.file_id);
+    try {
+      const user: User = await this.usersService.getUserById(inlineComment.user_id);
+      const file: File = await this.filesService.getFileById(inlineComment.file_id);
 
-    const inlineCommentDto: InlineCommentDto = new InlineCommentDto(
-      inlineComment.id,
-      inlineComment.created_at,
-      inlineComment.updated_at,
-      inlineComment.report_id,
-      inlineComment.file_id,
-      file.path_scs,
-      inlineComment.cell_id,
-      inlineComment.user_id,
-      inlineComment.text,
-      inlineComment.edited,
-      inlineComment.markedAsDeleted,
-      user.name,
-      user.avatar_url,
-      inlineComment.mentions,
-      inlineComment.parent_comment_id,
-      inlineComment.report_version,
-      inlineComment.current_status,
-      inlineComment.orphan,
-    );
-    inlineCommentDto.status_history = inlineComment.status_history;
-    if (!inlineComment.parent_comment_id) {
-      const inlineComments: InlineComment[] = await this.provider.read({ filter: { parent_comment_id: inlineComment.id }, sort: { created_at: 1 } });
-      inlineCommentDto.inline_comments = await Promise.all(inlineComments.map((ic: InlineComment) => this.inlineCommentModelToInlineCommentDto(ic)));
+      const inlineCommentDto: InlineCommentDto = new InlineCommentDto(
+        inlineComment.id,
+        inlineComment.created_at,
+        inlineComment.updated_at,
+        inlineComment.report_id,
+        inlineComment.file_id,
+        file && file.path_scs ? file.path_scs : '',
+        inlineComment.cell_id,
+        inlineComment.user_id,
+        inlineComment.text,
+        inlineComment.edited,
+        inlineComment.markedAsDeleted,
+        user && user.name ? user.name : 'Unknown user',
+        user && user.avatar_url ? user.avatar_url : '',
+        inlineComment.mentions,
+        inlineComment.parent_comment_id,
+        inlineComment.report_version,
+        inlineComment.current_status,
+        inlineComment.orphan,
+      );
+
+      inlineCommentDto.status_history = inlineComment.status_history;
+
+      if (!inlineComment.parent_comment_id) {
+        try {
+          const inlineComments: InlineComment[] = await this.provider.read({ filter: { parent_comment_id: inlineComment.id }, sort: { created_at: 1 } });
+          inlineCommentDto.inline_comments = await Promise.all(inlineComments.map((ic: InlineComment) => this.inlineCommentModelToInlineCommentDto(ic)));
+        } catch (ex) {
+          Logger.warn(`Error processing child inline comments`, ex);
+        }
+      }
+
+      return inlineCommentDto;
+    } catch (ex) {
+      Logger.error(`Error converting inlineComment ${inlineComment.id} to inlineCommentDTO`, ex);
     }
-    return inlineCommentDto;
   }
 
   public async checkInlineComments(report_id: string): Promise<void> {
