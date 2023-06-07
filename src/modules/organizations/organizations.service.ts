@@ -160,7 +160,7 @@ export class OrganizationsService extends AutowiredService {
       '',
       uuidv4(),
       token.id,
-      createOrganizationDto.allow_download,
+      createOrganizationDto.allow_download === AllowDownload.INHERITED ? AllowDownload.ALL : createOrganizationDto.allow_download,
     );
     organization.options = new OrganizationOptions();
 
