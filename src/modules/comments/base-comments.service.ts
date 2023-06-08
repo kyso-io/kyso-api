@@ -59,18 +59,6 @@ export class BaseCommentsService extends AutowiredService {
     super();
   }
 
-  public async sendReplyCommentNotifications(user: User, organization: Organization, team: Team | null, comment: BaseComment, report: Report, discussion: Discussion | null): Promise<void> {
-    NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, KysoEventEnum.COMMENTS_REPLY, {
-      user,
-      organization,
-      team,
-      comment,
-      discussion,
-      report,
-      frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
-    });
-  }
-
   public async sendDeleteCommentNotifications(
     type: 'comment' | 'inline-comment',
     user: User,
@@ -135,8 +123,8 @@ export class BaseCommentsService extends AutowiredService {
       return;
     }
     try {
-      if (comment?.comment_id || (comment as any)?.parent_comment_id) {
-        Logger.log(`Sending ${KysoEventEnum.COMMENTS_REPLY} event to NATS`);
+      if ((comment as any)?.comment_id || (comment as any)?.parent_comment_id) {
+        Logger.warn(`Sending ${KysoEventEnum.COMMENTS_REPLY} event to NATS`);
         NATSHelper.safelyEmit<KysoCommentsCreateEvent>(this.client, type === 'comment' ? KysoEventEnum.COMMENTS_REPLY : KysoEventEnum.INLINE_COMMENTS_REPLY, {
           user,
           organization,
@@ -146,12 +134,10 @@ export class BaseCommentsService extends AutowiredService {
           report,
           frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
         });
-        if (type === 'inline-comment') {
-          return;
-        }
+        return;
       }
       // We should send the event as a new created comment in any case... because it is!
-      Logger.log(`Sending ${KysoEventEnum.COMMENTS_CREATE} event to NATS`);
+      Logger.warn(`Sending ${KysoEventEnum.COMMENTS_CREATE} event to NATS`);
       NATSHelper.safelyEmit<KysoCommentsCreateEvent>(
         this.client,
         type === 'comment' ? KysoEventEnum.COMMENTS_CREATE : (comment as InlineComment).parent_comment_id ? KysoEventEnum.INLINE_COMMENTS_REPLY : KysoEventEnum.INLINE_COMMENTS_CREATE,
