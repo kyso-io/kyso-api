@@ -116,7 +116,7 @@ export class UserNotificationsSettingsProvider extends MongoProvider<UserNotific
           }
         }
       }
-      await this.getCollection().update(
+      await this.getCollection().updateOne(
         { id: uns.id },
         {
           $set: {
@@ -153,7 +153,7 @@ export class UserNotificationsSettingsProvider extends MongoProvider<UserNotific
           }
         }
       }
-      await this.getCollection().update(
+      await this.getCollection().updateOne(
         { id: uns.id },
         {
           $set: {

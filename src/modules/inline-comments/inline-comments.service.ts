@@ -377,6 +377,26 @@ export class InlineCommentsService extends AutowiredService {
       return inlineCommentDto;
     } catch (ex) {
       Logger.error(`Error converting inlineComment ${inlineComment.id} to inlineCommentDTO`, ex);
+      return new InlineCommentDto(
+        inlineComment.id,
+        inlineComment.created_at,
+        inlineComment.updated_at,
+        inlineComment.report_id,
+        inlineComment.file_id,
+        '',
+        inlineComment.cell_id,
+        inlineComment.user_id,
+        inlineComment.text,
+        inlineComment.edited,
+        inlineComment.markedAsDeleted,
+        '',
+        '',
+        inlineComment.mentions,
+        inlineComment.parent_comment_id,
+        inlineComment.report_version,
+        inlineComment.current_status,
+        inlineComment.orphan,
+      );
     }
   }
 
