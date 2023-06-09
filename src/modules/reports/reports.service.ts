@@ -3564,10 +3564,10 @@ export class ReportsService extends AutowiredService {
     });
   }
 
-  public async getReportAnalytics(reportId: string): Promise<ReportAnalytics> {
+  public async getReportAnalytics(report_id: string): Promise<ReportAnalytics> {
     const result: ReportAnalytics[] = await this.reportsAnalyticsMongoProvider.read({
       filter: {
-        reportId,
+        report_id,
       },
     });
     if (result.length === 0) {
