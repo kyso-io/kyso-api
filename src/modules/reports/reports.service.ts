@@ -841,7 +841,7 @@ export class ReportsService extends AutowiredService {
     return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture } });
   }
 
-  public async createKysoReport(userId: string, createKysoReportDto: CreateKysoReportDto): Promise<Report | Report[]> {
+  public async createKysoReport(userId: string, createKysoReportDto: CreateKysoReportDto, organizationName: string, teamName: string): Promise<Report | Report[]> {
     Logger.log('Creating report');
     const uploaderUser: User = await this.usersService.getUserById(userId);
     Logger.log(`By user: ${uploaderUser.email}`);
@@ -863,6 +863,13 @@ export class ReportsService extends AutowiredService {
     if (!valid) {
       Logger.error(`Kyso config file is not valid: ${message}`, ReportsService.name);
       throw new BadRequestException(`Kyso config file is not valid: ${message}`);
+    }
+
+    if (!kysoConfigFile.organization) {
+      kysoConfigFile.organization = organizationName;
+    }
+    if (!kysoConfigFile.team) {
+      kysoConfigFile.team = teamName;
     }
 
     if (kysoConfigFile.type === ReportType.Meta) {
