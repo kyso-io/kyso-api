@@ -216,7 +216,8 @@ export class KysoSettingsService extends AutowiredService {
             [InlineCommentStatusEnum.CLOSED]: 'bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-full dark:bg-red-900 dark:text-red-300',
           },
         };
-
+      case KysoSettingsEnum.MAX_NUMBER_HARDLINKS:
+        return 150;
       default:
         return '';
     }
@@ -346,6 +347,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'Contents that will be shown in the footer';
       case KysoSettingsEnum.KYSO_COMMENT_STATES_VALUES:
         return 'Values of css classes for the inline comment states';
+      case KysoSettingsEnum.MAX_NUMBER_HARDLINKS:
+        return 'Maximum number of hardlinks that a file can carry on';
       default:
         return 'No description provided';
     }

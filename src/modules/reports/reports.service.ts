@@ -1181,6 +1181,7 @@ export class ReportsService extends AutowiredService {
     await this.uploadReportToFtp(report.id, tmpReportDir);
 
     Logger.log(`Creating hard links for report '${report.id} ${report.sluglified_name}'...`, ReportsService.name);
+    const maxNumberHardlinks: number | null = (await this.kysoSettingsService.getValue(KysoSettingsEnum.MAX_NUMBER_HARDLINKS)) as any;
     for (const fileId of createKysoReportVersionDto.unmodifiedFiles) {
       const index: number = reportFiles.findIndex((file: File) => file.id === fileId);
       if (index !== -1) {
@@ -1198,17 +1199,46 @@ export class ReportsService extends AutowiredService {
           file.toc,
           file.columns_stats,
         );
-        hardLinkFile = await this.filesMongoProvider.create(hardLinkFile);
-        const source: string = join(sftpDestinationFolder, file.path_scs);
         const target: string = join(sftpDestinationFolder, hardLinkFile.path_scs);
-        const createHardLinkInSftp = () =>
-          new Promise<void>((resolve) => {
-            sftpWrapper.ext_openssh_hardlink(source, target, () => {
-              Logger.log(`Hard link created from '${source}' to '${target}' for report '${report.id} - ${report.sluglified_name}'`, ReportsService.name);
-              resolve();
+        const sameFiles: File[] = await this.filesMongoProvider.read({
+          filter: {
+            report_id: report.id,
+            sha: reportFiles[index].sha,
+          },
+          sort: { version: -1 },
+        });
+        let originalFile: File | null = null;
+        let numHardLinksFile = 0;
+        for (const sameFile of sameFiles) {
+          if (sameFile.exceeded_hardlinks || sameFile.version === 1) {
+            originalFile = sameFile;
+            break;
+          }
+          numHardLinksFile++;
+        }
+        Logger.log(`File '${file.name}' has ${numHardLinksFile} hardlinks`, ReportsService.name);
+        if (numHardLinksFile === maxNumberHardlinks && originalFile !== null) {
+          // Copy most recent version of the file
+          const source: string = join(sftpDestinationFolder, originalFile.path_scs);
+          Logger.log(
+            `Reached the maximum number of hardlinks for the file '${file.name}'. Creating a copy from '${source}' to '${target}' for report '${report.id} - ${report.sluglified_name}'...`,
+            ReportsService.name,
+          );
+          const resultCopy: string = await client.rcopy(source, target);
+          Logger.log(`Copy created from '${source}' to '${target}' for report '${report.id} - ${report.sluglified_name}': ${resultCopy}`, ReportsService.name);
+          hardLinkFile.exceeded_hardlinks = true;
+        } else {
+          const source: string = join(sftpDestinationFolder, file.path_scs);
+          const createHardLinkInSftp = () =>
+            new Promise<void>((resolve) => {
+              sftpWrapper.ext_openssh_hardlink(source, target, () => {
+                Logger.log(`Hard link created from '${source}' to '${target}' for report '${report.id} - ${report.sluglified_name}'`, ReportsService.name);
+                resolve();
+              });
             });
-          });
-        await createHardLinkInSftp();
+          await createHardLinkInSftp();
+        }
+        hardLinkFile = await this.filesMongoProvider.create(hardLinkFile);
       }
     }
     Logger.log(`Report '${report.id} ${report.sluglified_name}': Files uploaded to Ftp`, ReportsService.name);
