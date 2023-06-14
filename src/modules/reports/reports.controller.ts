@@ -906,12 +906,17 @@ export class ReportsController extends GenericController<Report> {
   })
   @FormDataRequest()
   @Permission([ReportPermissionsEnum.CREATE])
-  async createKysoReport(@CurrentToken() token: Token, @Body() createKysoReportDto: CreateKysoReportDto): Promise<NormalizedResponseDTO<Report | Report[]>> {
+  async createKysoReport(
+    @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
+    @Headers(HEADER_X_KYSO_TEAM) teamName: string,
+    @CurrentToken() token: Token,
+    @Body() createKysoReportDto: CreateKysoReportDto,
+  ): Promise<NormalizedResponseDTO<Report | Report[]>> {
     Logger.log(`Called createKysoReport`);
     if (!createKysoReportDto.file) {
       throw new BadRequestException(`Missing file`);
     }
-    const data: Report | Report[] = await this.reportsService.createKysoReport(token.id, createKysoReportDto);
+    const data: Report | Report[] = await this.reportsService.createKysoReport(token.id, createKysoReportDto, organizationName, teamName);
     if (Array.isArray(data)) {
       const reportDtos: ReportDTO[] = [];
       for (const report of data) {
