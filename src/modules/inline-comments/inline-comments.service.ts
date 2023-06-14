@@ -473,7 +473,7 @@ export class InlineCommentsService extends AutowiredService {
     }
   }
 
-  private async reindexCommentsGivenReportId(report_id: string): Promise<void> {
+  public async reindexCommentsGivenReportId(report_id: string): Promise<void> {
     const report: Report | null = await this.reportsService.getReport(report_id);
     if (!report) {
       Logger.warn(`Report ${report_id} not found`, InlineCommentsService.name);
@@ -543,7 +543,6 @@ export class InlineCommentsService extends AutowiredService {
       return null;
     }
 
-    kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC;
     kysoIndex.link = `/${organization.sluglified_name}/${team.sluglified_name}/${report.sluglified_name}/${file.name}`;
     kysoIndex.organizationSlug = organization?.sluglified_name ? organization.sluglified_name : '';
     kysoIndex.teamSlug = team?.sluglified_name ? team.sluglified_name : '';

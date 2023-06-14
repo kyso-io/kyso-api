@@ -391,7 +391,6 @@ export class CommentsService extends AutowiredService {
         Logger.error(`Organization ${team.organization_id} could not be found for team ${team.id} and comment ${comment.comment_id}`, CommentsService.name);
         return null;
       }
-      kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC;
       kysoIndex.link = `/${organization.sluglified_name}/${team.sluglified_name}/${report.sluglified_name}`;
     } else if (comment.discussion_id) {
       const discussion: Discussion = await this.discussionsService.getDiscussionById(comment.discussion_id);
@@ -409,7 +408,6 @@ export class CommentsService extends AutowiredService {
         Logger.error(`Organization ${team.organization_id} could not be found for team ${team.id} and comment ${comment.comment_id}`, CommentsService.name);
         return null;
       }
-      kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC;
       kysoIndex.link = `/${organization.sluglified_name}/${team.sluglified_name}/discussions/${discussion.id}`;
     }
     kysoIndex.organizationSlug = organization?.sluglified_name ? organization.sluglified_name : '';
@@ -442,6 +440,32 @@ export class CommentsService extends AutowiredService {
     for (const comment of comments) {
       await this.indexComment(comment);
     }
+  }
+
+  public async reindexReportComments(reportId: string): Promise<void> {
+    const report: Report = await this.reportsService.getReportById(reportId);
+    if (!report) {
+      Logger.warn(`Report does not found for report '${reportId}'`, CommentsService.name);
+      return;
+    }
+    const team: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!team) {
+      Logger.warn(`Team '${report.team_id}' does not found for report '${report.id}'`, CommentsService.name);
+      return;
+    }
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
+    if (!organization) {
+      Logger.warn(`Organization '${team.organization_id}' not found for team '${team.id}' and report '${report.id}'`, CommentsService.name);
+      return;
+    }
+    await this.fullTextSearchService.deleteDocumentsGivenTypeOrganizationAndTeam(ElasticSearchIndex.Comment, organization.sluglified_name, team.sluglified_name);
+    const comments: Comment[] = await this.provider.read({ filter: { report_id: report.id } });
+    const promises: Promise<any>[] = [];
+    for (const comment of comments) {
+      promises.push(this.indexComment(comment));
+    }
+    await Promise.all(promises);
+    Logger.log(`Reindexed ${comments.length} inline comments for report '${report.id}' of team '${team.sluglified_name}' and organization '${organization.sluglified_name}'`, CommentsService.name);
   }
 
   private async indexComment(comment: Comment): Promise<any> {

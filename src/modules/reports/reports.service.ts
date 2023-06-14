@@ -28,6 +28,7 @@ import {
   KysoSettingsEnum,
   KysoTagsEvent,
   LoginProviderEnum,
+  MoveReportDto,
   Organization,
   PinnedReport,
   Report,
@@ -62,6 +63,7 @@ import { moveSync } from 'fs-extra';
 import * as geoIpCountry from 'geoip-country';
 import * as glob from 'glob';
 import { IP2Location } from 'ip2location-nodejs';
+import { BulkWriteResult } from 'mongodb';
 import { join } from 'path';
 import * as sha256File from 'sha256-file';
 import { NATSHelper } from 'src/helpers/natsHelper';
@@ -73,6 +75,7 @@ import { AutowiredService } from '../../generic/autowired.generic';
 import { NotFoundError } from '../../helpers/errorHandling';
 import slugify from '../../helpers/slugify';
 import { Validators } from '../../helpers/validators';
+import { db } from '../../main';
 import { PlatformRole } from '../../security/platform-roles';
 import { AuthService } from '../auth/auth.service';
 import { PlatformRoleService } from '../auth/platform-role.service';
@@ -282,9 +285,9 @@ export class ReportsService extends AutowiredService {
     });
 
     if (reports.length > 0) {
-      Logger.error(`A report with name ${createReportDto.name} already exists in this team. Please choose another name`);
+      Logger.error(`A report with title ${createReportDto.name} already exists in this channel. Please choose another name`);
       throw new PreconditionFailedException({
-        message: `A report with name ${createReportDto.name} already exists in this team. Please choose another name`,
+        message: `A report with title ${createReportDto.name} already exists in this channel. Please choose another name`,
       });
     }
 
@@ -2855,7 +2858,7 @@ export class ReportsService extends AutowiredService {
     return this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { preview_picture: null } });
   }
 
-  public async getReportFiles(reportId: string, version: number): Promise<File[]> {
+  public async getReportFiles(reportId: string, version?: number): Promise<File[]> {
     const report: Report = await this.getReportById(reportId);
     if (!report) {
       throw new PreconditionFailedException('Report not found');
@@ -3611,5 +3614,207 @@ export class ReportsService extends AutowiredService {
       throw new NotFoundException(`Report does not have analytics`);
     }
     return result[0];
+  }
+
+  public async moveReport(token: Token, moveReportDto: MoveReportDto): Promise<Report> {
+    const report: Report = await this.getReportById(moveReportDto.reportId);
+    if (!report) {
+      throw new NotFoundException(`Report not found`);
+    }
+    if (report.team_id === moveReportDto.targetTeamId) {
+      throw new BadRequestException(`Source and target channels must be different`);
+    }
+    const sourceTeam: Team = await this.teamsService.getTeamById(report.team_id);
+    if (!sourceTeam) {
+      throw new NotFoundException(`Source channel not found`);
+    }
+    const sourceOrganization: Organization = await this.organizationsService.getOrganizationById(sourceTeam.organization_id);
+    if (!sourceOrganization) {
+      throw new NotFoundException(`Source organization not found`);
+    }
+    const hasSourcePermission: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.CREATE], sourceTeam, sourceOrganization);
+    if (!hasSourcePermission) {
+      throw new ForbiddenException(`You don't have permissions to move reports from ${sourceTeam.display_name} channel`);
+    }
+    const targetTeam: Team = await this.teamsService.getTeamById(moveReportDto.targetTeamId);
+    if (!targetTeam) {
+      throw new NotFoundException(`Target channel not found`);
+    }
+    const targetOrganization: Organization = await this.organizationsService.getOrganizationById(targetTeam.organization_id);
+    if (!targetOrganization) {
+      throw new NotFoundException(`Target organization not found`);
+    }
+    const hasTargetPermission: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.CREATE], targetTeam, targetOrganization);
+    if (!hasTargetPermission) {
+      throw new ForbiddenException(`You don't have permissions to move reports to ${targetTeam.display_name} channel`);
+    }
+    // Check if report with same slug exists in target team
+    let reportSlug: string = report.sluglified_name;
+    let reportTitle: string = report.title;
+    let reportsWithSameSlug: Report[] = await this.getReports({
+      filter: {
+        sluglified_name: reportSlug,
+        team_id: targetTeam.id,
+      },
+    });
+    if (reportsWithSameSlug.length > 0) {
+      if (!moveReportDto.name) {
+        throw new BadRequestException(`Already exists a report with same name in target channel. Please, provide a name`);
+      }
+      if (!Validators.isValidReportName(moveReportDto.name)) {
+        Logger.error(`Report name can only consist of letters, numbers, '_' and '-'.`);
+        throw new PreconditionFailedException({
+          message: `Report name can only consist of letters, numbers, '_' and '-'.`,
+        });
+      }
+      reportSlug = slugify(moveReportDto.name);
+      reportTitle = moveReportDto.name;
+      reportsWithSameSlug = await this.getReports({
+        filter: {
+          sluglified_name: reportSlug,
+          team_id: targetTeam.id,
+        },
+      });
+      if (reportsWithSameSlug.length > 0) {
+        Logger.error(`A report with name ${moveReportDto.name} already exists in channel ${targetTeam.display_name}. Please choose another name.`);
+        throw new PreconditionFailedException({
+          message: `A report with name ${moveReportDto.name} already exists in channel ${targetTeam.display_name}. Please choose another name.e`,
+        });
+      }
+    }
+
+    // Move report in SFTP
+    try {
+      const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_USERNAME);
+      const password: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_PASSWORD);
+      const { client, sftpWrapper } = await this.sftpService.getClient(username, password);
+      const sftpDestinationFolder = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_DESTINATION_FOLDER);
+      const sourcePath = join(sftpDestinationFolder, `/${sourceOrganization.sluglified_name}/${sourceTeam.sluglified_name}/reports/${report.sluglified_name}`);
+      const targetPath = join(sftpDestinationFolder, `/${targetOrganization.sluglified_name}/${targetTeam.sluglified_name}/reports/${reportSlug}`);
+      const existsTargetPath: boolean | string = await client.exists(targetPath);
+      if (!existsTargetPath) {
+        Logger.log(`Directory ${targetPath} does not exist in FTP server. Creating...`, ReportsService.name);
+        await client.mkdir(targetPath, true);
+        Logger.log(`Created directory ${targetPath} in FTP server`, ReportsService.name);
+      }
+      Logger.log(`Moving report ${report.id} ${report.title} from '${sourceTeam.id} - ${sourceTeam.sluglified_name}' to '${targetTeam.id} - ${targetTeam.sluglified_name}'`, ReportsService.name);
+      const moveDirectoryInSftp = () =>
+        new Promise<void>((resolve, reject) => {
+          sftpWrapper.rename(sourcePath, targetPath, (error?: Error) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+            Logger.log(`Report ${report.id} moved from '${sourcePath}' to '${targetPath}' in SFTP`, ReportsService.name);
+            resolve();
+          });
+        });
+      await moveDirectoryInSftp();
+      Logger.log(`Report ${report.id} moved from '${sourceTeam.id} - ${sourceTeam.sluglified_name}' to '${targetTeam.id} - ${targetTeam.sluglified_name}'`, ReportsService.name);
+      await client.end();
+    } catch (e) {
+      Logger.error(
+        `An error occurred while moving report ${report.id} ${report.title} from '${sourceTeam.id} - ${sourceTeam.sluglified_name}' to '${targetTeam.id} - ${targetTeam.sluglified_name}'`,
+        e,
+        ReportsService.name,
+      );
+      throw new InternalServerErrorException(`An error occurred while moving report`);
+    }
+    const files: File[] = await this.getReportFiles(report.id);
+    // Update files in ElasticSearch
+    let pageElasticSearchDocuments = 1;
+    const limit = 1000;
+    do {
+      const result: any = await this.fullTextSearchService.getDocumentsGivenTypeOrgSlugAndTeamSlug(
+        ElasticSearchIndex.Report,
+        sourceOrganization.sluglified_name,
+        sourceTeam.sluglified_name,
+        pageElasticSearchDocuments,
+        limit,
+      );
+      // Updating the index is a heavy operation, so we do it in batches
+      if (result.hits.hits.length === 0) {
+        break;
+      }
+      const bulkData: any[] = [];
+      for (const file of files) {
+        const hit: any | undefined = result.hits.hits.find((hit: any) => hit._source.version === file.version && hit._source.filePath === file.path_scs);
+        if (!hit) {
+          continue;
+        }
+        bulkData.push(
+          ...[
+            {
+              update: {
+                _index: FullTextSearchService.KYSO_INDEX,
+                _id: hit._id,
+              },
+            },
+            {
+              doc: {
+                link: `/${targetOrganization.sluglified_name}/${targetTeam.sluglified_name}/${reportSlug}/?path=${file.name}&version=${file.version}`,
+                organization: targetOrganization.sluglified_name,
+                teamSlug: targetTeam.sluglified_name,
+                filePath: `/${targetOrganization.sluglified_name}/${targetTeam.sluglified_name}/reports/${reportSlug}/${file.version}/${file.name}`,
+                fileRef: `${targetOrganization.sluglified_name}/${targetTeam.sluglified_name}/${reportSlug}/${file.name}`,
+              },
+            },
+          ],
+        );
+      }
+      const bulkResult: any = await this.fullTextSearchService.bulk(bulkData);
+      if (!bulkResult) {
+        throw new InternalServerErrorException(`An error occurred while moving report`);
+      }
+      if (bulkResult.errors) {
+        Logger.error(`An error occurred while updating the index for the report '${report.id} - ${report.sluglified_name}'`, bulkResult, ReportsService.name);
+        throw new InternalServerErrorException(`An error occurred while moving report`);
+      }
+      if (result.hits.hits.length < limit) {
+        break;
+      }
+      pageElasticSearchDocuments++;
+    } while (true);
+    // Update file in MongoDB
+    const updates: any[] = [];
+    for (const file of files) {
+      updates.push({
+        updateOne: {
+          filter: {
+            _id: this.provider.toObjectId(file.id),
+          },
+          update: {
+            $set: {
+              path_scs: `/${targetOrganization.sluglified_name}/${targetTeam.sluglified_name}/reports/${reportSlug}/${file.version}/${file.name}`,
+            },
+          },
+        },
+      });
+    }
+    try {
+      const bulkWriteResult: BulkWriteResult = await db.collection('File').bulkWrite(updates);
+      Logger.log(`Updated in bulk mode ${bulkWriteResult.result.nModified} files for the report '${report.id} - ${report.sluglified_name}'`, ReportsService.name);
+    } catch (e) {
+      Logger.error(`An error occurred updating in bulk mode the files for the report '${report.id} - ${report.sluglified_name}'`, e, ReportsService.name);
+      throw new InternalServerErrorException(`An error occurred while moving report`);
+    }
+    // Update the teamId of the report
+    await this.provider.updateOne(
+      {
+        id: report.id,
+      },
+      {
+        $set: {
+          team_id: targetTeam.id,
+          sluglified_name: reportSlug,
+          name_provider: reportSlug,
+          title: reportTitle,
+        },
+      },
+    );
+    this.commentsService.reindexReportComments(report.id);
+    this.inlineCommentsService.reindexCommentsGivenReportId(report.id);
+    Logger.log(`Report ${report.id} moved from '${sourceTeam.id} - ${sourceTeam.sluglified_name}' to '${targetTeam.id} - ${targetTeam.sluglified_name}'`, ReportsService.name);
+    return this.getReportById(report.id);
   }
 }

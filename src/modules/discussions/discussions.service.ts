@@ -413,7 +413,6 @@ export class DiscussionsService extends AutowiredService implements GenericServi
     kysoIndex.teamSlug = team.sluglified_name;
     kysoIndex.people = users.map((user) => user.email);
     kysoIndex.content = discussion.main;
-    kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC;
     kysoIndex.link = `/${organization.sluglified_name}/${team.sluglified_name}/discussions/${discussion.id}`;
     return kysoIndex;
   }
