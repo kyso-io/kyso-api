@@ -6,7 +6,7 @@ import { KysoSettingsService } from '../kyso-settings.service';
 
 @Injectable()
 export class KysoSettingsMongoProvider extends MongoProvider<KysoSetting> {
-  version = 4;
+  version = 5;
 
   constructor() {
     super('KysoSettings', db);
@@ -164,6 +164,36 @@ export class KysoSettingsMongoProvider extends MongoProvider<KysoSetting> {
       }
     } else {
       Logger.warn('KYSO_COMMENT_STATES_VALUES not found. Migration 3 to 4 from KysoSettings not applied :(');
+    }
+  }
+
+  /**
+   * Removing deprecated and unused settings:
+   *  KYSO_FILES_CLOUDFRONT_URL
+   *  AWS_REGION
+   *  AWS_S3_BUCKET
+   *  AWS_ACCESS_KEY_ID
+   *  AWS_SECRET_ACCESS_KEY
+   *
+   * The migration consists on deleting these keys from the database
+   */
+  async migrate_from_4_to_5() {
+    const toDelete: KysoSettingsEnum[] = [
+      KysoSettingsEnum.KYSO_FILES_CLOUDFRONT_URL,
+      KysoSettingsEnum.AWS_REGION,
+      KysoSettingsEnum.AWS_S3_BUCKET,
+      KysoSettingsEnum.AWS_ACCESS_KEY_ID,
+      KysoSettingsEnum.AWS_SECRET_ACCESS_KEY,
+    ];
+
+    for (const ksetting of toDelete) {
+      try {
+        Logger.log(`Deleting deprecated setting ${ksetting}`);
+
+        await this.deleteOne({ key: ksetting });
+      } catch (e) {
+        Logger.warn(`Error deleting deprecated setting ${ksetting}`, e);
+      }
     }
   }
 }

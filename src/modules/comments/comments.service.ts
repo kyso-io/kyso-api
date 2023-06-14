@@ -391,7 +391,6 @@ export class CommentsService extends AutowiredService {
         Logger.error(`Organization ${team.organization_id} could not be found for team ${team.id} and comment ${comment.comment_id}`, CommentsService.name);
         return null;
       }
-      kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC;
       kysoIndex.link = `/${organization.sluglified_name}/${team.sluglified_name}/${report.sluglified_name}`;
     } else if (comment.discussion_id) {
       const discussion: Discussion = await this.discussionsService.getDiscussionById(comment.discussion_id);
@@ -409,7 +408,6 @@ export class CommentsService extends AutowiredService {
         Logger.error(`Organization ${team.organization_id} could not be found for team ${team.id} and comment ${comment.comment_id}`, CommentsService.name);
         return null;
       }
-      kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC;
       kysoIndex.link = `/${organization.sluglified_name}/${team.sluglified_name}/discussions/${discussion.id}`;
     }
     kysoIndex.organizationSlug = organization?.sluglified_name ? organization.sluglified_name : '';

@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@faker-js/faker": "^7.6.0",
-    "@kyso-io/kyso-model": "2.0.2",
+    "@kyso-io/kyso-model": "2.0.6",
     "@nestjs/common": "^8.0.0",
     "@nestjs/core": "^8.0.0",
     "@nestjs/jwt": "^8.0.0",

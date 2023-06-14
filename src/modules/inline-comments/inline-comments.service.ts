@@ -563,7 +563,6 @@ export class InlineCommentsService extends AutowiredService {
       return null;
     }
 
-    kysoIndex.isPublic = team.visibility === TeamVisibilityEnum.PUBLIC;
     kysoIndex.link = `/${organization.sluglified_name}/${team.sluglified_name}/${report.sluglified_name}/${file.name}`;
     kysoIndex.organizationSlug = organization?.sluglified_name ? organization.sluglified_name : '';
     kysoIndex.teamSlug = team?.sluglified_name ? team.sluglified_name : '';
