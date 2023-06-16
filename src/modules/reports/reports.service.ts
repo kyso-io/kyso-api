@@ -21,6 +21,7 @@ import {
   KysoReportsAuthorEvent,
   KysoReportsCreateEvent,
   KysoReportsDeleteEvent,
+  KysoReportsMoveEvent,
   KysoReportsNewVersionEvent,
   KysoReportsPinEvent,
   KysoReportsStarEvent,
@@ -3815,6 +3816,17 @@ export class ReportsService extends AutowiredService {
     this.commentsService.reindexReportComments(report.id);
     this.inlineCommentsService.reindexCommentsGivenReportId(report.id);
     Logger.log(`Report ${report.id} moved from '${sourceTeam.id} - ${sourceTeam.sluglified_name}' to '${targetTeam.id} - ${targetTeam.sluglified_name}'`, ReportsService.name);
-    return this.getReportById(report.id);
+
+    const updatedReport: Report = await this.getReportById(report.id);
+    NATSHelper.safelyEmit<KysoReportsMoveEvent>(this.client, KysoEventEnum.REPORTS_MOVE, {
+      user: await this.usersService.getUserById(token.id),
+      sourceOrganization,
+      sourceTeam,
+      targetOrganization,
+      targetTeam,
+      report: updatedReport,
+      frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
+    });
+    return updatedReport;
   }
 }
