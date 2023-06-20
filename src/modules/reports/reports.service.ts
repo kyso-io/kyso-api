@@ -3219,9 +3219,7 @@ export class ReportsService extends AutowiredService {
     try {
       const reportInlineComments: InlineComment[] = await this.inlineCommentsService.getInlineComments({
         filter: {
-          report_id: {
-            $in: [reportId],
-          },
+          report_id: reportId,
         },
       });
 
@@ -3253,9 +3251,7 @@ export class ReportsService extends AutowiredService {
     try {
       const reportInlineComments: InlineComment[] = await this.inlineCommentsService.getInlineComments({
         filter: {
-          report_id: {
-            $in: [reportId],
-          },
+          report_id: reportId,
         },
       });
       const reportInlineCommentsDTO: InlineCommentDto[] = await this.inlineCommentsService.inlineCommentModelToInlineCommentDtoArray(reportInlineComments);
