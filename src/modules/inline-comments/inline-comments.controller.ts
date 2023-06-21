@@ -580,7 +580,6 @@ export class InlineCommentController extends GenericController<InlineComment> {
     description: 'Inline comment updated',
     type: InlineCommentDto,
   })
-  @Permission([InlineCommentPermissionsEnum.EDIT])
   async updateInlineComment(@CurrentToken() token: Token, @Param('id') id: string, @Body() updateInlineCommentDto: UpdateInlineCommentDto): Promise<NormalizedResponseDTO<InlineCommentDto>> {
     const inlineComment: InlineComment = await this.inlineCommentsService.updateInlineComment(token, id, updateInlineCommentDto);
     const relations: Relations = await this.relationsService.getRelations(inlineComment, 'InlineComment', { mentions: 'User' });
@@ -601,7 +600,6 @@ export class InlineCommentController extends GenericController<InlineComment> {
     description: 'Id of the inline comment to delete',
     schema: { type: 'string' },
   })
-  @Permission([InlineCommentPermissionsEnum.DELETE])
   async delete(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<boolean>> {
     const deleted: boolean = await this.inlineCommentsService.deleteInlineComment(token, id);
     return new NormalizedResponseDTO(deleted);
