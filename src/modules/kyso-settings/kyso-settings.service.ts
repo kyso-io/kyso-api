@@ -218,6 +218,20 @@ export class KysoSettingsService extends AutowiredService {
         };
       case KysoSettingsEnum.MAX_NUMBER_HARDLINKS:
         return 150;
+      case KysoSettingsEnum.SFTP_PORT:
+        return 22;
+      case KysoSettingsEnum.SFTP_USERNAME:
+        return 'scs';
+      case KysoSettingsEnum.SFTP_PUBLIC_USERNAME:
+        return 'pub';
+      case KysoSettingsEnum.STATIC_CONTENT_PREFIX:
+        return '/scs';
+      case KysoSettingsEnum.STATIC_CONTENT_PUBLIC_PREFIX:
+        return '/pub';
+      case KysoSettingsEnum.REPORT_PATH:
+        return '/data';
+      case KysoSettingsEnum.TMP_FOLDER_PATH:
+        return '/app/data';
       default:
         return '';
     }
