@@ -1,12 +1,17 @@
 import { Report } from '@kyso-io/kyso-model';
 import { Injectable, Logger } from '@nestjs/common';
+import { Autowired } from '../../../decorators/autowired';
 import slug from '../../../helpers/slugify';
 import { db } from '../../../main';
 import { MongoProvider } from '../../../providers/mongo.provider';
+import { FullTextSearchService } from '../../full-text-search/full-text-search.service';
 
 @Injectable()
 export class ReportsMongoProvider extends MongoProvider<Report> {
-  version = 6;
+  @Autowired({ typeName: 'FullTextSearchService' })
+  private fullTextSearchService: FullTextSearchService;
+
+  version = 7;
 
   constructor() {
     super('Report', db, [
@@ -96,5 +101,9 @@ export class ReportsMongoProvider extends MongoProvider<Report> {
 
   public async migrate_from_5_to_6() {
     await this.getCollection().updateMany({}, { $set: { toc: [] } });
+  }
+
+  public async migrate_from_6_to_7() {
+    await this.fullTextSearchService.removeField('isPublic');
   }
 }

@@ -11,7 +11,6 @@ import {
   Report,
   ResourcePermissions,
   Team,
-  TeamVisibilityEnum,
   Token,
   UpdateInlineCommentDto,
   User,
@@ -134,7 +133,7 @@ export class InlineCommentsService extends AutowiredService {
       report_last_version,
       InlineCommentStatusEnum.OPEN,
     );
-    const inlineCommentStatusHistoryDto: InlineCommentStatusHistoryDto = new InlineCommentStatusHistoryDto(new Date(), null, InlineCommentStatusEnum.OPEN, userId, report_last_version);
+    const inlineCommentStatusHistoryDto: InlineCommentStatusHistoryDto = new InlineCommentStatusHistoryDto(new Date(), null, InlineCommentStatusEnum.OPEN, userId, report_last_version, false);
     inlineComment.status_history = [inlineCommentStatusHistoryDto];
     const result = await this.provider.create(inlineComment);
 
@@ -171,11 +170,6 @@ export class InlineCommentsService extends AutowiredService {
       throw new NotFoundException(`Report with id ${inlineComment.report_id} not found`);
     }
 
-    /*const report_version: number = await this.reportsService.getLastVersionOfReport(report.id);
-    if (inlineComment.report_version !== report_version) {
-      throw new BadRequestException(`Inline comment can not be updated because belong to an old version of the report`);
-    }*/
-
     const team: Team = await this.teamsService.getTeamById(report.team_id);
     if (!team) {
       throw new NotFoundException(`Team with id ${report.team_id} not found`);
@@ -191,31 +185,39 @@ export class InlineCommentsService extends AutowiredService {
       throw new NotFoundException(`User with id ${inlineComment.user_id} was not found`);
     }
 
-    if (inlineComment.user_id !== token.id) {
-      let isOrgAdmin = false;
-      const organizationResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find(
-        (organizationResourcePermissions: ResourcePermissions) => organizationResourcePermissions.id === organization.id,
-      );
-      if (organizationResourcePermissions) {
-        isOrgAdmin = organizationResourcePermissions.role_names.includes(PlatformRole.ORGANIZATION_ADMIN_ROLE.name);
-      }
-      let isTeamAdmin = false;
-      const teamResourcePermissions: ResourcePermissions | undefined = token.permissions.teams.find((teamResourcePermissions: ResourcePermissions) => teamResourcePermissions.id === team.id);
-      if (teamResourcePermissions) {
-        isTeamAdmin = teamResourcePermissions.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name);
-      }
-
-      if (!isOrgAdmin && !isTeamAdmin && !token.isGlobalAdmin() && !report.author_ids.includes(token.id)) {
-        throw new ForbiddenException(`User with id ${token.id} is not allowed to update inline comment ${id}`);
-      }
+    const isAuthor: boolean = inlineComment.user_id === token.id;
+    let isOrgAdmin = false;
+    let isTeamAdmin = false;
+    let isContributor = false;
+    const organizationResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find(
+      (organizationResourcePermissions: ResourcePermissions) => organizationResourcePermissions.id === organization.id,
+    );
+    if (organizationResourcePermissions) {
+      isOrgAdmin = organizationResourcePermissions.role_names.includes(PlatformRole.ORGANIZATION_ADMIN_ROLE.name);
+      isTeamAdmin = organizationResourcePermissions.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name);
+      isContributor = organizationResourcePermissions.role_names.includes(PlatformRole.TEAM_CONTRIBUTOR_ROLE.name);
+    }
+    const teamResourcePermissions: ResourcePermissions | undefined = token.permissions.teams.find((teamResourcePermissions: ResourcePermissions) => teamResourcePermissions.id === team.id);
+    if (teamResourcePermissions) {
+      isTeamAdmin = teamResourcePermissions.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name);
+      isContributor = teamResourcePermissions.role_names.includes(PlatformRole.TEAM_CONTRIBUTOR_ROLE.name);
     }
 
-    const report_last_version: number = await this.reportsService.getLastVersionOfReport(report.id);
     const status_history: InlineCommentStatusHistoryDto[] = [...inlineComment.status_history];
+    const report_last_version: number = await this.reportsService.getLastVersionOfReport(report.id);
+    if (updateInlineCommentDto.text && updateInlineCommentDto.text !== inlineComment.text) {
+      if (!token.isGlobalAdmin() && !isOrgAdmin && !isTeamAdmin && !report.author_ids.includes(token.id) && !isAuthor) {
+        throw new ForbiddenException(`User with id ${token.id} is not allowed to update inline comment ${id}`);
+      }
+      status_history.unshift(new InlineCommentStatusHistoryDto(new Date(), inlineComment.current_status, inlineComment.current_status, token.id, report_last_version, true));
+    }
     let statusChanged = false;
     if (inlineComment.current_status !== updateInlineCommentDto.status) {
+      if (!token.isGlobalAdmin() && !isOrgAdmin && !isTeamAdmin && !isContributor && !report.author_ids.includes(token.id) && !isAuthor) {
+        throw new ForbiddenException(`User with id ${token.id} is not allowed to update inline comment ${id}`);
+      }
       statusChanged = true;
-      status_history.unshift(new InlineCommentStatusHistoryDto(new Date(), inlineComment.current_status, updateInlineCommentDto.status, token.id, report_last_version));
+      status_history.unshift(new InlineCommentStatusHistoryDto(new Date(), inlineComment.current_status, updateInlineCommentDto.status, token.id, report_last_version, false));
     }
 
     const updateResult: InlineComment = await this.provider.update(
@@ -282,22 +284,22 @@ export class InlineCommentsService extends AutowiredService {
       throw new NotFoundException(`User with id ${inlineComment.user_id} was not found`);
     }
 
-    if (inlineComment.user_id !== token.id) {
-      let isOrgAdmin = false;
-      const organizationResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find(
-        (organizationResourcePermissions: ResourcePermissions) => organizationResourcePermissions.id === organization.id,
-      );
-      if (organizationResourcePermissions) {
-        isOrgAdmin = organizationResourcePermissions.role_names.includes(PlatformRole.ORGANIZATION_ADMIN_ROLE.name);
-      }
-      let isTeamAdmin = false;
-      const teamResourcePermissions: ResourcePermissions | undefined = token.permissions.teams.find((teamResourcePermissions: ResourcePermissions) => teamResourcePermissions.id === team.id);
-      if (teamResourcePermissions) {
-        isTeamAdmin = teamResourcePermissions.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name);
-      }
-      if (!isOrgAdmin && !isTeamAdmin && !token.isGlobalAdmin()) {
-        throw new ForbiddenException(`User with id ${token.id} is not allowed to delete this inline comment`);
-      }
+    const isAuthor: boolean = inlineComment.user_id === token.id;
+    let isOrgAdmin = false;
+    let isTeamAdmin = false;
+    const organizationResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find(
+      (organizationResourcePermissions: ResourcePermissions) => organizationResourcePermissions.id === organization.id,
+    );
+    if (organizationResourcePermissions) {
+      isOrgAdmin = organizationResourcePermissions.role_names.includes(PlatformRole.ORGANIZATION_ADMIN_ROLE.name);
+      isTeamAdmin = organizationResourcePermissions.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name);
+    }
+    const teamResourcePermissions: ResourcePermissions | undefined = token.permissions.teams.find((teamResourcePermissions: ResourcePermissions) => teamResourcePermissions.id === team.id);
+    if (teamResourcePermissions) {
+      isTeamAdmin = isTeamAdmin || teamResourcePermissions.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name);
+    }
+    if (!token.isGlobalAdmin() && !isOrgAdmin && !isTeamAdmin && !report.author_ids.includes(token.id) && !isAuthor) {
+      throw new ForbiddenException(`User with id ${token.id} is not allowed to delete this inline comment`);
     }
 
     await this.provider.deleteMany({ $or: [{ _id: this.provider.toObjectId(id) }, { parent_comment_id: id }] });
@@ -493,7 +495,7 @@ export class InlineCommentsService extends AutowiredService {
     }
   }
 
-  private async reindexCommentsGivenReportId(report_id: string): Promise<void> {
+  public async reindexCommentsGivenReportId(report_id: string): Promise<void> {
     const report: Report | null = await this.reportsService.getReport(report_id);
     if (!report) {
       Logger.warn(`Report ${report_id} not found`, InlineCommentsService.name);

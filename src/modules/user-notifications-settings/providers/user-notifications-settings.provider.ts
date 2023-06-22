@@ -5,7 +5,7 @@ import { MongoProvider } from '../../../providers/mongo.provider';
 
 @Injectable()
 export class UserNotificationsSettingsProvider extends MongoProvider<UserNotificationsSettings> {
-  version = 5;
+  version = 6;
 
   constructor() {
     super('UserNotificationsSettings', db, []);
@@ -157,6 +157,46 @@ export class UserNotificationsSettingsProvider extends MongoProvider<UserNotific
         { id: uns.id },
         {
           $set: {
+            channels_settings,
+          },
+        },
+      );
+    }
+  }
+
+  async migrate_from_5_to_6() {
+    const cursor = await this.getCollection().find({});
+    const unss: UserNotificationsSettings[] = await cursor.toArray();
+    for (const uns of unss) {
+      const global_settings: NotificationsSettings = { ...uns.global_settings } as any;
+      global_settings.report_moved = true;
+      const organization_settings: { [organization_id: string]: NotificationsSettings } = { ...uns.organization_settings };
+      for (const organizationId in organization_settings) {
+        if (organization_settings.hasOwnProperty(organizationId)) {
+          organization_settings[organizationId].report_moved = true;
+        }
+      }
+      const channels_settings: {
+        [organization_id: string]: {
+          [channel_id: string]: NotificationsSettings;
+        };
+      } = { ...uns.channels_settings };
+      for (const organizationId in channels_settings) {
+        if (channels_settings.hasOwnProperty(organizationId)) {
+          // Wrong
+          for (const teamId in channels_settings[organizationId].teams) {
+            if (channels_settings[organizationId].teams.hasOwnProperty(teamId)) {
+              channels_settings[organizationId].teams[teamId].report_moved = true;
+            }
+          }
+        }
+      }
+      await this.getCollection().update(
+        { id: uns.id },
+        {
+          $set: {
+            global_settings,
+            organization_settings,
             channels_settings,
           },
         },

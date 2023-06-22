@@ -35,7 +35,7 @@ export function createProvider(): Provider<FullTextSearchService> {
 
 @Injectable()
 export class FullTextSearchService extends AutowiredService {
-  private readonly KYSO_INDEX = 'kyso-index';
+  public static readonly KYSO_INDEX = 'kyso-index';
 
   @Autowired({ typeName: 'KysoSettingsService' })
   private kysoSettingsService: KysoSettingsService;
@@ -79,7 +79,7 @@ export class FullTextSearchService extends AutowiredService {
     };
     let res;
     try {
-      res = await axios(`${elasticsearchUrl}/${this.KYSO_INDEX}/_delete_by_query`, {
+      res = await axios(`${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_delete_by_query`, {
         method: 'post',
         data: query,
         headers: {
@@ -96,7 +96,7 @@ export class FullTextSearchService extends AutowiredService {
   public async indexDocument(kysoIndex: KysoIndex): Promise<any> {
     try {
       const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
-      const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_doc?refresh=true`;
+      const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_doc?refresh=true`;
       const response: AxiosResponse<any> = await axios.post(url, kysoIndex);
       if (response.status === 201) {
         return response.data;
@@ -112,7 +112,7 @@ export class FullTextSearchService extends AutowiredService {
   public async deleteAllDocumentsOfType(elasticSearchIndex: ElasticSearchIndex): Promise<any> {
     try {
       const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
-      const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_delete_by_query`;
+      const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_delete_by_query`;
       const response: AxiosResponse<any> = await axios.post(url, {
         query: {
           match: {
@@ -135,7 +135,7 @@ export class FullTextSearchService extends AutowiredService {
   public async deleteDocument(type: ElasticSearchIndex, entityId: string): Promise<any> {
     try {
       const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
-      const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_delete_by_query`;
+      const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_delete_by_query`;
       const response: AxiosResponse<any> = await axios.post(url, {
         query: {
           bool: {
@@ -157,7 +157,7 @@ export class FullTextSearchService extends AutowiredService {
   public async deleteDocumentsGivenTypeOrganizationAndTeam(type: ElasticSearchIndex, organizationSlug: string, teamSlug: string): Promise<any> {
     try {
       const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
-      const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_delete_by_query`;
+      const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_delete_by_query`;
       const response: AxiosResponse<any> = await axios.post(url, {
         query: {
           bool: {
@@ -179,7 +179,7 @@ export class FullTextSearchService extends AutowiredService {
   public async updateDocument(kysoIndex: KysoIndex): Promise<any> {
     try {
       const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
-      const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_update_by_query`;
+      const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_update_by_query`;
       const response: AxiosResponse<any> = await axios.post(url, {
         query: {
           match: {
@@ -207,7 +207,7 @@ export class FullTextSearchService extends AutowiredService {
   public async updateStarsInKysoIndex(entityId: string, stars: number): Promise<any> {
     try {
       const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
-      const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_update_by_query`;
+      const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_update_by_query`;
       const response: AxiosResponse<any> = await axios.post(url, {
         query: {
           match: {
@@ -232,7 +232,7 @@ export class FullTextSearchService extends AutowiredService {
   public async updateNumCommentsInKysoIndex(entityId: string, numComments: number): Promise<any> {
     try {
       const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
-      const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_update_by_query`;
+      const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_update_by_query`;
       const response: AxiosResponse<any> = await axios.post(url, {
         query: {
           match: {
@@ -257,7 +257,7 @@ export class FullTextSearchService extends AutowiredService {
   public async updateNumTasksInKysoIndex(entityId: string, numTasks: number): Promise<any> {
     try {
       const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
-      const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_update_by_query`;
+      const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_update_by_query`;
       const response: AxiosResponse<any> = await axios.post(url, {
         query: {
           match: {
@@ -282,7 +282,7 @@ export class FullTextSearchService extends AutowiredService {
   public async updateReportFiles(kysoIndex: KysoIndex): Promise<any> {
     try {
       const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
-      const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_update_by_query`;
+      const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_update_by_query`;
       const response: AxiosResponse<any> = await axios.post(url, {
         query: {
           match: {
@@ -537,7 +537,7 @@ export class FullTextSearchService extends AutowiredService {
 
   private async searchCountersReports(terms: string, filterPeople: string[], filterTags: string[], filterFiles: string[], userBelongings?: Map<string, string[]>): Promise<any> {
     const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
-    const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_search`;
+    const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_search`;
 
     const belongingsQuery = [];
 
@@ -688,7 +688,7 @@ export class FullTextSearchService extends AutowiredService {
 
   private async searchCountersComments(terms: string, filterPeople: string[], userBelongings?: Map<string, string[]>): Promise<any> {
     const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
-    const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_search`;
+    const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_search`;
 
     const belongingsQuery = [];
 
@@ -760,7 +760,7 @@ export class FullTextSearchService extends AutowiredService {
 
   private async searchCountersInlineComments(terms: string, filterPeople: string[], userBelongings?: Map<string, string[]>): Promise<any> {
     const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
-    const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_search`;
+    const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_search`;
 
     const belongingsQuery = [];
 
@@ -843,7 +843,7 @@ export class FullTextSearchService extends AutowiredService {
     userBelongings?: Map<string, string[]>,
   ): Promise<SearchData> {
     const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
-    const url = `${elasticsearchUrl}/${this.KYSO_INDEX}/_search`;
+    const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_search`;
 
     const belongingsQuery = [];
 
@@ -922,6 +922,91 @@ export class FullTextSearchService extends AutowiredService {
       return response.data;
     } catch (e: any) {
       Logger.error(`Error searching data`, e, FullTextSearchService.name);
+      return null;
+    }
+  }
+
+  public async getDocumentsGivenTypeOrgSlugAndTeamSlug(type: ElasticSearchIndex, organizationSlug: string, teamSlug: string, page: number, size: number): Promise<any> {
+    try {
+      const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
+      const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_search`;
+      const response: AxiosResponse<any> = await axios.post(url, {
+        query: {
+          bool: {
+            must: [
+              {
+                term: {
+                  type: {
+                    value: type,
+                  },
+                },
+              },
+              {
+                term: {
+                  'organizationSlug.keyword': {
+                    value: organizationSlug,
+                  },
+                },
+              },
+              {
+                term: {
+                  'teamSlug.keyword': {
+                    value: teamSlug,
+                  },
+                },
+              },
+            ],
+          },
+        },
+        from: (page - 1) * size,
+        size,
+      });
+      if (response.status === 200) {
+        return response.data;
+      } else {
+        return null;
+      }
+    } catch (e: any) {
+      Logger.error(`An error occurred requesting elements for type ${type} organization ${organizationSlug} team ${teamSlug} page ${page} size ${size}`, e, FullTextSearchService.name);
+      return null;
+    }
+  }
+
+  public async bulk(documents: any[]): Promise<any> {
+    try {
+      const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
+      const url = `${elasticsearchUrl}/_bulk?refresh=true`;
+      const body: string = documents.map((e: any) => JSON.stringify(e)).join('\n') + '\n';
+      const response: AxiosResponse<any> = await axios.post(url, body, {
+        headers: { 'Content-Type': 'application/x-ndjson' },
+      });
+      if (response.status === 200) {
+        return response.data;
+      } else {
+        return null;
+      }
+    } catch (e) {
+      Logger.error(`An error occurred indexing documents`, e, FullTextSearchService.name);
+      return null;
+    }
+  }
+
+  public async removeField(fieldName: string): Promise<any> {
+    try {
+      const elasticsearchUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.ELASTICSEARCH_URL);
+      const url = `${elasticsearchUrl}/${FullTextSearchService.KYSO_INDEX}/_update_by_query?refresh=true`;
+      const response: AxiosResponse<any> = await axios.post(url, {
+        script: {
+          inline: `ctx._source.remove('${fieldName}')`,
+        },
+      });
+      if (response.status === 200) {
+        return response.data;
+      } else {
+        return null;
+      }
+    } catch (e) {
+      Logger.error(`An error occurred removing field ${fieldName}`, e, FullTextSearchService.name);
       return null;
     }
   }

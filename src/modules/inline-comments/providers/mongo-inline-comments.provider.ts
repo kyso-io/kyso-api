@@ -10,7 +10,7 @@ export class MongoInlineCommentsProvider extends MongoProvider<InlineComment> {
   @Autowired({ typeName: 'ReportsService' })
   private reportsService: ReportsService;
 
-  version = 5;
+  version = 6;
 
   constructor() {
     super('InlineComment', db, [
@@ -84,7 +84,7 @@ export class MongoInlineCommentsProvider extends MongoProvider<InlineComment> {
             parent_comment_id: null,
             report_version,
             current_status: InlineCommentStatusEnum.OPEN,
-            status_history: [new InlineCommentStatusHistoryDto(new Date(), null, InlineCommentStatusEnum.OPEN, inlineComment.userId, report_version)],
+            status_history: [new InlineCommentStatusHistoryDto(new Date(), null, InlineCommentStatusEnum.OPEN, inlineComment.userId, report_version, false)],
             inline_comments: [],
           },
         },
@@ -101,5 +101,24 @@ export class MongoInlineCommentsProvider extends MongoProvider<InlineComment> {
    */
   async migrate_from_4_to_5() {
     await this.getCollection().updateMany({}, { $set: { orphan: false } });
+  }
+
+  async migrate_from_5_to_6() {
+    const cursor = await this.getCollection().find({});
+    const allInlineComments: any[] = await cursor.toArray();
+    for (const inlineComment of allInlineComments) {
+      const status_history: InlineCommentStatusHistoryDto[] = [...inlineComment.status_history] as InlineCommentStatusHistoryDto[];
+      for (const sh of status_history) {
+        sh.edited = false;
+      }
+      await this.update(
+        { id: inlineComment.id },
+        {
+          $set: {
+            status_history,
+          },
+        },
+      );
+    }
   }
 }

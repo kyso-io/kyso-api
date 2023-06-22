@@ -14,6 +14,7 @@ import {
   KysoEventEnum,
   KysoSetting,
   KysoSettingsEnum,
+  MoveReportDto,
   NormalizedResponseDTO,
   Organization,
   PaginatedResponseDto,
@@ -1913,6 +1914,24 @@ export class ReportsController extends GenericController<Report> {
     const relations = await this.relationsService.getRelations(draft, 'report', { Author: 'User', Team: 'Team', Organization: 'Organization' });
 
     return new NormalizedResponseDTO(draft, relations);
+  }
+
+  @Post('move')
+  @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiOperation({
+    summary: `Move a report to another channel`,
+    description: `By passing the appropiate parameters you can move a report to another channel`,
+  })
+  @ApiResponse({
+    status: 201,
+    description: `Moved report`,
+    type: ReportDTO,
+  })
+  public async moveReport(@CurrentToken() token: Token, @Body() moveReportDto: MoveReportDto): Promise<NormalizedResponseDTO<ReportDTO>> {
+    const report: Report = await this.reportsService.moveReport(token, moveReportDto);
+    const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id);
+    const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
+    return new NormalizedResponseDTO(reportDto, relations);
   }
 
   @Post('/import/office/s3')
