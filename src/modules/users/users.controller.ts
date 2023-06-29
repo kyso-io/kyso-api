@@ -1,6 +1,7 @@
 import {
   AddUserAccountDTO,
   CreateKysoAccessTokenDto,
+  EmailInUseDTO,
   EmailUserChangePasswordDTO,
   HEADER_X_KYSO_ORGANIZATION,
   HEADER_X_KYSO_TEAM,
@@ -17,7 +18,7 @@ import {
   UserPermissionsEnum,
   VerifyCaptchaRequestDto,
 } from '@kyso-io/kyso-model';
-import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Headers, NotFoundException, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Headers, NotFoundException, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { FormDataRequest } from 'nestjs-form-data';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
@@ -515,6 +516,14 @@ export class UsersController extends GenericController<User> {
   @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: Boolean })
   public async changePassword(@Body() userChangePasswordDto: UserChangePasswordDTO): Promise<NormalizedResponseDTO<boolean>> {
     const success: boolean = await this.usersService.changePassword(userChangePasswordDto);
+    return new NormalizedResponseDTO(success);
+  }
+
+  @Post('email-in-use')
+  @Public()
+  @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: Boolean })
+  public async emailInUse(@Body() emailInUseDTO: EmailInUseDTO): Promise<NormalizedResponseDTO<boolean>> {
+    const success: boolean = await this.usersService.emailInUse(emailInUseDTO);
     return new NormalizedResponseDTO(success);
   }
 }

@@ -956,7 +956,7 @@ export class ReportsService extends AutowiredService {
           $set: {
             main_file: kysoConfigFile?.main || null,
             description: kysoConfigFile?.description || null,
-            type: kysoConfigFile?.type || null,
+            report_type: kysoConfigFile?.type || null,
             author_ids: authors,
             tock: kysoConfigFile?.toc || [],
           },
@@ -1172,7 +1172,7 @@ export class ReportsService extends AutowiredService {
           $set: {
             main_file: kysoConfigFile?.main || null,
             description: kysoConfigFile?.description || null,
-            type: kysoConfigFile?.type || null,
+            report_type: kysoConfigFile?.type || null,
             author_ids: authors,
             tock: kysoConfigFile?.toc || [],
           },
@@ -3345,6 +3345,8 @@ export class ReportsService extends AutowiredService {
         kysoConfigFile.channel = slugify(kysoConfigFile.channel);
       }
     }
+
+    delete kysoConfigFile.links;
 
     return kysoConfigFile;
   }

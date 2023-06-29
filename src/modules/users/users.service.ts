@@ -1,6 +1,7 @@
 import {
   AllowDownload,
   ElasticSearchIndex,
+  EmailInUseDTO,
   EmailUserChangePasswordDTO,
   KysoEventEnum,
   KysoIndex,
@@ -733,5 +734,14 @@ export class UsersService extends AutowiredService {
     Logger.log(`Indexing user '${user.id} ${user.email}'...`, UsersService.name);
     const kysoIndex: KysoIndex = this.userToKysoIndex(user);
     return this.fullTextSearchService.indexDocument(kysoIndex);
+  }
+
+  public async emailInUse(emailInUseDTO: EmailInUseDTO): Promise<boolean> {
+    const user: User = await this.getUser({
+      filter: {
+        email: emailInUseDTO.email,
+      },
+    });
+    return user !== null;
   }
 }
