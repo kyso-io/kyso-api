@@ -7,6 +7,7 @@ import { ActivityFeedModule } from './modules/activity-feed/activity-feed.module
 import { AuthModule } from './modules/auth/auth.module';
 import { BitbucketReposModule } from './modules/bitbucket-repos/bitbucket-repos.module';
 import { CommentsModule } from './modules/comments/comments.module';
+import { DataAppsModule } from './modules/data-apps/data-apps.module';
 import { DiscussionsModule } from './modules/discussions/discussions.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { FullTextSearchModule } from './modules/full-text-search/full-text-search.module';
@@ -26,12 +27,14 @@ import { TestingDataPopulatorModule } from './modules/testing-data-populator/tes
 import { ThemesModule } from './modules/themes/themes.module';
 import { UsersNotificationsSettingsModule } from './modules/user-notifications-settings/users-notifications-settings.module';
 import { UsersModule } from './modules/users/users.module';
+
 @Module({
   imports: [
     ActivityFeedModule.forRoot(),
     AuthModule.forRoot(),
     BitbucketReposModule.forRoot(),
     CommentsModule.forRoot(),
+    DataAppsModule,
     DiscussionsModule.forRoot(),
     FeedbackModule,
     FullTextSearchModule.forRoot(),
