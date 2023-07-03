@@ -215,7 +215,7 @@ export class AuthController extends GenericController<string> {
         ignoreAttributes: false,
       });
       const data = parser.parse(xmlResponse);
-      console.log(data);
+
       if (!data.hasOwnProperty('saml2p:Response')) {
         throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response'] property`);
       }
@@ -232,6 +232,8 @@ export class AuthController extends GenericController<string> {
         throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID']['#text'] property`);
       }
       const email: string = data['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID']['#text'];
+
+      console.log(data['saml2p:Response']['saml2:Assertion'].toString());
 
       if (email) {
         // Build JWT token and redirect to frontend
