@@ -215,6 +215,7 @@ export class AuthController extends GenericController<string> {
         ignoreAttributes: false,
       });
       const data = parser.parse(xmlResponse);
+      console.log(data);
       if (!data.hasOwnProperty('saml2p:Response')) {
         throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response'] property`);
       }
