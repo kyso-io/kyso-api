@@ -572,8 +572,8 @@ export class TeamsController extends GenericController<Team> {
   })
   @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
   @Permission([TeamPermissionsEnum.EDIT])
-  async addMemberToTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
-    const members: TeamMember[] = await this.teamsService.addMemberToTeam(teamId, userId, [PlatformRole.TEAM_READER_ROLE]);
+  async addMemberToTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
+    const members: TeamMember[] = await this.teamsService.addMemberToTeam(teamId, userId, [PlatformRole.TEAM_READER_ROLE], token);
     return new NormalizedResponseDTO(members);
   }
 
@@ -678,7 +678,7 @@ export class TeamsController extends GenericController<Team> {
         // For that reason, we will add automatically the requested user as a TEAM_ADMIN of that
         // team.
         const userId = token.id;
-        await this.teamsService.addMemberToTeam(teamId, userId, [PlatformRole.TEAM_ADMIN_ROLE]);
+        await this.teamsService.addMemberToTeam(teamId, userId, [PlatformRole.TEAM_ADMIN_ROLE], token);
       } catch (ex) {
         Logger.error(`Can't add user ${token.id} to team ${teamId}`, ex);
       }
@@ -778,8 +778,8 @@ export class TeamsController extends GenericController<Team> {
   })
   @ApiNormalizedResponse({ status: 201, description: `Updated team`, type: TeamMember })
   @Permission([TeamPermissionsEnum.EDIT])
-  public async UpdateTeamMembersDTORoles(@Param('teamId') teamId: string, @Body() data: UpdateTeamMembersDTO): Promise<NormalizedResponseDTO<TeamMember[]>> {
-    const teamMembers: TeamMember[] = await this.teamsService.updateTeamMembersDTORoles(teamId, data);
+  public async UpdateTeamMembersDTORoles(@CurrentToken() token: Token, @Param('teamId') teamId: string, @Body() data: UpdateTeamMembersDTO): Promise<NormalizedResponseDTO<TeamMember[]>> {
+    const teamMembers: TeamMember[] = await this.teamsService.updateTeamMembersDTORoles(token, teamId, data);
     return new NormalizedResponseDTO(teamMembers);
   }
 

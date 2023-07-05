@@ -472,8 +472,8 @@ export class OrganizationsController extends GenericController<Organization> {
   })
   @ApiNormalizedResponse({ status: 201, description: `Added user`, type: OrganizationMember, isArray: false })
   @Permission([OrganizationPermissionsEnum.ADMIN])
-  public async addMemberToOrganization(@Body() addUserOrganizationDto: AddUserOrganizationDto): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
-    const members: OrganizationMember[] = await this.organizationService.addMemberToOrganization(addUserOrganizationDto);
+  public async addMemberToOrganization(@CurrentToken() token: Token, @Body() addUserOrganizationDto: AddUserOrganizationDto): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
+    const members: OrganizationMember[] = await this.organizationService.addMemberToOrganization(addUserOrganizationDto, token);
     return new NormalizedResponseDTO(members);
   }
 
@@ -544,8 +544,12 @@ export class OrganizationsController extends GenericController<Organization> {
   })
   @ApiNormalizedResponse({ status: 201, description: `Updated organization`, type: OrganizationMember, isArray: true })
   @Permission([OrganizationPermissionsEnum.ADMIN])
-  public async UpdateOrganizationMembersDTORoles(@Param('organizationId') organizationId: string, @Body() data: UpdateOrganizationMembersDTO): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
-    const organizationMembers: OrganizationMember[] = await this.organizationService.updateOrganizationMembersDTORoles(organizationId, data);
+  public async UpdateOrganizationMembersDTORoles(
+    @CurrentToken() token: Token,
+    @Param('organizationId') organizationId: string,
+    @Body() data: UpdateOrganizationMembersDTO,
+  ): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
+    const organizationMembers: OrganizationMember[] = await this.organizationService.updateOrganizationMembersDTORoles(token, organizationId, data);
     return new NormalizedResponseDTO(organizationMembers);
   }
 

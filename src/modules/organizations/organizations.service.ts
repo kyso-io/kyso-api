@@ -410,7 +410,7 @@ export class OrganizationsService extends AutowiredService {
     return this.organizationMemberProvider.getMembers(organizationId);
   }
 
-  public async addMemberToOrganization(addUserOrganizationDto: AddUserOrganizationDto): Promise<OrganizationMember[]> {
+  public async addMemberToOrganization(addUserOrganizationDto: AddUserOrganizationDto, token?: Token): Promise<OrganizationMember[]> {
     const organization: Organization = await this.getOrganizationById(addUserOrganizationDto.organizationId);
     if (!organization) {
       throw new PreconditionFailedException('Organization does not exist');
@@ -452,7 +452,8 @@ export class OrganizationsService extends AutowiredService {
           }
 
           NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_UPDATE_MEMBER_ROLE, {
-            user,
+            userCreatingAction: token ? await this.usersService.getUserById(token.id) : null,
+            userReceivingAction: user,
             organization,
             emailsCentralized,
             role: addUserOrganizationDto.role,
@@ -471,7 +472,8 @@ export class OrganizationsService extends AutowiredService {
           emailsCentralized = organization.options.notifications.emails;
         }
         NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_ADD_MEMBER, {
-          user,
+          userCreatingAction: token ? await this.usersService.getUserById(token.id) : null,
+          userReceivingAction: user,
           organization,
           emailsCentralized,
           role: addUserOrganizationDto.role,
@@ -539,7 +541,8 @@ export class OrganizationsService extends AutowiredService {
       emailsCentralized = organization.options.notifications.emails;
     }
     NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_ADD_MEMBER, {
-      user,
+      userCreatingAction: null,
+      userReceivingAction: user,
       organization,
       emailsCentralized,
       role,
@@ -585,7 +588,7 @@ export class OrganizationsService extends AutowiredService {
     return this.getOrganizationMembers(organization.id);
   }
 
-  public async updateOrganizationMembersDTORoles(organizationId: string, data: UpdateOrganizationMembersDTO): Promise<OrganizationMember[]> {
+  public async updateOrganizationMembersDTORoles(token: Token, organizationId: string, data: UpdateOrganizationMembersDTO): Promise<OrganizationMember[]> {
     const organization: Organization = await this.getOrganizationById(organizationId);
     if (!organization) {
       throw new PreconditionFailedException('Organization does not exist');
@@ -618,7 +621,8 @@ export class OrganizationsService extends AutowiredService {
       }
       if (!member.role_names.includes(element.role)) {
         NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_UPDATE_MEMBER_ROLE, {
-          user,
+          userCreatingAction: await this.usersService.getUserById(token.id),
+          userReceivingAction: user,
           organization,
           emailsCentralized,
           role: element.role,
@@ -1003,7 +1007,8 @@ export class OrganizationsService extends AutowiredService {
         Logger.log(`Team ${inviteUserDto.teamSlug} not found`);
         throw new NotFoundException(`Team ${inviteUserDto.teamSlug} not found`);
       }
-      await this.teamsService.addMembersById(team.id, [user.id], [inviteUserDto.teamRole]);
+      const userToken: User = await this.usersService.getUserById(token.id);
+      await this.teamsService.addMembersById(team.id, [user.id], [inviteUserDto.teamRole], false, userToken);
       result.teamMembers = await this.teamsService.getMembers(team.id);
     }
 

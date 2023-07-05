@@ -143,7 +143,8 @@ export class InvitationsService extends AutowiredService {
         if (index > -1) {
           throw new PreconditionFailedException('User is already member of team');
         }
-        await this.teamsService.addMembersById(team.id, [user.id], [...invitation.payload.roles]);
+        const userCreator: User = await this.usersService.getUserById(invitation.creator_id);
+        await this.teamsService.addMembersById(team.id, [user.id], [...invitation.payload.roles], false, userCreator);
         break;
       case InvitationType.Organization:
         break;

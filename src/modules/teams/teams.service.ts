@@ -220,15 +220,7 @@ export class TeamsService extends AutowiredService {
     return Array.from(userTeamMembership.values());
   }
 
-  async addMembers(teamName: string, members: User[], roles: KysoRole[]) {
-    const team: Team = await this.getTeam({ filter: { name: teamName } });
-    const memberIds = members.map((x) => x.id.toString());
-    const rolesToApply = roles.map((y) => y.name);
-
-    await this.addMembersById(team.id, memberIds, rolesToApply);
-  }
-
-  async addMembersById(teamId: string, memberIds: string[], rolesToApply: string[], silent?: boolean): Promise<void> {
+  async addMembersById(teamId: string, memberIds: string[], rolesToApply: string[], silent?: boolean, userCreatingAction?: User): Promise<void> {
     const team: Team = await this.getTeamById(teamId);
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
@@ -248,7 +240,8 @@ export class TeamsService extends AutowiredService {
 
       if (!silent) {
         NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
-          user,
+          userCreatingAction: userCreatingAction ?? null,
+          userReceivingAction: user,
           organization,
           team,
           emailsCentralized,
@@ -352,8 +345,8 @@ export class TeamsService extends AutowiredService {
         filter: { _id: { $in: userIds.map((userId: string) => this.provider.toObjectId(userId)) } },
       });
       // Sort users based on the order of userIds
-      users.sort((userA: User, userB: User) => {
-        return userIds.indexOf(userA.id) - userIds.indexOf(userB.id);
+      users.sort((userCreatingAction: User, userReceivingAction: User) => {
+        return userIds.indexOf(userCreatingAction.id) - userIds.indexOf(userReceivingAction.id);
       });
 
       // CARE: THIS TEAM MEMBERSHIP IS NOT REAL, BUT AS IT'S USED FOR THE ASSIGNEES WE LET IT AS IS
@@ -534,7 +527,7 @@ export class TeamsService extends AutowiredService {
     return index !== -1;
   }
 
-  public async addMemberToTeam(teamId: string, userId: string, roles: KysoRole[]): Promise<TeamMember[]> {
+  public async addMemberToTeam(teamId: string, userId: string, roles: KysoRole[], token?: Token): Promise<TeamMember[]> {
     const userBelongsToTeam = await this.userBelongsToTeam(teamId, userId);
     if (userBelongsToTeam) {
       throw new PreconditionFailedException('User already belongs to this team');
@@ -558,6 +551,8 @@ export class TeamsService extends AutowiredService {
       teamId,
       [user.id],
       roles.map((x) => x.name),
+      false,
+      token ? await this.usersService.getUserById(token.id) : undefined,
     );
     return this.getMembers(teamId);
   }
@@ -605,7 +600,7 @@ export class TeamsService extends AutowiredService {
     return this.getMembers(team.id);
   }
 
-  public async updateTeamMembersDTORoles(teamId: string, data: UpdateTeamMembersDTO): Promise<TeamMember[]> {
+  public async updateTeamMembersDTORoles(token: Token, teamId: string, data: UpdateTeamMembersDTO): Promise<TeamMember[]> {
     const team: Team = await this.getTeamById(teamId);
     if (!team) {
       throw new PreconditionFailedException('Team not found');
@@ -637,7 +632,8 @@ export class TeamsService extends AutowiredService {
       if (organizationMembers.length === 0) {
         // If the user does not belong to the organization, we notify him that he has been added to the team
         NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
-          user,
+          userCreatingAction: await this.usersService.getUserById(token.id),
+          userReceivingAction: user,
           organization,
           team,
           emailsCentralized,
@@ -651,8 +647,8 @@ export class TeamsService extends AutowiredService {
           if (member) {
             // It means his roles have been updated!
             NATSHelper.safelyEmit<KysoTeamsUpdateMemberRolesEvent>(this.client, KysoEventEnum.TEAMS_UPDATE_MEMBER_ROLES, {
-              user,
-              organization,
+              userCreatingAction: await this.usersService.getUserById(token.id),
+              userReceivingAction: user,
               team,
               emailsCentralized,
               frontendUrl,
@@ -662,7 +658,8 @@ export class TeamsService extends AutowiredService {
           } else {
             // we notify him that he has been added to the team
             NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
-              user,
+              userCreatingAction: await this.usersService.getUserById(token.id),
+              userReceivingAction: user,
               organization,
               team,
               emailsCentralized,
@@ -674,7 +671,8 @@ export class TeamsService extends AutowiredService {
           if (member) {
             // Otherwise (protected and public teams) he is a member of the organization and he already had access to the rest of the teams, in practice it is an update of his role
             NATSHelper.safelyEmit<KysoTeamsUpdateMemberRolesEvent>(this.client, KysoEventEnum.TEAMS_UPDATE_MEMBER_ROLES, {
-              user,
+              userCreatingAction: await this.usersService.getUserById(token.id),
+              userReceivingAction: user,
               organization,
               team,
               emailsCentralized,
@@ -685,7 +683,8 @@ export class TeamsService extends AutowiredService {
           } else {
             // we notify him that he has been added to the team
             NATSHelper.safelyEmit<KysoTeamsAddMemberEvent>(this.client, KysoEventEnum.TEAMS_ADD_MEMBER, {
-              user,
+              userCreatingAction: await this.usersService.getUserById(token.id),
+              userReceivingAction: user,
               organization,
               team,
               emailsCentralized,
