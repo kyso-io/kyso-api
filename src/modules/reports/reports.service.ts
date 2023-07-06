@@ -3344,9 +3344,8 @@ export class ReportsService extends AutowiredService {
       if (kysoConfigFile.channel) {
         kysoConfigFile.channel = slugify(kysoConfigFile.channel);
       }
+      delete kysoConfigFile.links;
     }
-
-    delete kysoConfigFile.links;
 
     return kysoConfigFile;
   }
