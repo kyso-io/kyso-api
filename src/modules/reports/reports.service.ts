@@ -52,7 +52,7 @@ import {
   User,
   UserAccount,
 } from '@kyso-io/kyso-model';
-import { BadRequestException, ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, Provider } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { Octokit } from '@octokit/rest';
 import * as AdmZip from 'adm-zip';
@@ -62,7 +62,7 @@ import * as fs from 'fs';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs';
 import { moveSync } from 'fs-extra';
 import * as geoIpCountry from 'geoip-country';
-import * as glob from 'glob';
+import { glob } from 'glob';
 import { IP2Location } from 'ip2location-nodejs';
 import { BulkWriteResult } from 'mongodb';
 import { join } from 'path';
@@ -73,7 +73,6 @@ import { replaceStringInFilesSync } from 'tiny-replace-files';
 import { v4 as uuidv4 } from 'uuid';
 import { Autowired } from '../../decorators/autowired';
 import { AutowiredService } from '../../generic/autowired.generic';
-import { NotFoundError } from '../../helpers/errorHandling';
 import slugify from '../../helpers/slugify';
 import { Validators } from '../../helpers/validators';
 import { db } from '../../main';
@@ -253,9 +252,7 @@ export class ReportsService extends AutowiredService {
     Logger.log(`Creating report ${createReportDto.name} by user ${userId}`);
     if (!Validators.isValidReportName(createReportDto.name)) {
       Logger.error(`Report name can only consist of letters, numbers, '_' and '-'.`);
-      throw new PreconditionFailedException({
-        message: `Report name can only consist of letters, numbers, '_' and '-'.`,
-      });
+      throw new BadRequestException(`Report name can only consist of letters, numbers, '_' and '-'.`);
     }
 
     const user: User = await this.usersService.getUserById(userId);
@@ -266,13 +263,13 @@ export class ReportsService extends AutowiredService {
 
     if (!team) {
       Logger.error("The specified team couldn't be found");
-      throw new PreconditionFailedException("The specified team couldn't be found");
+      throw new NotFoundException("The specified team couldn't be found");
     }
 
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     if (!organization) {
       Logger.error("The specified organization couldn't be found");
-      throw new PreconditionFailedException("The specified organization couldn't be found");
+      throw new NotFoundException("The specified organization couldn't be found");
     }
 
     createReportDto.name = slugify(createReportDto.name);
@@ -287,7 +284,7 @@ export class ReportsService extends AutowiredService {
 
     if (reports.length > 0) {
       Logger.error(`A report with title ${createReportDto.name} already exists in this channel. Please choose another name`);
-      throw new PreconditionFailedException({
+      throw new ConflictException({
         message: `A report with title ${createReportDto.name} already exists in this channel. Please choose another name`,
       });
     }
@@ -298,13 +295,13 @@ export class ReportsService extends AutowiredService {
       const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB);
       if (!userAccount) {
         Logger.error('User does not have a github account');
-        throw new PreconditionFailedException('User does not have a github account');
+        throw new ForbiddenException('User does not have a github account');
       }
       const githubRepository: GithubRepository = await this.githubReposService.getGithubRepository(userAccount.accessToken, userAccount.username, createReportDto.name);
       Logger.log(`Got github repository ${githubRepository.name}`, ReportsService.name);
       kysoConfigFile = await this.githubReposService.getConfigFile(userAccount.accessToken, createReportDto.path, userAccount.username, createReportDto.name, createReportDto.default_branch);
       if (!kysoConfigFile) {
-        throw new PreconditionFailedException(`The specified repository doesn't contain a Kyso config file`);
+        throw new ForbiddenException(`The specified repository doesn't contain a Kyso config file`);
       }
     }
 
@@ -352,15 +349,15 @@ export class ReportsService extends AutowiredService {
 
     let report: Report = await this.getReportById(reportId);
     if (!report) {
-      throw new PreconditionFailedException({ message: 'The specified report could not be found' });
+      throw new NotFoundException('The specified report could not be found');
     }
     const team: Team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } });
     if (!team) {
-      throw new PreconditionFailedException('The specified team could not be found');
+      throw new NotFoundException('The specified team could not be found');
     }
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     if (!organization) {
-      throw new PreconditionFailedException('The specified organization could not be found');
+      throw new NotFoundException('The specified organization could not be found');
     }
 
     const reportCreator: boolean = report.user_id === token.id;
@@ -465,7 +462,7 @@ export class ReportsService extends AutowiredService {
     const report: Report = await this.getReportById(reportId);
 
     if (!report) {
-      throw new NotFoundError({ message: 'The specified report could not be found' });
+      throw new NotFoundException('The specified report could not be found');
     }
 
     // Delete all comments
@@ -518,10 +515,10 @@ export class ReportsService extends AutowiredService {
     return report;
   }
 
-  public async getReportTree(reportId: string, path: string, version: number | null): Promise<GithubFileHash | GithubFileHash[]> {
+  public async getReportTree(reportId: string, path: string, version: number | null): Promise<GithubFileHash[]> {
     const report: Report = await this.getReportById(reportId);
     if (!report) {
-      throw new NotFoundError({ message: 'The specified report could not be found' });
+      throw new NotFoundException('The specified report could not be found');
     }
     return this.getKysoReportTree(reportId, path, version);
   }
@@ -557,7 +554,7 @@ export class ReportsService extends AutowiredService {
   public async toggleGlobalPin(token: Token, reportId: string): Promise<Report> {
     let report: Report = await this.getReportById(reportId);
     if (!report) {
-      throw new NotFoundError({ message: 'The specified report could not be found' });
+      throw new NotFoundException('The specified report could not be found');
     }
     const team: Team = await this.teamsService.getTeamById(report.team_id);
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
@@ -898,7 +895,7 @@ export class ReportsService extends AutowiredService {
     const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.organization, kysoConfigFile.team);
     if (!userHasPermission) {
       Logger.error(`User ${uploaderUser.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
-      throw new PreconditionFailedException(`User ${uploaderUser.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
+      throw new ForbiddenException(`User ${uploaderUser.username} does not have permission to create report in channel ${kysoConfigFile.team}`);
     }
 
     let mainFileFound = false;
@@ -1351,7 +1348,7 @@ export class ReportsService extends AutowiredService {
             } = KysoConfigFile.fromJSON(readFileSync(localFilePath).toString());
             if (!data.valid) {
               Logger.error(`An error occurred parsing kyso.json`, data.message, ReportsService.name);
-              throw new PreconditionFailedException(`An error occurred parsing kyso.json: ${data.message}`);
+              throw new BadRequestException(`An error occurred parsing kyso.json: ${data.message}`);
             }
             kysoConfigFile = data.kysoConfigFile;
             break;
@@ -1363,7 +1360,7 @@ export class ReportsService extends AutowiredService {
             } = KysoConfigFile.fromYaml(readFileSync(localFilePath).toString());
             if (!data.valid) {
               Logger.error(`An error occurred parsing kyso.{yml,yaml}`, data.message, ReportsService.name);
-              throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}: ${data.message}`);
+              throw new BadRequestException(`An error occurred parsing kyso.{yml,yaml}: ${data.message}`);
             }
             kysoConfigFile = data.kysoConfigFile;
             break;
@@ -1373,28 +1370,28 @@ export class ReportsService extends AutowiredService {
 
       if (!kysoConfigFile) {
         Logger.error(`No kyso.{yml,yaml,json} file found for directoy ${reportFolderName}`, ReportsService.name);
-        throw new PreconditionFailedException(`No kyso.{yml,yaml,json} file found ${reportFolderName}`);
+        throw new BadRequestException(`No kyso.{yml,yaml,json} file found ${reportFolderName}`);
       }
 
       if (!kysoConfigFile.hasOwnProperty('organization')) {
         if (!baseKysoConfigFile.hasOwnProperty('organization')) {
           Logger.error(`Property organization is required for report folder ${reportFolderName}`, ReportsService.name);
-          throw new PreconditionFailedException(`Property organization is required for report folder ${reportFolderName}`);
+          throw new BadRequestException(`Property organization is required for report folder ${reportFolderName}`);
         }
         if (baseKysoConfigFile.organization.length === 0) {
           Logger.error(`Property organization for report folder ${reportFolderName} must have value`, ReportsService.name);
-          throw new PreconditionFailedException(`Property organization for report folder ${reportFolderName} must have value`);
+          throw new BadRequestException(`Property organization for report folder ${reportFolderName} must have value`);
         }
         kysoConfigFile.organization = baseKysoConfigFile.organization;
       }
       if (!kysoConfigFile.hasOwnProperty('team')) {
         if (!baseKysoConfigFile.hasOwnProperty('team')) {
           Logger.error(`Property team is required for report folder ${reportFolderName}`, ReportsService.name);
-          throw new PreconditionFailedException(`Property team is required for report folder ${reportFolderName}`);
+          throw new BadRequestException(`Property team is required for report folder ${reportFolderName}`);
         }
         if (baseKysoConfigFile.team.length === 0) {
           Logger.error(`Property team for report folder ${reportFolderName} must have value`, ReportsService.name);
-          throw new PreconditionFailedException(`Property team for report folder ${reportFolderName} must have value`);
+          throw new BadRequestException(`Property team for report folder ${reportFolderName} must have value`);
         }
         kysoConfigFile.team = baseKysoConfigFile.team;
       }
@@ -1407,7 +1404,7 @@ export class ReportsService extends AutowiredService {
       const { valid, message } = KysoConfigFile.isValid(kysoConfigFile);
       if (!valid) {
         Logger.error(`Kyso config file is not valid: ${message}`, ReportsService.name);
-        throw new PreconditionFailedException(`Kyso config file is not valid: ${message}`);
+        throw new BadRequestException(`Kyso config file is not valid: ${message}`);
       }
 
       const organization: Organization = await this.organizationsService.getOrganization({
@@ -1417,14 +1414,14 @@ export class ReportsService extends AutowiredService {
       });
       if (!organization) {
         Logger.error(`Organization ${kysoConfigFile.organization} not found`, ReportsService.name);
-        throw new PreconditionFailedException(`Organization ${kysoConfigFile.organization} not found`);
+        throw new NotFoundException(`Organization ${kysoConfigFile.organization} not found`);
       }
 
       const team: Team = await this.teamsService.getUniqueTeam(organization.id, kysoConfigFile.team);
       Logger.log(`Team: ${team.sluglified_name}`);
       if (!team) {
         Logger.error(`Team ${kysoConfigFile.team} does not exist`);
-        throw new PreconditionFailedException(`Team ${kysoConfigFile.team} does not exist`);
+        throw new NotFoundException(`Team ${kysoConfigFile.team} does not exist`);
       }
       const userHasPermission: boolean = await this.checkCreateReportPermission(user.id, kysoConfigFile.organization, kysoConfigFile.team);
       if (!userHasPermission) {
@@ -1563,6 +1560,9 @@ export class ReportsService extends AutowiredService {
   }
 
   public async createUIReport(userId: string, file: Express.Multer.File, message: string, git_metadata: GitMetadata): Promise<Report> {
+    if (!file) {
+      throw new BadRequestException('Missing zip file');
+    }
     Logger.log('Creating report');
     const user: User = await this.usersService.getUserById(userId);
     Logger.log(`By user: ${user.email}`);
@@ -1577,7 +1577,7 @@ export class ReportsService extends AutowiredService {
     const kysoConfigFile: KysoConfigFile | null = this.getKysoConfigFileFromZip(zip, tmpReportDir);
     if (!kysoConfigFile) {
       Logger.error(`No kyso.{yml,yaml,json} file found`, ReportsService.name);
-      throw new PreconditionFailedException(`No kyso.{yml,yaml,json} file found`);
+      throw new BadRequestException(`No kyso.{yml,yaml,json} file found`);
     }
 
     const organization: Organization = await this.organizationsService.getOrganization({
@@ -1587,7 +1587,7 @@ export class ReportsService extends AutowiredService {
     });
     if (!organization) {
       Logger.error(`Organization ${kysoConfigFile.organization} not found`, ReportsService.name);
-      throw new PreconditionFailedException(`Organization ${kysoConfigFile.organization} not found`);
+      throw new NotFoundException(`Organization ${kysoConfigFile.organization} not found`);
     }
 
     const team: Team = await this.teamsService.getUniqueTeam(organization.id, kysoConfigFile.team);
@@ -1595,7 +1595,7 @@ export class ReportsService extends AutowiredService {
     Logger.log(`Team: ${team.sluglified_name}`);
     if (!team) {
       Logger.error(`Team ${kysoConfigFile.team} does not exist`);
-      throw new PreconditionFailedException(`Team ${kysoConfigFile.team} does not exist`);
+      throw new NotFoundException(`Team ${kysoConfigFile.team} does not exist`);
     }
     const userHasPermission: boolean = await this.checkCreateReportPermission(userId, kysoConfigFile.organization, kysoConfigFile.team);
     if (!userHasPermission) {
@@ -1608,7 +1608,7 @@ export class ReportsService extends AutowiredService {
     let report: Report = null;
     if (reports.length > 0) {
       Logger.log(`Report '${name}' already exists in team ${team.sluglified_name}`, ReportsService.name);
-      throw new PreconditionFailedException(`Report '${name}' already exists in team ${team.sluglified_name}`);
+      throw new ConflictException(`Report '${name}' already exists in team ${team.sluglified_name}`);
     }
 
     const authors: string[] = [];
@@ -1721,7 +1721,7 @@ export class ReportsService extends AutowiredService {
     const exists = await client.exists(ftpReportPath);
     Logger.log(`Checking if folder '${ftpReportPath}' exists in SCS...`, ReportsService.name);
     if (!exists) {
-      throw new PreconditionFailedException(`Report '${report.id} ${report.sluglified_name}': Destination path '${ftpReportPath}' not found`);
+      throw new NotFoundException(`Report '${report.id} ${report.sluglified_name}': Destination path '${ftpReportPath}' not found`);
     }
     Logger.log(`Folder '${ftpReportPath}' exists in SCS.`, ReportsService.name);
     const localReportPath = `${process.env.APP_TEMP_DIR}/${uuidv4()}`;
@@ -1788,17 +1788,17 @@ export class ReportsService extends AutowiredService {
   public async createReportFromGithubRepository(token: Token, repositoryName: string, branch: string): Promise<Report | Report[]> {
     const user: User = await this.usersService.getUserById(token.id);
     if (!user) {
-      throw new NotFoundError(`User ${user.id} does not exist`);
+      throw new NotFoundException(`User ${user.id} does not exist`);
     }
     const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITHUB);
     if (!userAccount) {
-      throw new PreconditionFailedException(`User ${user.display_name} does not have a GitHub account`);
+      throw new ForbiddenException(`User ${user.display_name} does not have a GitHub account`);
     }
     if (!userAccount.username || userAccount.username.length === 0) {
-      throw new PreconditionFailedException(`User ${user.display_name} does not have a GitHub username`);
+      throw new ForbiddenException(`User ${user.display_name} does not have a GitHub username`);
     }
     if (!userAccount.accessToken || userAccount.accessToken.length === 0) {
-      throw new PreconditionFailedException(`User ${user.display_name} does not have a GitHub access token`);
+      throw new ForbiddenException(`User ${user.display_name} does not have a GitHub access token`);
     }
 
     const octokit = new Octokit({
@@ -1811,7 +1811,7 @@ export class ReportsService extends AutowiredService {
         repo: repositoryName,
       });
       if (repositoryResponse.status !== 200) {
-        throw new PreconditionFailedException(`Repository ${repositoryName} does not exist`);
+        throw new NotFoundException(`Repository ${repositoryName} does not exist`);
       }
     } catch (e) {
       Logger.error(`Error getting repository ${repositoryName}`, e, ReportsService.name);
@@ -1881,7 +1881,7 @@ export class ReportsService extends AutowiredService {
     if (!zip) {
       report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
       Logger.error(`Report '${report.id} ${repositoryName}': Could not download commit ${sha}`, ReportsService.name);
-      throw new PreconditionFailedException(`Could not download repository ${repositoryName} commit ${sha}`, ReportsService.name);
+      throw new NotFoundException(`Could not download repository ${repositoryName} commit ${sha}`, ReportsService.name);
     }
     Logger.log(`Report '${report.id} ${report.sluglified_name}': Downloaded commit '${sha}'`, ReportsService.name);
 
@@ -1889,7 +1889,7 @@ export class ReportsService extends AutowiredService {
     if (filePaths.length < 1) {
       report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
       Logger.error(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name);
-      throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name);
+      throw new NotFoundException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name);
     }
 
     // Normalize file paths
@@ -1997,24 +1997,24 @@ export class ReportsService extends AutowiredService {
   public async createReportFromBitbucketRepository(token: Token, repositoryName: string, branch: string): Promise<Report | Report[]> {
     const user: User = await this.usersService.getUserById(token.id);
     if (!user) {
-      throw new NotFoundError(`User ${user.id} does not exist`);
+      throw new NotFoundException(`User ${user.id} does not exist`);
     }
     const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.BITBUCKET);
     if (!userAccount) {
-      throw new PreconditionFailedException(`User ${user.display_name} does not have a Bitbucket account`);
+      throw new ForbiddenException(`User ${user.display_name} does not have a Bitbucket account`);
     }
     if (!userAccount.username || userAccount.username.length === 0) {
-      throw new PreconditionFailedException(`User ${user.display_name} does not have a Bitbucket username`);
+      throw new ForbiddenException(`User ${user.display_name} does not have a Bitbucket username`);
     }
     if (!userAccount.accessToken || userAccount.accessToken.length === 0) {
-      throw new PreconditionFailedException(`User ${user.display_name} does not have a Bitbucket access token`);
+      throw new ForbiddenException(`User ${user.display_name} does not have a Bitbucket access token`);
     }
 
     let bitbucketRepository: any = null;
     try {
       bitbucketRepository = await this.bitbucketReposService.getRepository(userAccount.accessToken, repositoryName);
     } catch (e) {
-      throw new PreconditionFailedException(`User ${user.display_name} does not have a Bitbucket repository '${repositoryName}'`);
+      throw new NotFoundException(`User ${user.display_name} does not have a Bitbucket repository '${repositoryName}'`);
     }
 
     const reports: Report[] = await this.provider.read({ filter: { sluglified_name: bitbucketRepository.name, user_id: user.id } });
@@ -2083,7 +2083,7 @@ export class ReportsService extends AutowiredService {
     if (filePaths.length < 1) {
       report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
       Logger.error(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name);
-      throw new PreconditionFailedException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name);
+      throw new NotFoundException(`Report ${report.id} ${repositoryName}: Repository does not contain any files`, ReportsService.name);
     }
 
     // Normalize file paths
@@ -2150,17 +2150,17 @@ export class ReportsService extends AutowiredService {
   public async createReportFromGitlabRepository(token: Token, repositoryId: number | string, branch: string): Promise<Report | Report[]> {
     const user: User = await this.usersService.getUserById(token.id);
     if (!user) {
-      throw new NotFoundError(`User ${user.id} does not exist`);
+      throw new NotFoundException(`User ${user.id} does not exist`);
     }
     const userAccount: UserAccount = user.accounts.find((account: UserAccount) => account.type === LoginProviderEnum.GITLAB);
     if (!userAccount) {
-      throw new PreconditionFailedException(`User ${user.display_name} does not have a Gitlab account`);
+      throw new ForbiddenException(`User ${user.display_name} does not have a Gitlab account`);
     }
     if (!userAccount.username || userAccount.username.length === 0) {
-      throw new PreconditionFailedException(`User ${user.display_name} does not have a Gitlab username`);
+      throw new ForbiddenException(`User ${user.display_name} does not have a Gitlab username`);
     }
     if (!userAccount.accessToken || userAccount.accessToken.length === 0) {
-      throw new PreconditionFailedException(`User ${user.display_name} does not have a Gitlab access token`);
+      throw new ForbiddenException(`User ${user.display_name} does not have a Gitlab access token`);
     }
 
     let gitlabRepository: GithubRepository = null;
@@ -2168,7 +2168,7 @@ export class ReportsService extends AutowiredService {
       gitlabRepository = await this.gitlabReposService.getRepository(userAccount.accessToken, repositoryId);
     } catch (e) {
       Logger.error(e);
-      throw new PreconditionFailedException(`User ${user.display_name} does not have a Gitlab repository '${repositoryId}'`);
+      throw new NotFoundException(`User ${user.display_name} does not have a Gitlab repository '${repositoryId}'`);
     }
 
     const reports: Report[] = await this.provider.read({ filter: { sluglified_name: gitlabRepository.name, user_id: user.id } });
@@ -2237,7 +2237,7 @@ export class ReportsService extends AutowiredService {
     if (filePaths.length < 1) {
       report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
       Logger.error(`Report ${report.id} ${repositoryId}: Repository does not contain any files`, ReportsService.name);
-      throw new PreconditionFailedException(`Report ${report.id} ${repositoryId}: Repository does not contain any files`, ReportsService.name);
+      throw new NotFoundException(`Report ${report.id} ${repositoryId}: Repository does not contain any files`, ReportsService.name);
     }
 
     // Normalize file paths
@@ -2412,7 +2412,7 @@ export class ReportsService extends AutowiredService {
         } = KysoConfigFile.fromJSON(readFileSync(filePath, 'utf8').toString());
         if (!data.valid) {
           Logger.error(`An error occurred parsing kyso.json`, data.message, ReportsService.name);
-          throw new PreconditionFailedException(`An error occurred parsing kyso.json: ${data.message}`);
+          throw new BadRequestException(`An error occurred parsing kyso.json: ${data.message}`);
         }
         kysoConfigFile = data.kysoConfigFile;
       } else if (fileName === 'kyso.yml' || fileName === 'kyso.yaml') {
@@ -2423,7 +2423,7 @@ export class ReportsService extends AutowiredService {
         } = KysoConfigFile.fromYaml(readFileSync(filePath, 'utf8').toString());
         if (!data.valid) {
           Logger.error(`An error occurred parsing kyso.{yml,yaml}`, data.message, ReportsService.name);
-          throw new PreconditionFailedException(`An error occurred parsing kyso.{yml,yaml}: ${data.message}`);
+          throw new BadRequestException(`An error occurred parsing kyso.{yml,yaml}: ${data.message}`);
         }
         kysoConfigFile = data.kysoConfigFile;
       }
@@ -2432,12 +2432,12 @@ export class ReportsService extends AutowiredService {
     if (!kysoConfigFile) {
       report = await this.provider.update({ _id: this.provider.toObjectId(report.id) }, { $set: { status: ReportStatus.Failed } });
       Logger.error(`Report ${report.id} ${report.sluglified_name}: Repository does not contain a kyso.{json,yml,yaml} config file`, ReportsService.name);
-      throw new PreconditionFailedException(`Repository does not contain a kyso.{json,yml,yaml} config file`);
+      throw new BadRequestException(`Repository does not contain a kyso.{json,yml,yaml} config file`);
     }
     const { valid, message } = KysoConfigFile.isValid(kysoConfigFile);
     if (!valid) {
       Logger.error(`Kyso config file is not valid: ${message}`, ReportsService.name);
-      throw new PreconditionFailedException(`Kyso config file is not valid: ${message}`);
+      throw new BadRequestException(`Kyso config file is not valid: ${message}`);
     }
     return { files, kysoConfigFile };
   }
@@ -2567,15 +2567,13 @@ export class ReportsService extends AutowiredService {
   }
 
   private async getFilePaths(extractedDir: string): Promise<string[]> {
-    return new Promise<string[]>((resolve, reject) => {
-      glob(`${extractedDir}/**`, { dot: true }, (err: Error, files: string[]) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(files);
-        }
-      });
-    });
+    try {
+      const files: string[] = await glob(`${extractedDir}/**`, { dot: true });
+      return files;
+    } catch (e) {
+      Logger.error(`An error occurred getting file paths`, e, ReportsService.name);
+      return [];
+    }
   }
 
   private async checkReportTags(userId: string, reportId: string, tags: string[]): Promise<Tag[]> {
@@ -2819,7 +2817,7 @@ export class ReportsService extends AutowiredService {
     const report: Report = await this.getReportById(reportId);
 
     if (!report) {
-      throw new PreconditionFailedException('Report not found');
+      throw new NotFoundException('Report not found');
     }
 
     try {
@@ -2862,7 +2860,7 @@ export class ReportsService extends AutowiredService {
   public async getReportFiles(reportId: string, version?: number): Promise<File[]> {
     const report: Report = await this.getReportById(reportId);
     if (!report) {
-      throw new PreconditionFailedException('Report not found');
+      throw new NotFoundException('Report not found');
     }
     const query: any = {
       filter: {
@@ -2881,7 +2879,7 @@ export class ReportsService extends AutowiredService {
   public async getReportVersions(reportId: string): Promise<{ version: number; created_at: Date; num_files: number; message: string; git_commit: GitCommit }[]> {
     const report: Report = await this.getReportById(reportId);
     if (!report) {
-      throw new PreconditionFailedException('Report not found');
+      throw new NotFoundException('Report not found');
     }
     const query: any = {
       filter: {
@@ -2953,7 +2951,7 @@ export class ReportsService extends AutowiredService {
     const team: Team = await this.teamsService.getUniqueTeam(organizationId, teamName);
 
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Team not found');
     }
     const report: Report = await this.getReport({
       filter: {
@@ -2962,7 +2960,7 @@ export class ReportsService extends AutowiredService {
       },
     });
     if (!report) {
-      throw new PreconditionFailedException('Report not found');
+      throw new NotFoundException('Report not found');
     }
     return report;
   }
@@ -3147,7 +3145,7 @@ export class ReportsService extends AutowiredService {
     const existsDraft: boolean = await this.existsDraft(draft.organization_id, draft.team_id, draft.creator_user_id);
 
     if (existsDraft) {
-      throw new PreconditionFailedException('There is already a draft version saved for this organization, channel and user');
+      throw new ConflictException('There is already a draft version saved for this organization, channel and user');
     }
 
     const createdItem = await this.draftReportMongoProvider.create(draft);
@@ -3160,7 +3158,7 @@ export class ReportsService extends AutowiredService {
     const existsDraft: boolean = await this.existsDraft(draft.organization_id, draft.team_id, draft.creator_user_id);
 
     if (!existsDraft) {
-      throw new PreconditionFailedException("Can't unpdate an unexistent draft");
+      throw new NotFoundException("Can't unpdate an unexistent draft");
     }
 
     const createdItem = await this.draftReportMongoProvider.update(
@@ -3182,7 +3180,7 @@ export class ReportsService extends AutowiredService {
     const existsDraft: boolean = await this.existsDraft(draft.organization_id, draft.team_id, draft.creator_user_id);
 
     if (existsDraft) {
-      throw new PreconditionFailedException('There is already a draft version saved for this organization, channel and user');
+      throw new NotFoundException('There is already a draft version saved for this organization, channel and user');
     }
 
     await this.draftReportMongoProvider.deleteOne({
@@ -3657,11 +3655,11 @@ export class ReportsService extends AutowiredService {
     });
     if (reportsWithSameSlug.length > 0) {
       if (!moveReportDto.name) {
-        throw new BadRequestException(`Already exists a report with same name in target channel. Please, provide a name`);
+        throw new BadRequestException(`Provide a report name`);
       }
       if (!Validators.isValidReportName(moveReportDto.name)) {
         Logger.error(`Report name can only consist of letters, numbers, '_' and '-'.`);
-        throw new PreconditionFailedException({
+        throw new BadRequestException({
           message: `Report name can only consist of letters, numbers, '_' and '-'.`,
         });
       }
@@ -3675,8 +3673,8 @@ export class ReportsService extends AutowiredService {
       });
       if (reportsWithSameSlug.length > 0) {
         Logger.error(`A report with name ${moveReportDto.name} already exists in channel ${targetTeam.display_name}. Please choose another name.`);
-        throw new PreconditionFailedException({
-          message: `A report with name ${moveReportDto.name} already exists in channel ${targetTeam.display_name}. Please choose another name.e`,
+        throw new ConflictException({
+          message: `A report with name ${moveReportDto.name} already exists in channel ${targetTeam.display_name}. Please choose another name.`,
         });
       }
     }
@@ -3791,7 +3789,7 @@ export class ReportsService extends AutowiredService {
     }
     try {
       const bulkWriteResult: BulkWriteResult = await db.collection('File').bulkWrite(updates);
-      Logger.log(`Updated in bulk mode ${bulkWriteResult.result.nModified} files for the report '${report.id} - ${report.sluglified_name}'`, ReportsService.name);
+      Logger.log(`Updated in bulk mode ${bulkWriteResult.modifiedCount} files for the report '${report.id} - ${report.sluglified_name}'`, ReportsService.name);
     } catch (e) {
       Logger.error(`An error occurred updating in bulk mode the files for the report '${report.id} - ${report.sluglified_name}'`, e, ReportsService.name);
       throw new InternalServerErrorException(`An error occurred while moving report`);

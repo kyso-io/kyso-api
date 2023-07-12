@@ -1,9 +1,8 @@
 import { GithubBranch, GithubCommit, GithubEmail, GithubFileHash, GithubRepository } from '@kyso-io/kyso-model';
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Octokit } from '@octokit/rest';
 import axios from 'axios';
 import * as moment from 'moment';
-import { NotFoundError } from '../../../helpers/errorHandling';
 
 const MAX_ORGANIZATIONS_PER_USER = 100;
 
@@ -155,9 +154,7 @@ export class GithubReposProvider {
       return Buffer.from(res.data.content, 'base64');
     } catch (err) {
       if (err.status === 404) {
-        throw new NotFoundError({
-          message: "The resource you are trying to access can't be found or isn't a file.",
-        });
+        throw new NotFoundException("The resource you are trying to access can't be found or isn't a file.");
       }
       throw err;
     }

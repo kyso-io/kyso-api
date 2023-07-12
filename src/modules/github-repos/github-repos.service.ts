@@ -1,7 +1,6 @@
 import { GithubAccount, GithubBranch, GithubCommit, GithubEmail, GithubFileHash, GithubRepository, KysoConfigFile } from '@kyso-io/kyso-model';
-import { Injectable, Provider } from '@nestjs/common';
+import { Injectable, NotFoundException, Provider } from '@nestjs/common';
 import { AutowiredService } from '../../generic/autowired.generic';
-import { NotFoundError } from '../../helpers/errorHandling';
 import { GithubReposProvider } from './providers/github-repo.provider';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { safeLoad } = require('js-yaml');
@@ -54,9 +53,7 @@ export class GithubReposService extends AutowiredService {
   public async getGithubRepository(accessToken: string, githubUsername: string, repositoryName: string): Promise<GithubRepository> {
     const githubRepository: GithubRepository = await this.provider.getRepository(accessToken, githubUsername, repositoryName);
     if (!githubRepository) {
-      throw new NotFoundError({
-        message: "The specified repository couldn't be found",
-      });
+      throw new NotFoundException("The specified repository couldn't be found");
     }
     return githubRepository;
   }

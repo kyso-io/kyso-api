@@ -6,6 +6,7 @@ import {
   NormalizedResponseDTO,
   Organization,
   OrganizationPermissionsEnum,
+  PaginatedResponseDto,
   Report,
   RequestAccess,
   RequestAccessStatusEnum,
@@ -14,17 +15,18 @@ import {
   TeamInfoDto,
   TeamMember,
   TeamPermissionsEnum,
-  TeamsInfoQuery,
-  PaginatedResponseDto,
   TeamVisibilityEnum,
+  TeamsInfoQuery,
   Token,
   UpdateTeamMembersDTO,
   UpdateTeamRequest,
   User,
+  UserRoleDTO,
 } from '@kyso-io/kyso-model';
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   ForbiddenException,
@@ -34,7 +36,6 @@ import {
   Param,
   Patch,
   Post,
-  PreconditionFailedException,
   Query,
   Req,
   Res,
@@ -43,12 +44,11 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
-import { Response } from 'express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Request, Response } from 'express';
 import { Parser } from 'json2csv';
 import { ObjectId } from 'mongodb';
 import { PlatformRole } from 'src/security/platform-roles';
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { Public } from '../../decorators/is-public';
 import { GenericController } from '../../generic/controller.generic';
@@ -69,7 +69,6 @@ import { TeamsService } from './teams.service';
 @ApiTags('teams')
 @ApiExtraModels(Team)
 @UseGuards(PermissionsGuard)
-@ApiBearerAuth()
 @Controller('teams')
 export class TeamsController extends GenericController<Team> {
   @Autowired({ typeName: 'RelationsService' })
@@ -92,22 +91,37 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Get()
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Get all team's in which user has visibility`,
     description: `Allows fetching content of all the teams that the user has visibility`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Team })
-  @ApiHeader({
-    name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'active organization (i.e: lightside)',
-    required: true,
+  @ApiResponse({
+    status: 200,
+    description: `User notifications settings`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<Team[]>([Team.createEmpty()]),
+          },
+        },
+      },
+    },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_TEAM,
-    description: 'active team (i.e: protected-team)',
-    required: true,
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
   })
-  async getVisibilityTeams(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<Team[]>> {
+  async getVisibilityTeams(@CurrentToken() token: Token, @Req() req: Request): Promise<NormalizedResponseDTO<Team[]>> {
     const query = QueryParser.toQueryObject(req.url);
     if (!query.sort) {
       query.sort = { created_at: -1 };
@@ -133,12 +147,24 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Get('/info')
+  @Public()
   @ApiOperation({
     summary: `Get the number of members, reports, discussions and comments by team`,
     description: `Allows fetching the number of members, reports, discussions and comments by team`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Number of members and reports by team`, type: TeamInfoDto })
-  @Public()
+  @ApiResponse({
+    status: 200,
+    description: `User notifications settings`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<PaginatedResponseDto<TeamInfoDto>>(PaginatedResponseDto.createEmpty()),
+          },
+        },
+      },
+    },
+  })
   public async getNumMembersAndReportsByOrganization(@CurrentToken() token: Token, @Query() teamsInfoQuery: TeamsInfoQuery): Promise<NormalizedResponseDTO<PaginatedResponseDto<TeamInfoDto>>> {
     const paginatedResponseDto: PaginatedResponseDto<TeamInfoDto> = await this.teamsService.getTeamsInfo(token, teamsInfoQuery);
     const relations = await this.relationsService.getRelations(paginatedResponseDto.results);
@@ -146,6 +172,7 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Get('/:id')
+  @Public()
   @ApiOperation({
     summary: `Get a team`,
     description: `Allows fetching content of a specific team passing its id`,
@@ -156,22 +183,50 @@ export class TeamsController extends GenericController<Team> {
     description: `Id of the team to fetch`,
     schema: { type: 'string' },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'active organization (i.e: lightside)',
-    required: true,
+  @ApiResponse({
+    status: 200,
+    description: `User notifications settings`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<Team>(Team.createEmpty()),
+          },
+        },
+      },
+    },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_TEAM,
-    description: 'active team (i.e: protected-team)',
-    required: true,
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          forbiddenResource: {
+            value: new ForbiddenException('You are not allowed to access this team'),
+          },
+        },
+      },
+    },
   })
-  @ApiNormalizedResponse({ status: 200, description: `Team matching id`, type: Team })
-  @Public()
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          channelNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+        },
+      },
+    },
+  })
   async getTeamById(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<Team>> {
     const team: Team = await this.teamsService.getTeamById(id);
     if (!team) {
-      throw new NotFoundException('Team not found');
+      throw new NotFoundException('Channel not found');
     }
     if (token) {
       const index: number = token.permissions.teams.findIndex((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === id);
@@ -206,6 +261,17 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Get('/check-name/:organizationId/:name')
+  @ApiBearerAuth()
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Check if team name is unique`,
     description: `Allows checking if a team name is unique`,
@@ -222,17 +288,46 @@ export class TeamsController extends GenericController<Team> {
     description: `Name of the team to fetch`,
     schema: { type: 'string' },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'active organization (i.e: lightside)',
-    required: true,
+  @ApiResponse({
+    status: 200,
+    description: `Returns true if name is available`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<boolean>(true),
+          },
+        },
+      },
+    },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_TEAM,
-    description: 'active team (i.e: protected-team)',
-    required: true,
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          teamName: {
+            value: new BadRequestException('Team name is required'),
+          },
+          organizationId: {
+            value: new BadRequestException('Organization id is required'),
+          },
+        },
+      },
+    },
   })
-  @ApiNormalizedResponse({ status: 200, description: `Returns true if name is available`, type: Boolean })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
   @Permission([TeamPermissionsEnum.READ])
   public async checkIfTeamNameIsUnique(@Param('name') name: string, @Param('organizationId') organizationId: string): Promise<NormalizedResponseDTO<boolean>> {
     if (!name || name.length === 0) {
@@ -246,6 +341,7 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Get('/:id/members')
+  @Public()
   @ApiOperation({
     summary: `Get the member's team`,
     description: `Allows fetching content of a specific team passing its name`,
@@ -256,22 +352,50 @@ export class TeamsController extends GenericController<Team> {
     description: `Id of the team to fetch`,
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
-  @ApiHeader({
-    name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'active organization (i.e: lightside)',
-    required: true,
+  @ApiResponse({
+    status: 200,
+    description: `Team members`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<TeamMember>([TeamMember.createEmpty()]),
+          },
+        },
+      },
+    },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_TEAM,
-    description: 'active team (i.e: protected-team)',
-    required: true,
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          forbidenResource: {
+            value: new NotFoundException('You are not allowed to access this team'),
+          },
+        },
+      },
+    },
   })
-  @Public()
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          channelNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+        },
+      },
+    },
+  })
   async getTeamMembers(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
     const team: Team = await this.teamsService.getTeamById(id);
     if (!team) {
-      throw new NotFoundException('Team not found');
+      throw new NotFoundException('Channel not found');
     }
     if (!token) {
       if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
@@ -283,16 +407,7 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Get('/:id/members/export')
-  @ApiOperation({
-    summary: `Get the member's team`,
-    description: `Allows fetching content of a specific team passing its name`,
-  })
-  @ApiParam({
-    name: 'id',
-    required: true,
-    description: `Id of the team to fetch`,
-    schema: { type: 'string' },
-  })
+  @ApiBearerAuth()
   @ApiHeader({
     name: HEADER_X_KYSO_ORGANIZATION,
     description: 'active organization (i.e: lightside)',
@@ -303,11 +418,52 @@ export class TeamsController extends GenericController<Team> {
     description: 'active team (i.e: protected-team)',
     required: true,
   })
+  @ApiOperation({
+    summary: `Get the member's team`,
+    description: `Allows fetching content of a specific team passing its name`,
+  })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    description: `Id of the team to fetch`,
+    schema: { type: 'string' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Csv file with team members`,
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          forbiddenResource: {
+            value: new ForbiddenException('You are not allowed to access this team'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          channelNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+        },
+      },
+    },
+  })
   @Permission([OrganizationPermissionsEnum.ADMIN, TeamPermissionsEnum.ADMIN])
   async exportTeamMembers(@CurrentToken() token: Token, @Param('id') id: string, @Res() response: Response): Promise<void> {
     const team: Team = await this.teamsService.getTeamById(id);
     if (!team) {
-      throw new NotFoundException('Team not found');
+      throw new NotFoundException('Channel not found');
     }
     const organizationResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find(
       (resourcePermissions: ResourcePermissions) => resourcePermissions.id === team.organization_id,
@@ -351,6 +507,7 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Get('/:teamId/assignees')
+  @Public()
   @ApiOperation({
     summary: `Get assignee list`,
     description: `Allows fetching content of a specific team passing its name`,
@@ -361,22 +518,50 @@ export class TeamsController extends GenericController<Team> {
     description: `Id of the team to fetch assignees`,
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
-  @ApiHeader({
-    name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'active organization (i.e: lightside)',
-    required: true,
+  @ApiResponse({
+    status: 200,
+    description: `Users assigned to the team`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<TeamMember>([TeamMember.createEmpty()]),
+          },
+        },
+      },
+    },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_TEAM,
-    description: 'active team (i.e: protected-team)',
-    required: true,
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          forbiddenResource: {
+            value: new ForbiddenException('You are not allowed to access this team'),
+          },
+        },
+      },
+    },
   })
-  @Public()
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          channelNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+        },
+      },
+    },
+  })
   async getAssignees(@CurrentToken() token: Token, @Param('teamId') teamId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
     const team: Team = await this.teamsService.getTeamById(teamId);
     if (!team) {
-      throw new NotFoundException('Team not found');
+      throw new NotFoundException('Channel not found');
     }
     if (token) {
       const index: number = token.permissions.teams.findIndex((teamResourcePermission: ResourcePermissions) => teamResourcePermission.id === team.id);
@@ -395,17 +580,7 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Get('/:teamId/authors')
-  @ApiOperation({
-    summary: `List of users who can be authors of a report`,
-    description: `List of users who can be authors of a report passing team id`,
-  })
-  @ApiParam({
-    name: 'teamId',
-    required: true,
-    description: `Id of the team that the report belongs to`,
-    schema: { type: 'string' },
-  })
-  @ApiNormalizedResponse({ status: 200, description: `List of users`, type: TeamMember })
+  @ApiBearerAuth()
   @ApiHeader({
     name: HEADER_X_KYSO_ORGANIZATION,
     description: 'active organization (i.e: lightside)',
@@ -416,6 +591,53 @@ export class TeamsController extends GenericController<Team> {
     description: 'active team (i.e: protected-team)',
     required: true,
   })
+  @ApiParam({
+    name: 'teamId',
+    required: true,
+    description: `Id of the team that the report belongs to`,
+    schema: { type: 'string' },
+  })
+  @ApiOperation({
+    summary: `List of users who can be authors of a report`,
+    description: `List of users who can be authors of a report passing team id`,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Users assigned to the team`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<TeamMember>([TeamMember.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          channelNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+        },
+      },
+    },
+  })
   @Permission([TeamPermissionsEnum.READ])
   async getAuthors(@Param('teamId') teamId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
     const data: TeamMember[] = await this.teamsService.getAuthors(teamId);
@@ -423,6 +645,17 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Get('/:teamId/members/:userId')
+  @ApiBearerAuth()
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Check if users belongs to a team`,
     description: `Allows fetching content of a specific team passing its id`,
@@ -439,22 +672,51 @@ export class TeamsController extends GenericController<Team> {
     description: `Id of the user to fetch`,
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: Boolean })
-  @ApiHeader({
-    name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'active organization (i.e: lightside)',
-    required: true,
+  @ApiResponse({
+    status: 200,
+    description: `Check if user is a member of the team`,
+    content: {
+      json: {
+        examples: {
+          member: {
+            value: new NormalizedResponseDTO<boolean>(true),
+          },
+          notMember: {
+            value: new NormalizedResponseDTO<boolean>(false),
+          },
+        },
+      },
+    },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_TEAM,
-    description: 'active team (i.e: protected-team)',
-    required: true,
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          channelNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+        },
+      },
+    },
   })
   @Permission([TeamPermissionsEnum.READ])
   async getTeamMember(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<boolean>> {
     const team: Team = await this.teamsService.getTeamById(teamId);
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Channel not found');
     }
     const teamMember: TeamMember[] = await this.teamsService.getMembers(team.id);
     const belongs: boolean = teamMember.findIndex((member: TeamMember) => member.id === userId) !== -1;
@@ -462,6 +724,7 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Get('/:organizationId/:teamSlug')
+  @Public()
   @ApiOperation({
     summary: `Get a team`,
     description: `Allows fetching content of a specific team passing its id`,
@@ -478,18 +741,46 @@ export class TeamsController extends GenericController<Team> {
     description: `Slug the team to fetch`,
     schema: { type: 'string' },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'active organization (i.e: lightside)',
-    required: true,
+  @ApiResponse({
+    status: 200,
+    description: `Team`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<Team>(Team.createEmpty()),
+          },
+        },
+      },
+    },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_TEAM,
-    description: 'active team (i.e: protected-team)',
-    required: true,
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbiddenResource: {
+            value: new ForbiddenException('You are not allowed to access this team'),
+          },
+        },
+      },
+    },
   })
-  @ApiNormalizedResponse({ status: 200, description: `Team`, type: Team })
-  @Public()
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+        },
+      },
+    },
+  })
   async getTeamBySlug(@CurrentToken() token: Token, @Param('organizationId') organizationId: string, @Param('teamSlug') teamSlug: string): Promise<NormalizedResponseDTO<Team>> {
     const organization: Organization = await this.organizationsService.getOrganizationById(organizationId);
     if (!organization) {
@@ -502,7 +793,7 @@ export class TeamsController extends GenericController<Team> {
       },
     });
     if (!team) {
-      throw new NotFoundException('Team not found');
+      throw new NotFoundException('Channel not found');
     }
 
     if (token) {
@@ -543,7 +834,18 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Patch('/:teamId/members/:userId')
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Add a member to a team`,
     description: `Allows adding a member to a team passing its name and the user's name`,
@@ -560,6 +862,76 @@ export class TeamsController extends GenericController<Team> {
     description: `User id of the user to add`,
     schema: { type: 'string' },
   })
+  @ApiResponse({
+    status: 200,
+    description: `Team members`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<TeamMember[]>([TeamMember.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ConflictException('User already belongs to this team'),
+          },
+        },
+      },
+    },
+  })
+  @Permission([TeamPermissionsEnum.EDIT])
+  async addMemberToTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
+    const members: TeamMember[] = await this.teamsService.addMemberToTeam(teamId, userId, [PlatformRole.TEAM_READER_ROLE]);
+    return new NormalizedResponseDTO(members);
+  }
+
+  @Delete('/:teamId/members/:userId')
+  @ApiBearerAuth()
+  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiHeader({
     name: HEADER_X_KYSO_ORGANIZATION,
     description: 'active organization (i.e: lightside)',
@@ -570,15 +942,6 @@ export class TeamsController extends GenericController<Team> {
     description: 'active team (i.e: protected-team)',
     required: true,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
-  @Permission([TeamPermissionsEnum.EDIT])
-  async addMemberToTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
-    const members: TeamMember[] = await this.teamsService.addMemberToTeam(teamId, userId, [PlatformRole.TEAM_READER_ROLE]);
-    return new NormalizedResponseDTO(members);
-  }
-
-  @Delete('/:teamId/members/:userId')
-  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Remove a member from a team`,
     description: `Allows removing a member from a team passing its id and the user's id`,
@@ -595,6 +958,67 @@ export class TeamsController extends GenericController<Team> {
     description: `Id of the user to remove`,
     schema: { type: 'string' },
   })
+  @ApiResponse({
+    status: 200,
+    description: `Team members`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<TeamMember[]>([TeamMember.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          userIsNotMember: {
+            value: new NotFoundException('User is not a member of this team'),
+          },
+        },
+      },
+    },
+  })
+  @Permission([TeamPermissionsEnum.EDIT])
+  async removeMemberFromTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
+    const members: TeamMember[] = await this.teamsService.removeMemberFromTeam(teamId, userId);
+    return new NormalizedResponseDTO(members);
+  }
+
+  @Patch('/:teamId')
+  @ApiBearerAuth()
+  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiHeader({
     name: HEADER_X_KYSO_ORGANIZATION,
     description: 'active organization (i.e: lightside)',
@@ -605,15 +1029,6 @@ export class TeamsController extends GenericController<Team> {
     description: 'active team (i.e: protected-team)',
     required: true,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Team matching name`, type: TeamMember })
-  @Permission([TeamPermissionsEnum.EDIT])
-  async removeMemberFromTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
-    const members: TeamMember[] = await this.teamsService.removeMemberFromTeam(teamId, userId);
-    return new NormalizedResponseDTO(members);
-  }
-
-  @Patch('/:teamId')
-  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Update the specified team`,
     description: `Allows updating content from the specified team`,
@@ -630,26 +1045,54 @@ export class TeamsController extends GenericController<Team> {
     type: UpdateTeamRequest,
     examples: UpdateTeamRequest.examples(),
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 200,
-    description: `Specified team data`,
-    type: Team,
+    description: `Updated team`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<Team>(Team.createEmpty()),
+          },
+        },
+      },
+    },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'active organization (i.e: lightside)',
-    required: true,
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbiddenResource: {
+            value: new ForbiddenException('This instance of Kyso does not allow public channels'),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_TEAM,
-    description: 'active team (i.e: protected-team)',
-    required: true,
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          teamNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+        },
+      },
+    },
   })
   @Permission([TeamPermissionsEnum.EDIT])
   async updateTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string, @Body() updateTeamRequest: UpdateTeamRequest): Promise<NormalizedResponseDTO<Team>> {
     const team: Team = await this.teamsService.getTeamById(teamId);
     if (!team) {
-      throw new NotFoundException('Team not found');
+      throw new NotFoundException('Channel not found');
     }
 
     if (team.visibility !== updateTeamRequest.visibility && updateTeamRequest.visibility === TeamVisibilityEnum.PUBLIC) {
@@ -688,7 +1131,18 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Post()
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Create a new team`,
     description: `Allows creating a new team`,
@@ -699,11 +1153,72 @@ export class TeamsController extends GenericController<Team> {
     type: Team,
     examples: Team.examples(),
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 201,
-    description: `Created team data`,
-    type: Team,
+    description: `New team`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<Team>(Team.createEmpty()),
+          },
+        },
+      },
+    },
   })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('This instance of Kyso does not allow public channels'),
+          },
+          reachedLimit: {
+            value: new ForbiddenException('You have reached the maximum number of teams you can create'),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new ConflictException('There is already a user with this sluglified_name'),
+          },
+        },
+      },
+    },
+  })
+  @Permission([TeamPermissionsEnum.CREATE])
+  async createTeam(@CurrentToken() token: Token, @Body() team: Team): Promise<NormalizedResponseDTO<Team>> {
+    const newTeam: Team = await this.teamsService.createTeam(token, team);
+    return new NormalizedResponseDTO(newTeam);
+  }
+
+  @Get('/:teamId/reports')
+  @ApiBearerAuth()
   @ApiHeader({
     name: HEADER_X_KYSO_ORGANIZATION,
     description: 'active organization (i.e: lightside)',
@@ -714,13 +1229,6 @@ export class TeamsController extends GenericController<Team> {
     description: 'active team (i.e: protected-team)',
     required: true,
   })
-  @Permission([TeamPermissionsEnum.CREATE])
-  async createTeam(@CurrentToken() token: Token, @Body() team: Team): Promise<NormalizedResponseDTO<Team>> {
-    const newTeam: Team = await this.teamsService.createTeam(token, team);
-    return new NormalizedResponseDTO(newTeam);
-  }
-
-  @Get('/:teamId/reports')
   @ApiOperation({
     summary: `Get the reports of the specified team`,
     description: `Allows fetching content of a specific team passing its name`,
@@ -731,16 +1239,51 @@ export class TeamsController extends GenericController<Team> {
     description: `Id of the team to fetch`,
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({ status: 200, description: `Team reports`, type: Report })
-  @ApiHeader({
-    name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'active organization (i.e: lightside)',
-    required: true,
+  @ApiResponse({
+    status: 200,
+    description: `Team reports`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<Report[]>([Report.createEmpty()]),
+          },
+        },
+      },
+    },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_TEAM,
-    description: 'active team (i.e: protected-team)',
-    required: true,
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          notMemberTeam: {
+            value: new ForbiddenException('You are not a member of this team and not of the organization'),
+          },
+          notMemberOrgTeam: {
+            value: new ForbiddenException('You are not a member of this team and not of the organization'),
+          },
+          readPermission: {
+            value: new ForbiddenException('User does not have permission to read reports'),
+          },
+          privateTeam: {
+            value: new ForbiddenException('You are not a member of this team'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          teamNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+        },
+      },
+    },
   })
   @Permission([TeamPermissionsEnum.READ])
   async getReportsOfTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Report[]>> {
@@ -749,23 +1292,8 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Patch('/:teamId/members-roles')
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
-  @ApiOperation({
-    summary: `Add roles to members of a team`,
-    description: `Allows adding a role to a member of a team passing its id`,
-  })
-  @ApiBody({
-    description: 'Update team members',
-    required: true,
-    type: UpdateTeamMembersDTO,
-    examples: UpdateTeamMembersDTO.examples(),
-  })
-  @ApiParam({
-    name: 'teamId',
-    required: true,
-    description: `Id of the team to set user roles`,
-    schema: { type: 'string' },
-  })
   @ApiHeader({
     name: HEADER_X_KYSO_ORGANIZATION,
     description: 'active organization (i.e: lightside)',
@@ -776,7 +1304,71 @@ export class TeamsController extends GenericController<Team> {
     description: 'active team (i.e: protected-team)',
     required: true,
   })
-  @ApiNormalizedResponse({ status: 201, description: `Updated team`, type: TeamMember })
+  @ApiOperation({
+    summary: `Add roles to members of a team`,
+    description: `Allows adding a role to a member of a team passing its id`,
+  })
+  @ApiBody({
+    description: 'Update team members',
+    required: true,
+    examples: {
+      json: {
+        value: new UpdateTeamMembersDTO([new UserRoleDTO('647f367621b67cfee31314b6', 'team-admin')]),
+      },
+    },
+  })
+  @ApiParam({
+    name: 'teamId',
+    required: true,
+    description: `Id of the team to set user roles`,
+    schema: { type: 'string' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Updated roles of team members`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<TeamMember[]>([TeamMember.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          teamNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
+  })
   @Permission([TeamPermissionsEnum.EDIT])
   public async UpdateTeamMembersDTORoles(@Param('teamId') teamId: string, @Body() data: UpdateTeamMembersDTO): Promise<NormalizedResponseDTO<TeamMember[]>> {
     const teamMembers: TeamMember[] = await this.teamsService.updateTeamMembersDTORoles(teamId, data);
@@ -784,7 +1376,18 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Delete('/:teamId/members-roles/:userId/:role')
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Remove a role from a member of a team`,
     description: `Allows removing a role from a member of a team passing its id and the user's id`,
@@ -807,17 +1410,67 @@ export class TeamsController extends GenericController<Team> {
     description: `Name of the role to remove`,
     schema: { type: 'string' },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'active organization (i.e: lightside)',
-    required: true,
+  @ApiResponse({
+    status: 200,
+    description: `Remove role of user in a team`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<TeamMember[]>([TeamMember.createEmpty()]),
+          },
+        },
+      },
+    },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_TEAM,
-    description: 'active team (i.e: protected-team)',
-    required: true,
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          userDontHaveRole: {
+            value: new BadRequestException('User does not have this role'),
+          },
+        },
+      },
+    },
   })
-  @ApiNormalizedResponse({ status: 200, description: `Remove role of user in a team`, type: TeamMember, isArray: true })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+          userIsNotMember: {
+            value: new NotFoundException('User is not member of this team'),
+          },
+        },
+      },
+    },
+  })
   @Permission([TeamPermissionsEnum.EDIT])
   public async removeTeamMemberRole(@Param('teamId') teamId: string, @Param('userId') userId: string, @Param('role') role: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
     const teamMembers: TeamMember[] = await this.teamsService.removeTeamMemberRole(teamId, userId, role);
@@ -825,6 +1478,7 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Get('/:teamId/members/:userId')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Check if user belongs to a team`,
     description: `Allows checking if a user belongs to a team passing its team id and the user's id`,
@@ -841,6 +1495,15 @@ export class TeamsController extends GenericController<Team> {
     description: `Id of the user to check`,
     schema: { type: 'string' },
   })
+  public async userBelongsToTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<boolean>> {
+    const belongs: boolean = await this.teamsService.userBelongsToTeam(teamId, userId);
+    return new NormalizedResponseDTO(belongs);
+  }
+
+  @Post('/:teamId/profile-picture')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiBearerAuth()
+  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiHeader({
     name: HEADER_X_KYSO_ORGANIZATION,
     description: 'active organization (i.e: lightside)',
@@ -851,14 +1514,6 @@ export class TeamsController extends GenericController<Team> {
     description: 'active team (i.e: protected-team)',
     required: true,
   })
-  public async userBelongsToTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<boolean>> {
-    const belongs: boolean = await this.teamsService.userBelongsToTeam(teamId, userId);
-    return new NormalizedResponseDTO(belongs);
-  }
-
-  @UseInterceptors(FileInterceptor('file'))
-  @Post('/:teamId/profile-picture')
-  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Upload a profile picture for a team`,
     description: `Allows uploading a profile picture for a team passing its id and image`,
@@ -881,16 +1536,45 @@ export class TeamsController extends GenericController<Team> {
     description: `Id of the team to fetch`,
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({ status: 201, description: `Updated team`, type: Team })
-  @ApiHeader({
-    name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'active organization (i.e: lightside)',
-    required: true,
+  @ApiResponse({
+    status: 201,
+    description: `Updated team`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<Team>(Team.createEmpty()),
+          },
+        },
+      },
+    },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_TEAM,
-    description: 'active team (i.e: protected-team)',
-    required: true,
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          missingImage: {
+            value: new BadRequestException('Missing file'),
+          },
+          onlyImagesAllowed: {
+            value: new BadRequestException('Only image files are allowed'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+        },
+      },
+    },
   })
   @Permission([TeamPermissionsEnum.EDIT])
   public async setProfilePicture(@CurrentToken() token: Token, @Param('teamId') teamId: string, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Team>> {
@@ -905,7 +1589,18 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Delete('/:teamId/profile-picture')
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Delete a profile picture for a team`,
     description: `Allows deleting a profile picture for a team passing its id`,
@@ -916,6 +1611,57 @@ export class TeamsController extends GenericController<Team> {
     description: `Id of the team to fetch`,
     schema: { type: 'string' },
   })
+  @ApiResponse({
+    status: 200,
+    description: `Updated team`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<Team>(Team.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+        },
+      },
+    },
+  })
+  public async deleteBackgroundImage(@CurrentToken() token: Token, @Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Team>> {
+    const team: Team = await this.teamsService.deleteProfilePicture(token, teamId);
+    return new NormalizedResponseDTO(team);
+  }
+
+  @Delete('/:teamId')
+  @ApiBearerAuth()
+  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiHeader({
     name: HEADER_X_KYSO_ORGANIZATION,
     description: 'active organization (i.e: lightside)',
@@ -926,14 +1672,6 @@ export class TeamsController extends GenericController<Team> {
     description: 'active team (i.e: protected-team)',
     required: true,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Updated team`, type: Team })
-  public async deleteBackgroundImage(@CurrentToken() token: Token, @Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Team>> {
-    const team: Team = await this.teamsService.deleteProfilePicture(token, teamId);
-    return new NormalizedResponseDTO(team);
-  }
-
-  @Delete('/:teamId')
-  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Delete a team`,
     description: `Allows deleting a team passing its id`,
@@ -944,24 +1682,57 @@ export class TeamsController extends GenericController<Team> {
     description: `Id of the team to delete`,
     schema: { type: 'string' },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'active organization (i.e: lightside)',
-    required: true,
+  @ApiResponse({
+    status: 200,
+    description: `Deleted team`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<Team>(Team.createEmpty()),
+          },
+        },
+      },
+    },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_TEAM,
-    description: 'active team (i.e: protected-team)',
-    required: true,
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
   })
-  @ApiNormalizedResponse({ status: 200, description: `Deleted team`, type: Team })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          teamNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+        },
+      },
+    },
+  })
   @Permission([OrganizationPermissionsEnum.ADMIN, TeamPermissionsEnum.ADMIN, TeamPermissionsEnum.DELETE])
   public async deleteTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string): Promise<NormalizedResponseDTO<Team>> {
     const team: Team = await this.teamsService.deleteTeam(token, teamId);
     return new NormalizedResponseDTO(team);
   }
 
-  @Post(':teamId/upload-markdown-image')
+  // @Post(':teamId/upload-markdown-image')
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiParam({
     name: 'teamId',
@@ -981,17 +1752,19 @@ export class TeamsController extends GenericController<Team> {
       },
     },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_ORGANIZATION,
-    description: 'active organization (i.e: lightside)',
-    required: true,
+  @ApiResponse({
+    status: 201,
+    description: `Url upload markdown image`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<Team>(Team.createEmpty()),
+          },
+        },
+      },
+    },
   })
-  @ApiHeader({
-    name: HEADER_X_KYSO_TEAM,
-    description: 'active team (i.e: protected-team)',
-    required: true,
-  })
-  @ApiNormalizedResponse({ status: 200, description: `Upload markdown image`, type: String })
   @UseInterceptors(
     FileInterceptor('file', {
       limits: {
@@ -999,6 +1772,39 @@ export class TeamsController extends GenericController<Team> {
       },
     }),
   )
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          missingImage: {
+            value: new BadRequestException('Missing file'),
+          },
+          onlyImagesAllowed: {
+            value: new BadRequestException('Only image files are allowed'),
+          },
+        },
+      },
+    },
+  })
   public async uploadMarkdownImage(@CurrentToken() token: Token, @Param('teamId') teamId: string, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<string>> {
     if (!file) {
       throw new BadRequestException(`Missing file`);
@@ -1011,12 +1817,85 @@ export class TeamsController extends GenericController<Team> {
   }
 
   @Post('/:organizationSlug/:teamSlug/request-access')
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Request access to a team`,
     description: `By passing the appropiate parameters you request access to a team`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Request created successfully`, type: RequestAccess })
+  @ApiParam({
+    name: 'organizationSlug',
+    required: true,
+    description: `Slug of the organization to fetch`,
+    schema: { type: 'string' },
+  })
+  @ApiParam({
+    name: 'teamSlug',
+    required: true,
+    description: `Slug of the team to fetch`,
+    schema: { type: 'string' },
+  })
+  @ApiResponse({
+    status: 201,
+    description: `Request created successfully`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<RequestAccess>(RequestAccess.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          teamNotFound: {
+            value: new BadRequestException('No administrator admins found for this organization'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
+  })
   public async requestAccessToTeam(
     @CurrentToken() token: Token,
     @Param('organizationSlug') organizationSlug: string,
@@ -1026,13 +1905,97 @@ export class TeamsController extends GenericController<Team> {
     return new NormalizedResponseDTO<RequestAccess>(requestAccess);
   }
 
-  @Public()
   @Get('/:teamId/request-access/:requestAccessId/:secret/:changerId/:newStatus')
+  @Public()
   @ApiOperation({
     summary: `Request access to an organization`,
     description: `By passing the appropiate parameters you request access to an organization`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Request changed successfully`, type: String })
+  @ApiParam({
+    name: 'teamId',
+    required: true,
+    description: `Id of the team to fetch`,
+    schema: { type: 'string' },
+  })
+  @ApiParam({
+    name: 'requestAccessId',
+    required: true,
+    description: `Id of the request access to fetch`,
+    schema: { type: 'string' },
+  })
+  @ApiParam({
+    name: 'secret',
+    required: true,
+    description: `Secret of the request access to fetch`,
+    schema: { type: 'string' },
+  })
+  @ApiParam({
+    name: 'changerId',
+    required: true,
+    description: `Id of the user that is changing the role of the request`,
+    schema: { type: 'string' },
+  })
+  @ApiParam({
+    name: 'newStatus',
+    required: true,
+    description: `New role for the user`,
+    schema: { type: 'string' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Accepted/rejected reqeust`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<RequestAccess>(RequestAccess.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          invalidRole: {
+            value: new BadRequestException('Invalid role provided. Only reader and contributor roles are permitted'),
+          },
+          invalidUser: {
+            value: new BadRequestException('Invalid user provided'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          channelsMismatch: {
+            value: new ForbiddenException('Channels identifiers mismatch'),
+          },
+          secretsMismatch: {
+            value: new ForbiddenException('Secrets mismatch'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          teamNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+        },
+      },
+    },
+  })
   public async changeRequestAccessStatus(
     @Param('teamId') teamId: string,
     @Param('requestAccessId') requestAccessId: string,

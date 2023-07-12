@@ -1,6 +1,5 @@
 import { File } from '@kyso-io/kyso-model';
-import { Injectable, Logger } from '@nestjs/common';
-import { NotFoundError } from '../../../helpers/errorHandling';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { db } from '../../../main';
 import { MongoProvider } from '../../../providers/mongo.provider';
 @Injectable()
@@ -20,10 +19,9 @@ export class FilesMongoProvider extends MongoProvider<File> {
       filter: { sha: fileSha },
       limit: 1,
     });
-    if (files.length === 0)
-      throw new NotFoundError({
-        message: "The specified file couldn't be found",
-      });
+    if (files.length === 0) {
+      throw new NotFoundException("The specified file couldn't be found");
+    }
     return files[0];
   }
 
