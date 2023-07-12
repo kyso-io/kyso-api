@@ -31,7 +31,7 @@ import {
   UpdateTeamMembersDTO,
   User,
 } from '@kyso-io/kyso-model';
-import { ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, Provider } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import * as moment from 'moment';
 import { extname, join } from 'path';
@@ -435,12 +435,12 @@ export class TeamsService extends AutowiredService {
 
       const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
       if (!organization) {
-        throw new PreconditionFailedException('The organization does not exist');
+        throw new NotFoundException('The organization does not exist');
       }
 
       const users: User[] = await this.usersService.getUsers({ filter: { sluglified_name: team.sluglified_name } });
       if (users.length > 0) {
-        throw new PreconditionFailedException('There is already a user with this sluglified_name');
+        throw new ConflictException('There is already a user with this sluglified_name');
       }
 
       team.user_id = token.id;
@@ -467,7 +467,7 @@ export class TeamsService extends AutowiredService {
   public async getReportsOfTeam(token: Token, teamId: string): Promise<Report[]> {
     const team: Team = await this.getTeamById(teamId);
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Team not found');
     }
     const reports: Report[] = await this.reportsService.getReports({ filter: { team_id: team.id } });
     const userTeams: Team[] = await this.getTeamsVisibleForUser(token.id);
@@ -477,27 +477,27 @@ export class TeamsService extends AutowiredService {
     const hasGlobalPermissionAdmin: boolean = userHasPermission(token, GlobalPermissionsEnum.GLOBAL_ADMIN);
     if (team.visibility === TeamVisibilityEnum.PUBLIC) {
       if (!userInTeam && !userBelongsToOrganization && !hasGlobalPermissionAdmin) {
-        throw new PreconditionFailedException('You are not a member of this team and not of the organization');
+        throw new ForbiddenException('You are not a member of this team and not of the organization');
       }
       return reports;
     } else if (team.visibility === TeamVisibilityEnum.PROTECTED) {
       if (!userInTeam && !userBelongsToOrganization) {
-        throw new PreconditionFailedException('You are not a member of this team and not of the organization');
+        throw new ForbiddenException('You are not a member of this team and not of the organization');
       }
       const userHasReportPermissionRead: boolean = userHasPermission(token, ReportPermissionsEnum.READ);
       const userHasReportPermissionAdmin: boolean = userHasPermission(token, ReportPermissionsEnum.ADMIN);
       if (!userHasReportPermissionRead && !userHasReportPermissionAdmin && !hasGlobalPermissionAdmin && !userBelongsToOrganization) {
-        throw new PreconditionFailedException('User does not have permission to read reports');
+        throw new ForbiddenException('User does not have permission to read reports');
       }
       return reports;
     } else if (team.visibility === TeamVisibilityEnum.PRIVATE) {
       if (!hasGlobalPermissionAdmin && !userInTeam) {
-        throw new PreconditionFailedException('You are not a member of this team');
+        throw new ForbiddenException('You are not a member of this team');
       }
       const userHasReportPermissionRead: boolean = userHasPermission(token, ReportPermissionsEnum.READ);
       const userHasReportPermissionAdmin: boolean = userHasPermission(token, ReportPermissionsEnum.ADMIN);
       if (!userHasReportPermissionRead && !userHasReportPermissionAdmin && !hasGlobalPermissionAdmin) {
-        throw new PreconditionFailedException('User does not have permission to read reports');
+        throw new ForbiddenException('User does not have permission to read reports');
       }
       return reports;
     }
@@ -521,12 +521,12 @@ export class TeamsService extends AutowiredService {
   public async userBelongsToTeam(teamId: string, userId: string): Promise<boolean> {
     const team: Team = await this.getTeamById(teamId);
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Team not found');
     }
 
     const user: User = await this.usersService.getUserById(userId);
     if (!user) {
-      throw new PreconditionFailedException('User not found');
+      throw new NotFoundException('User not found');
     }
 
     const members: TeamMember[] = await this.getMembers(team.id);
@@ -537,22 +537,19 @@ export class TeamsService extends AutowiredService {
   public async addMemberToTeam(teamId: string, userId: string, roles: KysoRole[]): Promise<TeamMember[]> {
     const userBelongsToTeam = await this.userBelongsToTeam(teamId, userId);
     if (userBelongsToTeam) {
-      throw new PreconditionFailedException('User already belongs to this team');
+      throw new ConflictException('User already belongs to this team');
     }
     const team: Team = await this.getTeamById(teamId);
-    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Team not found');
     }
-
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     if (!organization) {
-      throw new PreconditionFailedException("Team's organization not found");
+      throw new NotFoundException("Team's organization not found");
     }
-
     const user: User = await this.usersService.getUserById(userId);
     if (!user) {
-      throw new PreconditionFailedException('User not found');
+      throw new NotFoundException('User not found');
     }
     await this.addMembersById(
       teamId,
@@ -564,25 +561,21 @@ export class TeamsService extends AutowiredService {
 
   public async removeMemberFromTeam(teamId: string, userId: string): Promise<TeamMember[]> {
     const team: Team = await this.getTeamById(teamId);
-    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Team not found');
     }
-
+    const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     if (!organization) {
-      throw new PreconditionFailedException("Team's organization not found");
+      throw new NotFoundException("Team's organization not found");
     }
-
     const user: User = await this.usersService.getUserById(userId);
     if (!user) {
-      throw new PreconditionFailedException('User not found');
+      throw new NotFoundException('User not found');
     }
-
     const members: TeamMemberJoin[] = await this.teamMemberProvider.read({ filter: { team_id: team.id } });
     const index: number = members.findIndex((x) => x.member_id === user.id);
     if (index === -1) {
-      throw new PreconditionFailedException('User is not a member of this team');
+      throw new NotFoundException('User is not a member of this team');
     }
 
     await this.teamMemberProvider.deleteOne({ team_id: team.id, member_id: user.id });
@@ -608,7 +601,7 @@ export class TeamsService extends AutowiredService {
   public async updateTeamMembersDTORoles(teamId: string, data: UpdateTeamMembersDTO): Promise<TeamMember[]> {
     const team: Team = await this.getTeamById(teamId);
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Team not found');
     }
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
@@ -622,7 +615,7 @@ export class TeamsService extends AutowiredService {
     for (const element of data.members) {
       const user: User = await this.usersService.getUserById(element.userId);
       if (!user) {
-        throw new PreconditionFailedException('User does not exist');
+        throw new NotFoundException('User does not exist');
       }
       const member: TeamMemberJoin = members.find((x: TeamMemberJoin) => x.member_id === user.id);
       if (!member) {
@@ -702,20 +695,20 @@ export class TeamsService extends AutowiredService {
   public async removeTeamMemberRole(teamId: string, userId: string, role: string): Promise<TeamMember[]> {
     const team: Team = await this.getTeamById(teamId);
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Team not found');
     }
     const user: User = await this.usersService.getUserById(userId);
     if (!user) {
-      throw new PreconditionFailedException('User does not exist');
+      throw new NotFoundException('User does not exist');
     }
     const members: TeamMemberJoin[] = await this.teamMemberProvider.getMembers(team.id);
     const member: TeamMemberJoin = members.find((x: TeamMemberJoin) => x.member_id === user.id);
     if (!member) {
-      throw new PreconditionFailedException('User is not a member of this team');
+      throw new NotFoundException('User is not a member of this team');
     }
     const index: number = member.role_names.findIndex((x: string) => x === role);
     if (index === -1) {
-      throw new PreconditionFailedException('User does not have this role');
+      throw new BadRequestException('User does not have this role');
     }
     await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $pull: { role_names: role } });
     return this.getMembers(userId);
@@ -807,7 +800,7 @@ export class TeamsService extends AutowiredService {
   public async deleteTeam(token: Token, teamId: string, notifyUsers = true): Promise<Team> {
     const team: Team = await this.getTeamById(teamId);
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Team not found');
     }
     // Get team members before deleting
     const teamMembers: TeamMember[] = await this.getMembers(teamId);
@@ -845,12 +838,12 @@ export class TeamsService extends AutowiredService {
 
   public async uploadMarkdownImage(userId: string, teamId: string, file: Express.Multer.File): Promise<string> {
     if (!file) {
-      throw new PreconditionFailedException('Missing image file');
+      throw new BadRequestException('Missing image file');
     }
     const teams: Team[] = await this.getTeamsForController(userId, {});
     const team: Team = teams.find((t: Team) => t.id === teamId);
     if (!team) {
-      throw new PreconditionFailedException(`You don't have permissions to upload markdown images to this team`);
+      throw new ForbiddenException(`You don't have permissions to upload markdown images to this team`);
     }
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     const username: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.SFTP_USERNAME);

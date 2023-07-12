@@ -15,32 +15,29 @@ import {
   Token,
   User,
 } from '@kyso-io/kyso-model';
-import { Controller, Get, NotFoundException, Param, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiExtraModels, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, NotFoundException, Param, Req } from '@nestjs/common';
+import { ApiExtraModels, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Request } from 'express';
 import { ObjectId } from 'mongodb';
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { Public } from '../../decorators/is-public';
-import { GenericController } from '../../generic/controller.generic';
 import { QueryParser } from '../../helpers/queryParser';
 import { CurrentToken } from '../auth/annotations/current-token.decorator';
-import { PermissionsGuard } from '../auth/guards/permission.guard';
 import { CommentsService } from '../comments/comments.service';
 import { DiscussionsService } from '../discussions/discussions.service';
+import { InlineCommentsService } from '../inline-comments/inline-comments.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { ReportsService } from '../reports/reports.service';
 import { TagsService } from '../tags/tags.service';
 import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
 import { ActivityFeedService } from './activity-feed.service';
-import { InlineCommentsService } from '../inline-comments/inline-comments.service';
 
 @ApiExtraModels(Report, NormalizedResponseDTO)
-@ApiBearerAuth()
-@UseGuards(PermissionsGuard)
+@Public()
 @Controller('activity-feed')
 @ApiTags('activity-feed')
-export class ActivityFeedController extends GenericController<ActivityFeed> {
+export class ActivityFeedController {
   @Autowired({ typeName: 'ActivityFeedService' })
   private activityFeedService: ActivityFeedService;
 
@@ -72,14 +69,39 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
   @ApiOperation({
     summary: `Search and fetch activity feed`,
   })
-  @ApiNormalizedResponse({
+  @ApiParam({
+    name: 'username',
+    description: `Username of the user`,
+    type: String,
+    example: 'john',
+  })
+  @ApiResponse({
     status: 200,
     description: `Activity feed matching criteria`,
-    type: ActivityFeed,
-    isArray: true,
+    content: {
+      json: {
+        examples: {
+          activityFeed: {
+            value: new NormalizedResponseDTO<ActivityFeed[]>([ActivityFeed.createEmpty()]),
+          },
+        },
+      },
+    },
   })
-  @Public()
-  async getUserActivityFeed(@CurrentToken() token: Token, @Param('username') username: string, @Req() req): Promise<NormalizedResponseDTO<ActivityFeed[]>> {
+  @ApiResponse({
+    status: 404,
+    description: `User not found`,
+    content: {
+      json: {
+        examples: {
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
+  })
+  async getUserActivityFeed(@CurrentToken() token: Token, @Param('username') username: string, @Req() req: Request): Promise<NormalizedResponseDTO<ActivityFeed[]>> {
     const query: any = QueryParser.toQueryObject(req.url);
     if (!query.filter) {
       query.filter = {};
@@ -201,14 +223,39 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
   @ApiOperation({
     summary: `Search and fetch activity feed for an organization`,
   })
-  @ApiNormalizedResponse({
+  @ApiParam({
+    name: 'organizationName',
+    description: 'Organization name',
+    type: String,
+    example: 'lighside',
+  })
+  @ApiResponse({
     status: 200,
     description: `Activity feed matching criteria`,
-    type: ActivityFeed,
-    isArray: true,
+    content: {
+      json: {
+        examples: {
+          activityFeed: {
+            value: new NormalizedResponseDTO<ActivityFeed[]>([ActivityFeed.createEmpty()]),
+          },
+        },
+      },
+    },
   })
-  @Public()
-  async getOrganizationActivityFeed(@CurrentToken() token: Token, @Param('organizationName') organizationName: string, @Req() req): Promise<NormalizedResponseDTO<ActivityFeed[]>> {
+  @ApiResponse({
+    status: 404,
+    description: `Organization not found`,
+    content: {
+      json: {
+        examples: {
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+        },
+      },
+    },
+  })
+  async getOrganizationActivityFeed(@CurrentToken() token: Token, @Param('organizationName') organizationName: string, @Req() req: Request): Promise<NormalizedResponseDTO<ActivityFeed[]>> {
     const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } });
     if (!organization) {
       throw new NotFoundException('Organization does not exist');
@@ -281,18 +328,51 @@ export class ActivityFeedController extends GenericController<ActivityFeed> {
   @ApiOperation({
     summary: `Search and fetch activity feed for a team`,
   })
-  @ApiNormalizedResponse({
+  @ApiParam({
+    name: 'organizationName',
+    description: 'Organization name',
+    type: String,
+    example: 'lighside',
+  })
+  @ApiParam({
+    name: 'teamName',
+    description: 'Team name',
+    type: String,
+    example: 'protected-team',
+  })
+  @ApiResponse({
     status: 200,
     description: `Activity feed matching criteria`,
-    type: ActivityFeed,
-    isArray: true,
+    content: {
+      json: {
+        examples: {
+          activityFeed: {
+            value: new NormalizedResponseDTO<ActivityFeed[]>([ActivityFeed.createEmpty()]),
+          },
+        },
+      },
+    },
   })
-  @Public()
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+        },
+      },
+    },
+  })
   async getTeamActivityFeed(
     @CurrentToken() token: Token,
     @Param('organizationName') organizationName: string,
     @Param('teamName') teamName: string,
-    @Req() req,
+    @Req() req: Request,
   ): Promise<NormalizedResponseDTO<ActivityFeed[]>> {
     const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } });
     if (!organization) {

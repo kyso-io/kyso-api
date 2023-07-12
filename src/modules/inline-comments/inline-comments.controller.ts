@@ -19,10 +19,8 @@ import {
 import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import * as moment from 'moment';
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { Public } from '../../decorators/is-public';
-import { GenericController } from '../../generic/controller.generic';
 import { Validators } from '../../helpers/validators';
 import { db } from '../../main';
 import { CurrentToken } from '../auth/annotations/current-token.decorator';
@@ -41,18 +39,7 @@ import { SearchInlineCommentsQuery } from './search-inline-comments-query';
 @ApiTags('inline-comments')
 @ApiExtraModels(InlineComment)
 @UseGuards(PermissionsGuard)
-@ApiBearerAuth()
-@ApiHeader({
-  name: HEADER_X_KYSO_ORGANIZATION,
-  description: 'active organization (i.e: lightside)',
-  required: true,
-})
-@ApiHeader({
-  name: HEADER_X_KYSO_TEAM,
-  description: 'active team (i.e: protected-team)',
-  required: true,
-})
-export class InlineCommentController extends GenericController<InlineComment> {
+export class InlineCommentController {
   @Autowired({ typeName: 'RelationsService' })
   private relationsService: RelationsService;
 
@@ -65,11 +52,10 @@ export class InlineCommentController extends GenericController<InlineComment> {
   @Autowired({ typeName: 'UsersService' })
   private usersService: UsersService;
 
-  constructor(private readonly inlineCommentsService: InlineCommentsService) {
-    super();
-  }
+  constructor(private readonly inlineCommentsService: InlineCommentsService) {}
 
   @Get()
+  @Public()
   @ApiOperation({
     summary: 'Get all inline comments for a report',
     description: 'Get all inline comments for a report',
@@ -86,12 +72,49 @@ export class InlineCommentController extends GenericController<InlineComment> {
     description: 'Id of the file to fetch inline comments',
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 200,
     description: `Report inline comments`,
-    type: InlineCommentDto,
+    content: {
+      json: {
+        examples: {
+          inlineComments: {
+            value: new NormalizedResponseDTO<InlineCommentDto[]>([InlineCommentDto.createEmpty()]),
+          },
+        },
+      },
+    },
   })
-  @Public()
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('You are not authorized to access this resource'),
+          },
+          forbiddenReport: {
+            value: new ForbiddenException('You are not allowed to see comments of this report'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+        },
+      },
+    },
+  })
   async getInlineComments(@CurrentToken() token: Token, @Query('reportId') report_id: string, @Query('file_id') file_id: string): Promise<NormalizedResponseDTO<InlineCommentDto[]>> {
     if (!report_id) {
       throw new BadRequestException('reportId is required');
@@ -123,14 +146,35 @@ export class InlineCommentController extends GenericController<InlineComment> {
   }
 
   @Get('search')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Search inline comments',
     description: 'Search inline comments',
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 200,
     description: `Report inline comments`,
-    type: PaginatedResponseDto<InlineCommentDto>,
+    content: {
+      json: {
+        examples: {
+          inlineComments: {
+            value: new NormalizedResponseDTO<InlineCommentDto[]>([InlineCommentDto.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
   })
   public async searchInlineComments(
     @CurrentToken() token: Token,
@@ -139,7 +183,6 @@ export class InlineCommentController extends GenericController<InlineComment> {
     let teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
 
     const noPersonFilters: boolean = !searchInlineCommentsQuery.report_author_id && !searchInlineCommentsQuery.inline_comment_author_id;
-    console.log(`noPersonFilters ${noPersonFilters} due to ${searchInlineCommentsQuery.report_author_id} and ${searchInlineCommentsQuery.inline_comment_author_id}`);
 
     if (searchInlineCommentsQuery.organization_id) {
       teams = teams.filter((team: Team) => team.organization_id === searchInlineCommentsQuery.organization_id);
@@ -437,14 +480,35 @@ export class InlineCommentController extends GenericController<InlineComment> {
   }
 
   @Get('count-opened')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Count opened inline comments`,
     description: `Count opened inline comments`,
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 200,
-    description: `Count opened inline comments`,
-    type: Number,
+    description: `Opened inline comments`,
+    content: {
+      json: {
+        examples: {
+          inlineComments: {
+            value: new NormalizedResponseDTO<number>(10),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
   })
   public async countOpenedInlineComments(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<number>> {
     const query = {
@@ -455,46 +519,15 @@ export class InlineCommentController extends GenericController<InlineComment> {
       status: [InlineCommentStatusEnum.DOING, InlineCommentStatusEnum.OPEN, InlineCommentStatusEnum.TO_DO],
       status_operator: 'in',
     };
-
-    const result = await this.searchInlineComments(token, query as SearchInlineCommentsQuery);
-
+    const result: NormalizedResponseDTO<PaginatedResponseDto<InlineCommentDto>> = await this.searchInlineComments(token, query as SearchInlineCommentsQuery);
     return new NormalizedResponseDTO(result.data.totalItems);
   }
 
   @Get(':id')
+  @Public()
   @ApiOperation({
     summary: 'Get inline comment',
     description: 'Get inline comment',
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Inline comment`,
-    type: InlineCommentDto,
-  })
-  @ApiNormalizedResponse({
-    status: 400,
-    description: `Invalid inline comment id`,
-    type: InlineCommentDto,
-  })
-  @ApiNormalizedResponse({
-    status: 403,
-    description: `You are not allowed to get this inline comment`,
-    type: InlineCommentDto,
-  })
-  @ApiNormalizedResponse({
-    status: 404,
-    description: `Inline comment not found`,
-    type: InlineCommentDto,
-  })
-  @ApiNormalizedResponse({
-    status: 404,
-    description: `Report not found`,
-    type: InlineCommentDto,
-  })
-  @ApiNormalizedResponse({
-    status: 404,
-    description: `Team not found`,
-    type: InlineCommentDto,
   })
   @ApiParam({
     name: 'id',
@@ -502,10 +535,64 @@ export class InlineCommentController extends GenericController<InlineComment> {
     description: 'Id of the inline comment',
     schema: { type: 'string' },
   })
-  @Public()
+  @ApiResponse({
+    status: 200,
+    description: `Report inline comments`,
+    content: {
+      json: {
+        examples: {
+          inlineComment: {
+            value: new NormalizedResponseDTO<InlineCommentDto>(InlineCommentDto.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          invalidId: {
+            value: new BadRequestException('Invalid id'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('You are not allowed to get this inline comment'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          inlineCommentNotFound: {
+            value: new NotFoundException('Inline comment not found'),
+          },
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+        },
+      },
+    },
+  })
   async getInlineComment(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<InlineCommentDto>> {
     if (!Validators.isValidObjectId(id)) {
-      throw new BadRequestException('Invalid inline comment id');
+      throw new BadRequestException('Invalid id');
     }
     const inlineComment: InlineComment = await this.inlineCommentsService.getById(id);
     if (!inlineComment) {
@@ -541,20 +628,92 @@ export class InlineCommentController extends GenericController<InlineComment> {
   }
 
   @Post()
+  @ApiBearerAuth()
+  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: 'Create a new inline comment',
     description: 'Create a new inline comment',
   })
-  @ApiBody({
-    description: 'Create inline comment',
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
     required: true,
-    type: CreateInlineCommentDto,
-    examples: CreateInlineCommentDto.examples(),
   })
-  @ApiNormalizedResponse({
-    status: 200,
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
+  @ApiBody({
+    description: 'New inline comment',
+    required: true,
+    examples: {
+      inlineComment: {
+        value: new CreateInlineCommentDto('647f368421b67cfee313159f', '64899abab17518e0e421dc1c', 'f5231f', 'Check the definition of the function', [], null),
+      },
+      replyInlineComment: {
+        value: new CreateInlineCommentDto('647f368421b67cfee313159f', '64899abab17518e0e421dc1c', 'f5231f', 'Fixing...', [], '647f368121b67cfee3131535'),
+      },
+      inlineCommentWithMentions: {
+        value: new CreateInlineCommentDto(
+          '647f368421b67cfee313159f',
+          '64899abab17518e0e421dc1c',
+          'f5231f',
+          'Check the definition of the function',
+          ['647f368121b67cfee3131527', '647f368221b67cfee3131543'],
+          null,
+        ),
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
     description: 'Inline comment created',
-    type: InlineCommentDto,
+    content: {
+      json: {
+        examples: {
+          inlineComments: {
+            value: new NormalizedResponseDTO<InlineCommentDto>(InlineCommentDto.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+        },
+      },
+    },
   })
   @Permission([InlineCommentPermissionsEnum.CREATE])
   async createInlineComment(@CurrentToken() token: Token, @Body() createInlineCommentDto: CreateInlineCommentDto): Promise<NormalizedResponseDTO<InlineCommentDto>> {
@@ -565,6 +724,8 @@ export class InlineCommentController extends GenericController<InlineComment> {
   }
 
   @Patch(':id')
+  @ApiBearerAuth()
+  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: 'Update an inline comment',
     description: 'Update an inline comment',
@@ -572,13 +733,66 @@ export class InlineCommentController extends GenericController<InlineComment> {
   @ApiBody({
     description: 'Update inline comment',
     required: true,
-    type: UpdateInlineCommentDto,
-    examples: UpdateInlineCommentDto.examples(),
+    examples: {
+      json: {
+        value: new UpdateInlineCommentDto('647f368421b67cfee313159f', 'Check the type of the variable you defined', [], InlineCommentStatusEnum.CLOSED),
+      },
+    },
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 200,
     description: 'Inline comment updated',
-    type: InlineCommentDto,
+    content: {
+      json: {
+        examples: {
+          inlineComments: {
+            value: new NormalizedResponseDTO<InlineCommentDto>(InlineCommentDto.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          notFound: {
+            value: new NotFoundException('Inline comment not found'),
+          },
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
   })
   async updateInlineComment(@CurrentToken() token: Token, @Param('id') id: string, @Body() updateInlineCommentDto: UpdateInlineCommentDto): Promise<NormalizedResponseDTO<InlineCommentDto>> {
     const inlineComment: InlineComment = await this.inlineCommentsService.updateInlineComment(token, id, updateInlineCommentDto);
@@ -588,17 +802,72 @@ export class InlineCommentController extends GenericController<InlineComment> {
   }
 
   @Delete(':id')
-  @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiBearerAuth()
+  @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Delete an inline comment`,
     description: `Allows deleting an inline comment.`,
   })
-  @ApiResponse({ status: 204, description: `Inline comment deleted`, type: Boolean })
   @ApiParam({
     name: 'id',
     required: true,
     description: 'Id of the inline comment to delete',
     schema: { type: 'string' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Inline comment deleted',
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<boolean>(true),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('You are not allowed to delete this inline comment'),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          notFound: {
+            value: new NotFoundException('Inline comment not found'),
+          },
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
   })
   async delete(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<boolean>> {
     const deleted: boolean = await this.inlineCommentsService.deleteInlineComment(token, id);

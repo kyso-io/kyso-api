@@ -1,5 +1,4 @@
 import { DynamicModule } from '@nestjs/common';
-import { GithubReposController } from './github-repos.controller';
 import { createProvider, GithubReposService } from './github-repos.service';
 import { GithubReposProvider } from './providers/github-repo.provider';
 
@@ -10,7 +9,7 @@ export class GithubReposModule {
     return {
       module: GithubReposModule,
       providers: [GithubReposService, GithubReposProvider, dynamicProvider],
-      controllers: [GithubReposController],
+      // controllers: [GithubReposController],
       exports: [dynamicProvider],
     };
   }

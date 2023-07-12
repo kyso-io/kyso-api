@@ -32,7 +32,7 @@ import {
   VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model';
 import { OnboardingProgress } from '@kyso-io/kyso-model/dist/models/onboarding-progress.model';
-import { ConflictException, ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, Provider } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import axios from 'axios';
 import * as moment from 'moment';
@@ -296,6 +296,8 @@ export class UsersService extends AutowiredService {
 
     await this.provider.deleteOne({ _id: this.provider.toObjectId(id) });
 
+    await this.usersNotificationsServiceService.deleteByUserId(id);
+
     Logger.log(`Deleting user '${user.id} ${user.display_name}' in ElasticSearch...`, UsersService.name);
     this.fullTextSearchService.deleteDocument(ElasticSearchIndex.User, user.id);
 
@@ -311,14 +313,14 @@ export class UsersService extends AutowiredService {
     const user: User = await this.getUserById(id);
 
     if (!user) {
-      throw new PreconditionFailedException(null, `Can't add account to user as does not exists`);
+      throw new NotFoundException(null, `Can't add account to user as does not exists`);
     }
     if (!user.hasOwnProperty('accounts')) {
       user.accounts = [];
     }
     const index: number = user.accounts.findIndex((account: UserAccount) => account.accountId === userAccount.accountId && account.type === userAccount.type);
     if (index !== -1) {
-      throw new PreconditionFailedException(null, `The user has already registered this account`);
+      throw new ConflictException(null, `The user has already registered this account`);
     } else {
       const userAccounts: UserAccount[] = [...user.accounts, userAccount];
       await this.updateUser({ _id: this.provider.toObjectId(id) }, { $set: { accounts: userAccounts } });
@@ -563,7 +565,7 @@ export class UsersService extends AutowiredService {
     }
     const kysoAccessToken: KysoUserAccessToken = accessTokens[0];
     if (kysoAccessToken.user_id !== userId) {
-      throw new ForbiddenException('Invalid credentials');
+      throw new ForbiddenException('The token does not belong to the user');
     }
     delete kysoAccessToken.access_token;
     await this.kysoAccessTokenProvider.deleteOne({ _id: this.provider.toObjectId(id) });
@@ -648,19 +650,19 @@ export class UsersService extends AutowiredService {
       },
     });
     if (result.length === 0) {
-      throw new PreconditionFailedException('Token not found for this email');
+      throw new NotFoundException('Token not found for this email');
     }
     const userForgotPassword: UserForgotPassword = result[0];
     if (userForgotPassword.modified_at !== null) {
-      throw new PreconditionFailedException('Recovery password token already used');
+      throw new ForbiddenException('Recovery password token already used');
     }
     if (moment().isAfter(userForgotPassword.expires_at)) {
-      throw new PreconditionFailedException('Recovery password token expired');
+      throw new ForbiddenException('Recovery password token expired');
     }
     const user: User = await this.getUserById(userForgotPassword.user_id);
     const areEquals: boolean = await AuthService.isPasswordCorrect(userChangePasswordDto.password, user.hashed_password);
     if (areEquals) {
-      throw new PreconditionFailedException('New password must be different from the old one');
+      throw new ConflictException('New password must be different from the old one');
     }
     await this.provider.updateOne({ _id: new ObjectId(user.id) }, { $set: { hashed_password: AuthService.hashPassword(userChangePasswordDto.password), show_captcha: false } });
     await this.userChangePasswordMongoProvider.updateOne({ _id: new ObjectId(userForgotPassword.id) }, { $set: { modified_at: new Date() } });
@@ -675,7 +677,7 @@ export class UsersService extends AutowiredService {
     });
 
     if (!user) {
-      throw new PreconditionFailedException('User not registered');
+      throw new NotFoundException('User not exist');
     }
 
     const hCaptchaEnabled = (await this.kysoSettingsService.getValue(KysoSettingsEnum.HCAPTCHA_ENABLED)) === 'true' ? true : false;
@@ -685,7 +687,7 @@ export class UsersService extends AutowiredService {
       const validCaptcha: boolean = await this.verifyCaptcha(user.id, verifyCaptchaRequestDTO);
 
       if (!validCaptcha) {
-        throw new PreconditionFailedException('Invalid captcha');
+        throw new BadRequestException('Invalid captcha');
       }
     }
 

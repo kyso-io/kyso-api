@@ -1,7 +1,6 @@
 import { FeedbackDto, NormalizedResponseDTO, Token } from '@kyso-io/kyso-model';
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
+import { Body, Controller, ForbiddenException, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentToken } from '../auth/annotations/current-token.decorator';
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { PermissionsGuard } from '../auth/guards/permission.guard';
@@ -20,13 +19,39 @@ export class FeedbackController {
     description: 'Feedback message',
     required: true,
     type: FeedbackDto,
-    examples: FeedbackDto.examples(),
+    examples: {
+      json: {
+        value: new FeedbackDto('Issue on the website', 'I cannot login to my account'),
+      },
+    },
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 201,
     description: 'Feedback sent successfully',
-    type: Boolean,
-    isArray: false,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<boolean>(true),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
   })
   public async sendMessageToServiceDesk(@CurrentToken() token: Token, @Body() feedbackDto: FeedbackDto): Promise<NormalizedResponseDTO<boolean>> {
     const result: boolean = await this.feedbackService.sendMessageToServiceDesk(token, feedbackDto);

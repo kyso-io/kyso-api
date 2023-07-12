@@ -13,10 +13,11 @@ export class QueryParser {
     const query = parse(queryString).query;
     const result = query ? aqp(query, AQP_OPTIONS) : {};
 
-    if (result.filter.limit) {
+    if (result.filter?.limit) {
       result.limit = result.filter.limit;
       delete result.filter.limit;
-    } else if (!result.limit) {
+    }
+    if (!result.limit) {
       result.limit = DEFAULT_LIMIT_VALUE;
     }
 

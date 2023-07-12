@@ -6,12 +6,10 @@ import {
   FullTextSearchResultType,
   GlobalPermissionsEnum,
   NormalizedResponseDTO,
-  Tag,
   Token,
 } from '@kyso-io/kyso-model';
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
+import { Controller, ForbiddenException, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Autowired } from '../../decorators/autowired';
 import { Public } from '../../decorators/is-public';
 import { CurrentToken } from '../auth/annotations/current-token.decorator';
@@ -19,14 +17,13 @@ import { Permission } from '../auth/annotations/permission.decorator';
 import { PermissionsGuard } from '../auth/guards/permission.guard';
 import { CommentsService } from '../comments/comments.service';
 import { DiscussionsService } from '../discussions/discussions.service';
+import { InlineCommentsService } from '../inline-comments/inline-comments.service';
 import { ReportsService } from '../reports/reports.service';
 import { UsersService } from '../users/users.service';
 import { FullTextSearchService } from './full-text-search.service';
-import { InlineCommentsService } from '../inline-comments/inline-comments.service';
 
 @ApiTags('search')
 @UseGuards(PermissionsGuard)
-@ApiBearerAuth()
 @Controller('search')
 export class FullTextSearchController {
   @Autowired({ typeName: 'FullTextSearchService' })
@@ -64,7 +61,19 @@ export class FullTextSearchController {
   @ApiQuery({ name: 'filter.files', required: false, description: 'List of file extensions', example: 'csv,tsv,md' })
   @ApiQuery({ name: 'orderBy', required: false, description: 'Field to order by', example: 'name,createdAt,updatedAt' })
   @ApiQuery({ name: 'order', required: false, description: 'Order', example: 'asc,desc' })
-  @ApiNormalizedResponse({ status: 200, description: `Search results`, type: Tag, isArray: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Elasticsearch result given query params',
+    content: {
+      json: {
+        examples: {
+          fullTextSearchResult: {
+            value: new NormalizedResponseDTO<boolean>(FullTextSearchDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
   public async fullTextSearch(
     @CurrentToken() token: Token,
     @Query('terms') searchTerms: string,
@@ -105,14 +114,41 @@ export class FullTextSearchController {
   }
 
   @Get('/reindex')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Reindex`,
     description: `Reindex`,
   })
   @ApiQuery({ name: 'pathToIndex', required: true, description: '/sftp/data/scs' })
-  @ApiNormalizedResponse({ status: 200, description: `Search results`, type: Tag, isArray: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Indexing data',
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: {
+              status: 'indexing',
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
   @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
-  public async reindex(@Query('pathToIndex') pathToIndex: string) {
+  public async reindex(@Query('pathToIndex') pathToIndex: string): Promise<{ status: 'indexing' }> {
     await this.reportsService.reindexReports(pathToIndex);
     this.usersService.reindexUsers();
     this.discussionsService.reindexDiscussions();
@@ -122,61 +158,196 @@ export class FullTextSearchController {
   }
 
   @Get('/reindex-reports')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Reindex reports`,
     description: `Reindex reports`,
   })
   @ApiQuery({ name: 'pathToIndex', required: true, description: '/sftp/data/scs' })
-  @ApiNormalizedResponse({ status: 200, description: `Search results`, type: Tag, isArray: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Indexing reports',
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: {
+              status: 'indexing',
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
   @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
-  public async reindexReports(@Query('pathToIndex') pathToIndex: string) {
+  public async reindexReports(@Query('pathToIndex') pathToIndex: string): Promise<{ status: 'indexing' }> {
     return this.reportsService.reindexReports(pathToIndex);
   }
 
   @Get('/reindex-users')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Reindex users`,
     description: `Reindex users`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Indexing users`, type: Tag, isArray: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Indexing users',
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: {
+              status: 'indexing',
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
   @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
-  public async reindexUsers() {
+  public async reindexUsers(): Promise<{ status: 'indexing' }> {
     this.usersService.reindexUsers();
     return { status: 'indexing' };
   }
 
   @Get('/reindex-discussions')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Reindex discussions`,
     description: `Reindex discussions`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Indexing discussions`, type: Tag, isArray: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Indexing discussions',
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: {
+              status: 'indexing',
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
   @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
-  public async reindexDiscussions() {
+  public async reindexDiscussions(): Promise<{ status: 'indexing' }> {
     this.discussionsService.reindexDiscussions();
     return { status: 'indexing' };
   }
 
   @Get('/reindex-comments')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Reindex comments`,
     description: `Reindex comments`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Indexing comments`, type: Tag, isArray: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Indexing comments',
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: {
+              status: 'indexing',
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
   @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
-  public async reindexComments() {
+  public async reindexComments(): Promise<{ status: 'indexing' }> {
     this.commentsService.reindexComments();
     return { status: 'indexing' };
   }
 
   @Get('/reindex-inline-comments')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Reindex inline comments`,
     description: `Reindex inline comments`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Indexing inline comments`, type: Tag, isArray: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Indexing inline comments',
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: {
+              status: 'indexing',
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
   @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
-  public async reindexInlineComments() {
+  public async reindexInlineComments(): Promise<{ status: 'indexing' }> {
     this.inlineCommentsService.reindexInlineComments();
     return { status: 'indexing' };
   }

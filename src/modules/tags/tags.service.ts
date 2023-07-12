@@ -120,7 +120,7 @@ export class TagsService extends AutowiredService {
       throw new NotFoundException('Tag not found');
     }
     const tagAssigns: TagAssign[] = await this.tagsAssignMongoProvider.read({ filter: { tag_id: tagId, entity_id: entityId } });
-    if (!tagAssigns) {
+    if (tagAssigns.length === 0) {
       throw new NotFoundException('Tag relation not found');
     }
     const tagAssign: TagAssign = tagAssigns[0];

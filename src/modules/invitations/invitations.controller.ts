@@ -2,7 +2,6 @@ import { CreateInvitationDto, HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, In
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
-import { GenericController } from '../../generic/controller.generic';
 import { QueryParser } from '../../helpers/queryParser';
 import { CurrentToken } from '../auth/annotations/current-token.decorator';
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
@@ -25,10 +24,8 @@ import { InvitationsService } from './invitations.service';
   description: 'active team (i.e: protected-team)',
   required: true,
 })
-export class InvitationsController extends GenericController<Invitation> {
-  constructor(private readonly invitationsService: InvitationsService) {
-    super();
-  }
+export class InvitationsController {
+  constructor(private readonly invitationsService: InvitationsService) {}
 
   @Get()
   @ApiNormalizedResponse({

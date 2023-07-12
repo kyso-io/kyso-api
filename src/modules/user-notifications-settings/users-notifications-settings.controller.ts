@@ -1,7 +1,15 @@
-import { NormalizedResponseDTO, Organization, Team, Token, UpdateUserNotificationsSettings, UserNotificationsSettings, UserNotificationsSettingsScope } from '@kyso-io/kyso-model';
+import {
+  NormalizedResponseDTO,
+  NotificationsSettings,
+  Organization,
+  Team,
+  Token,
+  UpdateUserNotificationsSettings,
+  UserNotificationsSettings,
+  UserNotificationsSettingsScope,
+} from '@kyso-io/kyso-model';
 import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Put, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Autowired } from '../../decorators/autowired';
 import { GenericController } from '../../generic/controller.generic';
 import { Validators } from '../../helpers/validators';
@@ -29,11 +37,18 @@ export class UsersNotificationsSettingsController extends GenericController<User
   @ApiOperation({
     summary: `Get user notifications settings`,
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 200,
     description: `User notifications settings`,
-    type: UserNotificationsSettings,
-    isArray: true,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<UserNotificationsSettings>(new UserNotificationsSettings('647f368021b67cfee3131520')),
+          },
+        },
+      },
+    },
   })
   public async getUserNotificationsSettingsByUserId(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<UserNotificationsSettings>> {
     const userNotificationsSettings: UserNotificationsSettings = await this.usersNotificationsServiceService.getUserNotificationsSettingsByUserId(token.id);
@@ -41,11 +56,51 @@ export class UsersNotificationsSettingsController extends GenericController<User
   }
 
   @Put()
-  @ApiNormalizedResponse({
+  @ApiBody({
+    description: 'Update user notifications settings',
+    required: true,
+    examples: {
+      json: {
+        value: new UpdateUserNotificationsSettings(UserNotificationsSettingsScope.Global, new NotificationsSettings()),
+      },
+    },
+  })
+  @ApiResponse({
     status: 200,
     description: `Updated user notifications settings`,
-    type: UserNotificationsSettings,
-    isArray: true,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<UserNotificationsSettings>(new UserNotificationsSettings('647f368021b67cfee3131520')),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          notFound: {
+            value: new BadRequestException('Invalid scope'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          notFound: {
+            value: new NotFoundException('User does not have notifications settings'),
+          },
+        },
+      },
+    },
   })
   public async updateUserNotificationsSettingsGlobal(
     @CurrentToken() token: Token,
@@ -65,19 +120,48 @@ export class UsersNotificationsSettingsController extends GenericController<User
     description: 'Id of organization',
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 200,
-    description: `Updated user notifications settings for an organization`,
-    type: UserNotificationsSettings,
-    isArray: true,
+    description: `Updated user notifications settings`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<UserNotificationsSettings>(new UserNotificationsSettings('647f368021b67cfee3131520')),
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 400,
-    description: 'You must specify an valid organization_id',
+    content: {
+      json: {
+        examples: {
+          invalidOrgId: {
+            value: new BadRequestException('Invalid organization_id'),
+          },
+          invalidScope: {
+            value: new BadRequestException('Invalid scope'),
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 404,
-    description: 'Organization not found',
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          notFound: {
+            value: new NotFoundException('User does not have notifications settings'),
+          },
+        },
+      },
+    },
   })
   public async updateUserNotificationsSettingsOrganization(
     @CurrentToken() token: Token,
@@ -115,19 +199,57 @@ export class UsersNotificationsSettingsController extends GenericController<User
     description: 'Id of channel',
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 200,
-    description: `Updated user notifications settings for an organization and channel`,
-    type: UserNotificationsSettings,
-    isArray: true,
+    description: `Updated user notifications settings`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<UserNotificationsSettings>(new UserNotificationsSettings('647f368021b67cfee3131520')),
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 400,
-    description: 'You must specify an valid organization_id or channel_id',
+    content: {
+      json: {
+        examples: {
+          invalidOrgId: {
+            value: new BadRequestException('Invalid organization_id'),
+          },
+          invalidChannelId: {
+            value: new BadRequestException('Invalid channel_id'),
+          },
+          invalidScope: {
+            value: new BadRequestException('Invalid scope'),
+          },
+          channelDoesNotBelongToOrg: {
+            value: new BadRequestException('Channel does not belong to organization'),
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 404,
-    description: 'Organization or channel not found',
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          channelNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+          notFound: {
+            value: new NotFoundException('User does not have notifications settings'),
+          },
+        },
+      },
+    },
   })
   public async updateUserNotificationsSettingsOrganizationChannel(
     @CurrentToken() token: Token,
@@ -171,19 +293,48 @@ export class UsersNotificationsSettingsController extends GenericController<User
     description: 'Id of organization',
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 200,
-    description: `Delete user notifications settings for an organization`,
-    type: UserNotificationsSettings,
-    isArray: true,
+    description: `Updated user notifications settings`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<UserNotificationsSettings>(new UserNotificationsSettings('647f368021b67cfee3131520')),
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 400,
-    description: 'You must specify an valid organization_id',
+    content: {
+      json: {
+        examples: {
+          invalidOrgId: {
+            value: new BadRequestException('Invalid organization_id'),
+          },
+          invalidScope: {
+            value: new BadRequestException('Invalid scope'),
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 404,
-    description: 'Organization not found',
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          notFound: {
+            value: new NotFoundException('User does not have notifications settings'),
+          },
+        },
+      },
+    },
   })
   public async deleteUserNotificationsSettingsOrganization(@CurrentToken() token: Token, @Param('organization_id') organization_id: string): Promise<NormalizedResponseDTO<UserNotificationsSettings>> {
     if (!organization_id || !Validators.isValidObjectId(organization_id)) {
@@ -214,19 +365,57 @@ export class UsersNotificationsSettingsController extends GenericController<User
     description: 'Id of channel',
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 200,
-    description: `Delete user notifications settings for an organization and channel`,
-    type: UserNotificationsSettings,
-    isArray: true,
+    description: `Updated user notifications settings`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<UserNotificationsSettings>(new UserNotificationsSettings('647f368021b67cfee3131520')),
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 400,
-    description: 'You must specify an valid organization_id or channel_id',
+    content: {
+      json: {
+        examples: {
+          invalidOrgId: {
+            value: new BadRequestException('Invalid organization_id'),
+          },
+          invalidChannelId: {
+            value: new BadRequestException('Invalid channel_id'),
+          },
+          invalidScope: {
+            value: new BadRequestException('Invalid scope'),
+          },
+          channelDoesNotBelongToOrg: {
+            value: new BadRequestException('Channel does not belong to organization'),
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 404,
-    description: 'Organization or channel not found',
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          channelNotFound: {
+            value: new NotFoundException('Channel not found'),
+          },
+          notFound: {
+            value: new NotFoundException('User does not have notifications settings'),
+          },
+        },
+      },
+    },
   })
   public async deleteUserNotificationsSettingsOrganizationChannel(
     @CurrentToken() token: Token,
