@@ -36,7 +36,8 @@ dtrack-check:
   script:
   - npm install -g @fjbarrena/dtrack-cli
   - npm install --global @cyclonedx/cyclonedx-npm
-  - npm install
+  # Temporary set to -f because at kyso-api we upgraded nestjs and some dependencies (which still working) are not compatible. WIP
+  - npm install -f
   - cyclonedx-npm --output-file bom.xml
   - dtrack-cli --server https://dtrack.dev.kyso.io --bom-path bom.xml --api-key mhJ7ZcJylUH2WY5cFsU2zs87kH9wLABu --project-name kyso-api --project-version latest --auto-create true
 
