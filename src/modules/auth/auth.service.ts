@@ -358,7 +358,7 @@ export class AuthService extends AutowiredService {
       return true;
     }
 
-    if (!permissionToActivateEndpoint) {
+    if (!permissionToActivateEndpoint || permissionToActivateEndpoint.length === 0) {
       // If there are no permissions means that is open to authenticated users
       return true;
     } else {
@@ -544,7 +544,7 @@ export class AuthService extends AutowiredService {
   public async refreshToken(token: Token): Promise<string> {
     const user: User = await this.usersService.getUserById(token.id);
     if (!user) {
-      return null;
+      throw new ForbiddenException('User not found');
     }
     const payload: Token = new Token(
       user.id.toString(),

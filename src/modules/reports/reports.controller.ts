@@ -35,19 +35,20 @@ import {
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   ForbiddenException,
   Get,
   Headers,
   Inject,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   Param,
   ParseIntPipe,
   Patch,
   Post,
-  PreconditionFailedException,
   Put,
   Query,
   Req,
@@ -60,7 +61,7 @@ import { ClientProxy } from '@nestjs/microservices';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiExtraModels, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import axios, { AxiosResponse } from 'axios';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import * as moment from 'moment';
 import { ObjectId } from 'mongodb';
 import { FormDataRequest } from 'nestjs-form-data';
@@ -68,7 +69,6 @@ import { RealIP } from 'nestjs-real-ip';
 import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { Public } from '../../decorators/is-public';
-import { GenericController } from '../../generic/controller.generic';
 import { NATSHelper } from '../../helpers/natsHelper';
 import { QueryParser } from '../../helpers/queryParser';
 import slugify from '../../helpers/slugify';
@@ -97,19 +97,8 @@ const ipaddr = require('ipaddr.js');
 
 @ApiExtraModels(Report, NormalizedResponseDTO)
 @ApiTags('reports')
-@ApiBearerAuth()
 @Controller('reports')
-@ApiHeader({
-  name: HEADER_X_KYSO_ORGANIZATION,
-  description: 'active organization (i.e: lightside)',
-  required: true,
-})
-@ApiHeader({
-  name: HEADER_X_KYSO_TEAM,
-  description: 'active team (i.e: protected-team)',
-  required: true,
-})
-export class ReportsController extends GenericController<Report> {
+export class ReportsController {
   @Autowired({ typeName: 'CommentsService' })
   private commentsService: CommentsService;
 
@@ -139,24 +128,42 @@ export class ReportsController extends GenericController<Report> {
     private readonly pinnedReportsMongoProvider: PinnedReportsMongoProvider,
     private readonly solvedCaptchaGuard: SolvedCaptchaGuard,
     @Inject('NATS_SERVICE') private client: ClientProxy,
-  ) {
-    super();
-  }
+  ) {}
 
   @Get()
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard)
   @ApiOperation({
     summary: `Search and fetch reports`,
     description: `By passing the appropiate parameters you can fetch and filter the reports available to the authenticated user.<br />
          **This endpoint supports filtering**. Refer to the Report schema to see available options.`,
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 200,
     description: `Reports matching criteria`,
-    type: ReportDTO,
-    isArray: true,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportDTO[]>(ReportDTO.createEmpty()),
+          },
+        },
+      },
+    },
   })
-  async getReports(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<ReportDTO[]>> {
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
+  async getReports(@CurrentToken() token: Token, @Req() req: Request): Promise<NormalizedResponseDTO<ReportDTO[]>> {
     const query = QueryParser.toQueryObject(req.url);
     if (!query.sort) query.sort = { created_at: -1 };
     if (!query.filter) query.filter = {};
@@ -218,11 +225,66 @@ export class ReportsController extends GenericController<Report> {
     summary: `Get content of a file`,
     description: `By passing the id a file, get its raw content directly from the source.`,
   })
-  @ApiParam({
-    name: 'id',
+  @ApiQuery({
+    name: 'fileId',
     required: true,
-    description: 'Id of the report to fetch',
+    description: 'Id of the file to fetch',
     schema: { type: 'string' },
+  })
+  @ApiQuery({
+    name: 'beginLine',
+    required: true,
+    description: 'Line to start fetching from',
+    schema: { type: 'number' },
+  })
+  @ApiQuery({
+    name: 'endLine',
+    required: true,
+    description: 'Line to end fetching',
+    schema: { type: 'number' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Reports matching criteria`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<string>('column1;column2;column3\nvalue1;value2;value3'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          notPublic: {
+            value: new ForbiddenException('Report is not public'),
+          },
+          notPermissions: {
+            value: new ForbiddenException('You do not have permissions to access this report'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          fileNotFound: {
+            value: new NotFoundException('File not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+        },
+      },
+    },
   })
   async getLinesOfReportFile(
     @CurrentToken() token: Token,
@@ -232,16 +294,16 @@ export class ReportsController extends GenericController<Report> {
   ): Promise<NormalizedResponseDTO<string>> {
     const file: File = await this.reportsService.getFileById(fileId);
     if (!file) {
-      throw new PreconditionFailedException('File not found');
+      throw new NotFoundException('File not found');
     }
     const report: Report = await this.reportsService.getReportById(file.report_id);
     if (!report) {
-      throw new PreconditionFailedException('Report not found');
+      throw new NotFoundException('Report not found');
     }
     const team: Team = await this.teamsService.getTeamById(report.team_id);
     if (!token) {
       if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-        throw new PreconditionFailedException(`Report is not public`);
+        throw new ForbiddenException(`Report is not public`);
       }
     } else {
       const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
@@ -260,6 +322,58 @@ export class ReportsController extends GenericController<Report> {
     summary: `Search and fetch reports`,
     description: `By passing the appropiate parameters you can fetch and filter the reports available to the authenticated user.<br />
          **This endpoint supports filtering**. Refer to the Report schema to see available options.`,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Reports matching criteria`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<PaginatedResponseDto<ReportDTO>>(new PaginatedResponseDto<ReportDTO>(0, 0, 0, [], 0, 0)),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          notFound: {
+            value: new BadRequestException('You must specify an organization_id or team_id'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          teamIsNotPublic: {
+            value: new ForbiddenException('Team is not public'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+        },
+      },
+    },
   })
   async getPaginatedReports(@CurrentToken() token: Token, @Req() req): Promise<NormalizedResponseDTO<PaginatedResponseDto<ReportDTO>>> {
     const data = aqp(req._parsedUrl.query);
@@ -280,7 +394,7 @@ export class ReportsController extends GenericController<Report> {
       if (data.filter.organization_id) {
         const organization: Organization = await this.organizationsService.getOrganizationById(data.filter.organization_id);
         if (!organization) {
-          throw new BadRequestException('Organization not found');
+          throw new NotFoundException('Organization not found');
         }
         const teams: Team[] = await this.teamsService.getTeams({
           filter: { organization_id: data.filter.organization_id, visibility: TeamVisibilityEnum.PUBLIC },
@@ -295,10 +409,10 @@ export class ReportsController extends GenericController<Report> {
       } else {
         const team: Team = await this.teamsService.getTeamById(data.filter.team_id);
         if (!team) {
-          throw new BadRequestException('Team not found');
+          throw new NotFoundException('Team not found');
         }
         if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-          throw new ForbiddenException('Team not public');
+          throw new ForbiddenException('Team is not public');
         }
       }
     } else {
@@ -458,9 +572,39 @@ export class ReportsController extends GenericController<Report> {
     description: `By passing the appropiate parameters you can fetch and filter the reports available for a user.<br />
          **This endpoint supports filtering**. Refer to the Report schema to see available options.`,
   })
+  @ApiParam({
+    name: 'user_id',
+    description: 'The user id',
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Reports matching criteria`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<PaginatedResponseDto<ReportDTO>>(new PaginatedResponseDto<ReportDTO>(0, 0, 0, [], 0, 0)),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          notFound: {
+            value: new BadRequestException('user_id'),
+          },
+        },
+      },
+    },
+  })
   async getPaginatedUserReports(@CurrentToken() token: Token, @Req() req, @Param('user_id') user_id: string): Promise<NormalizedResponseDTO<PaginatedResponseDto<ReportDTO>>> {
     if (!user_id || !Validators.isValidObjectId(user_id)) {
-      throw new BadRequestException('You must specify an valid user_id');
+      throw new BadRequestException('Invalid user_id');
     }
     const data = aqp(req._parsedUrl.query);
     delete data.filter;
@@ -531,22 +675,53 @@ export class ReportsController extends GenericController<Report> {
     return this.getNormalizedResponsePaginatedReports(token, data);
   }
 
-  @Get('/pinned')
+  // @Get('/pinned')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Get pinned reports for a user`,
     description: `Allows fetching pinned reports of a specific user passing its id`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `All the pinned reports of a user`,
-    type: ReportDTO,
   })
   @ApiParam({
     name: 'userId',
     required: true,
     description: 'Id of the owner of the report to fetch',
     schema: { type: 'string' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: `All the pinned reports of a user`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<PaginatedResponseDto<ReportDTO>>(ReportDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
   })
   @Permission([ReportPermissionsEnum.READ])
   async getPinnedReportsForUser(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<ReportDTO[]>> {
@@ -556,10 +731,26 @@ export class ReportsController extends GenericController<Report> {
     return new NormalizedResponseDTO(reportsDtos, relations);
   }
 
-  @Get('/diff/:reportId')
+  // @Get('/diff/:reportId')
+  @Public()
   @ApiOperation({
     summary: `Get diff between two files`,
     description: `By passing the appropiate parameters you can get the diff between two files`,
+  })
+  @ApiParam({
+    name: 'reportId',
+    description: 'The report id',
+    type: String,
+  })
+  @ApiQuery({
+    name: 'sourceFileId',
+    description: 'The source file id',
+    type: String,
+  })
+  @ApiQuery({
+    name: 'targetFileId',
+    description: 'The target file id',
+    type: String,
   })
   @ApiResponse({
     status: 200,
@@ -567,13 +758,38 @@ export class ReportsController extends GenericController<Report> {
   })
   @ApiResponse({
     status: 404,
-    description: `File not found`,
+    content: {
+      json: {
+        examples: {
+          fileNotFound: {
+            value: new NotFoundException('File not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          teamIsNotPublic: {
+            value: new ForbiddenException('You do not have permissions to access get file differences'),
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 500,
     description: `Internal server error`,
   })
-  @Public()
   public async getDiffBetweenFiles(
     @CurrentToken() token: Token,
     @Param('reportId') reportId: string,
@@ -582,11 +798,11 @@ export class ReportsController extends GenericController<Report> {
   ): Promise<NormalizedResponseDTO<any>> {
     const report: Report = await this.reportsService.getReportById(reportId);
     if (!report) {
-      throw new PreconditionFailedException('Report not found');
+      throw new NotFoundException('Report not found');
     }
     const team: Team = await this.teamsService.getTeamById(report.team_id);
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Team not found');
     }
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     if (!organization) {
@@ -607,16 +823,54 @@ export class ReportsController extends GenericController<Report> {
     summary: `Get a report`,
     description: `Allows fetching content of a specific report passing its id`,
   })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Report matching id`,
-    type: ReportDTO,
-  })
   @ApiParam({
     name: 'reportId',
     required: true,
     description: 'Id of the report to fetch',
     schema: { type: 'string' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Report matching id`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportDTO>(ReportDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('You do not have permissions to access this report'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+        },
+      },
+    },
   })
   async getReportById(@CurrentToken() token: Token, @RealIP() realIp: string, @Req() request: Request, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
     const report: Report = await this.reportsService.getReportById(reportId);
@@ -660,20 +914,59 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Get('/:reportId/analytics')
+  @Public()
   @ApiOperation({
     summary: `Get report analytics`,
     description: `Allows fetching analytics of a specific report passing its id`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Report analytics matching id`,
-    type: ReportAnalytics,
   })
   @ApiParam({
     name: 'reportId',
     required: true,
     description: 'Id of the report to fetch its analitycs',
     schema: { type: 'string' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Report analytics matching report id`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportAnalytics>(ReportAnalytics.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('You do not have permissions to access this report'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+        },
+      },
+    },
   })
   async getReportAnalytics(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportAnalytics>> {
     const report: Report = await this.reportsService.getReportById(reportId);
@@ -747,15 +1040,10 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Get('/:reportId/comments')
+  @Public()
   @ApiOperation({
     summary: `Get comments of a report`,
     description: `By passing in the appropriate options you can see all the comments of a report`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Comments of the specified report`,
-    type: Comment,
-    isArray: true,
   })
   @ApiParam({
     name: 'reportId',
@@ -763,8 +1051,44 @@ export class ReportsController extends GenericController<Report> {
     description: 'Id of the report to fetch',
     schema: { type: 'string' },
   })
-  @Public()
-  async getComments(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Req() req): Promise<NormalizedResponseDTO<Comment[]>> {
+  @ApiResponse({
+    status: 200,
+    description: `Report analytics matching report id`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<Comment[]>([Comment.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('You do not have permissions to access the comments of this report'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
+  })
+  async getComments(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Req() req: Request): Promise<NormalizedResponseDTO<Comment[]>> {
     const report: Report = await this.reportsService.getReportById(reportId);
     if (!report) {
       throw new NotFoundException('Report not found');
@@ -795,15 +1119,21 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Get('/:teamId/:reportName/exists')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Check if report exists`,
     description: `Allows checking if a report exists passing its name and team name`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Report matching name and team name`,
-    type: Boolean,
   })
   @ApiParam({
     name: 'reportName',
@@ -817,22 +1147,45 @@ export class ReportsController extends GenericController<Report> {
     description: 'Id of the team to check',
     schema: { type: 'string' },
   })
+  @ApiResponse({
+    status: 200,
+    description: `Report exists or not`,
+    content: {
+      json: {
+        examples: {
+          exists: {
+            value: new NormalizedResponseDTO<boolean>(true),
+          },
+          notExist: {
+            value: new NormalizedResponseDTO<boolean>(false),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
   @Permission([ReportPermissionsEnum.READ])
   async checkReport(@Param('teamId') teamId: string, @Param('reportName') reportName: string): Promise<boolean> {
     const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: slugify(reportName), team_id: teamId } });
     return report != null;
   }
 
-  @Get('/embedded/:organizationName/:teamName/:reportName')
+  // @Get('/embedded/:organizationName/:teamName/:reportName')
   @Public()
   @ApiOperation({
     summary: `Get a report`,
     description: `Allows fetching content of a specific report passing its id`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Report matching id`,
-    type: ReportDTO,
   })
   @ApiParam({
     name: 'organizationName',
@@ -852,6 +1205,52 @@ export class ReportsController extends GenericController<Report> {
     description: 'Name of the report to fetch',
     schema: { type: 'string' },
   })
+  @ApiResponse({
+    status: 200,
+    description: `Report matching id`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportDTO>(ReportDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          teamIsNotPublic: {
+            value: new ForbiddenException('Team is not public'),
+          },
+          noPermissions: {
+            value: new ForbiddenException('You do not have permissions to access this report'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+        },
+      },
+    },
+  })
   async getEmbeddedReport(
     @CurrentToken() token: Token,
     @Param('organizationName') organizationName: string,
@@ -860,15 +1259,15 @@ export class ReportsController extends GenericController<Report> {
   ): Promise<NormalizedResponseDTO<ReportDTO>> {
     const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } });
     if (!organization) {
-      throw new PreconditionFailedException('Organization not found');
+      throw new NotFoundException('Organization not found');
     }
     const team: Team = await this.teamsService.getUniqueTeam(organization.id, teamName);
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Team not found');
     }
     if (!token) {
       if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-        throw new PreconditionFailedException(`Report is not public`);
+        throw new ForbiddenException(`Team is not public`);
       }
     } else {
       const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
@@ -879,7 +1278,7 @@ export class ReportsController extends GenericController<Report> {
     }
     const report: Report = await this.reportsService.getReport({ filter: { sluglified_name: reportName, team_id: team.id } });
     if (!report) {
-      throw new PreconditionFailedException('Report not found');
+      throw new NotFoundException('Report not found');
     }
     await this.reportsService.increaseViews({ _id: new ObjectId(report.id) });
     report.views++;
@@ -889,7 +1288,18 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Post('/kyso')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Create a new report sending the files`,
     description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
@@ -902,8 +1312,73 @@ export class ReportsController extends GenericController<Report> {
   })
   @ApiResponse({
     status: 201,
-    description: `Created report`,
-    type: ReportDTO,
+    description: `New report or reports`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportDTO>(ReportDTO.createEmpty()),
+          },
+          multipleResult: {
+            value: new NormalizedResponseDTO<ReportDTO[]>([ReportDTO.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          notFound: {
+            value: new BadRequestException('Missing zip file'),
+          },
+          noKysoConfigFile: {
+            value: new BadRequestException(`No kyso.{yml,yaml,json} file found`),
+          },
+          invalidKysoConfigFile: {
+            value: new BadRequestException(`No kyso config file is invalid`),
+          },
+          mainFileNotFound: {
+            value: new BadRequestException(`Main file not found`),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+        },
+      },
+    },
   })
   @FormDataRequest()
   @Permission([ReportPermissionsEnum.CREATE])
@@ -915,7 +1390,7 @@ export class ReportsController extends GenericController<Report> {
   ): Promise<NormalizedResponseDTO<Report | Report[]>> {
     Logger.log(`Called createKysoReport`);
     if (!createKysoReportDto.file) {
-      throw new BadRequestException(`Missing file`);
+      throw new BadRequestException(`Missing zip file`);
     }
     const data: Report | Report[] = await this.reportsService.createKysoReport(token.id, createKysoReportDto, organizationName, teamName);
     if (Array.isArray(data)) {
@@ -933,21 +1408,102 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Put('/kyso/:reportId')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Create a new report sending the files`,
     description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
   })
+  @ApiParam({
+    name: 'reportId',
+    description: 'report id',
+    required: true,
+  })
   @ApiBody({
-    description: 'Invite user to the organization',
+    description: 'Create new version of the report',
     required: true,
     type: CreateKysoReportVersionDto,
     examples: CreateKysoReportVersionDto.examples(),
   })
   @ApiResponse({
     status: 201,
-    description: `Create new version of report`,
-    type: ReportDTO,
+    description: `New version of the report`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportDTO>(ReportDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          invalidKysoConfigFile: {
+            value: new BadRequestException(`No kyso config file is invalid`),
+          },
+          wrongVersion: {
+            value: new BadRequestException(`Version is not the last version of the report`),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          notFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 500,
+    content: {
+      json: {
+        examples: {
+          notFound: {
+            value: new InternalServerErrorException('Error updating the report image'),
+          },
+        },
+      },
+    },
   })
   @FormDataRequest()
   @Permission([ReportPermissionsEnum.CREATE])
@@ -964,12 +1520,22 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Post('/ui')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Create a new report sending the files`,
     description: `By passing the appropiate parameters you can create a new report referencing a git repository`,
   })
-  @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
@@ -982,10 +1548,85 @@ export class ReportsController extends GenericController<Report> {
     },
   })
   @ApiResponse({
-    status: 201,
-    description: `Created report`,
-    type: ReportDTO,
+    status: 200,
+    description: `New report`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportDTO>(ReportDTO.createEmpty()),
+          },
+        },
+      },
+    },
   })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          notFound: {
+            value: new BadRequestException('Missing zip file'),
+          },
+          noKysoConfigFile: {
+            value: new BadRequestException(`No kyso.{yml,yaml,json} file found`),
+          },
+          invalidKysoConfigFile: {
+            value: new BadRequestException(`No kyso config file is invalid`),
+          },
+          mainFileNotFound: {
+            value: new BadRequestException(`Main file not found`),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    content: {
+      json: {
+        examples: {
+          alreadyExists: {
+            value: new ConflictException(`Report already exists in the team`),
+          },
+        },
+      },
+    },
+  })
+  @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
   @Permission([ReportPermissionsEnum.CREATE])
   async createUIReport(@CurrentToken() token: Token, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Report>> {
@@ -997,12 +1638,27 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Post('/ui/main-file/:reportId')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Update the main file of the report`,
     description: `By passing the appropiate parameters you can update the main file of report`,
   })
-  @ApiConsumes('multipart/form-data')
+  @ApiParam({
+    name: 'reportId',
+    description: 'report id',
+    required: true,
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -1017,8 +1673,50 @@ export class ReportsController extends GenericController<Report> {
   @ApiResponse({
     status: 201,
     description: `Update the main file of the report`,
-    type: ReportDTO,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportDTO>(ReportDTO.createEmpty()),
+          },
+        },
+      },
+    },
   })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          fileNotFound: {
+            value: new NotFoundException('File not found'),
+          },
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
+  })
+  @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
   @Permission([ReportPermissionsEnum.EDIT])
   async updateMainFileReport(@CurrentToken() token: Token, @Param('reportId') reportId: string, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<Report>> {
@@ -1028,16 +1726,45 @@ export class ReportsController extends GenericController<Report> {
     return new NormalizedResponseDTO(reportDto, relations);
   }
 
-  @Post('/github/:repositoryName')
+  // @Post('/github/:repositoryName')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Create a new report based on github repository`,
     description: `By passing the appropiate parameters you can create a new report referencing a github repository`,
   })
+  @ApiParam({
+    name: 'repositoryName',
+    description: 'repository name',
+    required: true,
+  })
+  @ApiQuery({
+    name: 'branch',
+    description: 'branch name',
+    required: false,
+  })
   @ApiResponse({
     status: 201,
     description: `Created report`,
     type: ReportDTO,
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
   })
   async createReportFromGithubRepository(
     @CurrentToken() token: Token,
@@ -1060,20 +1787,49 @@ export class ReportsController extends GenericController<Report> {
     }
   }
 
-  @Post('/bitbucket')
+  // @Post('/bitbucket')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Create a new report based on bitbucket repository`,
     description: `By passing the appropiate parameters you can create a new report referencing a bitbucket repository`,
+  })
+  @ApiQuery({
+    name: 'name',
+    description: 'Bitbucket repository name',
+    required: true,
+  })
+  @ApiQuery({
+    name: 'branch',
+    description: 'Bitbucket branch name',
+    required: false,
   })
   @ApiResponse({
     status: 201,
     description: `Created report`,
     type: ReportDTO,
   })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
   async createReportFromBitbucketRepository(@CurrentToken() token: Token, @Query('name') name: string, @Query('branch') branch: string): Promise<NormalizedResponseDTO<Report | Report[]>> {
     if (!name || name.length === 0) {
-      throw new PreconditionFailedException('Repository name is required');
+      throw new BadRequestException('Repository name is required');
     }
     Logger.log(`Called createReportFromBitbucketRepository`);
     const data: Report | Report[] = await this.reportsService.createReportFromBitbucketRepository(token, name, branch);
@@ -1091,16 +1847,45 @@ export class ReportsController extends GenericController<Report> {
     }
   }
 
-  @Post('/gitlab')
+  // @Post('/gitlab')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Create a new report based on gitlab repository`,
     description: `By passing the appropiate parameters you can create a new report referencing a gitlab repository`,
   })
+  @ApiQuery({
+    name: 'name',
+    description: 'Gitlab repository name',
+    required: true,
+  })
+  @ApiQuery({
+    name: 'branch',
+    description: 'Gitlab branch name',
+    required: false,
+  })
   @ApiResponse({
     status: 201,
     description: `Created report`,
     type: ReportDTO,
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
   })
   async createReportFromGitlabRepository(@CurrentToken() token: Token, @Query('id') id: string, @Query('branch') branch: string): Promise<NormalizedResponseDTO<Report | Report[]>> {
     Logger.log(`Called createReportFromGitlabRepository`);
@@ -1120,21 +1905,21 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Patch('/:reportId')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Update the specific report`,
     description: `Allows updating content from the specified report`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Specified report data`,
-    type: ReportDTO,
-  })
-  @ApiBody({
-    description: 'Update report data',
-    required: true,
-    type: UpdateReportRequestDTO,
-    examples: UpdateReportRequestDTO.examples(),
   })
   @ApiParam({
     name: 'reportId',
@@ -1142,7 +1927,61 @@ export class ReportsController extends GenericController<Report> {
     description: 'Id of the report to update',
     schema: { type: 'string' },
   })
-  @ApiBody({ type: UpdateReportRequestDTO })
+  @ApiBody({
+    description: 'Update report data',
+    required: true,
+    type: UpdateReportRequestDTO,
+    examples: UpdateReportRequestDTO.examples(),
+  })
+  @ApiResponse({
+    status: 201,
+    description: `Updated report`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportDTO>(ReportDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+        },
+      },
+    },
+  })
   @Permission([ReportPermissionsEnum.EDIT, ReportPermissionsEnum.EDIT_ONLY_MINE])
   async updateReport(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Body() updateReportRequestDTO: UpdateReportRequestDTO): Promise<NormalizedResponseDTO<ReportDTO>> {
     Logger.log(`Called updateReport`);
@@ -1153,17 +1992,70 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Delete('/:reportId')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
-  @ApiOperation({
-    summary: `Delete a report`,
-    description: `Allows deleting a specific report using its {reportId}`,
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
   })
-  @ApiResponse({ status: 200, description: `Report deleted successfully` })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiParam({
     name: 'reportId',
     required: true,
     description: 'Id of the report to fetch',
     schema: { type: 'string' },
+  })
+  @ApiOperation({
+    summary: `Delete a report`,
+    description: `Allows deleting a specific report using its {reportId}`,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Report deleted successfully`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<Report>(Report.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
   })
   @Permission([ReportPermissionsEnum.DELETE])
   async deleteReport(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
@@ -1173,15 +2065,21 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Patch('/:reportId/pin')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Toggles global pin for the specified report`,
     description: `Allows pinning and unpinning of the specified report globally`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Specified report data`,
-    type: Report,
   })
   @ApiParam({
     name: 'reportId',
@@ -1189,8 +2087,51 @@ export class ReportsController extends GenericController<Report> {
     description: 'Id of the report to toggle global pin',
     schema: { type: 'string' },
   })
+  @ApiResponse({
+    status: 200,
+    description: `Report`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportDTO>(ReportDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
+  })
   @Permission([ReportPermissionsEnum.GLOBAL_PIN])
-  async toggleGlobalPin(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
+  async toggleGlobalPin(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
     const report: Report = await this.reportsService.toggleGlobalPin(token, reportId);
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id);
     const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
@@ -1198,15 +2139,11 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Patch('/:reportId/user-pin')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Toggles the user's pin the specified report`,
     description: `Allows pinning and unpinning of the specified report for a user`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Specified report data`,
-    type: Report,
   })
   @ApiParam({
     name: 'reportId',
@@ -1214,7 +2151,50 @@ export class ReportsController extends GenericController<Report> {
     description: 'Id of the report to pin',
     schema: { type: 'string' },
   })
-  async toggleUserPin(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
+  @ApiResponse({
+    status: 200,
+    description: `Report`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportDTO>(ReportDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
+  })
+  async toggleUserPin(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
     const report: Report = await this.reportsService.toggleUserPin(token, reportId);
     const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, token.id);
     const relations = await this.relationsService.getRelations(report, 'report', { Author: 'User' });
@@ -1222,21 +2202,60 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Patch('/:reportId/user-star')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Toggles the user's star of the specified report`,
     description: `Allows starring and unstarring the specified report for a user`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Specified report data`,
-    type: Report,
   })
   @ApiParam({
     name: 'reportId',
     required: true,
     description: 'Id of the report to pin',
     schema: { type: 'string' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Report`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportDTO>(ReportDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
   })
   async toggleUserStar(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<Report>> {
     const report: Report = await this.reportsService.toggleUserStar(token, reportId);
@@ -1247,6 +2266,11 @@ export class ReportsController extends GenericController<Report> {
 
   @Get('/:reportName/:teamName/pull')
   @Public()
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Pull a report from SCS`,
     description: `Pull a report from SCS. This will download all files from SCS in zip format.`,
@@ -1268,15 +2292,70 @@ export class ReportsController extends GenericController<Report> {
     description: 'Id of the team to pull',
     schema: { type: 'string' },
   })
+  @ApiResponse({
+    status: 200,
+    description: `Zip file containing all files of the report`,
+    type: Buffer,
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          invalidVersion: {
+            value: new BadRequestException('Invalid version'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('The report cannot be downloaded'),
+          },
+          noPermissions: {
+            value: new ForbiddenException('You do not have permissions to access this report'),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
+  })
   async pullReport(
     @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
-    @Headers(HEADER_X_KYSO_TEAM) teamName: string,
     @CurrentToken() token: Token,
     @Param('reportName') reportName: string,
     @Param('teamName') teamNameParam: string,
     @Query('version') versionStr: string,
-    @Req() request: any,
-    @Res() response: any,
+    @Req() request: Request,
+    @Res() response: Response,
   ) {
     Logger.log('Pulling report');
     const organization: Organization = await this.organizationsService.getOrganizationBySlugName(organizationName);
@@ -1284,9 +2363,9 @@ export class ReportsController extends GenericController<Report> {
       Logger.error(`Organization ${organizationName} not found`);
       throw new NotFoundException('Organization not found');
     }
-    const team: Team = await this.teamsService.getUniqueTeam(organization.id, teamName);
+    const team: Team = await this.teamsService.getUniqueTeam(organization.id, teamNameParam);
     if (!team) {
-      Logger.error(`Team ${teamName} not found`);
+      Logger.error(`Team ${teamNameParam} not found`);
       throw new NotFoundException('Team not found');
     }
 
@@ -1331,15 +2410,10 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Get('/:reportId/download')
-  // @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
+  @Public()
   @ApiOperation({
     summary: `Download a report from SCS`,
     description: `Download a report from SCS. This will download all files from SCS in zip format.`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Zip file containing all files of the report`,
-    type: Buffer,
   })
   @ApiParam({
     name: 'reportId',
@@ -1347,8 +2421,69 @@ export class ReportsController extends GenericController<Report> {
     description: 'Id of the report to pull',
     schema: { type: 'string' },
   })
-  @Public()
-  async downloadReport(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Query('version') versionStr: string, @Req() request: any, @Res() response: any): Promise<any> {
+  @ApiQuery({
+    name: 'version',
+    required: false,
+    description: 'Version of the report to download',
+    schema: { type: 'number' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Zip file containing all files of the report`,
+    type: Buffer,
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          invalidVersion: {
+            value: new BadRequestException('Invalid version'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('The report cannot be downloaded'),
+          },
+          noPermissions: {
+            value: new ForbiddenException('You do not have permissions to access this report'),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
+  })
+  async downloadReport(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Query('version') versionStr: string, @Req() request: Request, @Res() response: Response): Promise<any> {
     const report: Report = await this.reportsService.getReportById(reportId);
     if (!report) {
       throw new NotFoundException('Report not found');
@@ -1400,14 +2535,10 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Get('/:reportId/files')
+  @Public()
   @ApiOperation({
     summary: `Get all files of a report`,
     description: `Get all files of a report`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Specified report data`,
-    type: File,
   })
   @ApiParam({
     name: 'reportId',
@@ -1415,8 +2546,61 @@ export class ReportsController extends GenericController<Report> {
     description: 'Id of the report to fetch',
     schema: { type: 'string' },
   })
-  @Public()
-  async getReportFiles(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Query('version') versionStr: string): Promise<NormalizedResponseDTO<File>> {
+  @ApiQuery({
+    name: 'version',
+    required: false,
+    description: 'Version of the report to fetch',
+    schema: { type: 'number' },
+  })
+  @ApiNormalizedResponse({
+    status: 200,
+    description: `Specified report data`,
+    type: File,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Report files`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<File[]>([File.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('You do not have permissions to access this report'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
+  })
+  async getReportFiles(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Query('version') versionStr: string): Promise<NormalizedResponseDTO<File[]>> {
     const { team, organization } = await this.getReportTeamAndOrganizationGivenReportId(reportId);
     if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
       const hasPermissions: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.READ], team, organization);
@@ -1433,6 +2617,7 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Get('/:reportId/file-versions')
+  @Public()
   @ApiOperation({
     summary: `Get all versions of a file in a report`,
     description: `Get all versions of a file in a report`,
@@ -1455,8 +2640,62 @@ export class ReportsController extends GenericController<Report> {
     description: 'Name of the file to fetch',
     schema: { type: 'string' },
   })
-  @Public()
-  async getFileVersions(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Query('fileName') fileName: string): Promise<NormalizedResponseDTO<any>> {
+  @ApiResponse({
+    status: 200,
+    description: `Report files`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<File[]>([File.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          notFound: {
+            value: new BadRequestException('fileName is required'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('You do not have permissions to access this report'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
+  })
+  async getFileVersions(@CurrentToken() token: Token, @Param('reportId') reportId: string, @Query('fileName') fileName: string): Promise<NormalizedResponseDTO<File[]>> {
     if (!fileName) {
       throw new BadRequestException('fileName is required');
     }
@@ -1472,6 +2711,7 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Get('/:reportId/versions')
+  @Public()
   @ApiOperation({
     summary: `Get all versions of a report`,
     description: `Get all versions of a report`,
@@ -1482,11 +2722,61 @@ export class ReportsController extends GenericController<Report> {
     description: 'Id of the report to fetch',
     schema: { type: 'string' },
   })
-  @Public()
+  @ApiResponse({
+    status: 200,
+    description: `Report versions`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<{ version: number; created_at: Date; num_files: number; message: string; git_commit: GitCommit }>([
+              {
+                version: 1,
+                created_at: new Date(),
+                num_files: 10,
+                message: 'First version of the project',
+                git_commit: null,
+              },
+            ]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('You do not have permissions to access this report'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
+  })
   async getReportVersions(
     @CurrentToken() token: Token,
     @Param('reportId') reportId: string,
-    @Req() req,
+    @Req() req: Request,
   ): Promise<NormalizedResponseDTO<{ version: number; created_at: Date; num_files: number; message: string; git_commit: GitCommit }>> {
     const report: Report = await this.reportsService.getReportById(reportId);
     if (!report) {
@@ -1521,15 +2811,11 @@ export class ReportsController extends GenericController<Report> {
     return new NormalizedResponseDTO(versions);
   }
 
-  @Get('/:reportId/tree')
+  // @Get('/:reportId/tree')
+  @Public()
   @ApiOperation({
     summary: `Explore a report tree`,
     description: `Get hash of a file for a given report. If the file is a folder, will get information about the files in it too (non-recursively). Path is currently ignored for local reports.`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Content of the requested file`,
-    type: String,
   })
   @ApiParam({
     name: 'reportId',
@@ -1537,15 +2823,70 @@ export class ReportsController extends GenericController<Report> {
     description: 'Id of the report to fetch',
     schema: { type: 'string' },
   })
+  @ApiQuery({
+    name: 'path',
+    required: false,
+    description: 'Path of the file to fetch',
+    schema: { type: 'string' },
+  })
+  @ApiQuery({
+    name: 'version',
+    required: false,
+    description: 'Version of the report to fetch',
+    schema: { type: 'number' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Report file tree`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<GithubFileHash[]>([GithubFileHash.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('You do not have permissions to access this report'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          orgNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
+  })
   async getReportTree(
     @CurrentToken() token: Token,
     @Param('reportId') reportId: string,
     @Query('path') path: string,
     @Query('version') versionStr: string,
-  ): Promise<NormalizedResponseDTO<GithubFileHash | GithubFileHash[]>> {
+  ): Promise<NormalizedResponseDTO<GithubFileHash[]>> {
     const report: Report = await this.reportsService.getReportById(reportId);
     if (!report) {
-      throw new PreconditionFailedException('Report not found');
+      throw new NotFoundException('Report not found');
     }
     const team: Team = await this.teamsService.getTeamById(report.team_id);
 
@@ -1568,8 +2909,8 @@ export class ReportsController extends GenericController<Report> {
     if (versionStr && !isNaN(Number(versionStr))) {
       version = parseInt(versionStr, 10);
     }
-    const hash: GithubFileHash | GithubFileHash[] = await this.reportsService.getReportTree(reportId, path, version);
-    return new NormalizedResponseDTO(hash);
+    const githubFileHash: GithubFileHash[] = await this.reportsService.getReportTree(reportId, path, version);
+    return new NormalizedResponseDTO(githubFileHash);
   }
 
   @Get('/file-content/:id')
@@ -1584,19 +2925,57 @@ export class ReportsController extends GenericController<Report> {
     description: 'Id of the report to fetch',
     schema: { type: 'string' },
   })
+  @ApiResponse({
+    status: 200,
+    description: `File content`,
+    type: Buffer,
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('You do not have permissions to access this report'),
+          },
+          reportNotPublic: {
+            value: new ForbiddenException('The report is not public'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+          fileNotFound: {
+            value: new NotFoundException('File not found'),
+          },
+        },
+      },
+    },
+  })
   async getReportFileContent(@CurrentToken() token: Token, @Param('id') id: string): Promise<Buffer> {
     const file: File = await this.reportsService.getFileById(id);
     if (!file) {
-      throw new PreconditionFailedException('File not found');
+      throw new NotFoundException('File not found');
     }
     const report: Report = await this.reportsService.getReportById(file.report_id);
     if (!report) {
-      throw new PreconditionFailedException('Report not found');
+      throw new NotFoundException('Report not found');
     }
     const team: Team = await this.teamsService.getTeamById(report.team_id);
     if (!token) {
       if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-        throw new PreconditionFailedException(`Report is not public`);
+        throw new ForbiddenException(`Report is not public`);
       }
     } else {
       const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
@@ -1620,24 +2999,50 @@ export class ReportsController extends GenericController<Report> {
     description: 'Id of the file to fetch',
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 200,
-    description: `Report`,
-    type: File,
+    description: `File`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<File>(File.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+          fileNotFound: {
+            value: new NotFoundException('File not found'),
+          },
+        },
+      },
+    },
   })
   async getReportFile(@CurrentToken() token: Token, @Param('id') id: string): Promise<NormalizedResponseDTO<File>> {
     const file: File = await this.reportsService.getFileById(id);
     if (!file) {
-      throw new PreconditionFailedException('File not found');
+      throw new NotFoundException('File not found');
     }
     const report: Report = await this.reportsService.getReportById(file.report_id);
     if (!report) {
-      throw new PreconditionFailedException('Report not found');
+      throw new NotFoundException('Report not found');
     }
     const team: Team = await this.teamsService.getTeamById(report.team_id);
     if (!token) {
       if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
-        throw new PreconditionFailedException(`Report is not public`);
+        throw new ForbiddenException(`Report is not public`);
       }
     } else {
       const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
@@ -1650,14 +3055,10 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Get('/:teamId/:reportSlug')
+  @Public()
   @ApiOperation({
     summary: `Get a report given team id and report slug`,
     description: `Allows fetching content of a specific report passing team id and its slug`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Report`,
-    type: ReportDTO,
   })
   @ApiParam({
     name: 'teamId',
@@ -1671,7 +3072,52 @@ export class ReportsController extends GenericController<Report> {
     description: 'Slug the report to fetch',
     schema: { type: 'string' },
   })
-  @Public()
+  @ApiQuery({
+    name: 'version',
+    required: false,
+    description: 'Version of the report to fetch',
+    schema: { type: 'number' },
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Report`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportDTO>(ReportDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException('You do not have permissions to access this report'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
+  })
   async getReport(
     @CurrentToken() token: Token,
     @Req() request: Request,
@@ -1726,6 +3172,7 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Post('/:reportId/on-shared')
+  @Public()
   @ApiOperation({
     summary: `Detect if a report is shared`,
     description: `Allows detecting if a report is shared passing its id`,
@@ -1744,7 +3191,6 @@ export class ReportsController extends GenericController<Report> {
     status: 404,
     description: `Report not found`,
   })
-  @Public()
   async onShareReport(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<void> {
     const report: Report = await this.reportsService.getReportById(reportId);
     if (!report) {
@@ -1756,9 +3202,20 @@ export class ReportsController extends GenericController<Report> {
     });
   }
 
-  @UseInterceptors(FileInterceptor('file'))
   @Post('/:reportId/preview-picture')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
+  @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({
     summary: `Upload a profile picture for a report`,
     description: `Allows uploading a profile picture for a report passing its id and image`,
@@ -1769,7 +3226,6 @@ export class ReportsController extends GenericController<Report> {
     description: `Id of the report to fetch`,
     schema: { type: 'string' },
   })
-  @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
@@ -1781,7 +3237,62 @@ export class ReportsController extends GenericController<Report> {
       },
     },
   })
-  @ApiNormalizedResponse({ status: 201, description: `Updated report`, type: ReportDTO })
+  @ApiResponse({
+    status: 201,
+    description: `Report`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportDTO[]>([ReportDTO.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          notFound: {
+            value: new BadRequestException('Missing file'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+        },
+      },
+    },
+  })
+  @ApiConsumes('multipart/form-data')
   @Permission([ReportPermissionsEnum.EDIT])
   public async setProfilePicture(@CurrentToken() token: Token, @Param('reportId') reportId: string, @UploadedFile() file: Express.Multer.File): Promise<NormalizedResponseDTO<ReportDTO>> {
     await this.checkIfUserCanExecuteActionInReport(token, reportId);
@@ -1798,7 +3309,18 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Delete('/:reportId/preview-picture')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Delete a profile picture for a report`,
     description: `Allows deleting a profile picture for a report passing its id`,
@@ -1809,8 +3331,26 @@ export class ReportsController extends GenericController<Report> {
     description: `Id of the report to fetch`,
     schema: { type: 'string' },
   })
-  @Permission([ReportPermissionsEnum.EDIT])
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
   @ApiNormalizedResponse({ status: 200, description: `Updated report`, type: ReportDTO })
+  @Permission([ReportPermissionsEnum.EDIT])
   public async deleteBackgroundImage(@CurrentToken() token: Token, @Param('reportId') reportId: string): Promise<NormalizedResponseDTO<ReportDTO>> {
     await this.checkIfUserCanExecuteActionInReport(token, reportId);
     const updatedReport: Report = await this.reportsService.deletePreviewPicture(reportId);
@@ -1820,14 +3360,15 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Get('/:reportName/:teamName')
+  @ApiBearerAuth()
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Get a report`,
     description: `Allows fetching content of a specific report passing its name and team name`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Report matching name and team name`,
-    type: ReportDTO,
   })
   @ApiParam({
     name: 'reportName',
@@ -1841,6 +3382,11 @@ export class ReportsController extends GenericController<Report> {
     description: 'Name of the team to fetch',
     schema: { type: 'string' },
   })
+  @ApiNormalizedResponse({
+    status: 200,
+    description: `Report matching name and team name`,
+    type: ReportDTO,
+  })
   async getReportByName(
     @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
     @CurrentToken() token: Token,
@@ -1849,7 +3395,7 @@ export class ReportsController extends GenericController<Report> {
   ): Promise<NormalizedResponseDTO<ReportDTO>> {
     const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } });
     if (!organization) {
-      throw new PreconditionFailedException('Organization not found');
+      throw new NotFoundException('Organization not found');
     }
     const report: Report = await this.reportsService.getReportByName(reportName, teamNameParam, organization.id);
     const team: Team = await this.teamsService.getTeamById(report.team_id);
@@ -1865,16 +3411,57 @@ export class ReportsController extends GenericController<Report> {
   }
 
   // Draft reports
-  @Get('/ui/draft')
+  // @Get('/ui/draft')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Get a report draft of the invoker user`,
     description: `By passing the appropiate parameters you can retrieve a new report draft`,
+  })
+  @ApiQuery({
+    name: 'org_id',
+    required: true,
+    description: 'Id of the organization to fetch',
+    schema: { type: 'string' },
+  })
+  @ApiQuery({
+    name: 'team_id',
+    required: true,
+    description: 'Id of the team to fetch',
+    schema: { type: 'string' },
   })
   @ApiResponse({
     status: 201,
     description: `Created report`,
     type: DraftReport,
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
   })
   @Permission([ReportPermissionsEnum.READ])
   async getDraftReport(@CurrentToken() token: Token, @Query('org_id') organizationId: string, @Query('team_id') teamId: string): Promise<NormalizedResponseDTO<DraftReport>> {
@@ -1884,22 +3471,51 @@ export class ReportsController extends GenericController<Report> {
     return new NormalizedResponseDTO(draft, relations);
   }
 
-  @Post('/ui/draft')
+  // @Post('/ui/draft')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Create a new report draft`,
     description: `By passing the appropiate parameters you can create a new report draft`,
-  })
-  @ApiResponse({
-    status: 201,
-    description: `Created report`,
-    type: DraftReport,
   })
   @ApiBody({
     description: 'Examples',
     required: true,
     type: DraftReport,
     examples: DraftReport.examples(),
+  })
+  @ApiResponse({
+    status: 201,
+    description: `Created report`,
+    type: DraftReport,
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
   })
   @Permission([ReportPermissionsEnum.CREATE])
   async createUIDraftReport(@CurrentToken() token: Token, @Body() draftReport: DraftReport): Promise<NormalizedResponseDTO<DraftReport>> {
@@ -1917,15 +3533,93 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Post('move')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Move a report to another channel`,
     description: `By passing the appropiate parameters you can move a report to another channel`,
   })
   @ApiResponse({
-    status: 201,
-    description: `Moved report`,
-    type: ReportDTO,
+    status: 200,
+    description: `Reports matching criteria`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<ReportDTO>(ReportDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          differentChannels: {
+            value: new BadRequestException('Source and target channels must be different'),
+          },
+          wrongName: {
+            value: new BadRequestException(`Report name can only consist of letters, numbers, '_' and '-'`),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(`You don't have permissions to move this report`),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+          sourceChannelNotFound: {
+            value: new NotFoundException('Source not found'),
+          },
+          sourceOrganizationNotFound: {
+            value: new NotFoundException('Source organization not found'),
+          },
+          targetChannelNotFound: {
+            value: new NotFoundException('Target not found'),
+          },
+          targetOrganizationNotFound: {
+            value: new NotFoundException('Target organization not found'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    content: {
+      json: {
+        examples: {
+          conflict: {
+            value: new BadRequestException('A report on target channel with the same name already exists'),
+          },
+        },
+      },
+    },
   })
   public async moveReport(@CurrentToken() token: Token, @Body() moveReportDto: MoveReportDto): Promise<NormalizedResponseDTO<ReportDTO>> {
     const report: Report = await this.reportsService.moveReport(token, moveReportDto);
@@ -1935,10 +3629,39 @@ export class ReportsController extends GenericController<Report> {
   }
 
   @Post('/import/office/s3')
+  @ApiBearerAuth()
   @UseGuards(PermissionsGuard, EmailVerifiedGuard, SolvedCaptchaGuard)
+  @ApiHeader({
+    name: HEADER_X_KYSO_ORGANIZATION,
+    description: 'active organization (i.e: lightside)',
+    required: true,
+  })
+  @ApiHeader({
+    name: HEADER_X_KYSO_TEAM,
+    description: 'active team (i.e: protected-team)',
+    required: true,
+  })
   @ApiOperation({
     summary: `Imports from S3 bucket Office documents based on its metadata`,
     description: `By passing the appropiate parameters you can import a bunch of reports`,
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
   })
   @Permission([ReportPermissionsEnum.CREATE])
   async importOfficeFromS3(@Body() data: any): Promise<NormalizedResponseDTO<any>> {
@@ -1961,7 +3684,7 @@ export class ReportsController extends GenericController<Report> {
 
       return axiosResponse.data;
     } else {
-      throw new PreconditionFailedException('Webhook URL not found. Review Kyso Settings');
+      throw new BadRequestException('Webhook URL not found. Review Kyso Settings');
     }
   }
 

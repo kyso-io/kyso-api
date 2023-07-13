@@ -1,23 +1,22 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
+import { RedocModule, RedocOptions } from '@juicyllama/nestjs-redoc';
 import { KysoSetting, KysoSettingsEnum } from '@kyso-io/kyso-model';
 import { ClassSerializerInterceptor, Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory, Reflector } from '@nestjs/core';
-import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as bodyParser from 'body-parser';
 import * as cookieParser from 'cookie-parser';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
-import * as helmet from 'helmet';
+import helmet from 'helmet';
 import { MongoClient } from 'mongodb';
-import { RedocModule, RedocOptions } from 'nestjs-redoc';
+import { join } from 'path';
 import { AppModule } from './app.module';
 import { getSingletons, registerSingleton } from './decorators/autowired';
 import { GenericExceptionFilter } from './filters/generic-exception.filter';
 import { TransformInterceptor } from './interceptors/exclude.interceptor';
 import { KysoSettingsService } from './modules/kyso-settings/kyso-settings.service';
 import { TestingDataPopulatorService } from './modules/testing-data-populator/testing-data-populator.service';
-import { join } from 'path';
 const { NodeTracerProvider } = require('@opentelemetry/sdk-trace-node');
 const { NestInstrumentation } = require('@opentelemetry/instrumentation-nestjs-core');
 const { registerInstrumentations } = require('@opentelemetry/instrumentation');
@@ -112,11 +111,11 @@ async function bootstrap() {
     mailFrom = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM);
   }
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create(AppModule);
 
   // Serve files in ./public from the application working directory
   const publicPath = join(process.cwd(), 'public');
-  app.useStaticAssets(publicPath, { prefix: `${app_mount_dir}` });
+  (app as any).useStaticAssets(publicPath, { prefix: `${app_mount_dir}` });
   Logger.log(`Serving static assets from '${publicPath} with prefix '${app_mount_dir}'`);
   app.use(cookieParser());
   app.use(bodyParser.json({ limit: maxFileSize }));

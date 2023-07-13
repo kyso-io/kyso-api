@@ -11,11 +11,10 @@ import {
   Organization,
   Report,
   Team,
-  TeamVisibilityEnum,
   Token,
   User,
 } from '@kyso-io/kyso-model';
-import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import * as moment from 'moment';
 import { Autowired } from '../../decorators/autowired';
@@ -206,10 +205,10 @@ export class CommentsService extends AutowiredService {
   public async updateComment(token: Token, id: string, updateCommentRequest: CommentDto): Promise<Comment> {
     const comment: Comment = await this.getCommentById(id);
     if (!comment) {
-      throw new PreconditionFailedException('The specified comment could not be found');
+      throw new NotFoundException('The specified comment could not be found');
     }
     if (comment.mark_delete_at != null) {
-      throw new PreconditionFailedException('The specified comment has been deleted');
+      throw new ConflictException('The specified comment has been deleted');
     }
     const dataFields: any = {
       text: updateCommentRequest.text,
@@ -263,7 +262,10 @@ export class CommentsService extends AutowiredService {
   async deleteComment(token: Token, commentId: string): Promise<Comment> {
     let comment: Comment = await this.getCommentById(commentId);
     if (!comment) {
-      throw new PreconditionFailedException('The specified comment could not be found');
+      throw new NotFoundException('The specified comment could not be found');
+    }
+    if (comment.mark_delete_at != null) {
+      throw new ConflictException('The specified comment has been deleted');
     }
     let team: Team = null;
     let report: Report = null;
@@ -271,33 +273,33 @@ export class CommentsService extends AutowiredService {
     if (comment?.report_id) {
       report = await this.reportsService.getReportById(comment.report_id);
       if (!report) {
-        throw new PreconditionFailedException('The specified report could not be found');
+        throw new NotFoundException('The specified report could not be found');
       }
       if (!report.team_id || report.team_id == null || report.team_id === '') {
         throw new PreconditionFailedException('The specified report does not have a team associated');
       }
       team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(report.team_id) } });
       if (!team) {
-        throw new PreconditionFailedException('The specified team could not be found');
+        throw new NotFoundException('The specified team could not be found');
       }
     } else if (comment?.discussion_id) {
       discussion = await this.discussionsService.getDiscussionById(comment.discussion_id);
       if (!discussion) {
-        throw new PreconditionFailedException('The specified discussion could not be found');
+        throw new NotFoundException('The specified discussion could not be found');
       }
       if (!discussion.team_id || discussion.team_id == null || discussion.team_id === '') {
         throw new PreconditionFailedException('The specified discussion does not have a team associated');
       }
       team = await this.teamsService.getTeam({ filter: { _id: this.provider.toObjectId(discussion.team_id) } });
       if (!team) {
-        throw new PreconditionFailedException('The specified team could not be found');
+        throw new NotFoundException('The specified team could not be found');
       }
     } else {
       throw new PreconditionFailedException('The specified comment does not have a report or discussion associated');
     }
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     if (!organization) {
-      throw new PreconditionFailedException('The specified organization could not be found');
+      throw new NotFoundException('The specified organization could not be found');
     }
     const userIsCommentCreator: boolean = comment.user_id === token.id;
     if (!userIsCommentCreator) {
@@ -334,7 +336,7 @@ export class CommentsService extends AutowiredService {
     return this.provider.read(query);
   }
 
-  async getCommentWithChildren(commentId): Promise<Comment> {
+  async getCommentWithChildren(commentId: string): Promise<Comment> {
     const comments: Comment[] = await this.provider.read({
       filter: { _id: this.provider.toObjectId(commentId) },
       limit: 1,

@@ -1,5 +1,4 @@
 import { DynamicModule } from '@nestjs/common';
-import { GitlabReposController } from './gitlab-repos.controller';
 import { createProvider, GitlabReposService } from './gitlab-repos.service';
 import { GitlabReposProvider } from './providers/gitlab-repos.provider';
 
@@ -10,7 +9,7 @@ export class GitlabReposModule {
     return {
       module: GitlabReposModule,
       providers: [GitlabReposService, dynamicProvider, GitlabReposProvider],
-      controllers: [GitlabReposController],
+      // controllers: [GitlabReposController],
       exports: [dynamicProvider],
     };
   }

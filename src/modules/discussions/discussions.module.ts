@@ -1,6 +1,5 @@
 import { DynamicModule } from '@nestjs/common';
 import { registerNatsService } from '../../providers/nats-service-register';
-import { DiscussionsController } from './discussions.controller';
 import { createProvider, DiscussionsService } from './discussions.service';
 import { DiscussionsMongoProvider } from './providers/discussions-mongo.provider';
 
@@ -11,7 +10,7 @@ export class DiscussionsModule {
       module: DiscussionsModule,
       providers: [DiscussionsService, DiscussionsMongoProvider, dynamicProvider],
       imports: [registerNatsService()],
-      controllers: [DiscussionsController],
+      // controllers: [DiscussionsController],
       exports: [dynamicProvider],
     };
   }

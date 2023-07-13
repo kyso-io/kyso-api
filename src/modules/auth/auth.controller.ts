@@ -19,6 +19,7 @@ import {
   VerifyEmailRequestDTO,
 } from '@kyso-io/kyso-model';
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -26,24 +27,24 @@ import {
   Get,
   Headers,
   HttpStatus,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   Param,
   Post,
-  PreconditionFailedException,
   Query,
   Req,
   Res,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiCookieAuth, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
 import { XMLParser } from 'fast-xml-parser';
 import * as moment from 'moment';
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
+import { v4 as uuidv4 } from 'uuid';
 import { Autowired } from '../../decorators/autowired';
 import { Cookies } from '../../decorators/cookies';
 import { Public } from '../../decorators/is-public';
-import { GenericController } from '../../generic/controller.generic';
 import { db } from '../../main';
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service';
 import { OrganizationsService } from '../organizations/organizations.service';
@@ -62,7 +63,7 @@ const Saml2js = require('saml2js');
 
 @ApiTags('auth')
 @Controller('auth')
-export class AuthController extends GenericController<string> {
+export class AuthController {
   @Autowired({ typeName: 'UsersService' })
   private readonly usersService: UsersService;
 
@@ -84,27 +85,60 @@ export class AuthController extends GenericController<string> {
   @Autowired({ typeName: 'KysoSettingsService' })
   public readonly kysoSettingsService: KysoSettingsService;
 
-  constructor(private readonly authService: AuthService, private readonly baseLoginProvider: BaseLoginProvider) {
-    super();
-  }
+  constructor(private readonly authService: AuthService, private readonly baseLoginProvider: BaseLoginProvider) {}
 
   @Get('/version')
+  @ApiOperation({
+    summary: `Gets the current API version`,
+    description: `Gets the current API version`,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Current API version`,
+    content: {
+      string: {
+        examples: {
+          version: {
+            value: '1.1.0',
+          },
+        },
+      },
+    },
+  })
   version(): string {
     return '1.1.0';
   }
 
   @Get('/db')
+  @ApiOperation({
+    summary: `Gets the current database version`,
+    description: `Gets the current database version`,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `Current database version`,
+    content: {
+      string: {
+        examples: {
+          version: {
+            value: '4.4.0',
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 500,
+    description: `An error occurred getting mongodb version`,
+  })
   public async getMongoDbVersion(): Promise<string> {
-    return new Promise<string | null>((resolve) => {
-      db.admin().serverInfo((err, info) => {
-        if (err) {
-          Logger.error(`An error occurred getting mongodb version`, err, AuthController.name);
-          resolve(err);
-        } else {
-          resolve(info?.version ? info.version : 'Unknown');
-        }
-      });
-    });
+    try {
+      const result = await db.admin().serverInfo();
+      return result?.version ? result.version : 'Unknown';
+    } catch (e) {
+      Logger.error(`An error occurred getting mongodb version`, e, AuthController.name);
+      throw new InternalServerErrorException(`An error occurred getting mongodb version`);
+    }
   }
 
   @Post('/login')
@@ -112,31 +146,91 @@ export class AuthController extends GenericController<string> {
     summary: `Logs an user into Kyso`,
     description: `Allows existing users to log-in into Kyso`,
   })
-  @ApiResponse({
-    status: 200,
-    description: `JWT token related to user`,
-    type: String,
-  })
   @ApiBody({
     description: 'Login credentials and provider',
     required: true,
-    type: Login,
-    examples: Login.examples(),
+    examples: {
+      json: {
+        value: new Login('pass', LoginProviderEnum.KYSO, 'lo+rey@kyso.io', null),
+      },
+    },
   })
-  async login(@Body() login: Login, @Res() res): Promise<void> {
+  @ApiResponse({
+    status: 201,
+    description: `JWT token related to user`,
+    content: {
+      json: {
+        examples: {
+          jwtToken: {
+            value: new NormalizedResponseDTO(
+              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+            ),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: `User is not allowed to log-in`,
+    content: {
+      json: {
+        examples: {
+          userNotExists: {
+            value: new UnauthorizedException('Kyso authentication is disabled globally for that instance'),
+          },
+          invalidCredentials: {
+            value: new UnauthorizedException('Invalid credentials'),
+          },
+          accessTokenRevoked: {
+            value: new UnauthorizedException('Access token has been revoked'),
+          },
+          accessTokenExpired: {
+            value: new UnauthorizedException('Access token has expired'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: `User is not allowed to log-in`,
+    content: {
+      json: {
+        examples: {
+          kysoError: {
+            value: new ForbiddenException('Kyso authentication is disabled globally for that instance'),
+          },
+          githubError: {
+            value: new ForbiddenException('GitHub authentication is disabled globally for that instance'),
+          },
+          gitlabError: {
+            value: new ForbiddenException('GitLab authentication is disabled globally for that instance'),
+          },
+          googleError: {
+            value: new ForbiddenException('Google authentication is disabled globally for that instance'),
+          },
+          bitbucketError: {
+            value: new ForbiddenException('Bitbucket authentication is disabled globally for that instance'),
+          },
+        },
+      },
+    },
+  })
+  async login(@Body() login: Login, @Res() response: Response): Promise<void> {
     const jwt: string = await this.authService.login(login);
     const tokenExpirationTimeInHours = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN);
     const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL);
     const urlObject = new URL(baseUrl);
     const domain = `.${urlObject.hostname}`;
-    res.cookie('kyso-jwt-token', jwt, {
+    response.cookie('kyso-jwt-token', jwt, {
       secure: process.env.NODE_ENV !== 'development',
       httpOnly: true,
       sameSite: 'strict',
       expires: moment().add(tokenExpirationTimeInHours, 'hours').toDate(),
       domain: domain,
     });
-    res.send(new NormalizedResponseDTO(jwt));
+    response.send(new NormalizedResponseDTO(jwt));
   }
 
   @Post('/logout')
@@ -146,21 +240,20 @@ export class AuthController extends GenericController<string> {
   })
   @ApiResponse({
     status: 200,
-    description: `JWT token related to user`,
-    type: String,
+    description: `Invalidated JWT token in cookie`,
   })
-  async logout(@Res() res): Promise<void> {
+  async logout(@Res() response: Response): Promise<void> {
     const baseUrl = await this.kysoSettingsService.getValue(KysoSettingsEnum.BASE_URL);
     const urlObject = new URL(baseUrl);
     const domain = `.${urlObject.hostname}`;
-    res.cookie('kyso-jwt-token', '', {
+    response.cookie('kyso-jwt-token', '', {
       secure: process.env.NODE_ENV !== 'development',
       httpOnly: true,
       sameSite: 'strict',
       expires: new Date(0),
       domain: domain,
     });
-    res.status(HttpStatus.OK).send();
+    response.status(HttpStatus.OK).send();
   }
 
   @Post('/login/sso/ping-saml/callback')
@@ -168,7 +261,31 @@ export class AuthController extends GenericController<string> {
     summary: `Callback URL for pingID`,
     description: `Callback URL. Expects an object with the properties: mail, givenName (name) and sn (surname)`,
   })
-  async loginSSOCallback(@Req() request, @Res() response) {
+  @ApiBody({
+    description: 'SAMLResponse',
+    required: true,
+    examples: {
+      string: {
+        value: 'SAMLResponse',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: `JWT token related to user`,
+    content: {
+      json: {
+        examples: {
+          jwtToken: {
+            value: new NormalizedResponseDTO(
+              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+            ),
+          },
+        },
+      },
+    },
+  })
+  async loginSSOCallback(@Req() request, @Res() response: Response) {
     const xmlResponse = request.body.SAMLResponse;
 
     const parser = new Saml2js(xmlResponse);
@@ -198,7 +315,7 @@ export class AuthController extends GenericController<string> {
       });
       response.redirect(`${frontendUrl}/sso/${jwt}`);
     } else {
-      throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the following properties: samlSubject, email, portrait and name`);
+      throw new BadRequestException(`Incomplete SAML payload received. Kyso requires the following properties: samlSubject, email, portrait and name`);
     }
   }
 
@@ -207,7 +324,47 @@ export class AuthController extends GenericController<string> {
     summary: `Callback URL for okta`,
     description: `Callback URL. Expects an object with the properties: mail, givenName (name) and sn (surname)`,
   })
-  async loginOktaCallback(@Body() body: { SAMLResponse: string; RelayState: string }, @Res() response) {
+  @ApiBody({
+    description: 'SAMLResponse',
+    required: true,
+    examples: {
+      json: {
+        value: {
+          SAMLResponse: 'SAMLResponse',
+          RelayState: 'RelayState',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: `JWT token related to user`,
+    content: {
+      json: {
+        examples: {
+          jwtToken: {
+            value: new NormalizedResponseDTO(
+              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiZW1haWwiOiJtYWlsQGVtYWlsLmNvbSIsIm5hbWUiOiJtYWlsIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+            ),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: `Incomplete SAML payload received`,
+    content: {
+      json: {
+        examples: {
+          error: {
+            value: new BadRequestException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response'] property`),
+          },
+        },
+      },
+    },
+  })
+  async loginOktaCallback(@Body() body: { SAMLResponse: string; RelayState: string }, @Res() response: Response) {
     try {
       // Decode body.SAMLResponse in base64
       const xmlResponse = Buffer.from(body.SAMLResponse, 'base64').toString('utf8');
@@ -215,20 +372,21 @@ export class AuthController extends GenericController<string> {
         ignoreAttributes: false,
       });
       const data = parser.parse(xmlResponse);
+      console.log(data);
       if (!data.hasOwnProperty('saml2p:Response')) {
-        throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response'] property`);
+        throw new BadRequestException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response'] property`);
       }
       if (!data['saml2p:Response'].hasOwnProperty('saml2:Assertion')) {
-        throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion'] property`);
+        throw new BadRequestException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion'] property`);
       }
       if (!data['saml2p:Response']['saml2:Assertion'].hasOwnProperty('saml2:Subject')) {
-        throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion']['saml2:Subject'] property`);
+        throw new BadRequestException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion']['saml2:Subject'] property`);
       }
       if (!data['saml2p:Response']['saml2:Assertion']['saml2:Subject'].hasOwnProperty('saml2:NameID')) {
-        throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID'] property`);
+        throw new BadRequestException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID'] property`);
       }
       if (!data['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID'].hasOwnProperty('#text')) {
-        throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID']['#text'] property`);
+        throw new BadRequestException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID']['#text'] property`);
       }
       const email: string = data['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID']['#text'];
 
@@ -256,16 +414,42 @@ export class AuthController extends GenericController<string> {
         });
         response.redirect(`${frontendUrl}/sso/${jwt}`);
       } else {
-        throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the saml2:NameID property`);
+        throw new BadRequestException(`Incomplete SAML payload received. Kyso requires the saml2:NameID property`);
       }
     } catch (e) {
-      throw new PreconditionFailedException(`Incomplete SAML payload received. Kyso requires the saml2:NameID property`);
+      throw new BadRequestException(`Incomplete SAML payload received. Kyso requires the saml2:NameID property`);
     }
   }
 
   @Post('/login/sso/fail')
   @Get('/login/sso/fail')
-  async loginSSOFail(@Req() request) {
+  @ApiResponse({
+    status: 200,
+    description: `Failed to login`,
+    content: {
+      string: {
+        examples: {
+          error: {
+            value: 'Failed',
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: `Failed to login`,
+    content: {
+      string: {
+        examples: {
+          error: {
+            value: 'Failed',
+          },
+        },
+      },
+    },
+  })
+  async loginSSOFail() {
     return 'Failed';
   }
 
@@ -277,10 +461,38 @@ export class AuthController extends GenericController<string> {
   @ApiBody({
     description: 'User registration data',
     required: true,
-    type: SignUpDto,
-    examples: SignUpDto.examples(),
+    examples: {
+      json: {
+        value: new SignUpDto('rey@kyso.io', 'rey', 'Rey Skywalker', '12345678'),
+      },
+    },
   })
-  @ApiNormalizedResponse({ status: 201, description: `Registered user`, type: User })
+  @ApiResponse({
+    status: 201,
+    description: `Registered user`,
+    content: {
+      json: {
+        examples: {
+          signUp: {
+            value: new NormalizedResponseDTO<User>(User.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    description: `Email in use`,
+    content: {
+      json: {
+        examples: {
+          error: {
+            value: new ConflictException(`Email in use`),
+          },
+        },
+      },
+    },
+  })
   public async signUp(@Body() signUpDto: SignUpDto): Promise<NormalizedResponseDTO<User>> {
     const user: User = await this.usersService.createUser(signUpDto);
     return new NormalizedResponseDTO(user);
@@ -295,16 +507,57 @@ export class AuthController extends GenericController<string> {
   @ApiBody({
     description: 'Email verification data',
     required: true,
-    type: VerifyEmailRequestDTO,
-    examples: VerifyEmailRequestDTO.examples(),
+    examples: {
+      json: {
+        value: new VerifyEmailRequestDTO('rey@kyso.io', uuidv4()),
+      },
+    },
   })
-  @ApiNormalizedResponse({ status: 200, description: `Jwt token`, type: String })
+  @ApiResponse({
+    status: 201,
+    description: `JWT token related to user`,
+    content: {
+      json: {
+        examples: {
+          jwtToken: {
+            value: new NormalizedResponseDTO(
+              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+            ),
+          },
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 403,
     description: `Verification token has expired`,
-    type: String,
+    content: {
+      json: {
+        examples: {
+          tokenExpired: {
+            value: new ForbiddenException(`Verification token has expired`),
+          },
+        },
+      },
+    },
   })
-  public async verifyEmail(@Body() verifyEmailRequestDto: VerifyEmailRequestDTO, @Res() res): Promise<void> {
+  @ApiResponse({
+    status: 404,
+    description: `User not found`,
+    content: {
+      json: {
+        examples: {
+          userNotFound: {
+            value: new NotFoundException(`User not found`),
+          },
+          tokenNotFound: {
+            value: new NotFoundException(`Token not found`),
+          },
+        },
+      },
+    },
+  })
+  public async verifyEmail(@Body() verifyEmailRequestDto: VerifyEmailRequestDTO, @Res() response: Response): Promise<void> {
     const user: User = await this.usersService.getUser({ filter: { email: verifyEmailRequestDto.email } });
     if (!user) {
       throw new NotFoundException(`User not found`);
@@ -313,22 +566,48 @@ export class AuthController extends GenericController<string> {
     const jwt: string = await this.baseLoginProvider.createToken(user);
     const staticContentPrefix: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.STATIC_CONTENT_PREFIX);
     const tokenExpirationTimeInHours = await this.kysoSettingsService.getValue(KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN);
-    res.cookie('kyso-jwt-token', jwt, {
+    response.cookie('kyso-jwt-token', jwt, {
       secure: process.env.NODE_ENV !== 'development',
       httpOnly: true,
       path: staticContentPrefix,
       sameSite: 'strict',
       expires: moment().add(tokenExpirationTimeInHours, 'hours').toDate(),
     });
-    res.send(new NormalizedResponseDTO(jwt));
+    response.send(new NormalizedResponseDTO(jwt));
   }
 
   @Post('/send-verification-email')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Send an email to verify an user's email address`,
     description: `Allows new users to send an email to verify their email address`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Sent email`, type: Boolean })
+  @ApiResponse({
+    status: 200,
+    description: `Sent email`,
+    content: {
+      json: {
+        examples: {
+          sentEmail: {
+            value: new NormalizedResponseDTO(true),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: `No token provided`,
+    content: {
+      json: {
+        examples: {
+          noToken: {
+            value: new UnauthorizedException(`No token provided`),
+          },
+        },
+      },
+    },
+  })
   public async sendVerifyEmail(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<boolean>> {
     if (!token) {
       throw new UnauthorizedException('No token provided');
@@ -346,12 +625,37 @@ export class AuthController extends GenericController<string> {
   })
   @ApiResponse({
     status: 201,
-    description: `Updated token related to user`,
-    type: Token,
+    description: `JWT token related to user`,
+    content: {
+      json: {
+        examples: {
+          jwtToken: {
+            value: new NormalizedResponseDTO(
+              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+            ),
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 403,
-    description: `Token is invalid or expired`,
+    description: `User is not allowed to log-in`,
+    content: {
+      json: {
+        examples: {
+          invalidToken: {
+            value: new ForbiddenException('Invalid token'),
+          },
+          userNotFound: {
+            value: new ForbiddenException('User not found'),
+          },
+          unrecognizedTokenStatus: {
+            value: new ForbiddenException('Unrecognized token status'),
+          },
+        },
+      },
+    },
   })
   async refreshToken(@Headers('authorization') jwtToken: string): Promise<NormalizedResponseDTO<string>> {
     if ('Bearer ' !== jwtToken.substring(0, 7)) {
@@ -380,39 +684,15 @@ export class AuthController extends GenericController<string> {
         case TokenStatusEnum.INVALID_SIGNATURE:
           // Raise security alert
           console.error('SECURITY WARNING: INVALID SIGNATURE DETECTED');
-          throw new ForbiddenException();
+          throw new ForbiddenException('Invalid signature');
 
         default:
-          throw new ForbiddenException();
+          throw new ForbiddenException('Unrecognized token status');
       }
     } catch (ex) {
       throw new ForbiddenException();
     }
   }
-
-  /* DEPRECATED
-  @Get('/organization/:organizationSlug/options')
-  @ApiParam({
-    name: 'organizationSlug',
-    required: true,
-    description: `Slugified name of kyso's organization to login`,
-    schema: { type: 'string' },
-    example: 'JANSSEN-RANDD',
-  })
-  @ApiNormalizedResponse({ status: 200, description: `Organization auth options`, type: OrganizationAuthOptions })
-  async getOrganizationAuthOptions(@Param('organizationSlug') organizationSlug: string): Promise<NormalizedResponseDTO<OrganizationAuthOptions>> {
-    // Fetch organizationSlug configuration
-    const organization: Organization = await this.organizationsService.getOrganization({
-      filter: {
-        sluglified_name: organizationSlug,
-      },
-    });
-    if (!organization) {
-      throw new PreconditionFailedException(`Organization with slug ${organizationSlug} not found`);
-    }
-    return new NormalizedResponseDTO(organization.options?.auth ? organization.options.auth : null);
-  }
-  */
 
   @Get('/username-available/:username')
   @ApiParam({
@@ -422,13 +702,29 @@ export class AuthController extends GenericController<string> {
     schema: { type: 'string' },
     example: 'janssen-randd',
   })
-  @ApiNormalizedResponse({ status: 200, description: `Username is available`, type: Boolean })
+  @ApiResponse({
+    status: 200,
+    description: `Indicates if the username is available or not`,
+    content: {
+      json: {
+        examples: {
+          usernameAvailable: {
+            value: new NormalizedResponseDTO(true),
+          },
+          usernameNotAvailable: {
+            value: new NormalizedResponseDTO(false),
+          },
+        },
+      },
+    },
+  })
   async checkUsernameAvailability(@Param('username') username: string): Promise<NormalizedResponseDTO<boolean>> {
     const result = await this.usersService.checkUsernameAvailability(username);
     return new NormalizedResponseDTO(result);
   }
 
   @Get('/user/:username/permissions')
+  @ApiBearerAuth()
   @ApiParam({
     name: 'username',
     required: true,
@@ -436,7 +732,48 @@ export class AuthController extends GenericController<string> {
     schema: { type: 'string' },
     example: 'rey@kyso.io',
   })
-  @ApiBearerAuth()
+  @ApiResponse({
+    status: 200,
+    description: `JWT token related to user`,
+    content: {
+      json: {
+        examples: {
+          userPermissions: {
+            value: TokenPermissions.createEmpty(),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: `User is not allowed to log-in`,
+    content: {
+      json: {
+        examples: {
+          unhautenticatedRequest: {
+            value: new UnauthorizedException('Unhautenticated request'),
+          },
+          noRights: {
+            value: new UnauthorizedException('The requester user has no rights to access other user permissions'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: `User is not allowed to log-in`,
+    content: {
+      json: {
+        examples: {
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
+  })
   async getUserPermissions(@CurrentToken() token: Token, @Param('username') username: string) {
     if (!token) {
       throw new UnauthorizedException('Unhautenticated request');
@@ -450,12 +787,30 @@ export class AuthController extends GenericController<string> {
 
   @Get('/public-permissions')
   @Public()
+  @ApiOperation({
+    summary: 'Get public permissions',
+    description: 'Get public permissions',
+  })
+  @ApiResponse({
+    status: 200,
+    description: `JWT token related to user`,
+    content: {
+      json: {
+        examples: {
+          userPermissions: {
+            value: TokenPermissions.createEmpty(),
+          },
+        },
+      },
+    },
+  })
   async getPublicPermissions(): Promise<NormalizedResponseDTO<TokenPermissions>> {
     const tokenPermissions: TokenPermissions = await this.authService.getPermissions();
     return new NormalizedResponseDTO(tokenPermissions);
   }
 
   @Get('/check-permissions')
+  @ApiCookieAuth('kyso-jwt-token')
   @ApiHeader({
     name: 'x-original-uri',
     description: 'Original SCS url',
@@ -467,7 +822,15 @@ export class AuthController extends GenericController<string> {
     description: 'JWT Token to check. Optional',
     required: false,
   })
-  async checkPermissions(@Headers('x-original-uri') originalUri, @Res() response: any, @Cookies() cookies: any, @Query('token') queryToken?: string) {
+  @ApiResponse({
+    status: 200,
+    description: 'Permissions checked',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden',
+  })
+  async checkPermissions(@Headers('x-original-uri') originalUri, @Res() response: Response, @Cookies() cookies: any, @Query('token') queryToken?: string) {
     Logger.log(`Checking permissions for ${originalUri}`);
 
     if (!originalUri || originalUri.length === 0) {
@@ -488,12 +851,12 @@ export class AuthController extends GenericController<string> {
     const organization: Organization = await this.organizationsService.getOrganization({ filter: { sluglified_name: organizationName } });
     if (!organization) {
       Logger.error(`Organization ${organizationName} not found`);
-      throw new PreconditionFailedException('Organization not found');
+      throw new NotFoundException('Organization not found');
     }
 
     const team: Team = await this.teamsService.getUniqueTeam(organization.id, teamName);
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Team not found');
     }
     if (team.visibility === TeamVisibilityEnum.PUBLIC) {
       response.status(HttpStatus.OK).send();
@@ -549,11 +912,23 @@ export class AuthController extends GenericController<string> {
   }
 
   @Post('/check-permission')
+  @ApiBearerAuth()
   @ApiBody({
     description: 'Permission to check',
     required: true,
-    type: CheckPermissionDto,
-    examples: CheckPermissionDto.examples(),
+    examples: {
+      json: {
+        value: new CheckPermissionDto('lightside', 'protected-team', ReportPermissionsEnum.READ),
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Permissions checked',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden',
   })
   async checkPermission(@CurrentToken() token: Token, @Body() checkPermissionDto: CheckPermissionDto): Promise<NormalizedResponseDTO<boolean>> {
     if (!token) {
@@ -567,6 +942,7 @@ export class AuthController extends GenericController<string> {
 
   @Get('/check-app-permissions')
   @Post('/check-app-permissions')
+  @ApiCookieAuth('kyso-jwt-token')
   @ApiHeader({
     name: 'X-Original-URL',
     description: 'Original app URL (sent by the ingress controller)',
@@ -578,10 +954,79 @@ export class AuthController extends GenericController<string> {
     description: 'Send Report Data on Response. Optional, defaults to false',
     required: false,
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 200,
-    description: `App Report Data`,
-    type: Report,
+    description: `Requested report`,
+    content: {
+      json: {
+        examples: {
+          jwtToken: {
+            value: new NormalizedResponseDTO(ReportDTO.createEmpty()),
+          },
+        },
+      },
+      empty: {
+        examples: {
+          noData: {
+            value: null,
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: `User is not allowed to log-in`,
+    content: {
+      json: {
+        examples: {
+          noCookies: {
+            value: new ForbiddenException('No cookies set'),
+          },
+          noTokenInCookies: {
+            value: new ForbiddenException('No token in cookies'),
+          },
+          noPermissions: {
+            value: new ForbiddenException('No permissions to access this report'),
+          },
+          reportIsNotApplication: {
+            value: new ForbiddenException('The report is not application'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: `User is not allowed to log-in`,
+    content: {
+      json: {
+        examples: {
+          reportNotFound: {
+            value: new NotFoundException('Report not found'),
+          },
+          teamNotFound: {
+            value: new NotFoundException('Team not found'),
+          },
+          organizationNotFound: {
+            value: new NotFoundException('Organization not found'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    description: `User is not allowed to log-in`,
+    content: {
+      json: {
+        examples: {
+          reportIsNotAnApplication: {
+            value: new ForbiddenException('The report is not application'),
+          },
+        },
+      },
+    },
   })
   async checkAppPermissions(@Headers('X-Original-URL') originalUrl, @Cookies() cookies: any, @Query('data') sendData = false): Promise<NormalizedResponseDTO<ReportDTO>> {
     Logger.log(`Checking permissions for ${originalUrl}`);
@@ -597,22 +1042,17 @@ export class AuthController extends GenericController<string> {
     const originalUrlHostname = originalUrlObject.hostname;
     const reportId = originalUrlHostname.replace(`.${appDomainSuffix}`, '');
     // Find report and get organization and team from it
-    let report: Report = null;
-    try {
-      report = await this.reportsService.getReportById(reportId);
-      if (!report) {
-        throw new ForbiddenException(`Report '${reportId}' not found`);
-      }
-    } catch (error) {
-      throw new ForbiddenException(`Error looking for report '${reportId}': ${error}`);
+    const report: Report = await this.reportsService.getReportById(reportId);
+    if (!report) {
+      throw new NotFoundException(`Report '${reportId}' not found`);
     }
     const team: Team = await this.teamsService.getTeamById(report.team_id);
     if (!team) {
-      throw new PreconditionFailedException('Team not found');
+      throw new NotFoundException('Team not found');
     }
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
     if (!organization) {
-      throw new PreconditionFailedException('Organization not found');
+      throw new NotFoundException('Organization not found');
     }
     Logger.log(`Report '${report.title}' is in team '${team.sluglified_name}' and org '${organization.sluglified_name}'`);
     let userHasPermission: boolean;
@@ -623,11 +1063,11 @@ export class AuthController extends GenericController<string> {
     } else {
       // Read token from cookie
       if (!cookies || !cookies['kyso-jwt-token'] || cookies['kyso-jwt-token'].length === 0) {
-        throw new ForbiddenException('No cookies set. Forbidden');
+        throw new ForbiddenException('No cookies set');
       }
       const token: Token = this.authService.evaluateAndDecodeToken(cookies['kyso-jwt-token']);
       if (!token) {
-        throw new ForbiddenException('No token in cookies. Forbidden');
+        throw new ForbiddenException('No token in cookies');
       }
       Logger.log(`Checking permissions for user ${token.username}`);
       token.permissions = await AuthService.buildFinalPermissionsForUser(token.email, this.usersService, this.teamsService, this.organizationsService, this.platformRoleService, this.userRoleService);
@@ -641,18 +1081,19 @@ export class AuthController extends GenericController<string> {
       // controller shows a 500 error.
       if (report_type != 'app' && !report_type.startsWith('app.')) {
         if (sendData) {
-          throw new ConflictException('The report is not application. Forbidden');
+          throw new ConflictException('The report is not application');
         } else {
-          throw new ForbiddenException('The report is not application. Forbidden');
+          throw new ForbiddenException('The report is not application');
         }
-      } else if (sendData) {
+      }
+      if (sendData) {
         const reportDto: ReportDTO = await this.reportsService.reportModelToReportDTO(report, userId);
         return new NormalizedResponseDTO(reportDto);
       } else {
         return;
       }
     } else {
-      throw new ForbiddenException('The user can see this report. Forbidden');
+      throw new ForbiddenException('The user can see this report');
     }
   }
 }
