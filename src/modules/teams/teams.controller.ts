@@ -1011,8 +1011,8 @@ export class TeamsController extends GenericController<Team> {
     },
   })
   @Permission([TeamPermissionsEnum.EDIT])
-  async removeMemberFromTeam(@Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
-    const members: TeamMember[] = await this.teamsService.removeMemberFromTeam(teamId, userId);
+  async removeMemberFromTeam(@CurrentToken() token: Token, @Param('teamId') teamId: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<TeamMember[]>> {
+    const members: TeamMember[] = await this.teamsService.removeMemberFromTeam(teamId, userId, token);
     return new NormalizedResponseDTO(members);
   }
 
@@ -1121,7 +1121,7 @@ export class TeamsController extends GenericController<Team> {
         // For that reason, we will add automatically the requested user as a TEAM_ADMIN of that
         // team.
         const userId = token.id;
-        await this.teamsService.addMemberToTeam(teamId, userId, [PlatformRole.TEAM_ADMIN_ROLE]);
+        await this.teamsService.addMemberToTeam(teamId, userId, [PlatformRole.TEAM_ADMIN_ROLE], token);
       } catch (ex) {
         Logger.error(`Can't add user ${token.id} to team ${teamId}`, ex);
       }
@@ -1370,8 +1370,8 @@ export class TeamsController extends GenericController<Team> {
     },
   })
   @Permission([TeamPermissionsEnum.EDIT])
-  public async UpdateTeamMembersDTORoles(@Param('teamId') teamId: string, @Body() data: UpdateTeamMembersDTO): Promise<NormalizedResponseDTO<TeamMember[]>> {
-    const teamMembers: TeamMember[] = await this.teamsService.updateTeamMembersDTORoles(teamId, data);
+  public async UpdateTeamMembersDTORoles(@CurrentToken() token: Token, @Param('teamId') teamId: string, @Body() data: UpdateTeamMembersDTO): Promise<NormalizedResponseDTO<TeamMember[]>> {
+    const teamMembers: TeamMember[] = await this.teamsService.updateTeamMembersDTORoles(token, teamId, data);
     return new NormalizedResponseDTO(teamMembers);
   }
 

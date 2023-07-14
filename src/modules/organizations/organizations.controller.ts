@@ -1092,8 +1092,8 @@ export class OrganizationsController {
     },
   })
   @Permission([OrganizationPermissionsEnum.ADMIN])
-  public async addMemberToOrganization(@Body() addUserOrganizationDto: AddUserOrganizationDto): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
-    const members: OrganizationMember[] = await this.organizationService.addMemberToOrganization(addUserOrganizationDto);
+  public async addMemberToOrganization(@CurrentToken() token: Token, @Body() addUserOrganizationDto: AddUserOrganizationDto): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
+    const members: OrganizationMember[] = await this.organizationService.addMemberToOrganization(addUserOrganizationDto, token);
     return new NormalizedResponseDTO(members);
   }
 
@@ -1259,8 +1259,12 @@ export class OrganizationsController {
     },
   })
   @Permission([OrganizationPermissionsEnum.ADMIN])
-  public async removeMemberFromOrganization(@Param('organizationId') organizationId, @Param('userId') userId: string): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
-    const members: OrganizationMember[] = await this.organizationService.removeMemberFromOrganization(organizationId, userId);
+  public async removeMemberFromOrganization(
+    @CurrentToken() token: Token,
+    @Param('organizationId') organizationId,
+    @Param('userId') userId: string,
+  ): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
+    const members: OrganizationMember[] = await this.organizationService.removeMemberFromOrganization(organizationId, userId, token);
     return new NormalizedResponseDTO<OrganizationMember[]>(members);
   }
 
@@ -1353,8 +1357,12 @@ export class OrganizationsController {
     },
   })
   @Permission([OrganizationPermissionsEnum.ADMIN])
-  public async UpdateOrganizationMembersDTORoles(@Param('organizationId') organizationId: string, @Body() data: UpdateOrganizationMembersDTO): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
-    const organizationMembers: OrganizationMember[] = await this.organizationService.updateOrganizationMembersDTORoles(organizationId, data);
+  public async UpdateOrganizationMembersDTORoles(
+    @CurrentToken() token: Token,
+    @Param('organizationId') organizationId: string,
+    @Body() data: UpdateOrganizationMembersDTO,
+  ): Promise<NormalizedResponseDTO<OrganizationMember[]>> {
+    const organizationMembers: OrganizationMember[] = await this.organizationService.updateOrganizationMembersDTORoles(token, organizationId, data);
     return new NormalizedResponseDTO(organizationMembers);
   }
 
