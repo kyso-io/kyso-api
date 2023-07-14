@@ -223,12 +223,7 @@ export class TeamsService extends AutowiredService {
   async addMembersById(teamId: string, memberIds: string[], rolesToApply: string[], silent?: boolean, userCreatingAction?: User): Promise<void> {
     const team: Team = await this.getTeamById(teamId);
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-    const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
     const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-    let emailsCentralized: string[] = [];
-    if (isCentralized) {
-      emailsCentralized = organization.options.notifications.emails;
-    }
     for (const userId of memberIds) {
       const belongs: boolean = await this.userBelongsToTeam(teamId, userId);
       if (belongs) {
@@ -244,7 +239,6 @@ export class TeamsService extends AutowiredService {
           userReceivingAction: user,
           organization,
           team,
-          emailsCentralized,
           frontendUrl,
           roles: rolesToApply,
         });
@@ -577,18 +571,12 @@ export class TeamsService extends AutowiredService {
     members.splice(index, 1);
     if (token) {
       // SEND NOTIFICATIONS
-      const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
       const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-      let emailsCentralized: string[] = [];
-      if (isCentralized) {
-        emailsCentralized = organization.options.notifications.emails;
-      }
       NATSHelper.safelyEmit<KysoTeamsRemoveMemberEvent>(this.client, KysoEventEnum.TEAMS_REMOVE_MEMBER, {
         userCreatingAction: await this.usersService.getUserById(token.id),
         user,
         organization,
         team,
-        emailsCentralized,
         frontendUrl,
       });
     }
@@ -602,13 +590,7 @@ export class TeamsService extends AutowiredService {
       throw new NotFoundException('Team not found');
     }
     const organization: Organization = await this.organizationsService.getOrganizationById(team.organization_id);
-    const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
     const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-    let emailsCentralized: string[] = [];
-    if (isCentralized) {
-      emailsCentralized = organization.options.notifications.emails;
-    }
-
     const members: TeamMemberJoin[] = await this.teamMemberProvider.getMembers(team.id);
     for (const element of data.members) {
       const user: User = await this.usersService.getUserById(element.userId);
@@ -632,7 +614,6 @@ export class TeamsService extends AutowiredService {
           userReceivingAction: user,
           organization,
           team,
-          emailsCentralized,
           frontendUrl,
           roles: [element.role],
         });
@@ -646,7 +627,6 @@ export class TeamsService extends AutowiredService {
               userCreatingAction: await this.usersService.getUserById(token.id),
               userReceivingAction: user,
               team,
-              emailsCentralized,
               frontendUrl,
               previousRoles: member.role_names,
               currentRoles: [element.role],
@@ -658,7 +638,6 @@ export class TeamsService extends AutowiredService {
               userReceivingAction: user,
               organization,
               team,
-              emailsCentralized,
               frontendUrl,
               roles: [element.role],
             });
@@ -671,7 +650,6 @@ export class TeamsService extends AutowiredService {
               userReceivingAction: user,
               organization,
               team,
-              emailsCentralized,
               frontendUrl,
               previousRoles: member ? member.role_names : [],
               currentRoles: [element.role],
@@ -683,7 +661,6 @@ export class TeamsService extends AutowiredService {
               userReceivingAction: user,
               organization,
               team,
-              emailsCentralized,
               frontendUrl,
               roles: [element.role],
             });

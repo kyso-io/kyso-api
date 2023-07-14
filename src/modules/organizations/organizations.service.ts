@@ -38,7 +38,7 @@ import {
   UpdateOrganizationMembersDTO,
   User,
 } from '@kyso-io/kyso-model';
-import { BadRequestException, ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, Provider } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import axios, { AxiosResponse } from 'axios';
 import * as moment from 'moment';
@@ -434,10 +434,7 @@ export class OrganizationsService extends AutowiredService {
     if (!validRoles.includes(addUserOrganizationDto.role)) {
       throw new BadRequestException('Invalid role');
     }
-    const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
     const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-    let emailsCentralized: string[] = [];
-
     const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id);
     const member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id);
     if (member) {
@@ -447,15 +444,10 @@ export class OrganizationsService extends AutowiredService {
         await this.organizationMemberProvider.updateOne({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [member.role_names] } });
 
         try {
-          if (isCentralized) {
-            emailsCentralized = organization.options.notifications.emails;
-          }
-
           NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_UPDATE_MEMBER_ROLE, {
             userCreatingAction: token ? await this.usersService.getUserById(token.id) : null,
             userReceivingAction: user,
             organization,
-            emailsCentralized,
             previousRole: member.role_names[0],
             newRole: addUserOrganizationDto.role,
             frontendUrl,
@@ -467,16 +459,11 @@ export class OrganizationsService extends AutowiredService {
     } else {
       const newMember: OrganizationMemberJoin = new OrganizationMemberJoin(organization.id, user.id, [addUserOrganizationDto.role], true);
       await this.organizationMemberProvider.create(newMember);
-
       try {
-        if (isCentralized) {
-          emailsCentralized = organization.options.notifications.emails;
-        }
         NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_ADD_MEMBER, {
           userCreatingAction: token ? await this.usersService.getUserById(token.id) : null,
           userReceivingAction: user,
           organization,
-          emailsCentralized,
           previousRole: null,
           newRole: addUserOrganizationDto.role,
           frontendUrl,
@@ -536,17 +523,11 @@ export class OrganizationsService extends AutowiredService {
     member = new OrganizationMemberJoin(organization.id, user.id, [role], true);
     await this.organizationMemberProvider.create(member);
     // SEND NOTIFICATIONS
-    const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
     const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-    let emailsCentralized: string[] = [];
-    if (isCentralized) {
-      emailsCentralized = organization.options.notifications.emails;
-    }
     NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_ADD_MEMBER, {
       userCreatingAction: null,
       userReceivingAction: user,
       organization,
-      emailsCentralized,
       previousRole: null,
       newRole: role,
       frontendUrl,
@@ -576,17 +557,11 @@ export class OrganizationsService extends AutowiredService {
 
     if (token) {
       // SEND NOTIFICATIONS
-      const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
       const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-      let emailsCentralized: string[] = [];
-      if (isCentralized) {
-        emailsCentralized = organization.options.notifications.emails;
-      }
       NATSHelper.safelyEmit<KysoOrganizationsRemoveMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_REMOVE_MEMBER, {
         userCreatingAction: await this.usersService.getUserById(token.id),
         user,
         organization,
-        emailsCentralized,
         frontendUrl,
       });
     }
@@ -599,12 +574,7 @@ export class OrganizationsService extends AutowiredService {
     if (!organization) {
       throw new NotFoundException('Organization does not exist');
     }
-    const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
     const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-    let emailsCentralized: string[] = [];
-    if (isCentralized) {
-      emailsCentralized = organization.options.notifications.emails;
-    }
     const validRoles: string[] = [
       PlatformRole.TEAM_ADMIN_ROLE.name,
       PlatformRole.TEAM_CONTRIBUTOR_ROLE.name,
@@ -630,7 +600,6 @@ export class OrganizationsService extends AutowiredService {
           userCreatingAction: await this.usersService.getUserById(token.id),
           userReceivingAction: user,
           organization,
-          emailsCentralized,
           previousRole: member.role_names[0],
           newRole: element.role,
           frontendUrl,
