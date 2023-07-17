@@ -7,6 +7,7 @@ import {
   HEADER_X_KYSO_ORGANIZATION,
   InviteUserDto,
   JoinCodes,
+  KysoSettingsEnum,
   NormalizedResponseDTO,
   Organization,
   OrganizationInfoDto,
@@ -68,6 +69,7 @@ import { Permission } from '../auth/annotations/permission.decorator';
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { PermissionsGuard } from '../auth/guards/permission.guard';
 import { SolvedCaptchaGuard } from '../auth/guards/solved-captcha.guard';
+import { KysoSettingsService } from '../kyso-settings/kyso-settings.service';
 import { RelationsService } from '../relations/relations.service';
 import { RequestAccessService } from '../request-access/request-access.service';
 import { TeamsService } from '../teams/teams.service';
@@ -90,6 +92,9 @@ export class OrganizationsController {
 
   @Autowired({ typeName: 'TeamsService' })
   private teamsService: TeamsService;
+
+  @Autowired({ typeName: 'KysoSettingsService' })
+  private kysoSettingsService: KysoSettingsService;
 
   constructor(private readonly organizationService: OrganizationsService) {}
 
@@ -829,6 +834,9 @@ export class OrganizationsController {
           maxTeamsReached: {
             value: new ForbiddenException('You have reached the maximum number of teams you can create'),
           },
+          globalAdminsOnly: {
+            value: new ForbiddenException('Only global admins can create organizations'),
+          },
         },
       },
     },
@@ -846,6 +854,12 @@ export class OrganizationsController {
     },
   })
   async createOrganization(@CurrentToken() token: Token, @Body() createOrganizationDto: CreateOrganizationDto): Promise<NormalizedResponseDTO<Organization>> {
+    const kysoSettingsValue: any = await this.kysoSettingsService.getValue(KysoSettingsEnum.ONLY_GLOBAL_ADMINS_CAN_CREATE_ORGANIZATIONS);
+    if (kysoSettingsValue === 'true' || kysoSettingsValue === true) {
+      if (!token.isGlobalAdmin()) {
+        throw new ForbiddenException('Only global admins can create organizations');
+      }
+    }
     const slugName: string = slugify(createOrganizationDto.display_name);
     const existsOrganization: Organization = await this.organizationService.getOrganizationBySlugName(slugName);
     if (!existsOrganization) {

@@ -39,6 +39,7 @@ const PUBLIC_KYSO_SETTINGS: KysoSettingsEnum[] = [
   KysoSettingsEnum.ONBOARDING_MESSAGES,
   KysoSettingsEnum.FOOTER_CONTENTS,
   KysoSettingsEnum.KYSO_COMMENT_STATES_VALUES,
+  KysoSettingsEnum.ONLY_GLOBAL_ADMINS_CAN_CREATE_ORGANIZATIONS,
 ];
 
 @ApiTags('kyso-settings')

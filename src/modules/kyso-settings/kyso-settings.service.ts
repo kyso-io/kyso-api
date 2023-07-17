@@ -232,6 +232,8 @@ export class KysoSettingsService extends AutowiredService {
         return '/data';
       case KysoSettingsEnum.TMP_FOLDER_PATH:
         return '/app/data';
+      case KysoSettingsEnum.ONLY_GLOBAL_ADMINS_CAN_CREATE_ORGANIZATIONS:
+        return false;
       default:
         return '';
     }
@@ -363,6 +365,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'Values of css classes for the inline comment states';
       case KysoSettingsEnum.MAX_NUMBER_HARDLINKS:
         return 'Maximum number of hardlinks that a file can carry on';
+      case KysoSettingsEnum.ONLY_GLOBAL_ADMINS_CAN_CREATE_ORGANIZATIONS:
+        return 'If true, only global admins can create organizations';
       default:
         return 'No description provided';
     }
