@@ -200,9 +200,9 @@ export class DiscussionsController extends GenericController<Discussion> {
     type: CreateDiscussionRequestDTO,
     examples: CreateDiscussionRequestDTO.examples(),
   })
-  @Permission([DiscussionPermissionsEnum.CREATE])
   @ApiNormalizedResponse({ status: 201, description: `Discussion`, type: Discussion })
-  public async createDiscussion(@CurrentToken() token: Token, @Body() data: CreateDiscussionRequestDTO): Promise<NormalizedResponseDTO<Discussion>> {
+  @Permission([DiscussionPermissionsEnum.CREATE])
+  public async createDiscussion(@Body() data: CreateDiscussionRequestDTO): Promise<NormalizedResponseDTO<Discussion>> {
     const updatedDiscussion: Discussion = await this.discussionsService.createDiscussion(data);
     const relations = await this.relationsService.getRelations(updatedDiscussion, 'discussion', { participants: 'User', assignees: 'User' });
     return new NormalizedResponseDTO(updatedDiscussion, relations);
@@ -227,8 +227,8 @@ export class DiscussionsController extends GenericController<Discussion> {
     type: UpdateDiscussionRequestDTO,
     examples: UpdateDiscussionRequestDTO.examples(),
   })
-  @Permission([DiscussionPermissionsEnum.EDIT, DiscussionPermissionsEnum.EDIT_ONLY_MINE])
   @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
+  @Permission([DiscussionPermissionsEnum.EDIT, DiscussionPermissionsEnum.EDIT_ONLY_MINE])
   public async updateDiscussion(@CurrentToken() token: Token, @Param('discussionId') discussionId: string, @Body() data: UpdateDiscussionRequestDTO): Promise<NormalizedResponseDTO<Discussion>> {
     const updatedDiscussion: Discussion = await this.discussionsService.updateDiscussion(token, discussionId, data);
     const relations = await this.relationsService.getRelations(updatedDiscussion, 'discussion', { participants: 'User', assignees: 'User' });
@@ -248,8 +248,8 @@ export class DiscussionsController extends GenericController<Discussion> {
     schema: { type: 'string' },
     example: 'K1bOzHjEmN',
   })
-  @Permission([DiscussionPermissionsEnum.DELETE])
   @ApiNormalizedResponse({ status: 200, description: `Discussion`, type: Discussion })
+  @Permission([DiscussionPermissionsEnum.DELETE])
   public async deleteDiscussion(
     @Headers(HEADER_X_KYSO_ORGANIZATION) organizationName: string,
     @Headers(HEADER_X_KYSO_TEAM) teamName: string,

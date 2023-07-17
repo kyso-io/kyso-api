@@ -10,9 +10,10 @@ import {
   RequestAccessStatusEnum,
   Team,
   TeamMember,
+  Token,
   User,
 } from '@kyso-io/kyso-model';
-import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, Provider } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { isArray } from 'class-validator';
 import { Autowired } from 'src/decorators/autowired';
@@ -100,10 +101,10 @@ export class RequestAccessService extends AutowiredService {
 
         return result;
       } else {
-        throw new PreconditionFailedException('No administrator admins found for this organization');
+        throw new BadRequestException('No administrator admins found for this organization');
       }
     } else {
-      throw new PreconditionFailedException('No administrator admins defined for this organization');
+      throw new BadRequestException('No administrator admins defined for this organization');
     }
   }
 
@@ -112,7 +113,7 @@ export class RequestAccessService extends AutowiredService {
 
     const requesterUser: User = await this.usersService.getUserById(requester_user_id);
     if (!requesterUser) {
-      throw new BadRequestException(`Invalid user provided`);
+      throw new NotFoundException(`Invalid user provided`);
     }
 
     const organization: Organization = await this.organizationsService.getOrganizationBySlugName(organizationSlug);
@@ -122,7 +123,7 @@ export class RequestAccessService extends AutowiredService {
 
     const team: Team = await this.teamsService.getUniqueTeam(organization.id, teamSlug);
     if (!team) {
-      throw new BadRequestException(`Invalid team provided`);
+      throw new NotFoundException(`Invalid team provided`);
     }
 
     // Look for team admins at organization level
@@ -165,7 +166,7 @@ export class RequestAccessService extends AutowiredService {
 
         return result;
       } else {
-        throw new PreconditionFailedException('No administrator admins found for this organization');
+        throw new BadRequestException('No administrator admins found for this organization');
       }
     }
   }
@@ -175,7 +176,7 @@ export class RequestAccessService extends AutowiredService {
     const accepterUser: User = await this.usersService.getUserById(accepter_id);
 
     if (request[0].organization_id !== organization_id) {
-      throw new ForbiddenException(`Organization identifiers mismatch`);
+      throw new BadRequestException(`Organization identifiers mismatch`);
     }
 
     if (role !== PlatformRole.TEAM_READER_ROLE.name && role !== PlatformRole.TEAM_CONTRIBUTOR_ROLE.name) {
@@ -183,7 +184,7 @@ export class RequestAccessService extends AutowiredService {
     }
 
     if (!accepterUser) {
-      throw new BadRequestException(`Invalid user provided`);
+      throw new NotFoundException(`User provided not exists`);
     }
 
     if (!request || !isArray(request) || request.length === 0) {
@@ -191,12 +192,12 @@ export class RequestAccessService extends AutowiredService {
     }
 
     if (request[0].secret !== secret) {
-      throw new ForbiddenException(`Secrets missmatch`);
+      throw new ForbiddenException(`Secrets mismatch`);
     }
 
     const organization = await this.organizationsService.getOrganizationById(request[0].organization_id);
     if (!organization) {
-      throw new BadRequestException(`Request access organization no longer exists`);
+      throw new NotFoundException(`Organization not found`);
     }
 
     // Add requester to organization as role
@@ -252,7 +253,7 @@ export class RequestAccessService extends AutowiredService {
 
     const team: Team = await this.teamsService.getTeamById(request[0].channel_id);
     if (!team) {
-      throw new BadRequestException(`Request access team no longer exists`);
+      throw new NotFoundException(`Channel not found`);
     }
 
     // add requester to team as specified role

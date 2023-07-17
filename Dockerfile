@@ -12,7 +12,7 @@ WORKDIR /app
 COPY package*.json tsconfig.* ./
 # Execute `npm ci` (not install) with an externally mounted npmrc
 RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,gid=1000,required\
-  npm ci
+  npm ci --force
 # Copy the sources
 COPY src ./src/
 # Copy the static-data folder
@@ -22,7 +22,7 @@ COPY static-data ./static-data/
 RUN npm run build
 # Execute `npm ci` (not install) for production with an externally mounted npmrc
 RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,gid=1000,required\
- npm ci --omit=dev --ignore-scripts
+ npm ci --omit=dev --ignore-scripts --force
 
 # Production image
 FROM ${SERVICE_IMG}:${SERVICE_TAG} AS service

@@ -8,6 +8,7 @@ import {
   KysoPermissions,
   KysoUserAccessToken,
   NormalizedResponseDTO,
+  OnboardingProgress,
   OrganizationMember,
   ReportPermissionsEnum,
   Team,
@@ -20,10 +21,10 @@ import {
   UserPermissionsEnum,
   VerifyCaptchaRequestDto,
 } from '@kyso-io/kyso-model';
-import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Headers, NotFoundException, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Request } from 'express';
 import { FormDataRequest } from 'nestjs-form-data';
-import { ApiNormalizedResponse } from '../../decorators/api-normalized-response';
 import { Autowired } from '../../decorators/autowired';
 import { Public } from '../../decorators/is-public';
 import { UploadImageDto } from '../../dtos/upload-image.dto';
@@ -42,7 +43,6 @@ import { UsersService } from './users.service';
 
 @ApiTags('users')
 @UseGuards(PermissionsGuard)
-@ApiBearerAuth()
 @Controller('users')
 @ApiHeader({
   name: HEADER_X_KYSO_ORGANIZATION,
@@ -69,15 +69,11 @@ export class UsersController extends GenericController<User> {
   }
 
   @Get()
+  @Public()
   @ApiOperation({
     summary: `Search and fetch users`,
     description: `By passing the appropiate parameters you can fetch and filter the users of the platform.
             **This endpoint supports filtering**. Refer to the User schema to see available options.`,
-  })
-  @ApiNormalizedResponse({
-    status: 200,
-    description: `Users matching criteria`,
-    type: User,
   })
   @ApiQuery({
     required: false,
@@ -108,8 +104,20 @@ export class UsersController extends GenericController<User> {
     isArray: false,
     description: 'Sort by creation_date. Values allowed: asc or desc. Default. <b>desc</b>',
   })
-  @Public()
-  async getUsers(@Req() req): Promise<NormalizedResponseDTO<UserDTO[]>> {
+  @ApiResponse({
+    status: 200,
+    description: `Users matching criteria`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<User[]>([UserDTO.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  async getUsers(@Req() req: Request): Promise<NormalizedResponseDTO<UserDTO[]>> {
     const query = QueryParser.toQueryObject(req.url);
     if (query?.filter?.$text) {
       if (!query.filter.hasOwnProperty('$or')) {
@@ -127,14 +135,35 @@ export class UsersController extends GenericController<User> {
   }
 
   @Get('/same-organizations')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Get users who are in the same organizations`,
     description: `Get users who are in the same organizations`,
   })
-  @ApiNormalizedResponse({
+  @ApiResponse({
     status: 200,
-    description: `Report inline comments`,
-    type: UserDTO,
+    description: `Users`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<User[]>([UserDTO.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
   })
   public async getSameOrganizations(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<UserDTO[]>> {
     const teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
@@ -153,61 +182,130 @@ export class UsersController extends GenericController<User> {
   }
 
   @Get('/access-tokens')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Get access tokens`,
     description: `Allows fetching access tokens of an user`,
   })
-  @ApiResponse({ status: 200, description: `Access tokens`, type: KysoUserAccessToken, isArray: true })
-  @Public()
-  async getAccessTokens(@Headers('authorization') jwtToken: string, @CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
-    if (jwtToken && this.authService.evaluateAndDecodeToken(jwtToken.replace('Bearer ', ''))) {
-      const tokens: KysoUserAccessToken[] = await this.usersService.getAccessTokens(token.id);
-      return new NormalizedResponseDTO(tokens);
-    } else {
-      throw new ForbiddenException("Your token can't be validated");
-    }
+  @ApiResponse({
+    status: 200,
+    description: `Access tokens`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<KysoUserAccessToken[]>([KysoUserAccessToken.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
+  async getAccessTokens(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+    const tokens: KysoUserAccessToken[] = await this.usersService.getAccessTokens(token.id);
+    return new NormalizedResponseDTO(tokens);
   }
 
   @Post('/access-token')
+  @Public()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Creates an access token for the specified user`,
     description: `Creates an access token for the specified user`,
   })
-  @ApiResponse({ status: 200, description: `Access Token created successfully`, type: KysoUserAccessToken })
-  @Public()
-  async createUserAccessToken(
-    @Headers('authorization') jwtToken: string,
-    @CurrentToken() token: Token,
-    @Body() accessTokenConfiguration: CreateKysoAccessTokenDto,
-  ): Promise<NormalizedResponseDTO<KysoUserAccessToken>> {
-    if (jwtToken && this.authService.evaluateAndDecodeToken(jwtToken.replace('Bearer ', ''))) {
-      const scope: KysoPermissions[] = [];
-      const response: KysoUserAccessToken = await this.usersService.createKysoAccessToken(token.id, accessTokenConfiguration.name, scope, accessTokenConfiguration.expiration_date);
-      return new NormalizedResponseDTO(response);
-    } else {
-      throw new ForbiddenException("Your token can't be validated");
-    }
+  @ApiResponse({
+    status: 201,
+    description: `New access tokens`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<KysoUserAccessToken>(KysoUserAccessToken.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  async createUserAccessToken(@CurrentToken() token: Token, @Body() accessTokenConfiguration: CreateKysoAccessTokenDto): Promise<NormalizedResponseDTO<KysoUserAccessToken>> {
+    const scope: KysoPermissions[] = [];
+    const response: KysoUserAccessToken = await this.usersService.createKysoAccessToken(token.id, accessTokenConfiguration.name, scope, accessTokenConfiguration.expiration_date);
+    return new NormalizedResponseDTO(response);
   }
 
   @Patch('/access-token/revoke-all')
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Revoke all user access tokens`,
     description: `Revoke all user access tokens`,
   })
-  @ApiResponse({ status: 200, description: `Access Tokens deleted successfully`, type: KysoUserAccessToken, isArray: true })
-  @Public()
-  async revokeAllUserAccessToken(@Headers('authorization') jwtToken: string, @CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
-    if (jwtToken && this.authService.evaluateAndDecodeToken(jwtToken.replace('Bearer ', ''))) {
-      const result: KysoUserAccessToken[] = await this.usersService.revokeAllUserAccessToken(token.id);
-      return new NormalizedResponseDTO(result);
-    } else {
-      throw new ForbiddenException("Your token can't be validated");
-    }
+  @ApiResponse({
+    status: 200,
+    description: `Revoked access tokens`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<KysoUserAccessToken[]>([KysoUserAccessToken.createEmpty()]),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  async revokeAllUserAccessToken(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<KysoUserAccessToken[]>> {
+    const result: KysoUserAccessToken[] = await this.usersService.revokeAllUserAccessToken(token.id);
+    return new NormalizedResponseDTO(result);
   }
 
   @Delete('/access-token/:accessTokenId')
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Deletes an access token`,
@@ -219,26 +317,74 @@ export class UsersController extends GenericController<User> {
     description: `id of the access token to delete`,
     schema: { type: 'string' },
   })
-  @ApiResponse({ status: 200, description: `Access Token deleted successfully`, type: KysoUserAccessToken })
-  @Public()
-  async deleteUserAccessToken(
-    @Headers('authorization') jwtToken: string,
-    @CurrentToken() token: Token,
-    @Param('accessTokenId') accessTokenId: string,
-  ): Promise<NormalizedResponseDTO<KysoUserAccessToken>> {
+  @ApiResponse({
+    status: 200,
+    description: `Deleted access token`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<KysoUserAccessToken>(KysoUserAccessToken.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          invalidId: {
+            value: new BadRequestException('Invalid id'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+          notBelong: {
+            value: new ForbiddenException('The token does not belong to the user'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          accessTokenNotFound: {
+            value: new NotFoundException('Access token not found'),
+          },
+        },
+      },
+    },
+  })
+  async deleteUserAccessToken(@CurrentToken() token: Token, @Param('accessTokenId') accessTokenId: string): Promise<NormalizedResponseDTO<KysoUserAccessToken>> {
     if (!Validators.isValidObjectId(accessTokenId)) {
-      throw new BadRequestException(`Invalid access token id ${accessTokenId}`);
+      throw new BadRequestException(`Invalid id`);
     }
-
-    if (this.authService.evaluateAndDecodeToken(jwtToken.replace('Bearer ', ''))) {
-      const result: KysoUserAccessToken = await this.usersService.deleteKysoAccessToken(token.id, accessTokenId);
-      return new NormalizedResponseDTO(result);
-    } else {
-      throw new ForbiddenException("Your token can't be validated");
-    }
+    const result: KysoUserAccessToken = await this.usersService.deleteKysoAccessToken(token.id, accessTokenId);
+    return new NormalizedResponseDTO(result);
   }
 
   @Get('/:userId')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Get an user`,
     description: `Allows fetching content of a specific user passing its id`,
@@ -249,22 +395,52 @@ export class UsersController extends GenericController<User> {
     description: `Id of the user to fetch`,
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
-  @Public()
-  async getUserById(@Headers('authorization') jwtToken: string, @Param('userId') userId: string): Promise<NormalizedResponseDTO<UserDTO>> {
+  @ApiResponse({
+    status: 200,
+    description: `Requested user`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<UserDTO>(UserDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
+  })
+  async getUserById(@Param('userId') userId: string): Promise<NormalizedResponseDTO<UserDTO>> {
     if (!Validators.isValidObjectId(userId)) {
-      throw new BadRequestException(`Invalid user id ${userId}`);
+      throw new BadRequestException(`Invalid id`);
     }
-
-    if (this.authService.evaluateAndDecodeToken(jwtToken.replace('Bearer ', ''))) {
-      const user: User = await this.usersService.getUserById(userId);
-      if (!user) {
-        throw new NotFoundException(`User with id ${userId} not found`);
-      }
-      return new NormalizedResponseDTO(UserDTO.fromUser(user));
-    } else {
-      throw new ForbiddenException("Your token can't be validated");
+    const user: User = await this.usersService.getUserById(userId);
+    if (!user) {
+      throw new NotFoundException(`User with id ${userId} not found`);
     }
+    return new NormalizedResponseDTO(UserDTO.fromUser(user));
   }
 
   @Get('/:username/profile')
@@ -279,7 +455,31 @@ export class UsersController extends GenericController<User> {
     description: `Username of the user to fetch`,
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
+  @ApiResponse({
+    status: 200,
+    description: `Requested user`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<UserDTO>(UserDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
+  })
   async getUserProfile(@Param('username') username: string): Promise<NormalizedResponseDTO<UserDTO>> {
     const user: User = await this.usersService.getUser({ filter: { username } });
     if (!user) {
@@ -304,7 +504,31 @@ export class UsersController extends GenericController<User> {
     description: `Username of the user to fetch`,
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
+  @ApiResponse({ status: 200, description: `User portrait`, type: String })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          invalidId: {
+            value: new BadRequestException('Invalid id'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
+  })
   async getUserPortrait(@Param('userId') userId: string): Promise<string> {
     if (!Validators.isValidObjectId(userId)) {
       throw new BadRequestException(`Invalid user id ${userId}`);
@@ -328,7 +552,43 @@ export class UsersController extends GenericController<User> {
     description: `Username of the user to fetch`,
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({ status: 200, description: `User matching name`, type: User })
+  @ApiResponse({
+    status: 200,
+    description: `Requested user`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<UserDTO>(UserDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          invalidId: {
+            value: new BadRequestException('Invalid id'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
+  })
   async getUserPublicData(@Param('userId') userId: string): Promise<NormalizedResponseDTO<UserDTO>> {
     if (!Validators.isValidObjectId(userId)) {
       throw new BadRequestException(`Invalid user id ${userId}`);
@@ -345,7 +605,7 @@ export class UsersController extends GenericController<User> {
   }
 
   @Patch('/:userId')
-  @UseGuards()
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Update an user`,
     description: `Allows updating an user passing its id`,
@@ -356,10 +616,67 @@ export class UsersController extends GenericController<User> {
     description: `Id of the user to update`,
     schema: { type: 'string' },
   })
-  @ApiNormalizedResponse({
+  @ApiBody({
+    description: `User data to update`,
+    type: UpdateUserRequestDTO,
+    required: true,
+    examples: {
+      json: {
+        value: new UpdateUserRequestDTO('Rey', 'Rey Skywalker', 'Galaxy', 'https://google.com', 'The best one', false, new OnboardingProgress(false, false, false, false, false, false)),
+      },
+    },
+  })
+  @ApiResponse({
     status: 200,
-    description: `Authenticated user data`,
-    type: User,
+    description: `Requested user`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<UserDTO>(UserDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          invalidId: {
+            value: new BadRequestException('Invalid id'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          notAllowed: {
+            value: new ForbiddenException('You are not allowed to update this user'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
   })
   public async updateUserData(@CurrentToken() token: Token, @Param('userId') userId: string, @Body() data: UpdateUserRequestDTO): Promise<NormalizedResponseDTO<UserDTO>> {
     if (!Validators.isValidObjectId(userId)) {
@@ -373,18 +690,50 @@ export class UsersController extends GenericController<User> {
   }
 
   @Delete('/profile-picture')
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Delete a profile picture for a team`,
     description: `Allows deleting a profile picture for a user`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: UserDTO })
+  @ApiResponse({
+    status: 200,
+    description: `Updated user`,
+    content: {
+      json: {
+        examples: {
+          json: {
+            value: new NormalizedResponseDTO<UserDTO>(UserDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
   public async deleteBackgroundImage(@CurrentToken() token: Token): Promise<NormalizedResponseDTO<UserDTO>> {
     const user: User = await this.usersService.deleteProfilePicture(token);
     return new NormalizedResponseDTO(UserDTO.fromUser(user));
   }
 
   @Delete('/:userId')
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Delete a user`,
@@ -396,8 +745,49 @@ export class UsersController extends GenericController<User> {
     description: `Id of the user to delete`,
     schema: { type: 'string' },
   })
-  @ApiResponse({ status: 200, description: `Deletion done successfully` })
-  @ApiNormalizedResponse({ status: 200, description: `Organization matching name`, type: Boolean })
+  @ApiResponse({
+    status: 200,
+    description: `Deletion status`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<boolean>(true),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
+  })
   @Permission([UserPermissionsEnum.DELETE])
   async deleteUser(@CurrentToken() token: Token, @Param('userId') userId: string): Promise<NormalizedResponseDTO<boolean>> {
     if (!Validators.isValidObjectId(userId)) {
@@ -407,7 +797,9 @@ export class UsersController extends GenericController<User> {
     return new NormalizedResponseDTO(deleted);
   }
 
-  @Post('/accounts')
+  // Not used
+  // @Post('/accounts')
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Add an account to an user`,
@@ -420,12 +812,25 @@ export class UsersController extends GenericController<User> {
     schema: { type: 'string' },
   })
   @ApiResponse({ status: 200, description: `Account added successfully` })
-  // @Permission([UserPermissionsEnum.EDIT])
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
   async addAccount(@CurrentToken() token: Token, @Body() addUserAccountDTO: AddUserAccountDTO): Promise<boolean> {
     return this.authService.addUserAccount(token, addUserAccountDTO);
   }
 
-  @Delete('/accounts/:provider/:accountId')
+  // Not used
+  // @Delete('/accounts/:provider/:accountId')
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Remove an account from an user`,
@@ -444,19 +849,97 @@ export class UsersController extends GenericController<User> {
     schema: { type: 'string' },
   })
   @ApiResponse({ status: 200, description: `Account removed successfully`, type: Boolean })
-  // @Permission([UserPermissionsEnum.EDIT])
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+        },
+      },
+    },
+  })
   async removeAccount(@CurrentToken() token: Token, @Param('provider') provider: string, @Param('accountId') accountId: string): Promise<NormalizedResponseDTO<boolean>> {
     const result: boolean = await this.usersService.removeAccount(token.id, provider, accountId);
     return new NormalizedResponseDTO(result);
   }
 
   @Post('/profile-picture')
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Upload a profile picture for a team`,
     description: `Allows uploading a profile picture for a user the image`,
   })
-  @ApiNormalizedResponse({ status: 201, description: `Updated user`, type: UserDTO })
+  @ApiResponse({
+    status: 201,
+    description: `Updated user`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<UserDTO>(UserDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          invalidFile: {
+            value: new BadRequestException('Missing file'),
+          },
+          onlyImages: {
+            value: new BadRequestException('Only image files are allowed'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+          itsNotYou: {
+            value: new ForbiddenException('You are not allowed to update the photo of this user'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 500,
+    content: {
+      json: {
+        examples: {
+          invalidId: {
+            value: new BadRequestException('Error uploading file'),
+          },
+        },
+      },
+    },
+  })
   @FormDataRequest()
   public async setProfilePicture(@CurrentToken() token: Token, @Body() uploadImageDto: UploadImageDto): Promise<NormalizedResponseDTO<UserDTO>> {
     if (!uploadImageDto.file) {
@@ -473,12 +956,61 @@ export class UsersController extends GenericController<User> {
   }
 
   @Post('/background-image')
+  @ApiBearerAuth()
   @UseGuards(EmailVerifiedGuard, SolvedCaptchaGuard)
   @ApiOperation({
     summary: `Upload a profile picture for a team`,
     description: `Allows uploading a profile picture for a user the image`,
   })
-  @ApiNormalizedResponse({ status: 201, description: `Updated user`, type: UserDTO })
+  @ApiResponse({
+    status: 201,
+    description: `Updated user`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<UserDTO>(UserDTO.createEmpty()),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          invalidFile: {
+            value: new BadRequestException('Missing file'),
+          },
+          onlyImages: {
+            value: new BadRequestException('Only image files are allowed'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+          emailNotVerified: {
+            value: new ForbiddenException('Email not verified'),
+          },
+          captchaNotSolved: {
+            value: new ForbiddenException('Captcha not solved'),
+          },
+          itsNotYou: {
+            value: new ForbiddenException('You are not allowed to update the photo of this user'),
+          },
+        },
+      },
+    },
+  })
   @FormDataRequest()
   public async setBackgroundImage(@CurrentToken() token: Token, @Body() uploadImageDto: UploadImageDto): Promise<NormalizedResponseDTO<UserDTO>> {
     if (!uploadImageDto.file) {
@@ -495,11 +1027,36 @@ export class UsersController extends GenericController<User> {
   }
 
   @Post('verify-captcha')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: `Verify captcha`,
     description: `Allows verifying captcha`,
   })
-  @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: Boolean })
+  @ApiResponse({
+    status: 201,
+    description: `Captcha verfication result`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<boolean>(true),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
   public async verifyCaptcha(@CurrentToken() token: Token, @Body() data: VerifyCaptchaRequestDto): Promise<NormalizedResponseDTO<boolean>> {
     const success: boolean = await this.usersService.verifyCaptcha(token.id, data);
     return new NormalizedResponseDTO(success);
@@ -507,7 +1064,43 @@ export class UsersController extends GenericController<User> {
 
   @Post('email-recovery-password')
   @Public()
-  @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: Boolean })
+  @ApiResponse({
+    status: 201,
+    description: `Email sent`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<boolean>(true),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    content: {
+      json: {
+        examples: {
+          invalidCaptcha: {
+            value: new BadRequestException('Invalid captcha'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          notFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
+  })
   public async sendEmailRecoveryPassword(@Body() emailUserChangePasswordDTO: EmailUserChangePasswordDTO): Promise<NormalizedResponseDTO<boolean>> {
     const success: boolean = await this.usersService.sendEmailRecoveryPassword(emailUserChangePasswordDTO);
     return new NormalizedResponseDTO(success);
@@ -515,7 +1108,58 @@ export class UsersController extends GenericController<User> {
 
   @Post('change-password')
   @Public()
-  @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: Boolean })
+  @ApiResponse({
+    status: 201,
+    description: `Password changed`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<boolean>(true),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    content: {
+      json: {
+        examples: {
+          notFound: {
+            value: new NotFoundException('Token not found for this email'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          recoveryPassUsed: {
+            value: new ForbiddenException('Recovery password token already used'),
+          },
+          recoveryPassExpired: {
+            value: new ForbiddenException('Recovery password token expired'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    content: {
+      json: {
+        examples: {
+          samePass: {
+            value: new ConflictException('New password must be different from the old one'),
+          },
+        },
+      },
+    },
+  })
   public async changePassword(@Body() userChangePasswordDto: UserChangePasswordDTO): Promise<NormalizedResponseDTO<boolean>> {
     const success: boolean = await this.usersService.changePassword(userChangePasswordDto);
     return new NormalizedResponseDTO(success);
@@ -523,7 +1167,19 @@ export class UsersController extends GenericController<User> {
 
   @Post('email-in-use')
   @Public()
-  @ApiNormalizedResponse({ status: 200, description: `Updated user`, type: Boolean })
+  @ApiResponse({
+    status: 201,
+    description: `Email in use`,
+    content: {
+      json: {
+        examples: {
+          result: {
+            value: new NormalizedResponseDTO<boolean>(false),
+          },
+        },
+      },
+    },
+  })
   public async emailInUse(@Body() emailInUseDTO: EmailInUseDTO): Promise<NormalizedResponseDTO<boolean>> {
     const success: boolean = await this.usersService.emailInUse(emailInUseDTO);
     return new NormalizedResponseDTO(success);

@@ -38,7 +38,7 @@ import {
   UpdateOrganizationMembersDTO,
   User,
 } from '@kyso-io/kyso-model';
-import { BadRequestException, ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, PreconditionFailedException, Provider } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, Provider } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import axios, { AxiosResponse } from 'axios';
 import * as moment from 'moment';
@@ -244,7 +244,7 @@ export class OrganizationsService extends AutowiredService {
   public async addMembers(organizationId: string, members: User[], roles: KysoRole[]): Promise<void> {
     const organization: Organization = await this.getOrganizationById(organizationId);
     if (!organization) {
-      throw new PreconditionFailedException('Organization does not exist');
+      throw new NotFoundException('Organization does not exist');
     }
     const memberIds: string[] = members.map((x) => x.id.toString());
     const rolesToApply: string[] = roles.map((y) => y.name);
@@ -352,7 +352,7 @@ export class OrganizationsService extends AutowiredService {
   public async updateOrganization(token: Token, organizationId: string, updateOrganizationDto: UpdateOrganizationDTO): Promise<Organization> {
     let organization: Organization = await this.getOrganizationById(organizationId);
     if (!organization) {
-      throw new PreconditionFailedException('Organization does not exist');
+      throw new NotFoundException('Organization does not exist');
     }
     for (const key in updateOrganizationDto) {
       if (updateOrganizationDto[key] === undefined) {
@@ -410,15 +410,15 @@ export class OrganizationsService extends AutowiredService {
     return this.organizationMemberProvider.getMembers(organizationId);
   }
 
-  public async addMemberToOrganization(addUserOrganizationDto: AddUserOrganizationDto): Promise<OrganizationMember[]> {
+  public async addMemberToOrganization(addUserOrganizationDto: AddUserOrganizationDto, token?: Token): Promise<OrganizationMember[]> {
     const organization: Organization = await this.getOrganizationById(addUserOrganizationDto.organizationId);
     if (!organization) {
-      throw new PreconditionFailedException('Organization does not exist');
+      throw new NotFoundException('Organization does not exist');
     }
 
     const user: User = await this.usersService.getUserById(addUserOrganizationDto.userId);
     if (!user) {
-      throw new PreconditionFailedException('User does not exist');
+      throw new NotFoundException('User does not exist');
     }
 
     // Throws an exception if exists a domain restriction
@@ -432,30 +432,24 @@ export class OrganizationsService extends AutowiredService {
       ...organization.roles.map((x: KysoRole) => x.name),
     ];
     if (!validRoles.includes(addUserOrganizationDto.role)) {
-      throw new PreconditionFailedException('Invalid role');
+      throw new BadRequestException('Invalid role');
     }
-    const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
     const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-    let emailsCentralized: string[] = [];
-
     const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id);
     const member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id);
     if (member) {
       // Check if member has the role
-      if (!member.role_names.includes(addUserOrganizationDto.role)) {
+      if (member.role_names.length > 0 && !member.role_names.includes(addUserOrganizationDto.role)) {
         member.role_names.push(addUserOrganizationDto.role);
         await this.organizationMemberProvider.updateOne({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [member.role_names] } });
 
         try {
-          if (isCentralized) {
-            emailsCentralized = organization.options.notifications.emails;
-          }
-
           NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_UPDATE_MEMBER_ROLE, {
-            user,
+            userCreatingAction: token ? await this.usersService.getUserById(token.id) : null,
+            userReceivingAction: user,
             organization,
-            emailsCentralized,
-            role: addUserOrganizationDto.role,
+            previousRole: member.role_names[0],
+            newRole: addUserOrganizationDto.role,
             frontendUrl,
           });
         } catch (ex) {
@@ -465,16 +459,13 @@ export class OrganizationsService extends AutowiredService {
     } else {
       const newMember: OrganizationMemberJoin = new OrganizationMemberJoin(organization.id, user.id, [addUserOrganizationDto.role], true);
       await this.organizationMemberProvider.create(newMember);
-
       try {
-        if (isCentralized) {
-          emailsCentralized = organization.options.notifications.emails;
-        }
         NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_ADD_MEMBER, {
-          user,
+          userCreatingAction: token ? await this.usersService.getUserById(token.id) : null,
+          userReceivingAction: user,
           organization,
-          emailsCentralized,
-          role: addUserOrganizationDto.role,
+          previousRole: null,
+          newRole: addUserOrganizationDto.role,
           frontendUrl,
         });
       } catch (ex) {
@@ -532,70 +523,58 @@ export class OrganizationsService extends AutowiredService {
     member = new OrganizationMemberJoin(organization.id, user.id, [role], true);
     await this.organizationMemberProvider.create(member);
     // SEND NOTIFICATIONS
-    const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
     const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-    let emailsCentralized: string[] = [];
-    if (isCentralized) {
-      emailsCentralized = organization.options.notifications.emails;
-    }
     NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_ADD_MEMBER, {
-      user,
+      userCreatingAction: null,
+      userReceivingAction: user,
       organization,
-      emailsCentralized,
-      role,
+      previousRole: null,
+      newRole: role,
       frontendUrl,
     });
     return true;
   }
 
-  public async removeMemberFromOrganization(organizationId: string, userId: string): Promise<OrganizationMember[]> {
+  public async removeMemberFromOrganization(organizationId: string, userId: string, token: Token = null): Promise<OrganizationMember[]> {
     const organization: Organization = await this.getOrganizationById(organizationId);
     if (!organization) {
-      throw new PreconditionFailedException('Organization does not exist');
+      throw new NotFoundException('Organization does not exist');
     }
 
     const user: User = await this.usersService.getUserById(userId);
     if (!user) {
-      throw new PreconditionFailedException('User does not exist');
+      throw new NotFoundException('User does not exist');
     }
 
     const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id);
     const index: number = members.findIndex((x: OrganizationMemberJoin) => x.member_id === user.id);
     if (index === -1) {
-      throw new PreconditionFailedException('User is not a member of this organization');
+      throw new ForbiddenException('User is not a member of this organization');
     }
 
     await this.organizationMemberProvider.deleteOne({ organization_id: organization.id, member_id: user.id });
     await this.teamsService.deleteMemberInTeamsOfOrganization(organization.id, user.id);
 
-    // SEND NOTIFICATIONS
-    const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
-    const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-    let emailsCentralized: string[] = [];
-    if (isCentralized) {
-      emailsCentralized = organization.options.notifications.emails;
+    if (token) {
+      // SEND NOTIFICATIONS
+      const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
+      NATSHelper.safelyEmit<KysoOrganizationsRemoveMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_REMOVE_MEMBER, {
+        userCreatingAction: await this.usersService.getUserById(token.id),
+        user,
+        organization,
+        frontendUrl,
+      });
     }
-    NATSHelper.safelyEmit<KysoOrganizationsRemoveMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_REMOVE_MEMBER, {
-      user,
-      organization,
-      emailsCentralized,
-      frontendUrl,
-    });
 
     return this.getOrganizationMembers(organization.id);
   }
 
-  public async updateOrganizationMembersDTORoles(organizationId: string, data: UpdateOrganizationMembersDTO): Promise<OrganizationMember[]> {
+  public async updateOrganizationMembersDTORoles(token: Token, organizationId: string, data: UpdateOrganizationMembersDTO): Promise<OrganizationMember[]> {
     const organization: Organization = await this.getOrganizationById(organizationId);
     if (!organization) {
-      throw new PreconditionFailedException('Organization does not exist');
+      throw new NotFoundException('Organization does not exist');
     }
-    const isCentralized: boolean = organization?.options?.notifications?.centralized || false;
     const frontendUrl: string = await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL);
-    let emailsCentralized: string[] = [];
-    if (isCentralized) {
-      emailsCentralized = organization.options.notifications.emails;
-    }
     const validRoles: string[] = [
       PlatformRole.TEAM_ADMIN_ROLE.name,
       PlatformRole.TEAM_CONTRIBUTOR_ROLE.name,
@@ -607,21 +586,22 @@ export class OrganizationsService extends AutowiredService {
     for (const element of data.members) {
       const user: User = await this.usersService.getUserById(element.userId);
       if (!user) {
-        throw new PreconditionFailedException('User does not exist');
+        throw new NotFoundException('User does not exist');
       }
       const member: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id);
       if (!member) {
-        throw new PreconditionFailedException('User is not a member of this organization');
+        throw new ForbiddenException('User is not a member of this organization');
       }
       if (!validRoles.includes(element.role)) {
-        throw new PreconditionFailedException(`Role ${element.role} is not valid`);
+        throw new BadRequestException(`Role ${element.role} is not valid`);
       }
-      if (!member.role_names.includes(element.role)) {
+      if (member.role_names.length > 0 && !member.role_names.includes(element.role)) {
         NATSHelper.safelyEmit<KysoOrganizationsAddMemberEvent>(this.client, KysoEventEnum.ORGANIZATIONS_UPDATE_MEMBER_ROLE, {
-          user,
+          userCreatingAction: await this.usersService.getUserById(token.id),
+          userReceivingAction: user,
           organization,
-          emailsCentralized,
-          role: element.role,
+          previousRole: member.role_names[0],
+          newRole: element.role,
           frontendUrl,
         });
       }
@@ -633,20 +613,20 @@ export class OrganizationsService extends AutowiredService {
   public async removeOrganizationMemberRole(organizationId: string, userId: string, role: string): Promise<OrganizationMember[]> {
     const organization: Organization = await this.getOrganizationById(organizationId);
     if (!organization) {
-      throw new PreconditionFailedException('Organization does not exist');
+      throw new NotFoundException('Organization does not exist');
     }
     const user: User = await this.usersService.getUserById(userId);
     if (!user) {
-      throw new PreconditionFailedException('User does not exist');
+      throw new NotFoundException('User does not exist');
     }
     const members: OrganizationMemberJoin[] = await this.organizationMemberProvider.getMembers(organization.id);
     const data: OrganizationMemberJoin = members.find((x: OrganizationMemberJoin) => x.member_id === user.id);
     if (!data) {
-      throw new PreconditionFailedException('User is not a member of this organization');
+      throw new ForbiddenException('User is not a member of this organization');
     }
     const index: number = data.role_names.findIndex((x: string) => x === role);
     if (index === -1) {
-      throw new PreconditionFailedException(`User does not have role ${role}`);
+      throw new BadRequestException(`User does not have role ${role}`);
     }
     await this.organizationMemberProvider.update({ _id: this.provider.toObjectId(data.id) }, { $pull: { role_names: role } });
     return this.getOrganizationMembers(organization.id);
@@ -1003,7 +983,8 @@ export class OrganizationsService extends AutowiredService {
         Logger.log(`Team ${inviteUserDto.teamSlug} not found`);
         throw new NotFoundException(`Team ${inviteUserDto.teamSlug} not found`);
       }
-      await this.teamsService.addMembersById(team.id, [user.id], [inviteUserDto.teamRole]);
+      const userToken: User = await this.usersService.getUserById(token.id);
+      await this.teamsService.addMembersById(team.id, [user.id], [inviteUserDto.teamRole], false, userToken);
       result.teamMembers = await this.teamsService.getMembers(team.id);
     }
 
@@ -1064,7 +1045,7 @@ export class OrganizationsService extends AutowiredService {
 
         if (!found) {
           // The invitation don't have an allowed domain
-          throw new BadRequestException(`${userEmail} is an invalid domain. Allowed domains are ${allowedAccessDomains}`);
+          throw new ForbiddenException(`${userEmail} is an invalid domain. Allowed domains are ${allowedAccessDomains}`);
         }
       } else {
         throw new BadRequestException(`Can't extract the domain of ${userEmail}`);
