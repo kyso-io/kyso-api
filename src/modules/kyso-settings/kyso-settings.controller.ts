@@ -169,7 +169,7 @@ export class KysoSettingsController extends GenericController<KysoSetting> {
       }
     }
     const value: string = await this.kysoSettingsService.getValue(KysoSettingsEnum[key]);
-    if (!value) {
+    if (value === null) {
       throw new NotFoundException('Setting not found');
     }
     return new NormalizedResponseDTO(value);
