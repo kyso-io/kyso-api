@@ -31,6 +31,7 @@ import {
   LoginProviderEnum,
   MoveReportDto,
   Organization,
+  OrganizationPermissionsEnum,
   PinnedReport,
   Report,
   ReportAnalytics,
@@ -44,6 +45,7 @@ import {
   TableOfContentEntryDto,
   Tag,
   Team,
+  TeamPermissionsEnum,
   TeamVisibilityEnum,
   Token,
   TokenPermissions,
@@ -3628,8 +3630,12 @@ export class ReportsService extends AutowiredService {
     if (!sourceOrganization) {
       throw new NotFoundException(`Source organization not found`);
     }
-    const hasSourcePermission: boolean = AuthService.hasPermissions(token, [ReportPermissionsEnum.CREATE], sourceTeam, sourceOrganization);
-    if (!hasSourcePermission) {
+    const sourceIsOrganizationAdmin: boolean = AuthService.hasPermissions(token, [OrganizationPermissionsEnum.ADMIN], null, sourceOrganization);
+    const sourceIsTeamAdmin: boolean = AuthService.hasPermissions(token, [TeamPermissionsEnum.ADMIN], sourceTeam, sourceOrganization);
+    const sourceHasReportPermissions: boolean =
+      report.author_ids.includes(token.id) &&
+      AuthService.hasPermissions(token, [ReportPermissionsEnum.ADMIN, ReportPermissionsEnum.CREATE, ReportPermissionsEnum.EDIT], sourceTeam, sourceOrganization);
+    if (!sourceIsOrganizationAdmin && !sourceIsTeamAdmin && !sourceHasReportPermissions) {
       throw new ForbiddenException(`You don't have permissions to move reports from ${sourceTeam.display_name} channel`);
     }
     const targetTeam: Team = await this.teamsService.getTeamById(moveReportDto.targetTeamId);
