@@ -55,6 +55,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'us-east-1';
       case KysoSettingsEnum.MAIL_TRANSPORT:
         return 'smtps://mailu.kyso.io';
+      case KysoSettingsEnum.MAIL_PORT:
+        return 25;
       case KysoSettingsEnum.MAIL_FROM:
         return '"kyso" <dev@dev.kyso.io>';
       case KysoSettingsEnum.MAIL_USER:
