@@ -234,6 +234,17 @@ export class KysoSettingsService extends AutowiredService {
         return '/app/data';
       case KysoSettingsEnum.ONLY_GLOBAL_ADMINS_CAN_CREATE_ORGANIZATIONS:
         return false;
+      case KysoSettingsEnum.OKTA_SAML_USER_MAPPING:
+        return {
+          avatar_url: [],
+          username: [],
+          email: ['NameID'],
+          name: ['firstName', 'lastName'],
+          display_name: ['firstName'],
+          bio: [],
+          link: [],
+          location: [],
+        };
       default:
         return '';
     }

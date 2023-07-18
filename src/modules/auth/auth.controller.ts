@@ -385,11 +385,12 @@ export class AuthController {
       if (!data['saml2p:Response']['saml2:Assertion']['saml2:Subject'].hasOwnProperty('saml2:NameID')) {
         throw new BadRequestException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID'] property`);
       }
-      if (!data['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID'].hasOwnProperty('#text')) {
-        throw new BadRequestException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID']['#text'] property`);
+      const mappings: { [key: string]: string[] } = (await this.kysoSettingsService.getValue(KysoSettingsEnum.OKTA_SAML_USER_MAPPING)) as any;
+      const emailKey: string = mappings['email'][0];
+      if (!data['saml2p:Response']['saml2:Assertion']['saml2:Subject'][`saml2:${emailKey}`].hasOwnProperty('#text')) {
+        throw new BadRequestException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:${emailKey}']['#text'] property`);
       }
-      const email: string = data['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:NameID']['#text'];
-
+      const email: string = data['saml2p:Response']['saml2:Assertion']['saml2:Subject'][`saml2:${emailKey}`]['#text'];
       if (email) {
         // Build JWT token and redirect to frontend
         Logger.log('Build JWT token and redirect to frontend');
