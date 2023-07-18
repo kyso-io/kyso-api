@@ -372,7 +372,7 @@ export class AuthController {
         ignoreAttributes: false,
       });
       const data = parser.parse(xmlResponse);
-      console.log(data);
+
       if (!data.hasOwnProperty('saml2p:Response')) {
         throw new BadRequestException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response'] property`);
       }
@@ -391,6 +391,7 @@ export class AuthController {
         throw new BadRequestException(`Incomplete SAML payload received. Kyso requires the ['saml2p:Response']['saml2:Assertion']['saml2:Subject']['saml2:${emailKey}']['#text'] property`);
       }
       const email: string = data['saml2p:Response']['saml2:Assertion']['saml2:Subject'][`saml2:${emailKey}`]['#text'];
+      console.log(data['saml2p:Response']['saml2:Assertion'].toString());
       if (email) {
         // Build JWT token and redirect to frontend
         Logger.log('Build JWT token and redirect to frontend');
