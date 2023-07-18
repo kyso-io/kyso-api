@@ -898,22 +898,22 @@ export class OrganizationsService extends AutowiredService {
       Logger.log(`Organization ${organizationSlug} not found`);
       throw new NotFoundException(`Organization ${organizationSlug} not found`);
     }
-    let teams: Team[] = [];
+    const query: any = {
+      filter: {},
+    };
     if (token) {
-      teams = await this.teamsService.getTeamsVisibleForUser(token.id);
-      if (teams.length > 0) {
-        teams = teams.filter((x: Team) => x.organization_id === organization.id);
+      const teamResourcePermissions: ResourcePermissions[] = token.permissions?.teams?.filter((x: ResourcePermissions) => x.organization_id === organization.id) || [];
+      if (teamResourcePermissions.length > 0) {
+        query.filter.team_id = { $in: teamResourcePermissions.map((x: ResourcePermissions) => x.id) };
       } else {
-        teams = await this.teamsService.getTeams({ filter: { organization_id: organization.id, visibility: TeamVisibilityEnum.PUBLIC } });
+        const teams: Team[] = await this.teamsService.getTeams({ filter: { organization_id: organization.id, visibility: TeamVisibilityEnum.PUBLIC } });
+        query.filter.team_id = { $in: teams.map((x: Team) => x.id) };
       }
     } else {
-      teams = await this.teamsService.getTeams({ filter: { organization_id: organization.id, visibility: TeamVisibilityEnum.PUBLIC } });
+      const teams: Team[] = await this.teamsService.getTeams({ filter: { organization_id: organization.id, visibility: TeamVisibilityEnum.PUBLIC } });
+      query.filter.team_id = { $in: teams.map((x: Team) => x.id) };
     }
-    const query: any = {
-      filter: {
-        team_id: { $in: teams.map((x: Team) => x.id) },
-      },
-    };
+
     const totalItems: number = await this.reportsService.countReports(query);
 
     query.limit = limit;

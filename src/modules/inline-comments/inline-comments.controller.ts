@@ -10,6 +10,7 @@ import {
   PaginatedResponseDto,
   Relations,
   Report,
+  ResourcePermissions,
   Team,
   TeamVisibilityEnum,
   Token,
@@ -180,24 +181,23 @@ export class InlineCommentController {
     @CurrentToken() token: Token,
     @Query() searchInlineCommentsQuery: SearchInlineCommentsQuery,
   ): Promise<NormalizedResponseDTO<PaginatedResponseDto<InlineCommentDto>>> {
-    let teams: Team[] = await this.teamsService.getTeamsVisibleForUser(token.id);
-
+    let teamIds: string[] = [];
     const noPersonFilters: boolean = !searchInlineCommentsQuery.report_author_id && !searchInlineCommentsQuery.inline_comment_author_id;
 
     if (searchInlineCommentsQuery.organization_id) {
-      teams = teams.filter((team: Team) => team.organization_id === searchInlineCommentsQuery.organization_id);
+      teamIds = token.permissions.teams.filter((trp: ResourcePermissions) => trp.organization_id === searchInlineCommentsQuery.organization_id).map((trp: ResourcePermissions) => trp.id);
     }
     if (searchInlineCommentsQuery.team_id) {
-      teams = teams.filter((team: Team) => {
+      teamIds = teamIds.filter((teamId: string) => {
         if (searchInlineCommentsQuery.team_id_operator === 'eq') {
-          return team.id === searchInlineCommentsQuery.team_id;
+          return teamId === searchInlineCommentsQuery.team_id;
         } else {
-          return team.id !== searchInlineCommentsQuery.team_id;
+          return teamId !== searchInlineCommentsQuery.team_id;
         }
       });
     }
 
-    if (teams.length === 0) {
+    if (teamIds.length === 0) {
       const paginatedResponseDto: PaginatedResponseDto<InlineCommentDto> = new PaginatedResponseDto<InlineCommentDto>(1, 0, 0, [], 0, 0);
       return new NormalizedResponseDTO(paginatedResponseDto);
     }
@@ -344,7 +344,7 @@ export class InlineCommentController {
             },
             {
               'report_data.team_id': {
-                $in: teams.map((x) => x.id),
+                $in: teamIds,
               },
             },
           ],
@@ -393,7 +393,7 @@ export class InlineCommentController {
                     },
                     {
                       'report_data.team_id': {
-                        $in: teams.map((x) => x.id),
+                        $in: teamIds,
                       },
                     },
                   ],
