@@ -1,5 +1,6 @@
 import {
   CheckPermissionDto,
+  GlobalPermissionsEnum,
   KysoPermissions,
   KysoSettingsEnum,
   Login,
@@ -23,6 +24,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Headers,
@@ -32,10 +34,12 @@ import {
   NotFoundException,
   Param,
   Post,
+  Put,
   Query,
   Req,
   Res,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiCookieAuth, ApiHeader, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
@@ -52,7 +56,9 @@ import { ReportsService } from '../reports/reports.service';
 import { TeamsService } from '../teams/teams.service';
 import { UsersService } from '../users/users.service';
 import { CurrentToken } from './annotations/current-token.decorator';
+import { Permission } from './annotations/permission.decorator';
 import { AuthService } from './auth.service';
+import { PermissionsGuard } from './guards/permission.guard';
 import { PlatformRoleService } from './platform-role.service';
 import { BaseLoginProvider } from './providers/base-login.provider';
 import { UserRoleService } from './user-role.service';
@@ -736,7 +742,7 @@ export class AuthController {
   })
   @ApiResponse({
     status: 200,
-    description: `JWT token related to user`,
+    description: `User permissions related to user`,
     content: {
       json: {
         examples: {
@@ -764,7 +770,7 @@ export class AuthController {
     },
   })
   @ApiResponse({
-    status: 401,
+    status: 404,
     description: `User is not allowed to log-in`,
     content: {
       json: {
@@ -1097,5 +1103,121 @@ export class AuthController {
     } else {
       throw new ForbiddenException('The user can see this report');
     }
+  }
+
+  @Put('user/:id/global-admin')
+  @UseGuards(PermissionsGuard)
+  @ApiOperation({ summary: 'Set user as a global admin' })
+  @ApiParam({
+    name: 'id',
+    type: String,
+    description: 'User id',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `User permissions related to user`,
+    content: {
+      json: {
+        examples: {
+          userPermissions: {
+            value: TokenPermissions.createEmpty(),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: `User not found`,
+    content: {
+      json: {
+        examples: {
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
+  @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
+  public async setUserAsGlobalAdmin(@Param('id') id: string): Promise<NormalizedResponseDTO<TokenPermissions>> {
+    const user: User = await this.usersService.getUserById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    await this.usersService.updateUser({ id }, { $set: { global_permissions: [GlobalPermissionsEnum.GLOBAL_ADMIN] } });
+    const tokenPermissions: TokenPermissions = await this.authService.getPermissions(user.username);
+    return new NormalizedResponseDTO(tokenPermissions);
+  }
+
+  @Delete('user/:id/global-admin')
+  @UseGuards(PermissionsGuard)
+  @ApiOperation({ summary: 'Remove user as a global admin' })
+  @ApiParam({
+    name: 'id',
+    type: String,
+    description: 'User id',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `User permissions related to user`,
+    content: {
+      json: {
+        examples: {
+          userPermissions: {
+            value: TokenPermissions.createEmpty(),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: `User not found`,
+    content: {
+      json: {
+        examples: {
+          userNotFound: {
+            value: new NotFoundException('User not found'),
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    content: {
+      json: {
+        examples: {
+          forbidden: {
+            value: new ForbiddenException(),
+          },
+        },
+      },
+    },
+  })
+  @Permission([GlobalPermissionsEnum.GLOBAL_ADMIN])
+  public async removeUserAsGlobalAdmin(@Param('id') id: string): Promise<NormalizedResponseDTO<TokenPermissions>> {
+    const user: User = await this.usersService.getUserById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    await this.usersService.updateUser({ id }, { $set: { global_permissions: [] } });
+    const tokenPermissions: TokenPermissions = await this.authService.getPermissions(user.username);
+    return new NormalizedResponseDTO(tokenPermissions);
   }
 }
