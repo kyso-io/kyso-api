@@ -268,7 +268,7 @@ export class AuthService extends AutowiredService {
           response.organizations.push(orgResourcePermissions);
 
           // Get all the teams that belong to that organizations (an user can belong to multiple organizations)
-          const teamsVisibleByUser: Team[] = (await teamService.getTeamsVisibleForUser(user.id)).filter((x: Team) => x.organization_id === organization.id);
+          const teamsVisibleByUser: Team[] = (await teamService.getTeamsVisibleForUser(user.id, organization.id)).filter((x: Team) => x.organization_id === organization.id);
 
           // For-each team
           for (const orgTeam of teamsVisibleByUser) {

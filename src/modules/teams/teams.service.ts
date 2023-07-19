@@ -128,37 +128,49 @@ export class TeamsService extends AutowiredService {
    *
    * @param user
    */
-  public async getTeamsVisibleForUser(userId: string): Promise<Team[]> {
+  public async getTeamsVisibleForUser(userId: string, organizationId?: string): Promise<Team[]> {
+    const teamIds: Map<string, Team> = new Map<string, Team>();
     // All public teams
     const userTeamsResult: Team[] = await this.getTeams({ filter: { visibility: TeamVisibilityEnum.PUBLIC } });
+    userTeamsResult.forEach((team: Team) => {
+      teamIds.set(team.id, team);
+    });
 
     // All protected teams from organizations that the user belongs
-    const allUserOrganizations: OrganizationMemberJoin[] = await this.organizationsService.searchMembersJoin({ filter: { member_id: userId } });
-
-    for (const organizationMembership of allUserOrganizations) {
-      const result = await this.getTeams({
-        filter: {
-          organization_id: organizationMembership.organization_id,
-          visibility: TeamVisibilityEnum.PROTECTED,
-        },
-      });
-
-      userTeamsResult.push(...result);
+    const filterOrganizationMembers: any = {
+      member_id: userId,
+    };
+    if (organizationId) {
+      filterOrganizationMembers.organization_id = organizationId;
     }
+    const allUserOrganizations: OrganizationMemberJoin[] = await this.organizationsService.searchMembersJoin({ filter: filterOrganizationMembers });
+
+    const protectedTeamPromises: Promise<Team[]>[] = [];
+    for (const organizationMembership of allUserOrganizations) {
+      protectedTeamPromises.push(this.getTeams({ filter: { organization_id: organizationMembership.organization_id, visibility: TeamVisibilityEnum.PROTECTED } }));
+    }
+    const protectedTeams: Team[][] = await Promise.all(protectedTeamPromises);
+    protectedTeams.forEach((teams: Team[]) => {
+      teams.forEach((team: Team) => {
+        teamIds.set(team.id, team);
+      });
+    });
 
     // All teams (whenever is public, private or protected) in which user is member
-    const members: TeamMemberJoin[] = await this.searchMembers({ filter: { member_id: userId } });
-
-    for (const m of members) {
-      const result = await this.getTeam({ filter: { _id: this.provider.toObjectId(m.team_id) } });
-      if (result) {
-        userTeamsResult.push(result);
+    const teamMembers: TeamMemberJoin[] = await this.searchMembers({ filter: { member_id: userId } });
+    const userMemberTeamPromises: Promise<Team>[] = [];
+    for (const m of teamMembers) {
+      if (teamIds.has(m.team_id)) {
+        continue;
       }
+      userMemberTeamPromises.push(this.getTeam({ filter: { _id: this.provider.toObjectId(m.team_id) } }));
     }
+    const userMemberTeams: Team[] = await Promise.all(userMemberTeamPromises);
+    userMemberTeams.forEach((team: Team) => {
+      teamIds.set(team.id, team);
+    });
 
-    const finalResult = [...new Set(userTeamsResult.filter((team) => !!team))];
-
-    return finalResult;
+    return Array.from(teamIds.values());
   }
 
   public async getTeamsForController(userId: string, query: any): Promise<Team[]> {
@@ -457,7 +469,7 @@ export class TeamsService extends AutowiredService {
       throw new NotFoundException('Team not found');
     }
     const reports: Report[] = await this.reportsService.getReports({ filter: { team_id: team.id } });
-    const userTeams: Team[] = await this.getTeamsVisibleForUser(token.id);
+    const userTeams: Team[] = await this.getTeamsVisibleForUser(token.id, team.organization_id);
     const userInTeam: boolean = userTeams.find((x) => x.id === team.id) !== undefined;
     const members: OrganizationMemberJoin[] = await this.organizationsService.getMembers(team.organization_id);
     const userBelongsToOrganization: boolean = members.find((x: OrganizationMemberJoin) => x.member_id === token.id) !== undefined;
