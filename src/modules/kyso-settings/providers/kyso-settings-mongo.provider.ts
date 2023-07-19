@@ -6,7 +6,7 @@ import { KysoSettingsService } from '../kyso-settings.service';
 
 @Injectable()
 export class KysoSettingsMongoProvider extends MongoProvider<KysoSetting> {
-  version = 5;
+  version = 6;
 
   constructor() {
     super('KysoSettings', db);
@@ -195,5 +195,21 @@ export class KysoSettingsMongoProvider extends MongoProvider<KysoSetting> {
         Logger.warn(`Error deleting deprecated setting ${ksetting}`, e);
       }
     }
+  }
+
+  /**
+   * Removing deprecated and unused settings:
+   *  MAIL_PASSWORD
+   *  MAIL_PORT
+   *  MAIL_USER
+   *
+   * The migration consists on deleting these keys from the database
+   */
+  async migrate_from_5_to_6() {
+    await this.deleteMany({
+      key: {
+        $in: ['MAIL_PASSWORD', 'MAIL_PORT', 'MAIL_USER'],
+      },
+    });
   }
 }

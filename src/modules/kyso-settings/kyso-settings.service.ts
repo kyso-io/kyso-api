@@ -55,14 +55,8 @@ export class KysoSettingsService extends AutowiredService {
         return 'us-east-1';
       case KysoSettingsEnum.MAIL_TRANSPORT:
         return 'smtps://mailu.kyso.io';
-      case KysoSettingsEnum.MAIL_PORT:
-        return 25;
       case KysoSettingsEnum.MAIL_FROM:
         return '"kyso" <dev@dev.kyso.io>';
-      case KysoSettingsEnum.MAIL_USER:
-        return 'dev@dev.kyso.io';
-      case KysoSettingsEnum.MAIL_PASSWORD:
-        return 'sphere6wrap&toxic';
       case KysoSettingsEnum.ELASTICSEARCH_URL:
         return 'http://elasticsearch:9200';
       case KysoSettingsEnum.DURATION_HOURS_JWT_TOKEN:
@@ -298,10 +292,6 @@ export class KysoSettingsService extends AutowiredService {
         return 'SMTP mail transport using the following format: smtps://USER:PASSWORD@smtp.googlemail.com';
       case KysoSettingsEnum.MAIL_FROM:
         return `Sender name and email which will send emails in name of Kyso. i.e: "kyso" <noreply@kyso.io>`;
-      case KysoSettingsEnum.MAIL_USER:
-        return 'SMTP username';
-      case KysoSettingsEnum.MAIL_PASSWORD:
-        return 'SMTP password';
       case KysoSettingsEnum.FRONTEND_URL:
         return `Frontend URL`;
       case KysoSettingsEnum.SFTP_HOST:
