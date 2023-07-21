@@ -186,6 +186,8 @@ export class InlineCommentController {
 
     if (searchInlineCommentsQuery.organization_id) {
       teamIds = token.permissions.teams.filter((trp: ResourcePermissions) => trp.organization_id === searchInlineCommentsQuery.organization_id).map((trp: ResourcePermissions) => trp.id);
+    } else {
+      teamIds = token.permissions.teams.map((trp: ResourcePermissions) => trp.id);
     }
     if (searchInlineCommentsQuery.team_id) {
       teamIds = teamIds.filter((teamId: string) => {
