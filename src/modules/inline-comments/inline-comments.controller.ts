@@ -263,7 +263,10 @@ export class InlineCommentController {
         ).map((x) => x.report_id);
 
         for (const reportId of reportIdsInWhichIHaveTasks) {
-          filterReportsInWhichIAmAuthorOfATask.$or.push({ id: { $ne: reportId } });
+          const index: number = filterReportsInWhichIAmAuthorOfATask.$or.findIndex((x) => x.id === reportId);
+          if (index === -1) {
+            filterReportsInWhichIAmAuthorOfATask.$or.push({ id: { $ne: reportId } });
+          }
         }
       }
     } else {
@@ -273,7 +276,10 @@ export class InlineCommentController {
         taskAuthorQuery = { user_id: token.id };
         const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ filter: { user_id: token.id } })).map((x) => x.report_id);
         for (const reportId of reportIdsInWhichIHaveTasks) {
-          filterReportsInWhichIAmAuthorOfATask.$or.push({ id: reportId });
+          const index: number = filterReportsInWhichIAmAuthorOfATask.$or.findIndex((x) => x.id === reportId);
+          if (index === -1) {
+            filterReportsInWhichIAmAuthorOfATask.$or.push({ id: reportId });
+          }
         }
       }
     }
@@ -282,8 +288,12 @@ export class InlineCommentController {
       const reportsInWhichIHaveTasks: Report[] = await this.reportsService.getReports({
         filter: filterReportsInWhichIAmAuthorOfATask,
       });
-
-      reports.push(...reportsInWhichIHaveTasks);
+      for (const report of reportsInWhichIHaveTasks) {
+        const index: number = reports.findIndex((x) => x.id === report.id);
+        if (index === -1) {
+          reports.push(report);
+        }
+      }
     }
 
     if (reports.length === 0) {
@@ -298,6 +308,14 @@ export class InlineCommentController {
         report_id: report.id,
         report_version: report_versions[index],
       });
+      if (searchInlineCommentsQuery.status && searchInlineCommentsQuery.status.includes(InlineCommentStatusEnum.CLOSED)) {
+        inlineCommentsQuery.$or.push({
+          report_id: report.id,
+          report_version: {
+            $lt: report_versions[index],
+          },
+        });
+      }
     });
 
     if (searchInlineCommentsQuery.status && searchInlineCommentsQuery.status.length > 0) {
