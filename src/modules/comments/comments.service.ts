@@ -310,7 +310,8 @@ export class CommentsService extends AutowiredService {
     }
     comment = await this.provider.update({ _id: this.provider.toObjectId(comment.id) }, { $set: { mark_delete_at: new Date() } });
 
-    this.baseCommentsService.sendDeleteCommentNotifications('comment', await this.usersService.getUserById(token.id), organization, team, comment, report, discussion);
+    const userAction: User = await this.usersService.getUserById(token.id);
+    this.baseCommentsService.sendDeleteCommentNotifications('comment', userAction, organization, team, comment, report, discussion);
 
     if (discussion) {
       await this.discussionsService.checkParticipantsInDiscussion(discussion.id);

@@ -304,7 +304,8 @@ export class InlineCommentsService extends AutowiredService {
 
     await this.provider.deleteMany({ $or: [{ _id: this.provider.toObjectId(id) }, { parent_comment_id: id }] });
 
-    this.baseCommentsService.sendDeleteCommentNotifications('inline-comment', user, organization, team, inlineComment, report, null);
+    const userAction: User = await this.usersService.getUserById(token.id);
+    this.baseCommentsService.sendDeleteCommentNotifications('inline-comment', userAction, organization, team, inlineComment, report, null);
 
     Logger.log(`Deleting inline comment '${inlineComment.id}' of user '${inlineComment.user_id}' in ElasticSearch...`, InlineCommentsService.name);
     this.fullTextSearchService.deleteDocument(ElasticSearchIndex.InlineComment, inlineComment.id);
