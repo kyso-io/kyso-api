@@ -181,14 +181,15 @@ export class InlineCommentController {
     @CurrentToken() token: Token,
     @Query() searchInlineCommentsQuery: SearchInlineCommentsQuery,
   ): Promise<NormalizedResponseDTO<PaginatedResponseDto<InlineCommentDto>>> {
-    let teamIds: string[] = [];
     const noPersonFilters: boolean = !searchInlineCommentsQuery.report_author_id && !searchInlineCommentsQuery.inline_comment_author_id;
-
+    const publicTeams: Team[] = await this.teamsService.getTeams({ filter: { visibility: TeamVisibilityEnum.PUBLIC } });
+    let teamIds: string[] = publicTeams.map((team: Team) => team.id);
     if (searchInlineCommentsQuery.organization_id) {
-      teamIds = token.permissions.teams.filter((trp: ResourcePermissions) => trp.organization_id === searchInlineCommentsQuery.organization_id).map((trp: ResourcePermissions) => trp.id);
+      teamIds.push(...token.permissions.teams.filter((trp: ResourcePermissions) => trp.organization_id === searchInlineCommentsQuery.organization_id).map((trp: ResourcePermissions) => trp.id));
     } else {
-      teamIds = token.permissions.teams.map((trp: ResourcePermissions) => trp.id);
+      teamIds.push(...token.permissions.teams.map((trp: ResourcePermissions) => trp.id));
     }
+    teamIds = [...new Set(teamIds)];
     if (searchInlineCommentsQuery.team_id) {
       teamIds = teamIds.filter((teamId: string) => {
         if (searchInlineCommentsQuery.team_id_operator === 'eq') {
@@ -224,10 +225,10 @@ export class InlineCommentController {
         filterReports['author_ids'] = reportAuthorQuery;
       }
     } else {
-      if (noPersonFilters) {
-        reportAuthorQuery = { $in: [token.id] };
-        filterReports['author_ids'] = reportAuthorQuery;
-      }
+      // if (noPersonFilters) {
+      //   reportAuthorQuery = { $in: [token.id] };
+      //   filterReports['author_ids'] = reportAuthorQuery;
+      // }
     }
 
     const reports: Report[] = await this.reportsService.getReports({
@@ -272,7 +273,7 @@ export class InlineCommentController {
     } else {
       // If not set, by default look for inline comments in which the user is the author
       // Get all reports in which I created a task
-      if (noPersonFilters) {
+      if (noPersonFilters && !searchInlineCommentsQuery.organization_id) {
         taskAuthorQuery = { user_id: token.id };
         const reportIdsInWhichIHaveTasks: string[] = await (await this.inlineCommentsService.getInlineComments({ filter: { user_id: token.id } })).map((x) => x.report_id);
         for (const reportId of reportIdsInWhichIHaveTasks) {
