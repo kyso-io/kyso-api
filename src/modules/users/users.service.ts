@@ -155,8 +155,9 @@ export class UsersService extends AutowiredService {
     const effectiveLoginProvider: LoginProviderEnum = loginProvider ? loginProvider : LoginProviderEnum.KYSO;
     Logger.log(`Effective login provider ${effectiveLoginProvider}`);
 
+    signUpDto.email = signUpDto.email.toLowerCase();
     // exists a prev user with same email?
-    const userWithEmail: User = await this.getUser({ filter: { email: signUpDto.email.toLowerCase() } });
+    const userWithEmail: User = await this.getUser({ filter: { email: signUpDto.email } });
     if (userWithEmail) {
       throw new ConflictException('Email in use');
     }
