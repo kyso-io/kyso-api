@@ -54,7 +54,21 @@ export class KysoSettingsService extends AutowiredService {
       case KysoSettingsEnum.AWS_REGION:
         return 'us-east-1';
       case KysoSettingsEnum.MAIL_TRANSPORT:
-        return 'smtps://mailu.kyso.io';
+        return {
+          transport: {
+            host: 'mailu.kyso.io',
+            secure: false,
+            port: 465,
+            auth: {
+              user: '---',
+              pass: '---',
+            },
+            debug: true,
+          },
+          vendor: {
+            type: 'smtp',
+          },
+        };
       case KysoSettingsEnum.MAIL_FROM:
         return '"kyso" <dev@dev.kyso.io>';
       case KysoSettingsEnum.ELASTICSEARCH_URL:
