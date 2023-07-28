@@ -4,6 +4,7 @@ import { OrganizationsController } from './organizations.controller';
 import { createProvider, OrganizationsService } from './organizations.service';
 import { OrganizationMemberMongoProvider } from './providers/mongo-organization-member.provider';
 import { OrganizationsMongoProvider } from './providers/mongo-organizations.provider';
+import { EventsModule } from '../events/events.module';
 
 export class OrganizationsModule {
   static forRoot(): DynamicModule {
@@ -14,7 +15,7 @@ export class OrganizationsModule {
       providers: [OrganizationsService, OrganizationsMongoProvider, OrganizationMemberMongoProvider, dynamicProvider],
       controllers: [OrganizationsController],
       exports: [dynamicProvider],
-      imports: [registerNatsService()],
+      imports: [EventsModule, registerNatsService()],
     };
   }
 }

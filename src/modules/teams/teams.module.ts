@@ -1,5 +1,6 @@
 import { DynamicModule } from '@nestjs/common';
 import { registerNatsService } from '../../providers/nats-service-register';
+import { EventsModule } from '../events/events.module';
 import { TeamMemberMongoProvider } from './providers/mongo-team-member.provider';
 import { TeamsMongoProvider } from './providers/mongo-teams.provider';
 import { TeamsController } from './teams.controller';
@@ -14,7 +15,7 @@ export class TeamsModule {
       providers: [TeamsService, TeamsMongoProvider, TeamMemberMongoProvider, dynamicProvider],
       controllers: [TeamsController],
       exports: [dynamicProvider],
-      imports: [registerNatsService()],
+      imports: [EventsModule, registerNatsService()],
     };
   }
 }

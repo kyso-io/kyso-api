@@ -65,6 +65,7 @@ import { RelationsService } from '../relations/relations.service';
 import { RequestAccessService } from '../request-access/request-access.service';
 import { UsersService } from '../users/users.service';
 import { TeamsService } from './teams.service';
+import { EventsGateway } from '../events/events.gateway';
 
 @ApiTags('teams')
 @ApiExtraModels(Team)
@@ -86,7 +87,7 @@ export class TeamsController extends GenericController<Team> {
   @Autowired({ typeName: 'RequestAccessService' })
   private requestAccessService: RequestAccessService;
 
-  constructor(private readonly teamsService: TeamsService) {
+  constructor(private readonly eventsGateway: EventsGateway, private readonly teamsService: TeamsService) {
     super();
   }
 
