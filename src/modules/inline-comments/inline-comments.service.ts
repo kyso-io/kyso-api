@@ -185,35 +185,67 @@ export class InlineCommentsService extends AutowiredService {
       throw new NotFoundException(`User with id ${inlineComment.user_id} was not found`);
     }
 
-    const isAuthor: boolean = inlineComment.user_id === token.id;
-    let isOrgAdmin = false;
-    let isTeamAdmin = false;
-    let isContributor = false;
-    const organizationResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find(
-      (organizationResourcePermissions: ResourcePermissions) => organizationResourcePermissions.id === organization.id,
-    );
-    if (organizationResourcePermissions) {
-      isOrgAdmin = organizationResourcePermissions.role_names.includes(PlatformRole.ORGANIZATION_ADMIN_ROLE.name);
-      isTeamAdmin = organizationResourcePermissions.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name);
-      isContributor = organizationResourcePermissions.role_names.includes(PlatformRole.TEAM_CONTRIBUTOR_ROLE.name);
-    }
-    const teamResourcePermissions: ResourcePermissions | undefined = token.permissions.teams.find((teamResourcePermissions: ResourcePermissions) => teamResourcePermissions.id === team.id);
-    if (teamResourcePermissions) {
-      isTeamAdmin = teamResourcePermissions.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name);
-      isContributor = teamResourcePermissions.role_names.includes(PlatformRole.TEAM_CONTRIBUTOR_ROLE.name);
-    }
+    const hasPermissionToUpdateInlineComment = (): boolean => {
+      if (token.isGlobalAdmin()) {
+        return true;
+      }
+      const teamResourcePermissions: ResourcePermissions | undefined = token.permissions.teams.find((x: ResourcePermissions) => x.id === team.id);
+
+      const checkOrgLevel = (): boolean => {
+        if (orgResourcePermissions && orgResourcePermissions.role_names) {
+          const isOrgAdmin: boolean = orgResourcePermissions.role_names.includes(PlatformRole.ORGANIZATION_ADMIN_ROLE.name);
+          if (isOrgAdmin) {
+            return true;
+          }
+          const isTeamAdmin: boolean = orgResourcePermissions.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name);
+          if (isTeamAdmin) {
+            return true;
+          }
+          const isTeamContributor: boolean = orgResourcePermissions.role_names.includes(PlatformRole.TEAM_CONTRIBUTOR_ROLE.name);
+          if (isTeamContributor) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      const orgResourcePermissions: ResourcePermissions | undefined = token.permissions.organizations.find((x: ResourcePermissions) => x.id === organization.id);
+      if (teamResourcePermissions) {
+        if (!teamResourcePermissions.organization_inherited) {
+          if (teamResourcePermissions && teamResourcePermissions.role_names) {
+            const isOrgAdmin: boolean = teamResourcePermissions.role_names.includes(PlatformRole.ORGANIZATION_ADMIN_ROLE.name);
+            if (isOrgAdmin) {
+              return true;
+            }
+            const isTeamAdmin: boolean = teamResourcePermissions.role_names.includes(PlatformRole.TEAM_ADMIN_ROLE.name);
+            if (isTeamAdmin) {
+              return true;
+            }
+            const isTeamContributor: boolean = teamResourcePermissions.role_names.includes(PlatformRole.TEAM_CONTRIBUTOR_ROLE.name);
+            if (isTeamContributor) {
+              return true;
+            }
+          }
+        } else if (checkOrgLevel()) {
+          return true;
+        }
+      } else if (checkOrgLevel()) {
+        return true;
+      }
+      return report.author_ids.includes(user.id);
+    };
 
     const status_history: InlineCommentStatusHistoryDto[] = [...inlineComment.status_history];
     const report_last_version: number = await this.reportsService.getLastVersionOfReport(report.id);
     if (updateInlineCommentDto.text && updateInlineCommentDto.text !== inlineComment.text) {
-      if (!token.isGlobalAdmin() && !isOrgAdmin && !isTeamAdmin && !report.author_ids.includes(token.id) && !isAuthor) {
+      if (!hasPermissionToUpdateInlineComment()) {
         throw new ForbiddenException(`User with id ${token.id} is not allowed to update inline comment ${id}`);
       }
       status_history.unshift(new InlineCommentStatusHistoryDto(new Date(), inlineComment.current_status, inlineComment.current_status, token.id, report_last_version, true));
     }
     let statusChanged = false;
     if (inlineComment.current_status !== updateInlineCommentDto.status) {
-      if (!token.isGlobalAdmin() && !isOrgAdmin && !isTeamAdmin && !isContributor && !report.author_ids.includes(token.id) && !isAuthor) {
+      if (!hasPermissionToUpdateInlineComment()) {
         throw new ForbiddenException(`User with id ${token.id} is not allowed to update inline comment ${id}`);
       }
       statusChanged = true;
