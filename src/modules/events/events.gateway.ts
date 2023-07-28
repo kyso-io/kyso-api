@@ -1,8 +1,7 @@
-import { Token, TokenStatusEnum } from '@kyso-io/kyso-model';
+import { Token, TokenStatusEnum, WebSocketEvent } from '@kyso-io/kyso-model';
 import { Logger } from '@nestjs/common';
 import { OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { WebSocketEvent } from '../../../../kyso-model/src/enums/websocket-event.enum';
 import { Autowired } from '../../decorators/autowired';
 import { AuthService } from '../auth/auth.service';
 
