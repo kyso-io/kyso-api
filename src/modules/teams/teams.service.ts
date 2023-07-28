@@ -834,6 +834,9 @@ export class TeamsService extends AutowiredService {
       frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
       notifyUsers,
     });
+    for (const teamMember of teamMembers) {
+      this.eventsGateway.sendToUser(teamMember.id, WebSocketEvent.REFRESH_PERMISSIONS, null);
+    }
     return team;
   }
 

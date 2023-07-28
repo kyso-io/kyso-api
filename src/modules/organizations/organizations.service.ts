@@ -241,6 +241,9 @@ export class OrganizationsService extends AutowiredService {
       organization,
       user_ids: organizationMembersJoin.map((member: OrganizationMemberJoin) => member.member_id),
     });
+    for (const organizationMemberJoin of organizationMembersJoin) {
+      this.eventsGateway.sendToUser(organizationMemberJoin.member_id, WebSocketEvent.REFRESH_PERMISSIONS, null);
+    }
     return organization;
   }
 
