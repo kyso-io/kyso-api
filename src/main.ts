@@ -23,8 +23,6 @@ const { registerInstrumentations } = require('@opentelemetry/instrumentation');
 
 export let client;
 export let db;
-export let mailTransport;
-export let mailFrom;
 const cspDefaults = helmet.contentSecurityPolicy.getDefaultDirectives();
 delete cspDefaults['upgrade-insecure-requests'];
 
@@ -84,22 +82,7 @@ async function bootstrap() {
   let maxFileSize = '';
   try {
     const kysoSettingCollection = db.collection('KysoSettings');
-    const mailTransportValue = await kysoSettingCollection.find({ key: KysoSettingsEnum.MAIL_TRANSPORT }).toArray();
-    const mailFromValue = await kysoSettingCollection.find({ key: KysoSettingsEnum.MAIL_FROM }).toArray();
 
-    if (mailTransportValue.length === 0) {
-      // set default value
-      mailTransport = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT);
-    } else {
-      mailTransport = mailTransportValue[0].value;
-    }
-
-    if (mailFromValue.length === 0) {
-      // set default value
-      mailFrom = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM);
-    } else {
-      mailFrom = mailFromValue[0].value;
-    }
     const maxFileSizeKysoSetting: KysoSetting = await kysoSettingCollection.findOne({ key: KysoSettingsEnum.MAX_FILE_SIZE });
     if (!maxFileSizeKysoSetting) {
       maxFileSize = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAX_FILE_SIZE);
@@ -107,8 +90,7 @@ async function bootstrap() {
       maxFileSize = maxFileSizeKysoSetting.value;
     }
   } catch (ex) {
-    mailTransport = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_TRANSPORT);
-    mailFrom = KysoSettingsService.getKysoSettingDefaultValue(KysoSettingsEnum.MAIL_FROM);
+    Logger.warn(`Can't read KysoSettings`, ex);
   }
 
   const app = await NestFactory.create(AppModule);
