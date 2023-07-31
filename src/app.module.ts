@@ -34,7 +34,7 @@ import { EventsModule } from './modules/events/events.module';
     BitbucketReposModule.forRoot(),
     CommentsModule.forRoot(),
     DiscussionsModule.forRoot(),
-    EventsModule,
+    // EventsModule,
     FeedbackModule,
     FullTextSearchModule.forRoot(),
     GithubReposModule.forRoot(),
