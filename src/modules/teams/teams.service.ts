@@ -646,6 +646,7 @@ export class TeamsService extends AutowiredService {
             NATSHelper.safelyEmit<KysoTeamsUpdateMemberRolesEvent>(this.client, KysoEventEnum.TEAMS_UPDATE_MEMBER_ROLES, {
               userCreatingAction: await this.usersService.getUserById(token.id),
               userReceivingAction: user,
+              organization,
               team,
               frontendUrl,
               previousRoles: member.role_names,
