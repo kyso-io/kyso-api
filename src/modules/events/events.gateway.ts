@@ -6,7 +6,10 @@ import { Autowired } from '../../decorators/autowired';
 import { AuthService } from '../auth/auth.service';
 
 @WebSocketGateway({
-  cors: '*:*',
+  path: '/api/v1/ws',
+  cors: {
+    origin: '*',
+  },
 })
 export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
