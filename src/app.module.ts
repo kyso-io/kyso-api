@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { BitbucketReposModule } from './modules/bitbucket-repos/bitbucket-repos.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { DiscussionsModule } from './modules/discussions/discussions.module';
+import { EventsModule } from './modules/events/events.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { FullTextSearchModule } from './modules/full-text-search/full-text-search.module';
 import { GithubReposModule } from './modules/github-repos/github-repos.module';
@@ -26,7 +27,6 @@ import { TestingDataPopulatorModule } from './modules/testing-data-populator/tes
 import { ThemesModule } from './modules/themes/themes.module';
 import { UsersNotificationsSettingsModule } from './modules/user-notifications-settings/users-notifications-settings.module';
 import { UsersModule } from './modules/users/users.module';
-import { EventsModule } from './modules/events/events.module';
 @Module({
   imports: [
     ActivityFeedModule.forRoot(),
@@ -34,7 +34,7 @@ import { EventsModule } from './modules/events/events.module';
     BitbucketReposModule.forRoot(),
     CommentsModule.forRoot(),
     DiscussionsModule.forRoot(),
-    // EventsModule,
+    EventsModule,
     FeedbackModule,
     FullTextSearchModule.forRoot(),
     GithubReposModule.forRoot(),
