@@ -37,6 +37,7 @@ import {
   UpdateOrganizationDTO,
   UpdateOrganizationMembersDTO,
   User,
+  WebSocketEvent,
 } from '@kyso-io/kyso-model';
 import { BadRequestException, ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, Provider } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
@@ -52,6 +53,7 @@ import { ActivityFeedService } from '../activity-feed/activity-feed.service';
 import { AuthService } from '../auth/auth.service';
 import { CommentsService } from '../comments/comments.service';
 import { DiscussionsService } from '../discussions/discussions.service';
+import { EventsGateway } from '../events/events.gateway';
 import { InlineCommentsService } from '../inline-comments/inline-comments.service';
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service';
 import { ReportsService } from '../reports/reports.service';
@@ -106,6 +108,7 @@ export class OrganizationsService extends AutowiredService {
   private authService: AuthService;
 
   constructor(
+    private readonly eventsGateway: EventsGateway,
     private readonly provider: OrganizationsMongoProvider,
     private readonly organizationMemberProvider: OrganizationMemberMongoProvider,
     @Inject('NATS_SERVICE') private client: ClientProxy,
@@ -238,6 +241,9 @@ export class OrganizationsService extends AutowiredService {
       organization,
       user_ids: organizationMembersJoin.map((member: OrganizationMemberJoin) => member.member_id),
     });
+    for (const organizationMemberJoin of organizationMembersJoin) {
+      this.eventsGateway.sendToUser(organizationMemberJoin.member_id, WebSocketEvent.REFRESH_PERMISSIONS, null);
+    }
     return organization;
   }
 
@@ -472,7 +478,7 @@ export class OrganizationsService extends AutowiredService {
         Logger.error('Error sending notifications of new member in an organization', ex);
       }
     }
-
+    this.eventsGateway.sendToUser(user.id, WebSocketEvent.REFRESH_PERMISSIONS, null);
     return this.getOrganizationMembers(organization.id);
   }
 
@@ -565,7 +571,7 @@ export class OrganizationsService extends AutowiredService {
         frontendUrl,
       });
     }
-
+    this.eventsGateway.sendToUser(user.id, WebSocketEvent.REFRESH_PERMISSIONS, null);
     return this.getOrganizationMembers(organization.id);
   }
 
@@ -606,6 +612,7 @@ export class OrganizationsService extends AutowiredService {
         });
       }
       await this.organizationMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $set: { role_names: [element.role] } });
+      this.eventsGateway.sendToUser(user.id, WebSocketEvent.REFRESH_PERMISSIONS, null);
     }
     return this.getOrganizationMembers(organization.id);
   }
@@ -629,6 +636,7 @@ export class OrganizationsService extends AutowiredService {
       throw new BadRequestException(`User does not have role ${role}`);
     }
     await this.organizationMemberProvider.update({ _id: this.provider.toObjectId(data.id) }, { $pull: { role_names: role } });
+    this.eventsGateway.sendToUser(user.id, WebSocketEvent.REFRESH_PERMISSIONS, null);
     return this.getOrganizationMembers(organization.id);
   }
 

@@ -26,6 +26,7 @@ import { TestingDataPopulatorModule } from './modules/testing-data-populator/tes
 import { ThemesModule } from './modules/themes/themes.module';
 import { UsersNotificationsSettingsModule } from './modules/user-notifications-settings/users-notifications-settings.module';
 import { UsersModule } from './modules/users/users.module';
+import { EventsModule } from './modules/events/events.module';
 @Module({
   imports: [
     ActivityFeedModule.forRoot(),
@@ -33,6 +34,7 @@ import { UsersModule } from './modules/users/users.module';
     BitbucketReposModule.forRoot(),
     CommentsModule.forRoot(),
     DiscussionsModule.forRoot(),
+    EventsModule,
     FeedbackModule,
     FullTextSearchModule.forRoot(),
     GithubReposModule.forRoot(),

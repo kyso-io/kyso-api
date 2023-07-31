@@ -30,6 +30,7 @@ import {
   TokenPermissions,
   UpdateTeamMembersDTO,
   User,
+  WebSocketEvent,
 } from '@kyso-io/kyso-model';
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, Provider } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
@@ -46,6 +47,7 @@ import { ActivityFeedService } from '../activity-feed/activity-feed.service';
 import { AuthService } from '../auth/auth.service';
 import { CommentsService } from '../comments/comments.service';
 import { DiscussionsService } from '../discussions/discussions.service';
+import { EventsGateway } from '../events/events.gateway';
 import { InlineCommentsService } from '../inline-comments/inline-comments.service';
 import { KysoSettingsService } from '../kyso-settings/kyso-settings.service';
 import { OrganizationsService } from '../organizations/organizations.service';
@@ -99,7 +101,12 @@ export class TeamsService extends AutowiredService {
   @Autowired({ typeName: 'AuthService' })
   private authService: AuthService;
 
-  constructor(private readonly provider: TeamsMongoProvider, private readonly teamMemberProvider: TeamMemberMongoProvider, @Inject('NATS_SERVICE') private client: ClientProxy) {
+  constructor(
+    private readonly eventsGateway: EventsGateway,
+    private readonly provider: TeamsMongoProvider,
+    private readonly teamMemberProvider: TeamMemberMongoProvider,
+    @Inject('NATS_SERVICE') private client: ClientProxy,
+  ) {
     super();
   }
 
@@ -557,6 +564,7 @@ export class TeamsService extends AutowiredService {
       false,
       token ? await this.usersService.getUserById(token.id) : undefined,
     );
+    this.eventsGateway.sendToUser(user.id, WebSocketEvent.REFRESH_PERMISSIONS, null);
     return this.getMembers(teamId);
   }
 
@@ -592,7 +600,7 @@ export class TeamsService extends AutowiredService {
         frontendUrl,
       });
     }
-
+    this.eventsGateway.sendToUser(user.id, WebSocketEvent.REFRESH_PERMISSIONS, null);
     return this.getMembers(team.id);
   }
 
@@ -679,6 +687,7 @@ export class TeamsService extends AutowiredService {
           }
         }
       }
+      this.eventsGateway.sendToUser(user.id, WebSocketEvent.REFRESH_PERMISSIONS, null);
     }
     return this.getMembers(team.id);
   }
@@ -702,6 +711,7 @@ export class TeamsService extends AutowiredService {
       throw new BadRequestException('User does not have this role');
     }
     await this.teamMemberProvider.update({ _id: this.provider.toObjectId(member.id) }, { $pull: { role_names: role } });
+    this.eventsGateway.sendToUser(user.id, WebSocketEvent.REFRESH_PERMISSIONS, null);
     return this.getMembers(userId);
   }
 
@@ -824,6 +834,9 @@ export class TeamsService extends AutowiredService {
       frontendUrl: await this.kysoSettingsService.getValue(KysoSettingsEnum.FRONTEND_URL),
       notifyUsers,
     });
+    for (const teamMember of teamMembers) {
+      this.eventsGateway.sendToUser(teamMember.id, WebSocketEvent.REFRESH_PERMISSIONS, null);
+    }
     return team;
   }
 
