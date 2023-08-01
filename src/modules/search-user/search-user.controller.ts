@@ -1,5 +1,5 @@
 import { NormalizedResponseDTO, SearchUser, SearchUserDto, Token } from '@kyso-io/kyso-model';
-import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Logger, NotFoundException, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentToken } from '../auth/annotations/current-token.decorator';
 import { PermissionsGuard } from '../auth/guards/permission.guard';
@@ -94,7 +94,14 @@ export class SearchUserController {
       },
     },
   })
-  public async createUserSearch(@CurrentToken() token: Token, @Body() searchUserDto: SearchUserDto): Promise<NormalizedResponseDTO<SearchUser>> {
+  public async createUserSearch(@CurrentToken() token: Token, @Body() body: any): Promise<NormalizedResponseDTO<SearchUser>> {
+    const searchUserDto: SearchUserDto = body;
+    if (!searchUserDto.organization_id) {
+      throw new BadRequestException('organization_id is required');
+    }
+    if (!searchUserDto.query) {
+      throw new BadRequestException('query is required');
+    }
     const filter: any = {
       user_id: token.id,
       organization_id: searchUserDto.organization_id,
