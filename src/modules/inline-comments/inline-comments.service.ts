@@ -189,6 +189,9 @@ export class InlineCommentsService extends AutowiredService {
       if (token.isGlobalAdmin()) {
         return true;
       }
+      if (inlineComment.user_id === token.id) {
+        return true;
+      }
       const teamResourcePermissions: ResourcePermissions | undefined = token.permissions.teams.find((x: ResourcePermissions) => x.id === team.id);
 
       const checkOrgLevel = (): boolean => {
