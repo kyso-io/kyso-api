@@ -302,7 +302,7 @@ export class InlineCommentController {
       return new NormalizedResponseDTO(paginatedResponseDto);
     }
 
-    const report_versions: number[] = await Promise.all(reports.map((report: Report) => this.reportsService.getLastVersionOfReport(report.id)));
+    /*const report_versions: number[] = await Promise.all(reports.map((report: Report) => this.reportsService.getLastVersionOfReport(report.id)));
 
     reports.forEach((report: Report, index: number) => {
       inlineCommentsQuery.$or.push({
@@ -317,7 +317,7 @@ export class InlineCommentController {
           },
         });
       }
-    });
+    });*/
 
     if (searchInlineCommentsQuery.status && searchInlineCommentsQuery.status.length > 0) {
       inlineCommentsQuery.current_status = {
