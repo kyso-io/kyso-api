@@ -302,6 +302,19 @@ export class InlineCommentController {
       return new NormalizedResponseDTO(paginatedResponseDto);
     }
 
+    /**
+     * THIS PIECE OF CODE IS SLOWING DOWN EVERYTHING AS A HELL
+     *
+     * For users with lots of reports, that Promise.all(reports.map(...)) can have more than 1500 reports, that's barbaric. For 1500 reports we're having
+     * 10 seconds, which is pretty impressive (I guess should be more than that), because is calling 1500 functions, which launches 1500 queries to the DB
+     * and then compose a fucking query with more tha 1500 ORs...
+     *
+     * Only 10 seconds? Impressive.
+     *
+     * I prefer to return a non-complete tasks instead of having the users 10 seconds waiting and leaving the platform because they get bored.
+     *
+     * A better solution must be applied here.
+     */
     /*const report_versions: number[] = await Promise.all(reports.map((report: Report) => this.reportsService.getLastVersionOfReport(report.id)));
 
     reports.forEach((report: Report, index: number) => {
