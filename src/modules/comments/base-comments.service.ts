@@ -169,11 +169,14 @@ export class BaseCommentsService extends AutowiredService {
       const creator: User = await this.usersService.getUserById(commentAuthorId);
       const mentionedUsers: User[] = [];
       const centralizedMails: boolean = organization?.options?.notifications?.centralized || false;
+
+      // Commented that due to the following ticket https://gitlab.kyso.io/kyso-io/qa/issues/-/issues/387
       // Remove the creator of the message from the users to notify
-      const indexCreator: number = mentionedUserIds.findIndex((userId: string) => userId === creator.id);
-      if (indexCreator !== -1) {
-        mentionedUserIds.splice(indexCreator, 1);
-      }
+      // const indexCreator: number = mentionedUserIds.findIndex((userId: string) => userId === creator.id);
+      // if (indexCreator !== -1) {
+      //   mentionedUserIds.splice(indexCreator, 1);
+      // }
+
       for (const userId of mentionedUserIds) {
         const user: User = await this.usersService.getUserById(userId);
         if (!user) {
