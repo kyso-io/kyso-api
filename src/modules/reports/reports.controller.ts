@@ -731,7 +731,7 @@ export class ReportsController {
     return new NormalizedResponseDTO(reportsDtos, relations);
   }
 
-  // @Get('/diff/:reportId')
+  @Get('/diff/:reportId')
   @Public()
   @ApiOperation({
     summary: `Get diff between two files`,
