@@ -396,16 +396,26 @@ export class ReportsController {
         if (!organization) {
           throw new NotFoundException('Organization not found');
         }
-        const teams: Team[] = await this.teamsService.getTeams({
-          filter: { organization_id: data.filter.organization_id, visibility: TeamVisibilityEnum.PUBLIC },
-        });
-        if (teams.length === 0) {
-          return new NormalizedResponseDTO(paginatedResponseDto);
+        if (data.filter.team_id) {
+          const team: Team = await this.teamsService.getTeamById(data.filter.team_id);
+          if (!team) {
+            throw new NotFoundException('Team not found');
+          }
+          if (team.visibility !== TeamVisibilityEnum.PUBLIC) {
+            throw new ForbiddenException('Team is not public');
+          }
+        } else {
+          const teams: Team[] = await this.teamsService.getTeams({
+            filter: { organization_id: data.filter.organization_id, visibility: TeamVisibilityEnum.PUBLIC },
+          });
+          if (teams.length === 0) {
+            return new NormalizedResponseDTO(paginatedResponseDto);
+          }
+          delete data.filter.organization_id;
+          data.filter.team_id = {
+            $in: teams.map((team: Team) => team.id),
+          };
         }
-        delete data.filter.organization_id;
-        data.filter.team_id = {
-          $in: teams.map((team: Team) => team.id),
-        };
       } else {
         const team: Team = await this.teamsService.getTeamById(data.filter.team_id);
         if (!team) {
@@ -422,9 +432,16 @@ export class ReportsController {
         if (teams.length === 0) {
           return new NormalizedResponseDTO(paginatedResponseDto);
         }
-        data.filter.team_id = {
-          $in: teams.map((team: Team) => team.id),
-        };
+        if (data.filter.team_id) {
+          const indexTeam: number = teams.findIndex((t: Team) => t.id === data.filter.team_id);
+          if (indexTeam === -1) {
+            throw new ForbiddenException('Team is not public');
+          }
+        } else {
+          data.filter.team_id = {
+            $in: teams.map((team: Team) => team.id),
+          };
+        }
         delete data.filter.organization_id;
       } else {
         const team: Team = await this.teamsService.getTeamById(data.filter.team_id);
