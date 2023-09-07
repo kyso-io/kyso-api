@@ -3352,7 +3352,7 @@ export class ReportsService extends AutowiredService {
       const originalName: string = entry.entryName;
       Logger.log(`OriginalName received is: ${originalName}`);
       const localFilePath = join(tmpReportDir, entry.entryName);
-      if (originalName === 'kyso.json') {
+      if (originalName === 'kyso.json' || originalName === './kyso.json') {
         const data: {
           valid: boolean;
           message: string | null;
@@ -3364,7 +3364,7 @@ export class ReportsService extends AutowiredService {
         }
         kysoConfigFile = data.kysoConfigFile;
         break;
-      } else if (originalName === 'kyso.yml' || originalName === 'kyso.yaml') {
+      } else if (originalName === 'kyso.yml' || originalName === 'kyso.yaml' || originalName === './kyso.yml' || originalName === './kyso.yaml') {
         const data: {
           valid: boolean;
           message: string | null;
