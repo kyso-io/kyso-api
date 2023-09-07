@@ -924,7 +924,7 @@ export class ReportsService extends AutowiredService {
 
     let mainFileFound = false;
     for (const entry of zip.getEntries()) {
-      if (entry.entryName === kysoConfigFile.main) {
+      if (entry.entryName === kysoConfigFile.main || entry.entryName === `./${kysoConfigFile.main}`) {
         mainFileFound = true;
         break;
       }
