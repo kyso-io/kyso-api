@@ -3350,6 +3350,7 @@ export class ReportsService extends AutowiredService {
     let kysoConfigFile: KysoConfigFile = null;
     for (const entry of zip.getEntries()) {
       const originalName: string = entry.entryName;
+      Logger.log(`OriginalName received is: ${originalName}`);
       const localFilePath = join(tmpReportDir, entry.entryName);
       if (originalName === 'kyso.json') {
         const data: {
