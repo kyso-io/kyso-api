@@ -1,4 +1,4 @@
-import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, Organization, Team, Token, TokenPermissions } from '@kyso-io/kyso-model';
+import { HEADER_X_KYSO_ORGANIZATION, HEADER_X_KYSO_TEAM, KysoPermissions, Organization, Team, Token, TokenPermissions } from '@kyso-io/kyso-model';
 import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Autowired } from '../../../decorators/autowired';
@@ -89,7 +89,7 @@ export class PermissionsGuard implements CanActivate {
         teamObject = await this.teamsService.getUniqueTeam(organizationObject.id, team);
       }
 
-      const permissionToActivateEndpoint = this.reflector.getAllAndOverride<any>(PERMISSION_KEY, [context.getHandler(), context.getClass()]);
+      const permissionToActivateEndpoint: any = this.reflector.getAllAndOverride<any>(PERMISSION_KEY, [context.getHandler(), context.getClass()]);
       Logger.debug(`Permissions to activate endpoint are ${permissionToActivateEndpoint}`);
 
       return AuthService.hasPermissions(tokenPayload, permissionToActivateEndpoint, teamObject ? teamObject : null, organizationObject ? organizationObject : null);

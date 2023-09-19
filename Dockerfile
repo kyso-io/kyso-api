@@ -5,14 +5,12 @@ ARG SERVICE_IMG=registry.kyso.io/docker/node
 ARG SERVICE_TAG=latest
 
 # Builder image
-FROM ${BUILDER_IMG}:${BUILDER_TAG} AS builder
+FROM node:16.15.1-alpine3.16 AS builder
 # Change the working directory to /app
 WORKDIR /app
 # Copy files required to build the application
 COPY package*.json tsconfig.* ./
-# Execute `npm ci` (not install) with an externally mounted npmrc
-RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,gid=1000,required\
-  npm ci --force
+RUN npm install --force
 # Copy the sources
 COPY src ./src/
 # Copy the static-data folder
@@ -21,11 +19,10 @@ COPY static-data ./static-data/
 # Build the application (leaves result on ./dist)
 RUN npm run build
 # Execute `npm ci` (not install) for production with an externally mounted npmrc
-RUN --mount=type=secret,id=npmrc,target=/app/.npmrc,uid=1000,gid=1000,required\
- npm ci --omit=dev --ignore-scripts --force
+RUN npm ci --omit=dev --ignore-scripts --force
 
 # Production image
-FROM ${SERVICE_IMG}:${SERVICE_TAG} AS service
+FROM node:16.15.1-alpine3.16 AS service
 # Set the NODE_ENV value from the args
 ARG NODE_ENV=production
 # Export the NODE_ENV to the container environment
