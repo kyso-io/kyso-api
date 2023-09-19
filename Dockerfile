@@ -1,9 +1,3 @@
-# Global Dockerfile Arguments (in our CI can be overriden in ./.build-args)
-ARG BUILDER_IMG=registry.kyso.io/kyso-io/kyso-api
-ARG BUILDER_TAG=builder
-ARG SERVICE_IMG=registry.kyso.io/docker/node
-ARG SERVICE_TAG=latest
-
 # Builder image
 FROM node:16.15.1-alpine3.16 AS builder
 # Change the working directory to /app
